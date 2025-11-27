@@ -8,10 +8,10 @@ use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use crate::optimize_bytecode::optimize;
-use crate::statics::Type;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
 use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
+use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, Pat, PatKind, Stmt, StmtKind},
@@ -432,7 +432,7 @@ impl Translator {
                 Declaration::InterfaceOutputType { .. } | Declaration::BuiltinType(_) => {
                     unreachable!()
                 }
-                Declaration::FreeFunction { func_def: f } => {
+                Declaration::FunctionDef(FuncResolutionKind::Ordinary(f)) => {
                     let name = &self.statics.fully_qualified_names[&f.name.id];
                     self.emit(
                         st,
@@ -442,8 +442,7 @@ impl Translator {
                     );
                 }
 
-                Declaration::_ForeignFunction { .. }
-                | Declaration::HostFunction(..)
+                Declaration::FunctionDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::MemberFunction { .. } => unimplemented!(),
 
@@ -652,7 +651,9 @@ impl Translator {
                             .root_namespace
                             .get_declaration("prelude.format_append")
                             .unwrap();
-                        let Declaration::FreeFunction { func_def } = format_append_decl else {
+                        let Declaration::FunctionDef(FuncResolutionKind::Ordinary(func_def)) =
+                            format_append_decl
+                        else {
                             unreachable!()
                         };
                         let func_name = &self.statics.fully_qualified_names[&func_def.name.id];
@@ -846,7 +847,7 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
 
-                let Some(decl @ Declaration::FreeFunction { func_def: f }) = &self
+                let Some(decl @ Declaration::FunctionDef(FuncResolutionKind::Ordinary(f))) = &self
                     .statics
                     .root_namespace
                     .get_declaration("prelude.unwrap")
@@ -939,7 +940,7 @@ impl Translator {
                     .count();
                 self.emit(st, Instr::CallFuncObj(nargs as u32));
             }
-            Declaration::FreeFunction { func_def: f } => {
+            Declaration::FunctionDef(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_ap_helper(
                     f,
@@ -949,15 +950,15 @@ impl Translator {
                     st,
                 );
             }
-            Declaration::HostFunction(decl) => {
+            Declaration::FunctionDef(FuncResolutionKind::Host(decl)) => {
                 let idx = self.statics.host_funcs.get_id(decl) as u16;
                 self.emit(st, Instr::HostFunc(idx));
             }
-            Declaration::_ForeignFunction {
-                f: _decl,
+            Declaration::FunctionDef(FuncResolutionKind::_Foreign {
+                decl: _decl,
                 libname,
                 symbol,
-            } => {
+            }) => {
                 // by this point we should know the name of the .so file that this external function should be located in
 
                 // calling an external function just means

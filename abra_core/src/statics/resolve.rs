@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{Declaration, Error, Namespace, PolytypeDeclaration, StaticsContext};
+use super::{
+    Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
+};
 #[cfg(feature = "ffi")]
 use crate::addons::make_foreign_func_name;
 use crate::ast::{
@@ -152,9 +154,7 @@ fn gather_declarations_item(
             namespace.add_declaration(
                 ctx,
                 func_name,
-                Declaration::FreeFunction {
-                    func_def: f.clone(),
-                },
+                Declaration::FunctionDef(FuncResolutionKind::Ordinary(f.clone())),
             );
         }
         ItemKind::FuncDecl(func_decl) => {
@@ -178,7 +178,7 @@ fn gather_declarations_item(
                 namespace.add_declaration(
                     ctx,
                     func_name.clone(),
-                    Declaration::HostFunction(func_decl.clone()),
+                    Declaration::FunctionDef(FuncResolutionKind::Host(func_decl.clone())),
                 );
 
                 ctx.host_funcs.insert(func_decl.clone());
@@ -226,11 +226,11 @@ fn gather_declarations_item(
                     namespace.add_declaration(
                         ctx,
                         func_name,
-                        Declaration::_ForeignFunction {
-                            f: func_decl.clone(),
+                        Declaration::FunctionDef(FuncResolutionKind::_Foreign {
+                            decl: func_decl.clone(),
                             libname,
                             symbol,
-                        },
+                        }),
                     );
                 }
                 #[cfg(not(feature = "ffi"))]
@@ -821,9 +821,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
 fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field: &Rc<Identifier>) {
     if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
         match decl {
-            Declaration::FreeFunction { .. }
-            | Declaration::HostFunction(..)
-            | Declaration::_ForeignFunction { .. }
+            Declaration::FunctionDef { .. }
             | Declaration::InterfaceMethod { .. }
             | Declaration::MemberFunction { .. }
             | Declaration::InterfaceOutputType { .. }
@@ -1096,9 +1094,7 @@ fn resolve_iface_arguments(
 fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
     let decl = ctx.resolution_map.get(&lookup_id)?;
     match decl {
-        Declaration::FreeFunction { .. } => None,
-        Declaration::HostFunction(_) => None,
-        Declaration::_ForeignFunction { .. } => None,
+        Declaration::FunctionDef { .. } => None,
         Declaration::InterfaceDef(_) => None,
         Declaration::InterfaceMethod { .. } => None,
         Declaration::MemberFunction { .. } => None,

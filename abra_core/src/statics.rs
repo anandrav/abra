@@ -183,16 +183,7 @@ impl Display for Namespace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
-    FreeFunction {
-        func_def: Rc<FuncDef>,
-    },
-    HostFunction(Rc<FuncDecl>), // TODO: this should be flags/optional data inside FreeFunction and MemberFunction
-    _ForeignFunction {
-        // TODO: continued... this should be flags/optional data inside FreeFunction and MemberFunction
-        f: Rc<FuncDecl>,
-        libname: PathBuf,
-        symbol: String,
-    },
+    FunctionDef(FuncResolutionKind),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface: Rc<InterfaceDef>,
@@ -222,6 +213,17 @@ pub(crate) enum Declaration {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum FuncResolutionKind {
+    Ordinary(Rc<FuncDef>),
+    Host(Rc<FuncDecl>),
+    _Foreign {
+        decl: Rc<FuncDecl>,
+        libname: PathBuf,
+        symbol: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum PolytypeDeclaration {
     InterfaceSelf(Rc<InterfaceDef>),   // `Self`
     Ordinary(Rc<Polytype>),            // `a`
@@ -236,9 +238,7 @@ type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, Rc<AstType>, SolvedType)
 impl Declaration {
     pub fn into_type_key(self: Declaration) -> Option<TypeKey> {
         match self {
-            Declaration::FreeFunction { .. }
-            | Declaration::HostFunction(_)
-            | Declaration::_ForeignFunction { .. }
+            Declaration::FunctionDef(..)
             | Declaration::InterfaceDef(_)
             | Declaration::InterfaceMethod { .. }
             | Declaration::MemberFunction { .. }

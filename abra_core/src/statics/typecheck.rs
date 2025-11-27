@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{
-    Declaration, EnumDef, Error, FuncDef, InterfaceArguments, InterfaceDef, Polytype,
-    PolytypeDeclaration, StaticsContext, StructDef,
+    Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments, InterfaceDef,
+    Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Interface, InterfaceImpl,
@@ -2025,11 +2025,13 @@ fn generate_constraints_expr(
                         // println!("type of {} is {}", s, tyvar);
                         Some(tyvar)
                     }
-                    Declaration::FreeFunction { func_def } => {
+                    Declaration::FunctionDef(FuncResolutionKind::Ordinary(func_def)) => {
                         Some(TypeVar::from_node(ctx, func_def.name.node()))
                     }
-                    Declaration::HostFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
-                    Declaration::_ForeignFunction { f: decl, .. } => {
+                    Declaration::FunctionDef(FuncResolutionKind::Host(f)) => {
+                        Some(TypeVar::from_node(ctx, f.name.node()))
+                    }
+                    Declaration::FunctionDef(FuncResolutionKind::_Foreign { decl, .. }) => {
                         Some(TypeVar::from_node(ctx, decl.name.node()))
                     }
                     Declaration::Builtin(builtin) => {
