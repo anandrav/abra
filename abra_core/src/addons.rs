@@ -457,13 +457,18 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     for (i, variant) in e.variants.iter().enumerate() {
                         output.push_str(&format!("{i} => {{"));
                         if let Some(ty) = &variant.data {
-                            let tyname = name_of_ty(ty);
-                            swrite!(
-                                output,
-                                r#"let value: {tyname} = <{tyname}>::from_vm_unsafe(vm, vm_funcs);
-"#
-                            );
-                            swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
+                            if *ty.kind != TypeKind::Void {
+                                let tyname = name_of_ty(ty);
+                                swrite!(
+                                    output,
+                                    r#"let value: {tyname} = <{tyname}>::from_vm_unsafe(vm, vm_funcs);
+    "#
+                                );
+                                swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
+                            } else {
+                                output.push_str("(vm_funcs.pop)(vm);");
+                                swrite!(output, "{}::{}(())", e.name.v, variant.ctor.v);
+                            }
                         } else {
                             output.push_str("(vm_funcs.pop)(vm);");
                             swrite!(output, "{}::{}", e.name.v, variant.ctor.v);
@@ -485,10 +490,16 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                     output.push_str("match self {");
                     for (i, variant) in e.variants.iter().enumerate() {
-                        if variant.data.is_some() {
-                            swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
-                            output.push_str("value.to_vm_unsafe(vm, vm_funcs);");
-                            swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
+                        if let Some(dataty) = &variant.data {
+                            if *dataty.kind != TypeKind::Void {
+                                swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
+                                output.push_str("value.to_vm_unsafe(vm, vm_funcs);");
+                                swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
+                            } else {
+                                swrite!(output, "{}::{}(()) => {{", e.name.v, variant.ctor.v);
+                                output.push_str("0.to_vm_unsafe(vm, vm_funcs);");
+                                swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
+                            }
                         } else {
                             swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
                             output.push_str("(vm_funcs.push_int)(vm, 0);"); // TODO: remove need for this dummy value

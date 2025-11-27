@@ -11,7 +11,17 @@ println(s.v)
 println(s.s)
 let e = pass_enum(MyEnum.String("yet another"))
 match e {
-    MyEnum.String(s) -> println(s), // TODO: need to test enum containing just (). How does nil erasure effect this?
+    MyEnum.String(s) -> println(s),
+    _ -> println("<wrong variant>")
+}
+let e = pass_enum(MyEnum.Void)
+match e {
+    MyEnum.Void -> (),
+    _ -> println("<wrong variant>")
+}
+let e = pass_enum(MyEnum.AnotherVoid(()))
+match e {
+    MyEnum.AnotherVoid(()) -> (),
     _ -> println("<wrong variant>")
 }
 let t = pass_tuple((true, 2, "3"))
@@ -23,3 +33,4 @@ match o {
 }
 let a = pass_array([ 1, 2, 3, 4, 5, 6 ])
 println(a)
+

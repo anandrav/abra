@@ -134,6 +134,7 @@ pub mod ffi {
             Int(AbraInt),
             Bool(bool),
             Void,
+            AnotherVoid(()),
             String(String),
         }
         impl VmFfiType for MyEnum {
@@ -155,6 +156,10 @@ pub mod ffi {
                             MyEnum::Void
                         }
                         3 => {
+                            (vm_funcs.pop)(vm);
+                            MyEnum::AnotherVoid(())
+                        }
+                        4 => {
                             let value: String = <String>::from_vm_unsafe(vm, vm_funcs);
                             MyEnum::String(value)
                         }
@@ -177,9 +182,13 @@ pub mod ffi {
                             (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 2);
                         }
+                        MyEnum::AnotherVoid(()) => {
+                            0.to_vm_unsafe(vm, vm_funcs);
+                            (vm_funcs.construct_variant)(vm, 3);
+                        }
                         MyEnum::String(value) => {
                             value.to_vm_unsafe(vm, vm_funcs);
-                            (vm_funcs.construct_variant)(vm, 3);
+                            (vm_funcs.construct_variant)(vm, 4);
                         }
                     }
                 }

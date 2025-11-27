@@ -1048,6 +1048,10 @@ impl Translator {
                     self.emit(st, Instr::ConstructStruct(nargs));
                 }
 
+                if nargs == 0 {
+                    self.emit(st, Instr::PushNil(1)); // TODO: optimize this away
+                }
+
                 self.emit(
                     st,
                     Instr::ConstructVariant {
@@ -1245,8 +1249,15 @@ impl Translator {
 
                     if let Some(inner) = inner {
                         let inner_ty = self.statics.solution_of_node(inner.node()).unwrap();
-                        self.translate_pat_comparison(&inner_ty, inner, st, monomorph_env);
-                        self.emit(st, Instr::Jump(end_label.clone()));
+                        if inner_ty != SolvedType::Void {
+                            self.translate_pat_comparison(&inner_ty, inner, st, monomorph_env);
+                            self.emit(st, Instr::Jump(end_label.clone()));
+                        } else {
+                            // TODO: code duplicated
+                            self.emit(st, Instr::Pop);
+                            self.emit(st, Instr::PushBool(true));
+                            self.emit(st, Instr::Jump(end_label.clone()));
+                        }
                     } else {
                         self.emit(st, Instr::Pop);
                         self.emit(st, Instr::PushBool(true));
@@ -1598,12 +1609,23 @@ impl Translator {
                 }
             }
             PatKind::Variant(_prefixes, _, inner) => {
-                if let Some(inner) = inner {
-                    // unpack tag and associated data
-                    self.emit(st, Instr::DeconstructVariant);
-                    // pop tag
+                let void_case = || {
                     self.emit(st, Instr::Pop);
-                    self.handle_pat_binding(inner, locals, st, monomorph_env);
+                };
+                if let Some(inner) = inner {
+                    let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
+                    let pat_ty = pat_ty.subst(monomorph_env);
+
+                    if pat_ty != SolvedType::Void {
+                        // unpack tag and associated data
+                        self.emit(st, Instr::DeconstructVariant);
+                        // pop tag
+                        self.emit(st, Instr::Pop);
+                        self.handle_pat_binding(inner, locals, st, monomorph_env);
+                    } else {
+                        // TODO code duplicated right below
+                        self.emit(st, Instr::Pop)
+                    }
                 } else {
                     self.emit(st, Instr::Pop);
                 }

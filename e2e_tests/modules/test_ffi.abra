@@ -27,4 +27,6 @@ type MyEnum =
     | Int(int)
     | Bool(bool)
     | Void
+    | AnotherVoid(void)
     | String(string)
+
