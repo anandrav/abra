@@ -365,7 +365,9 @@ fn add_detail_for_decl_node(
         Declaration::InterfaceMethod {
             iface: iface_def, ..
         } => iface_def.name.node(),
-        Declaration::MemberFunction { f: func, .. } => func.name.node(),
+        Declaration::MemberFunction(FuncResolutionKind::Ordinary(func_def)) => func_def.name.node(),
+        Declaration::MemberFunction(FuncResolutionKind::Host(func_decl)) => func_decl.name.node(),
+        Declaration::MemberFunction(FuncResolutionKind::_Foreign { decl, .. }) => decl.name.node(),
         Declaration::Enum(enum_def) => enum_def.name.node(),
         Declaration::EnumVariant {
             e: enum_def,

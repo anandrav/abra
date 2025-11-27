@@ -992,7 +992,7 @@ impl Translator {
                     &func_ty,
                 );
             }
-            Declaration::MemberFunction { f } => {
+            Declaration::MemberFunction(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_ap_helper(
                     f,
@@ -1001,6 +1001,12 @@ impl Translator {
                     monomorph_env,
                     st,
                 );
+            }
+            Declaration::MemberFunction(FuncResolutionKind::Host(_)) => {
+                todo!()
+            }
+            Declaration::MemberFunction(FuncResolutionKind::_Foreign { .. }) => {
+                todo!()
             }
             Declaration::Struct(def) => {
                 let mut nargs = 0;

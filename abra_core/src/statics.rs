@@ -184,6 +184,7 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
     Function(FuncResolutionKind),
+    MemberFunction(FuncResolutionKind),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface: Rc<InterfaceDef>,
@@ -192,9 +193,6 @@ pub(crate) enum Declaration {
     InterfaceOutputType {
         iface: Rc<InterfaceDef>,
         ty: Rc<InterfaceOutputType>,
-    },
-    MemberFunction {
-        f: Rc<FuncDef>,
     },
     Enum(Rc<EnumDef>),
     EnumVariant {

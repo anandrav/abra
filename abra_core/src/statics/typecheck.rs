@@ -2381,7 +2381,9 @@ fn generate_constraints_expr(
                             node_ty.clone(),
                         );
                     }
-                    Some(Declaration::MemberFunction { f: func }) if receiver_is_namespace => {
+                    Some(Declaration::MemberFunction(FuncResolutionKind::Ordinary(func)))
+                        if receiver_is_namespace =>
+                    {
                         // fully qualified struct/enum method
                         // example: Person.fullname(my_person)
                         //          ^^^^^
@@ -2402,6 +2404,16 @@ fn generate_constraints_expr(
                             node_ty.clone(),
                         );
                     }
+                    Some(Declaration::MemberFunction(FuncResolutionKind::Host(_)))
+                        if receiver_is_namespace =>
+                    {
+                        todo!()
+                    }
+                    Some(Declaration::MemberFunction(FuncResolutionKind::_Foreign { .. }))
+                        if receiver_is_namespace =>
+                    {
+                        todo!()
+                    }
                     _ => {
                         // potentially a member function call.
                         // Attempt to perform type-directed resolution
@@ -2421,7 +2433,10 @@ fn generate_constraints_expr(
                                 ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                                 let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                                 match memfn_decl {
-                                    Declaration::MemberFunction { f: func } => {
+                                    // TODO: this only works for ordinary, not host or FFI
+                                    Declaration::MemberFunction(FuncResolutionKind::Ordinary(
+                                        func,
+                                    )) => {
                                         let memfn_ty = TypeVar::from_node(ctx, func.name.node())
                                             .instantiate(ctx, polyvar_scope, fname.node());
                                         constrain(ctx, &memfn_node_ty, &memfn_ty);
