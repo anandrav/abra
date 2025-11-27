@@ -568,16 +568,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             // TODO: introduce_poly=true doesn't seem right. Shouldn't the polys in the ext typ reoslve to the original type definition's polys?
             resolve_names_typ(ctx, &symbol_table, &ext.typ, true);
 
-            let id_lookup_typ = match &*ext.typ.kind {
-                TypeKind::NamedWithParams(ident, _) => ident.id,
-                _ => {
-                    ctx.errors.push(Error::MustExtendType {
-                        node: ext.typ.node(),
-                    });
-                    return;
-                }
-            };
-            let fqn_type = fqn_of_type(ctx, id_lookup_typ);
+            let fqn_type = fqn_of_type(ctx, &ext.typ);
             for f in &ext.methods {
                 if let Some(fqn_type) = &fqn_type {
                     let fully_qualified_name = format!("{}.{}", fqn_type, f.name.v.clone());
@@ -1091,7 +1082,51 @@ fn resolve_iface_arguments(
     }
 }
 
-fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
+fn fqn_of_type(ctx: &mut StaticsContext, ty: &Rc<Type>) -> Option<String> {
+    let fqn = match &*ty.kind {
+        TypeKind::NamedWithParams(ident, _) => match fqn_of_id(ctx, ident.id) {
+            None => {
+                ctx.errors.push(Error::MustExtendType { node: ty.node() });
+                return None;
+            }
+            Some(s) => s,
+        },
+        TypeKind::Poly(_) => {
+            ctx.errors.push(Error::Generic {
+                msg: "Cannot extend polymorphic type".to_string(),
+                node: ty.node(),
+            });
+            return None;
+        }
+        TypeKind::Void => "void".to_string(),
+        TypeKind::Int => "int".to_string(),
+        TypeKind::Float => "float".to_string(),
+        TypeKind::Bool => "bool".to_string(),
+        TypeKind::Str => "string".to_string(),
+        TypeKind::Function(_, _) => {
+            ctx.errors.push(Error::Generic {
+                msg: "Cannot extend function type".to_string(),
+                node: ty.node(),
+            });
+            return None;
+        }
+        TypeKind::Tuple(elems) => {
+            let mut builder = "(".to_string();
+            for elem in elems {
+                if let Some(s) = fqn_of_type(ctx, elem) {
+                    builder.push_str(&s);
+                } else {
+                    return None;
+                }
+            }
+            builder.push(')');
+            builder
+        }
+    };
+    Some(fqn)
+}
+
+fn fqn_of_id(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
     let decl = ctx.resolution_map.get(&lookup_id)?;
     match decl {
         Declaration::FreeFunction { .. } => None,

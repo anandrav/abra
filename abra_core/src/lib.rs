@@ -267,17 +267,19 @@ impl OsFileProvider {
 
 impl FileProvider for OsFileProvider {
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
-        // look in modules first
+        // look in dir of main file
         {
-            let desired = self.modules.join(path);
+            let desired = self.main_file_dir.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
                 return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
             }
         }
 
-        // then look in dir of main file
+        // TODO: files in dir of main file shadow those in modules. Emit an error if shadowing is detected when searching for a file
+        // TODO: let mut found = false; if already_found { report_shadowing_error }
+        // look in modules
         {
-            let desired = self.main_file_dir.join(path);
+            let desired = self.modules.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
                 return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
             }

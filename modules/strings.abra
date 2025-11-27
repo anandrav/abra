@@ -1,0 +1,14 @@
+extend string {
+    fn to_upper(self) -> string {
+        string_to_upper(self)
+    }
+
+    fn to_lower(self) -> string {
+        string_to_lower(self)
+    }}
+
+#foreign
+fn string_to_upper(s: string) -> string
+
+#foreign
+fn string_to_lower(s: string) -> string
