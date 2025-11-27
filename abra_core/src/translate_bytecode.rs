@@ -1247,21 +1247,21 @@ impl Translator {
                     self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                     self.emit(st, Instr::JumpIfFalse(tag_fail_label.clone()));
 
+                    let mut void_case = || {
+                        self.emit(st, Instr::Pop);
+                        self.emit(st, Instr::PushBool(true));
+                        self.emit(st, Instr::Jump(end_label.clone()));
+                    };
                     if let Some(inner) = inner {
                         let inner_ty = self.statics.solution_of_node(inner.node()).unwrap();
                         if inner_ty != SolvedType::Void {
                             self.translate_pat_comparison(&inner_ty, inner, st, monomorph_env);
                             self.emit(st, Instr::Jump(end_label.clone()));
                         } else {
-                            // TODO: code duplicated
-                            self.emit(st, Instr::Pop);
-                            self.emit(st, Instr::PushBool(true));
-                            self.emit(st, Instr::Jump(end_label.clone()));
+                            void_case();
                         }
                     } else {
-                        self.emit(st, Instr::Pop);
-                        self.emit(st, Instr::PushBool(true));
-                        self.emit(st, Instr::Jump(end_label.clone()));
+                        void_case();
                     }
 
                     // FAILURE
@@ -1609,7 +1609,7 @@ impl Translator {
                 }
             }
             PatKind::Variant(_prefixes, _, inner) => {
-                let void_case = || {
+                let mut void_case = || {
                     self.emit(st, Instr::Pop);
                 };
                 if let Some(inner) = inner {
@@ -1623,11 +1623,10 @@ impl Translator {
                         self.emit(st, Instr::Pop);
                         self.handle_pat_binding(inner, locals, st, monomorph_env);
                     } else {
-                        // TODO code duplicated right below
-                        self.emit(st, Instr::Pop)
+                        void_case();
                     }
                 } else {
-                    self.emit(st, Instr::Pop);
+                    void_case();
                 }
             }
             PatKind::Void => {
