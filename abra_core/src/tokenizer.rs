@@ -144,6 +144,7 @@ impl TokenKind {
             "extend" => TokenKind::Extend,
             "use" => TokenKind::Use,
             "fn" => TokenKind::Fn,
+            "match" => TokenKind::Match,
             _ => return None,
         })
     }

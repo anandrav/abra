@@ -179,7 +179,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self) -> Option<Rc<Expr>> {
-        self.skip_newlines();
+        // self.skip_newlines();
         let current = self.current_token()?;
         let lo = self.index;
         Some(Rc::new(match current.kind {
@@ -200,7 +200,7 @@ impl<'a> Parser<'a> {
             _ => {
                 self.ctx.errors.push(Error::UnexpectedToken(
                     self.file_id,
-                    "statement".into(),
+                    "expression".into(),
                     current.span,
                 ));
                 self.index += 1;
