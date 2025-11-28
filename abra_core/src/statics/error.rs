@@ -26,6 +26,9 @@ impl Error {
                 diagnostic = diagnostic.with_message(msg);
                 labels.push(Label::secondary(file, range))
             }
+            Error::Parse(msg) => {
+                diagnostic = diagnostic.with_message(msg);
+            }
             Error::NameClash {
                 name,
                 original,

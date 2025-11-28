@@ -79,7 +79,7 @@ pub(crate) struct StaticsContext {
     pub(crate) unifvars: HashMap<TypeProv, TypeVar>,
 
     // ERRORS
-    errors: Vec<Error>,
+    pub(crate) errors: Vec<Error>,
 }
 
 impl StaticsContext {
@@ -258,6 +258,7 @@ pub(crate) enum Error {
         msg: String,
         node: AstNode,
     },
+    Parse(String),
     // resolution phase
     UnresolvedIdentifier {
         node: AstNode,

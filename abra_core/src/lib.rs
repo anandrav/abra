@@ -67,7 +67,7 @@ pub fn compile_and_dump_assembly(
     let roots = vec![main_file_name];
 
     let mut ctx = StaticsContext::new(file_provider);
-    let file_asts = get_files(&mut ctx, &roots).map_err(ErrorSummary::msg)?;
+    let file_asts = get_files(&mut ctx, &roots);
     // TODO: this should be parse_then_analyze()
     statics::analyze(&mut ctx, &file_asts)?;
 
@@ -98,7 +98,7 @@ fn compile_bytecode_(
         roots.push(host);
     }
     let mut ctx = StaticsContext::new(file_provider);
-    let file_asts = get_files(&mut ctx, &roots).map_err(ErrorSummary::msg)?;
+    let file_asts = get_files(&mut ctx, &roots);
     statics::analyze(&mut ctx, &file_asts)?;
 
     let translator = Translator::new(ctx, file_asts);
@@ -151,10 +151,7 @@ impl Display for ErrorSummary {
 
 impl std::error::Error for ErrorSummary {}
 
-fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>>, String> {
-    // TODO: these errors aren't actually being used
-    let mut errors: Vec<Error> = vec![];
-
+fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     // this is what's passed to Statics
     let mut file_db = FileDatabase::new();
     let mut file_asts: Vec<Rc<FileAst>> = vec![];
@@ -181,7 +178,13 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>
 
     while let Some(file_id) = stack.pop_front() {
         let file_data = file_db.get(file_id).unwrap();
-        let file_ast = parse::parse_or_err(file_id, file_data)?;
+        let file_ast = match parse::parse_or_err(file_id, file_data) {
+            Ok(it) => it,
+            Err(e) => {
+                ctx.errors.push(Error::Parse(e));
+                continue;
+            }
+        };
 
         // let tokens = tokenize_file(file_data);
         // for (i, token) in tokens.iter().enumerate() {
@@ -195,19 +198,12 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>
 
         file_asts.push(file_ast.clone());
 
-        add_imports(
-            file_ast,
-            &mut file_db,
-            &*ctx.file_provider,
-            &mut stack,
-            &mut visited,
-            &mut errors,
-        );
+        add_imports(ctx, file_ast, &mut file_db, &mut stack, &mut visited);
     }
 
     ctx.file_db = file_db;
 
-    Ok(file_asts)
+    file_asts
 }
 
 #[derive(Debug)]
@@ -223,12 +219,11 @@ impl fmt::Display for MyError {
 impl std::error::Error for MyError {}
 
 fn add_imports(
+    ctx: &mut StaticsContext,
     file_ast: Rc<FileAst>,
     file_db: &mut FileDatabase,
-    file_provider: &dyn FileProvider,
     stack: &mut VecDeque<FileId>,
     visited: &mut HashSet<PathBuf>,
-    errors: &mut Vec<Error>,
 ) {
     for item in file_ast.items.iter() {
         if let ItemKind::Import(ident, _) = &*item.kind {
@@ -236,13 +231,15 @@ fn add_imports(
             if !visited.contains(&path) {
                 visited.insert(path.clone());
 
-                let file_data = file_provider.search_for_file(&path);
+                let file_data = ctx.file_provider.search_for_file(&path);
                 match file_data {
                     Ok(file_data) => {
                         let file_id = file_db.add(file_data);
                         stack.push_back(file_id);
                     }
-                    Err(_) => errors.push(Error::UnresolvedIdentifier { node: item.node() }),
+                    Err(_) => ctx
+                        .errors
+                        .push(Error::UnresolvedIdentifier { node: item.node() }),
                 }
             }
         }
