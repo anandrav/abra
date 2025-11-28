@@ -68,7 +68,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
             | Op::postfix(Rule::member_func_call)
             | Op::postfix(Rule::index_access)
             | Op::postfix(Rule::func_call)
-            | Op::postfix(Rule::op_try)
+            // | Op::postfix(Rule::op_try)
             | Op::postfix(Rule::op_unwrap));
     pratt
         .map_primary(|t| parse_expr_term(t, file_id))
