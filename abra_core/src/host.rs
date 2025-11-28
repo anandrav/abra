@@ -1,5 +1,6 @@
 use crate::addons::name_of_ty;
 use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
+use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::path::Path;
@@ -14,7 +15,8 @@ pub fn generate_host_function_enum(
 ) -> Result<(), ErrorSummary> {
     let (file_asts, file_db) =
         get_files(&[main_host_func_file_name], &*file_provider).map_err(ErrorSummary::msg)?;
-    let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
+    let mut ctx = StaticsContext::new(file_db, file_provider);
+    statics::analyze(&mut ctx, &file_asts)?;
 
     let output = &mut String::new();
     output.push_str(
@@ -31,7 +33,7 @@ use abra_core::host::*;
 pub enum HostFunction {
     "#,
     );
-    for f in inference_ctx.host_funcs.iter() {
+    for f in ctx.host_funcs.iter() {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         swrite!(output, "{camel_name},");
     }
@@ -47,7 +49,7 @@ pub enum HostFunction {
         match item {
 "#,
     );
-    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
+    for (i, f) in ctx.host_funcs.iter().enumerate() {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         swrite!(output, "{i} => HostFunction::{camel_name},");
     }
@@ -62,7 +64,7 @@ pub enum HostFunction {
         r#"pub enum HostFunctionArgs {
     "#,
     );
-    for f in &inference_ctx.host_funcs {
+    for f in &ctx.host_funcs {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         let args = {
             if f.args.is_empty() {
@@ -97,7 +99,7 @@ pub enum HostFunction {
                         "#,
     );
     output.push_str("match pending_host_func {");
-    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
+    for (i, f) in ctx.host_funcs.iter().enumerate() {
         swrite!(output, "{i} => {{");
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         for (i, arg) in f.args.iter().enumerate().rev() {
@@ -134,7 +136,7 @@ pub enum HostFunction {
 pub enum HostFunctionRet {
     "#,
     );
-    for f in &inference_ctx.host_funcs {
+    for f in &ctx.host_funcs {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         let out = {
             match &*f.ret_type.kind {
@@ -171,7 +173,7 @@ pub enum HostFunctionRet {
                         "#,
     );
     output.push_str("match self {");
-    for f in inference_ctx.host_funcs.iter() {
+    for f in ctx.host_funcs.iter() {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         let tuple_helper = |elems: &Vec<Rc<Type>>| {
             let mut s = "(".to_string();

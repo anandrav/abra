@@ -29,6 +29,7 @@ mod tokenizer;
 mod translate_bytecode;
 pub mod vm;
 
+use crate::statics::StaticsContext;
 use crate::tokenizer::tokenize_file;
 pub use ast::FileData;
 pub use host::*;
@@ -64,10 +65,13 @@ pub fn compile_and_dump_assembly(
     file_provider: Box<dyn FileProvider>,
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
+    // TODO: since get_files() does parsing and must report errors, just initialize StaticsContext with roots and file_provider. Then call parse and pass ctx.
     let (file_asts, file_db) = get_files(&roots, &*file_provider).map_err(ErrorSummary::msg)?;
-    let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
+    let mut ctx = StaticsContext::new(file_db, file_provider);
+    // TODO: this should be parse_then_analyze()
+    statics::analyze(&mut ctx, &file_asts)?;
 
-    let translator = Translator::new(inference_ctx, file_db, file_asts);
+    let translator = Translator::new(ctx, file_asts);
     translator.dump_assembly();
     Ok(())
 }
@@ -94,9 +98,10 @@ fn compile_bytecode_(
         roots.push(host);
     }
     let (file_asts, file_db) = get_files(&roots, &*file_provider).map_err(ErrorSummary::msg)?;
-    let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
+    let mut ctx = StaticsContext::new(file_db, file_provider);
+    statics::analyze(&mut ctx, &file_asts)?;
 
-    let translator = Translator::new(inference_ctx, file_db, file_asts);
+    let translator = Translator::new(ctx, file_asts);
     Ok(translator.translate())
 }
 

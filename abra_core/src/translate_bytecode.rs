@@ -42,7 +42,6 @@ enum FuncKind {
 
 pub(crate) struct Translator {
     statics: StaticsContext,
-    _files: FileDatabase,
     file_asts: Vec<Rc<FileAst>>,
 }
 
@@ -142,16 +141,8 @@ pub struct CompiledProgram {
 pub type BytecodeIndex = u32;
 
 impl Translator {
-    pub(crate) fn new(
-        statics: StaticsContext,
-        files: FileDatabase,
-        file_asts: Vec<Rc<FileAst>>,
-    ) -> Self {
-        Self {
-            statics,
-            _files: files,
-            file_asts,
-        }
+    pub(crate) fn new(statics: StaticsContext, file_asts: Vec<Rc<FileAst>>) -> Self {
+        Self { statics, file_asts }
     }
 
     fn emit(&self, st: &mut TranslatorState, i: impl LineVariant) {
@@ -222,7 +213,7 @@ impl Translator {
         let location = node.location();
         let file_id = location.file_id;
 
-        let file = self._files.get(file_id).unwrap();
+        let file = self.statics.file_db.get(file_id).unwrap();
         let line_no = file.line_number_for_index(location.lo as usize);
         st.curr_file = file_id;
         st.curr_lineno = line_no;
@@ -240,7 +231,7 @@ impl Translator {
         let constants = gather_constants(&st.lines);
         let (instructions, _) = remove_labels_and_constants(&st.lines, &constants);
         let mut filename_arena = vec![];
-        for file_data in self._files.files.iter() {
+        for file_data in self.statics.file_db.files.iter() {
             filename_arena.push(file_data.name().to_string());
         }
         CompiledProgram {

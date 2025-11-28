@@ -28,7 +28,7 @@ pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
 
 pub(crate) struct StaticsContext {
-    _files: FileDatabase,
+    pub(crate) file_db: FileDatabase,
     _file_provider: Box<dyn FileProvider>,
 
     pub(crate) root_namespace: Namespace,
@@ -83,9 +83,9 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(files: FileDatabase, file_provider: Box<dyn FileProvider>) -> Self {
+    pub(crate) fn new(files: FileDatabase, file_provider: Box<dyn FileProvider>) -> Self {
         Self {
-            _files: files,
+            file_db: files,
             _file_provider: file_provider,
 
             root_namespace: Default::default(),
@@ -327,31 +327,28 @@ pub(crate) enum Error {
 
 // main function that performs typechecking (as well as name resolution beforehand)
 pub(crate) fn analyze(
+    ctx: &mut StaticsContext,
     file_asts: &Vec<Rc<FileAst>>,
-    files: &FileDatabase,
-    file_provider: Box<dyn FileProvider>,
-) -> Result<StaticsContext, ErrorSummary> {
-    let mut ctx = StaticsContext::new(files.clone(), file_provider);
-
+) -> Result<(), ErrorSummary> {
     // scan declarations across all files
-    scan_declarations(&mut ctx, file_asts);
+    scan_declarations(ctx, file_asts);
 
     // resolve all imports and identifiers
-    resolve(&mut ctx, file_asts);
+    resolve(ctx, file_asts);
 
     // typechecking
-    solve_types(&mut ctx, file_asts);
+    solve_types(ctx, file_asts);
 
     // pattern exhaustiveness and usefulness checking
-    check_pattern_exhaustiveness_and_usefulness(&mut ctx, file_asts);
+    check_pattern_exhaustiveness_and_usefulness(ctx, file_asts);
     // println!("finished checking pattern exhaustivenss and usefulenss");
-    check_errors(&ctx, files)?;
+    check_errors(&ctx)?;
     // println!("finished checking errors");
 
-    Ok(ctx)
+    Ok(())
 }
 
-pub(crate) fn check_errors(ctx: &StaticsContext, files: &FileDatabase) -> Result<(), ErrorSummary> {
+pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
     if ctx.errors.is_empty() {
         return Ok(());
     }
@@ -359,7 +356,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext, files: &FileDatabase) -> Result
     // TODO: don't clone files and errors
     Err(ErrorSummary {
         msg: "".to_string(),
-        more: Some((files.clone(), ctx.errors.clone())),
+        more: Some((ctx.file_db.clone(), ctx.errors.clone())),
     })
 }
 
@@ -381,5 +378,5 @@ pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
     let writer = StandardStream::stderr(ColorChoice::Always);
     let config = codespan_reporting::term::Config::default();
 
-    term::emit_to_io_write(&mut writer.lock(), &config, &ctx._files, &diagnostic).unwrap();
+    term::emit_to_io_write(&mut writer.lock(), &config, &ctx.file_db, &diagnostic).unwrap();
 }
