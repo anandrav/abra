@@ -260,6 +260,7 @@ pub(crate) enum Error {
     },
     // parsing phase
     UnrecognizedToken(FileId, usize),
+    UnexpectedToken(FileId, String, Span),
     Parse(String),
     // resolution phase
     UnresolvedIdentifier {

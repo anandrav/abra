@@ -196,6 +196,10 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
             }
         };
 
+        if file_data.name() == "slow_fib.abra" {
+            let file_ast = parse2::parse_file(ctx, file_id);
+        }
+
         file_asts.push(file_ast.clone());
 
         add_imports(ctx, file_ast, &mut stack, &mut visited);

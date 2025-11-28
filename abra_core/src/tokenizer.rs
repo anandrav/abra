@@ -4,11 +4,13 @@ use crate::statics::{Error, StaticsContext};
 use std::fmt;
 use std::fmt::Formatter;
 
+#[derive(Clone)]
 pub(crate) struct Token {
-    kind: TokenKind,
-    span: Span,
+    pub(crate) kind: TokenKind,
+    pub(crate) span: Span,
 }
 
+#[derive(Clone)]
 pub(crate) enum TokenKind {
     /// `=`
     Eq,
@@ -75,7 +77,7 @@ pub(crate) enum TokenKind {
     Use,
     Fn,
 
-    Int(String),
+    Int(String), // TODO: intern the strings and just store Ids here later
     Float(String),
     String(String),
     Ident(String),
@@ -143,10 +145,10 @@ impl TokenKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct Span {
-    lo: usize,
-    hi: usize,
+    pub(crate) lo: usize,
+    pub(crate) hi: usize,
 }
 
 struct Lexer {
