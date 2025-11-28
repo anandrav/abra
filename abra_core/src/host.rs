@@ -13,9 +13,8 @@ pub fn generate_host_function_enum(
     file_provider: Box<dyn FileProvider>,
     destination: &Path,
 ) -> Result<(), ErrorSummary> {
-    let (file_asts, file_db) =
-        get_files(&[main_host_func_file_name], &*file_provider).map_err(ErrorSummary::msg)?;
-    let mut ctx = StaticsContext::new(file_db, file_provider);
+    let mut ctx = StaticsContext::new(file_provider);
+    let file_asts = get_files(&mut ctx, &[main_host_func_file_name]).map_err(ErrorSummary::msg)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
     let output = &mut String::new();

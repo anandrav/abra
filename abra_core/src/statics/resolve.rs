@@ -212,7 +212,7 @@ fn gather_declarations_item(
                         package_name,
                         std::env::consts::DLL_SUFFIX
                     );
-                    let libname = ctx._file_provider.shared_objects_dir().join(filename);
+                    let libname = ctx.file_provider.shared_objects_dir().join(filename);
 
                     let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
 

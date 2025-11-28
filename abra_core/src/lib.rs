@@ -65,9 +65,9 @@ pub fn compile_and_dump_assembly(
     file_provider: Box<dyn FileProvider>,
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
-    // TODO: since get_files() does parsing and must report errors, just initialize StaticsContext with roots and file_provider. Then call parse and pass ctx.
-    let (file_asts, file_db) = get_files(&roots, &*file_provider).map_err(ErrorSummary::msg)?;
-    let mut ctx = StaticsContext::new(file_db, file_provider);
+
+    let mut ctx = StaticsContext::new(file_provider);
+    let file_asts = get_files(&mut ctx, &roots).map_err(ErrorSummary::msg)?;
     // TODO: this should be parse_then_analyze()
     statics::analyze(&mut ctx, &file_asts)?;
 
@@ -97,8 +97,8 @@ fn compile_bytecode_(
     if let Some(host) = main_host_func_file_name {
         roots.push(host);
     }
-    let (file_asts, file_db) = get_files(&roots, &*file_provider).map_err(ErrorSummary::msg)?;
-    let mut ctx = StaticsContext::new(file_db, file_provider);
+    let mut ctx = StaticsContext::new(file_provider);
+    let file_asts = get_files(&mut ctx, &roots).map_err(ErrorSummary::msg)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
     let translator = Translator::new(ctx, file_asts);
@@ -151,10 +151,7 @@ impl Display for ErrorSummary {
 
 impl std::error::Error for ErrorSummary {}
 
-fn get_files(
-    roots: &[&str],
-    file_provider: &dyn FileProvider,
-) -> Result<(Vec<Rc<FileAst>>, FileDatabase), String> {
+fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>>, String> {
     // TODO: these errors aren't actually being used
     let mut errors: Vec<Error> = vec![];
 
@@ -167,7 +164,7 @@ fn get_files(
 
     // main file
     for root in roots {
-        let main_file_data = file_provider.search_for_file(Path::new(root)).unwrap(); // TODO: don't unwrap. Figure out how to return better errors
+        let main_file_data = ctx.file_provider.search_for_file(Path::new(root)).unwrap(); // TODO: don't unwrap. Figure out how to return better errors
         visited.insert(main_file_data.full_path.clone());
         let id = file_db.add(main_file_data);
         stack.push_back(id);
@@ -201,14 +198,16 @@ fn get_files(
         add_imports(
             file_ast,
             &mut file_db,
-            file_provider,
+            &*ctx.file_provider,
             &mut stack,
             &mut visited,
             &mut errors,
         );
     }
 
-    Ok((file_asts, file_db))
+    ctx.file_db = file_db;
+
+    Ok(file_asts)
 }
 
 #[derive(Debug)]

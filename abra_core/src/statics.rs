@@ -29,7 +29,7 @@ pub(crate) use typecheck::SolvedType as Type;
 
 pub(crate) struct StaticsContext {
     pub(crate) file_db: FileDatabase,
-    _file_provider: Box<dyn FileProvider>,
+    pub(crate) file_provider: Box<dyn FileProvider>,
 
     pub(crate) root_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
@@ -83,10 +83,10 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    pub(crate) fn new(files: FileDatabase, file_provider: Box<dyn FileProvider>) -> Self {
+    pub(crate) fn new(file_provider: Box<dyn FileProvider>) -> Self {
         Self {
-            file_db: files,
-            _file_provider: file_provider,
+            file_db: FileDatabase::new(),
+            file_provider: file_provider,
 
             root_namespace: Default::default(),
             resolution_map: Default::default(),
