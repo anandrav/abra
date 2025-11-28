@@ -40,14 +40,10 @@ pub(crate) enum TokenKind {
     // `^`
     Caret,
 
-    /// `@`
-    At,
     /// `.`
     Dot,
     /// `..`
     DotDot,
-    /// `...`
-    DotDotDot,
     /// `,`
     Comma,
     /// `;`
@@ -60,8 +56,6 @@ pub(crate) enum TokenKind {
     VBar,
     /// `#`
     Pound,
-    /// `?`
-    Question,
     /// `(`
     OpenParen,
     /// `)`
@@ -105,13 +99,11 @@ impl TokenKind {
             | TokenKind::Star
             | TokenKind::Slash
             | TokenKind::Caret
-            | TokenKind::At
             | TokenKind::Dot
             | TokenKind::Comma
             | TokenKind::Semi
             | TokenKind::Colon
             | TokenKind::Pound
-            | TokenKind::Question
             | TokenKind::OpenParen
             | TokenKind::CloseParen
             | TokenKind::OpenBrace
@@ -130,7 +122,7 @@ impl TokenKind {
             | TokenKind::RArrow
             | TokenKind::Fn => 2,
 
-            TokenKind::DotDotDot | TokenKind::Let | TokenKind::Var | TokenKind::Use => 3,
+            TokenKind::Let | TokenKind::Var | TokenKind::Use => 3,
 
             TokenKind::Type => 4,
             TokenKind::Extend => 6,
@@ -272,7 +264,6 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> V
             '\n' => lexer.emit(TokenKind::Newline),
             '+' => lexer.emit(TokenKind::Plus),
             '#' => lexer.emit(TokenKind::Pound),
-            '?' => lexer.emit(TokenKind::Question),
             '|' => lexer.emit(TokenKind::VBar),
             '=' => {
                 if let Some('=') = lexer.peek_char(1) {
@@ -311,11 +302,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> V
             }
             '.' => {
                 if let Some('.') = lexer.peek_char(1) {
-                    if let Some('.') = lexer.peek_char(2) {
-                        lexer.emit(TokenKind::DotDotDot);
-                    } else {
-                        lexer.emit(TokenKind::DotDot);
-                    }
+                    lexer.emit(TokenKind::DotDot);
                 } else {
                     lexer.emit(TokenKind::Dot);
                 }
@@ -392,17 +379,14 @@ impl fmt::Display for Token {
             TokenKind::Star => write!(f, "*"),
             TokenKind::Slash => write!(f, "/"),
             TokenKind::Caret => write!(f, "^"),
-            TokenKind::At => write!(f, "@"),
             TokenKind::Dot => write!(f, "."),
             TokenKind::DotDot => write!(f, ".."),
-            TokenKind::DotDotDot => write!(f, "..."),
             TokenKind::Comma => write!(f, ","),
             TokenKind::Semi => write!(f, ";"),
             TokenKind::Colon => write!(f, ":"),
             TokenKind::RArrow => write!(f, "->"),
             TokenKind::VBar => write!(f, "|"),
             TokenKind::Pound => write!(f, "#"),
-            TokenKind::Question => write!(f, "?"),
             TokenKind::OpenParen => write!(f, "("),
             TokenKind::CloseParen => write!(f, ")"),
             TokenKind::OpenBrace => write!(f, "{{"),

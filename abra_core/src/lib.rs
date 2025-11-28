@@ -178,15 +178,8 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
 
     while let Some(file_id) = stack.pop_front() {
         let file_data = file_db.get(file_id).unwrap();
-        let file_ast = match parse::parse_or_err(file_id, file_data) {
-            Ok(it) => it,
-            Err(e) => {
-                ctx.errors.push(Error::Parse(e));
-                continue;
-            }
-        };
 
-        // let tokens = tokenize_file(file_data);
+        // let tokens = tokenize_file(ctx, file_data);
         // for (i, token) in tokens.iter().enumerate() {
         //     print!("{}", token);
         //     if i < tokens.len() - 1 {
@@ -195,6 +188,14 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
         //
         // }
         // println!();
+
+        let file_ast = match parse::parse_or_err(file_id, file_data) {
+            Ok(it) => it,
+            Err(e) => {
+                ctx.errors.push(Error::Parse(e));
+                continue;
+            }
+        };
 
         file_asts.push(file_ast.clone());
 
