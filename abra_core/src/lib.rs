@@ -25,9 +25,11 @@ mod optimize_bytecode;
 mod parse;
 pub mod prelude;
 pub mod statics;
+mod tokenizer;
 mod translate_bytecode;
 pub mod vm;
 
+use crate::tokenizer::tokenize_file;
 pub use ast::FileData;
 pub use host::*;
 pub use prelude::PRELUDE;
@@ -178,6 +180,16 @@ fn get_files(
     while let Some(file_id) = stack.pop_front() {
         let file_data = file_db.get(file_id).unwrap();
         let file_ast = parse::parse_or_err(file_id, file_data)?;
+
+        // let tokens = tokenize_file(file_data);
+        // for (i, token) in tokens.iter().enumerate() {
+        //     print!("{}", token);
+        //     if i < tokens.len() - 1 {
+        //         print!(" ");
+        //     }
+        //
+        // }
+        // println!();
 
         file_asts.push(file_ast.clone());
 
