@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::ast::*;
 use crate::statics::{Error, StaticsContext};
-use crate::tokenizer::{Token, TokenKind, tokenize_file};
+use crate::tokenizer::{Token, TokenKind, TokenTag, tokenize_file};
 use std::rc::Rc;
+use strum::IntoDiscriminant;
 
 pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAst> {
     let mut items: Vec<Rc<Item>> = vec![];
@@ -57,20 +58,77 @@ impl<'a> Parser<'a> {
         self.index >= self.tokens.len()
     }
 
-    fn current_token(&self) -> Token {
-        self.tokens[self.index].clone()
+    fn current_token(&mut self) -> Option<Token> {
+        match self.tokens.get(self.index) {
+            Some(t) => Some(t.clone()),
+            None => {
+                self.ctx.errors.push(Error::RanOutOfTokens(self.file_id));
+                None
+            }
+        }
     }
 
-    fn location(&self, begin: usize) -> Location {
+    fn expect_token(&mut self, kind: TokenTag) -> Option<()> {
+        let current = self.current_token()?;
+        self.index += 1;
+        if current.kind.discriminant() == kind {
+            Some(())
+        } else {
+            self.ctx.errors.push(Error::UnexpectedToken(
+                self.file_id,
+                "???".into(), // TODO: replace ??? with more context. what was being parsed
+                current.span,
+            ));
+            None
+        }
+    }
+
+    fn consume_token(&mut self) {
+        self.index += 1;
+    }
+
+    fn expect_ident(&mut self) -> Option<Rc<Identifier>> {
+        let current = self.current_token()?;
+        self.index += 1;
+        if let TokenKind::Ident(v) = current.kind {
+            Some(Rc::new(Identifier {
+                v,
+                loc: Location {
+                    file_id: self.file_id,
+                    lo: current.span.lo as u32,
+                    hi: current.span.hi as u32,
+                }, // TODO: these conversions are annoying just use usize until it becomes a problem
+                id: NodeId::new(),
+            }))
+        } else {
+            self.ctx.errors.push(Error::UnexpectedToken(
+                self.file_id,
+                "???".into(), // TODO: replace ??? with more context. what was being parsed. What kind of token was being expected? Maybe make a separate error type. An identifier was being expected
+                current.span,
+            ));
+            None
+        }
+    }
+
+    fn skip_newlines(&mut self) {
+        while let Some(tok) = self.current_token()
+            && tok.kind == TokenKind::Newline
+        {
+            self.index += 1;
+        }
+    }
+
+    fn location(&mut self, begin: usize) -> Location {
         Location {
             file_id: self.file_id,
             lo: begin as u32,
-            hi: self.index as u32,
+            hi: self.current_token().unwrap().span.hi as u32,
         }
     }
 
     fn parse_item(&mut self) -> Option<Rc<Item>> {
-        let current = self.current_token();
+        self.skip_newlines();
+        let current = self.current_token()?;
         let lo = self.index;
         Some(Rc::new(match current.kind {
             TokenKind::Fn => {
@@ -94,13 +152,85 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_func_def(&mut self) -> Option<Rc<FuncDef>> {
-        let current = self.current_token();
-        self.ctx.errors.push(Error::UnexpectedToken(
-            self.file_id,
-            "function definition".into(),
-            current.span,
-        ));
-        self.index += 1;
-        return None;
+        self.expect_token(TokenTag::Fn)?;
+        let name = self.expect_ident()?;
+        self.expect_token(TokenTag::OpenParen)?;
+        // todo get function args
+        let mut args = vec![];
+        while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
+            let name = self.expect_ident()?;
+            args.push((name, None)); // TODO: parse annotation
+            if matches!(self.current_token()?.kind, TokenKind::Comma) {
+                self.consume_token();
+            }
+        }
+        self.expect_token(TokenTag::CloseParen)?;
+        // todo get optional return type
+        let ret_type = None;
+        self.expect_token(TokenTag::Eq)?;
+        let body = self.parse_expr()?;
+
+        Some(Rc::new(FuncDef {
+            name,
+            args,
+            ret_type,
+            body,
+        }))
+    }
+
+    fn parse_expr(&mut self) -> Option<Rc<Expr>> {
+        self.skip_newlines();
+        let current = self.current_token()?;
+        let lo = self.index;
+        Some(Rc::new(match current.kind {
+            TokenKind::Match => {
+                self.expect_token(TokenTag::Match)?;
+                let scrutiny = self.parse_expr()?;
+                let mut arms: Vec<Rc<MatchArm>> = vec![];
+                while !matches!(self.current_token()?.kind, TokenKind::CloseBrace) {
+                    arms.push(self.parse_match_arm()?);
+                }
+                self.expect_token(TokenTag::CloseBrace)?;
+                Expr {
+                    kind: Rc::new(ExprKind::Match(scrutiny, arms)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            _ => {
+                self.ctx.errors.push(Error::UnexpectedToken(
+                    self.file_id,
+                    "statement".into(),
+                    current.span,
+                ));
+                self.index += 1;
+                return None;
+            }
+        }))
+    }
+
+    fn parse_match_arm(&mut self) -> Option<Rc<MatchArm>> {
+        let lo = self.index;
+
+        let pat = self.parse_match_pattern()?;
+        let stmt = self.parse_stmt()?;
+        Some(Rc::new(MatchArm {
+            pat,
+            stmt,
+            loc: self.location(lo),
+            id: NodeId::new(),
+        }))
+    }
+
+    fn parse_match_pattern(&mut self) -> Option<Rc<Pat>> {
+        let lo = self.index;
+
+        panic!();
+    }
+
+    fn parse_stmt(&mut self) -> Option<Rc<Stmt>> {
+        let lo = self.index;
+
+        panic!();
     }
 }

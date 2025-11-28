@@ -37,6 +37,9 @@ impl Error {
                         .with_message(format!("Unexpected token when parsing {kind}")),
                 );
             }
+            Error::RanOutOfTokens(file) => {
+                diagnostic = diagnostic.with_message("Ran out of tokens while parsing"); // TODO: while parsing what? Which file? Need more context.
+            }
             Error::Parse(msg) => {
                 diagnostic = diagnostic.with_message(msg);
             }

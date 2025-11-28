@@ -3,6 +3,7 @@ use crate::ast::FileId;
 use crate::statics::{Error, StaticsContext};
 use std::fmt;
 use std::fmt::Formatter;
+use strum_macros::EnumDiscriminants;
 
 #[derive(Clone)]
 pub(crate) struct Token {
@@ -10,7 +11,8 @@ pub(crate) struct Token {
     pub(crate) span: Span,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, EnumDiscriminants)]
+#[strum_discriminants(name(TokenTag))]
 pub(crate) enum TokenKind {
     /// `=`
     Eq,
@@ -76,6 +78,7 @@ pub(crate) enum TokenKind {
     Extend,
     Use,
     Fn,
+    Match,
 
     Int(String), // TODO: intern the strings and just store Ids here later
     Float(String),
@@ -124,6 +127,7 @@ impl TokenKind {
             TokenKind::Let | TokenKind::Var | TokenKind::Use => 3,
 
             TokenKind::Type => 4,
+            TokenKind::Match => 5,
             TokenKind::Extend => 6,
             TokenKind::Implement => 9,
             TokenKind::Int(s) | TokenKind::Float(s) | TokenKind::Ident(s) => s.len(),
@@ -404,6 +408,7 @@ impl fmt::Display for Token {
             TokenKind::Extend => write!(f, "extend"),
             TokenKind::Use => write!(f, "use"),
             TokenKind::Fn => write!(f, "fn"),
+            TokenKind::Match => write!(f, "match"),
             TokenKind::Int(s) => write!(f, "{}", s),
             TokenKind::Float(s) => write!(f, "{}", s),
             TokenKind::String(s) => write!(f, "\"{}\"", s),
