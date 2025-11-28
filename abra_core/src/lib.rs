@@ -23,6 +23,7 @@ pub mod environment;
 pub mod host;
 mod optimize_bytecode;
 mod parse;
+mod parse2;
 pub mod prelude;
 pub mod statics;
 mod tokenizer;
@@ -30,6 +31,7 @@ mod translate_bytecode;
 pub mod vm;
 
 use crate::statics::StaticsContext;
+use crate::tokenizer::tokenize_file;
 pub use ast::FileData;
 pub use host::*;
 pub use prelude::PRELUDE;
@@ -178,7 +180,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     while let Some(file_id) = stack.pop_front() {
         let file_data = file_db.get(file_id).unwrap();
 
-        // let tokens = tokenize_file(ctx, file_data);
+        let tokens = tokenize_file(ctx, file_data);
         // for (i, token) in tokens.iter().enumerate() {
         //     print!("{}", token);
         //     if i < tokens.len() - 1 {
@@ -187,6 +189,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
         //
         // }
         // println!();
+        // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
 
         let file_ast = match parse::parse_or_err(file_id, file_data) {
             Ok(it) => it,

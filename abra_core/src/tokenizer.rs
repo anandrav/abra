@@ -259,6 +259,8 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> V
             ',' => lexer.emit(TokenKind::Comma),
             '\n' => lexer.emit(TokenKind::Newline),
             '+' => lexer.emit(TokenKind::Plus),
+            '*' => lexer.emit(TokenKind::Star),
+            '^' => lexer.emit(TokenKind::Caret),
             '#' => lexer.emit(TokenKind::Pound),
             '|' => lexer.emit(TokenKind::VBar),
             '=' => {
