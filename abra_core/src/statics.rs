@@ -86,7 +86,7 @@ impl StaticsContext {
     pub(crate) fn new(file_provider: Box<dyn FileProvider>) -> Self {
         Self {
             file_db: FileDatabase::new(),
-            file_provider: file_provider,
+            file_provider,
 
             root_namespace: Default::default(),
             resolution_map: Default::default(),
@@ -343,7 +343,7 @@ pub(crate) fn analyze(
     // pattern exhaustiveness and usefulness checking
     check_pattern_exhaustiveness_and_usefulness(ctx, file_asts);
     // println!("finished checking pattern exhaustivenss and usefulenss");
-    check_errors(&ctx)?;
+    check_errors(ctx)?;
     // println!("finished checking errors");
 
     Ok(())

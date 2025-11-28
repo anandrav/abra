@@ -1,11 +1,7 @@
 use crate::FileData;
-use crate::ast::{FileAst, FileId, Location, NodeId};
-use crate::parse::{Rule, get_pairs, parse_item};
 use crate::statics::{Error, StaticsContext};
-use pest::iterators::Pairs;
 use std::fmt;
 use std::fmt::Formatter;
-use std::rc::Rc;
 
 pub(crate) struct Token {
     kind: TokenKind,
@@ -226,7 +222,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> V
             }
             // first run of digits
             while let Some(c) = lexer.peek_char(next)
-                && c.is_digit(10)
+                && c.is_ascii_digit()
             {
                 num.push(*c);
                 next += 1;
@@ -242,7 +238,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> V
             }
             // more digits after decimal point
             while let Some(c) = lexer.peek_char(next)
-                && c.is_digit(10)
+                && c.is_ascii_digit()
             {
                 num.push(*c);
                 next += 1;
@@ -339,7 +335,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> V
                 // skip space
                 lexer.index += 1;
             }
-            c @ _ => {
+            c => {
                 // TODO: error needs location info. But can't use Node. Must pass span of token and file_id
                 ctx.errors
                     .push(Error::Parse(format!("unrecognized token: {:?}", c)));
@@ -360,7 +356,7 @@ fn middle_of_ident(c: char) -> bool {
 }
 
 fn start_of_number(c: char) -> bool {
-    matches!(c, '0'..='9')
+    c.is_ascii_digit()
 }
 
 impl fmt::Display for Token {
@@ -404,7 +400,7 @@ impl fmt::Display for Token {
             TokenKind::Float(s) => write!(f, "{}", s),
             TokenKind::String(s) => write!(f, "\"{}\"", s),
             TokenKind::Ident(s) => write!(f, "{}", s),
-            TokenKind::Newline => write!(f, "\n"),
+            TokenKind::Newline => writeln!(f),
             TokenKind::Eof => write!(f, "<EOF>"),
         }
     }

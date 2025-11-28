@@ -4,7 +4,7 @@
 
 use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_constants};
 use crate::ast::{ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
-use crate::ast::{FileAst, FileDatabase, NodeId};
+use crate::ast::{FileAst, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use crate::optimize_bytecode::optimize;

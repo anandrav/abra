@@ -30,7 +30,6 @@ mod translate_bytecode;
 pub mod vm;
 
 use crate::statics::StaticsContext;
-use crate::tokenizer::tokenize_file;
 pub use ast::FileData;
 pub use host::*;
 pub use prelude::PRELUDE;
