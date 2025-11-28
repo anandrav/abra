@@ -31,7 +31,6 @@ mod translate_bytecode;
 pub mod vm;
 
 use crate::statics::StaticsContext;
-use crate::tokenizer::tokenize_file;
 pub use ast::FileData;
 pub use host::*;
 pub use prelude::PRELUDE;
@@ -176,17 +175,6 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     }
 
     while let Some(file_id) = stack.pop_front() {
-        let tokens = tokenize_file(ctx, file_id);
-        // for (i, token) in tokens.iter().enumerate() {
-        //     print!("{}", token);
-        //     if i < tokens.len() - 1 {
-        //         print!(" ");
-        //     }
-        //
-        // }
-        // println!();
-        // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
-
         let file_data = ctx.file_db.get(file_id).unwrap();
         let file_ast = match parse::parse_or_err(file_id, file_data) {
             Ok(it) => it,
@@ -197,7 +185,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
         };
 
         if file_data.name() == "slow_fib.abra" {
-            let file_ast = parse2::parse_file(ctx, file_id);
+            let _ = parse2::parse_file(ctx, file_id);
         }
 
         file_asts.push(file_ast.clone());

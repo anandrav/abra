@@ -1,4 +1,3 @@
-use crate::FileData;
 use crate::ast::FileId;
 use crate::statics::{Error, StaticsContext};
 use std::fmt;
@@ -348,8 +347,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                 // skip space
                 lexer.index += 1;
             }
-            c => {
-                // TODO: error needs location info. But can't use Node. Must pass span of token and file_id
+            _ => {
                 ctx.errors
                     .push(Error::UnrecognizedToken(file_id, lexer.index));
                 lexer.index += 1;

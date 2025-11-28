@@ -11,6 +11,15 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     let mut items: Vec<Rc<Item>> = vec![];
 
     let tokens = tokenize_file(ctx, file_id);
+    // for (i, token) in tokens.iter().enumerate() {
+    //     print!("{}", token);
+    //     if i < tokens.len() - 1 {
+    //         print!(" ");
+    //     }
+    //
+    // }
+    // println!();
+    // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
 
     let mut parser = Parser::new(tokens, ctx, file_id);
     while !parser.done() {
