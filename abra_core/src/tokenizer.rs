@@ -1,6 +1,7 @@
 use crate::FileData;
 use crate::ast::{FileAst, FileId, Location, NodeId};
 use crate::parse::{Rule, get_pairs, parse_item};
+use crate::statics::{Error, StaticsContext};
 use pest::iterators::Pairs;
 use std::fmt;
 use std::fmt::Formatter;
@@ -201,7 +202,7 @@ impl Lexer {
     }
 }
 
-pub(crate) fn tokenize_file(file_data: &FileData) -> Vec<Token> {
+pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> Vec<Token> {
     let mut lexer = Lexer::new(&file_data.source);
     while !lexer.done() {
         if start_of_ident(lexer.current_char()) {
@@ -352,7 +353,10 @@ pub(crate) fn tokenize_file(file_data: &FileData) -> Vec<Token> {
                 lexer.index += 1;
             }
             c @ _ => {
-                todo!("unrecognized token: `{:?}`. Must report a proper error", c)
+                // TODO: error needs location info. But can't use Node. Must pass span of token and file_id
+                ctx.errors
+                    .push(Error::Parse(format!("unrecognized token: {:?}", c)));
+                lexer.index += 1;
             }
         }
     }
