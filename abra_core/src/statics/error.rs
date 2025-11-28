@@ -26,6 +26,10 @@ impl Error {
                 diagnostic = diagnostic.with_message(msg);
                 labels.push(Label::secondary(file, range))
             }
+            Error::UnrecognizedToken(file, index) => {
+                diagnostic = diagnostic.with_message("Unrecognized token");
+                labels.push(Label::secondary(*file, *index..index + 1).with_message("here"));
+            }
             Error::Parse(msg) => {
                 diagnostic = diagnostic.with_message(msg);
             }

@@ -258,6 +258,8 @@ pub(crate) enum Error {
         msg: String,
         node: AstNode,
     },
+    // parsing phase
+    UnrecognizedToken(FileId, usize),
     Parse(String),
     // resolution phase
     UnresolvedIdentifier {
@@ -362,6 +364,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
 }
 
 use crate::statics::typecheck::Nominal;
+use crate::tokenizer::Span;
 use codespan_reporting::diagnostic::Label as CsLabel;
 
 impl AstNode {

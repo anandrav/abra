@@ -1,4 +1,5 @@
 use crate::FileData;
+use crate::ast::FileId;
 use crate::statics::{Error, StaticsContext};
 use std::fmt;
 use std::fmt::Formatter;
@@ -142,6 +143,7 @@ impl TokenKind {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct Span {
     lo: usize,
     hi: usize,
@@ -190,7 +192,9 @@ impl Lexer {
     }
 }
 
-pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> Vec<Token> {
+// TODO: just stick file_id in the file_data as well, annoying to pass both around
+pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<Token> {
+    let file_data = ctx.file_db.get(file_id).unwrap();
     let mut lexer = Lexer::new(&file_data.source);
     while !lexer.done() {
         if start_of_ident(lexer.current_char()) {
@@ -340,7 +344,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_data: &FileData) -> V
             c => {
                 // TODO: error needs location info. But can't use Node. Must pass span of token and file_id
                 ctx.errors
-                    .push(Error::Parse(format!("unrecognized token: {:?}", c)));
+                    .push(Error::UnrecognizedToken(file_id, lexer.index));
                 lexer.index += 1;
             }
         }

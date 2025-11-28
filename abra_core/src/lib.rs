@@ -153,8 +153,6 @@ impl Display for ErrorSummary {
 impl std::error::Error for ErrorSummary {}
 
 fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
-    // this is what's passed to Statics
-    let mut file_db = FileDatabase::new();
     let mut file_asts: Vec<Rc<FileAst>> = vec![];
 
     let mut stack: VecDeque<FileId> = VecDeque::new();
@@ -164,7 +162,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     for root in roots {
         let main_file_data = ctx.file_provider.search_for_file(Path::new(root)).unwrap(); // TODO: don't unwrap. Figure out how to return better errors
         visited.insert(main_file_data.full_path.clone());
-        let id = file_db.add(main_file_data);
+        let id = ctx.file_db.add(main_file_data);
         stack.push_back(id);
     }
 
@@ -173,14 +171,12 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
         let prelude_file_data =
             FileData::new("prelude.abra".into(), "prelude.abra".into(), PRELUDE.into());
         visited.insert(prelude_file_data.full_path.clone());
-        let id = file_db.add(prelude_file_data);
+        let id = ctx.file_db.add(prelude_file_data);
         stack.push_back(id);
     }
 
     while let Some(file_id) = stack.pop_front() {
-        let file_data = file_db.get(file_id).unwrap();
-
-        let tokens = tokenize_file(ctx, file_data);
+        let tokens = tokenize_file(ctx, file_id);
         // for (i, token) in tokens.iter().enumerate() {
         //     print!("{}", token);
         //     if i < tokens.len() - 1 {
@@ -191,6 +187,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
         // println!();
         // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
 
+        let file_data = ctx.file_db.get(file_id).unwrap();
         let file_ast = match parse::parse_or_err(file_id, file_data) {
             Ok(it) => it,
             Err(e) => {
@@ -201,10 +198,8 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
 
         file_asts.push(file_ast.clone());
 
-        add_imports(ctx, file_ast, &mut file_db, &mut stack, &mut visited);
+        add_imports(ctx, file_ast, &mut stack, &mut visited);
     }
-
-    ctx.file_db = file_db;
 
     file_asts
 }
@@ -224,7 +219,6 @@ impl std::error::Error for MyError {}
 fn add_imports(
     ctx: &mut StaticsContext,
     file_ast: Rc<FileAst>,
-    file_db: &mut FileDatabase,
     stack: &mut VecDeque<FileId>,
     visited: &mut HashSet<PathBuf>,
 ) {
@@ -237,7 +231,7 @@ fn add_imports(
                 let file_data = ctx.file_provider.search_for_file(&path);
                 match file_data {
                     Ok(file_data) => {
-                        let file_id = file_db.add(file_data);
+                        let file_id = ctx.file_db.add(file_data);
                         stack.push_back(file_id);
                     }
                     Err(_) => ctx
