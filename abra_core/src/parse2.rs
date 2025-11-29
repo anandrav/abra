@@ -177,7 +177,11 @@ impl<'a> Parser<'a> {
         while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
             let name = self.expect_ident()?;
             args.push((name, None)); // TODO: parse annotation
-            self.expect_token_opt(TokenTag::Comma); // TODO: FIXME trailing comma is optional, but not the other ones!
+            if self.current_token()?.kind == TokenKind::Comma {
+                self.consume_token();
+            } else {
+                break;
+            }
         }
         self.expect_token(TokenTag::CloseParen)?;
         // todo get optional return type
@@ -246,7 +250,11 @@ impl<'a> Parser<'a> {
                 let mut args: Vec<Rc<Expr>> = vec![];
                 while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
                     args.push(self.parse_expr()?);
-                    self.expect_token_opt(TokenTag::Comma); // TODO: FIXME trailing comma is optional, but not the other ones!
+                    if self.current_token()?.kind == TokenKind::Comma {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
                 }
                 self.expect_token(TokenTag::CloseParen)?;
                 *lhs = Rc::new(Expr {
