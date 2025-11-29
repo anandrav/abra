@@ -177,7 +177,7 @@ impl<'a> Parser<'a> {
         while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
             let name = self.expect_ident()?;
             args.push((name, None)); // TODO: parse annotation
-            self.expect_token_opt(TokenTag::Comma);
+            self.expect_token_opt(TokenTag::Comma); // TODO: FIXME trailing comma is optional, but not the other ones!
         }
         self.expect_token(TokenTag::CloseParen)?;
         // todo get optional return type
@@ -203,6 +203,18 @@ impl<'a> Parser<'a> {
         // pratt
         let mut lhs = self.parse_expr_term()?;
         loop {
+            // postfix operators/expressions
+            if let Some(op) = self.parse_postfix_op() {
+                if op.precedence() <= binding_power {
+                    break;
+                }
+
+                self.consume_token();
+                self.handle_postfix_expr(&mut lhs, lo, op);
+                continue;
+            }
+
+            // binary operators
             let Some(op) = self.parse_binop() else { return Some(lhs) };
             if op.precedence() <= binding_power {
                 // *** Looping for weaker operators and left-associativity ***
@@ -228,6 +240,28 @@ impl<'a> Parser<'a> {
         Some(lhs)
     }
 
+    fn handle_postfix_expr(&mut self, lhs: &mut Rc<Expr>, lo: usize, op: PostfixOp) -> Option<()> {
+        match op {
+            PostfixOp::FuncCall => {
+                let mut args: Vec<Rc<Expr>> = vec![];
+                while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
+                    args.push(self.parse_expr()?);
+                    self.expect_token_opt(TokenTag::Comma); // TODO: FIXME trailing comma is optional, but not the other ones!
+                }
+                self.expect_token(TokenTag::CloseParen)?;
+                *lhs = Rc::new(Expr {
+                    kind: ExprKind::FuncAp(lhs.clone(), args).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                })
+            }
+            PostfixOp::MemberAccess => todo!(),
+            PostfixOp::IndexAccess => todo!(),
+            PostfixOp::Unwrap => todo!(),
+        }
+        Some(())
+    }
+
     fn parse_binop(&mut self) -> Option<BinaryOperator> {
         Some(match self.current_token()?.kind {
             TokenKind::Plus => BinaryOperator::Add,
@@ -244,6 +278,16 @@ impl<'a> Parser<'a> {
             TokenKind::DotDot => BinaryOperator::Format,
             TokenKind::And => BinaryOperator::And,
             TokenKind::Or => BinaryOperator::Or,
+            _ => return None,
+        })
+    }
+
+    fn parse_postfix_op(&mut self) -> Option<PostfixOp> {
+        Some(match self.current_token()?.kind {
+            TokenKind::OpenParen => PostfixOp::FuncCall,
+            TokenKind::Dot => PostfixOp::MemberAccess,
+            TokenKind::OpenBracket => PostfixOp::IndexAccess,
+            TokenKind::Bang => PostfixOp::Unwrap,
             _ => return None,
         })
     }
@@ -276,6 +320,7 @@ impl<'a> Parser<'a> {
                 let mut arms: Vec<Rc<MatchArm>> = vec![];
                 while !matches!(self.current_token()?.kind, TokenKind::CloseBrace) {
                     arms.push(self.parse_match_arm()?);
+                    self.skip_newlines();
                 }
                 self.expect_token(TokenTag::CloseBrace)?;
                 Expr {
@@ -365,5 +410,23 @@ impl<'a> Parser<'a> {
                 }
             }
         }))
+    }
+}
+
+enum PostfixOp {
+    MemberAccess,
+    IndexAccess,
+    FuncCall,
+    Unwrap,
+}
+
+impl PostfixOp {
+    fn precedence(&self) -> u8 {
+        match self {
+            PostfixOp::MemberAccess => 10,
+            PostfixOp::IndexAccess => 11,
+            PostfixOp::FuncCall => 12,
+            PostfixOp::Unwrap => 13,
+        }
     }
 }
