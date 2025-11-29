@@ -84,6 +84,13 @@ pub(crate) enum TokenKind {
     Use,
     Fn,
     Match,
+    Break,
+    Continue,
+    Return,
+    While,
+    For,
+    If,
+    Else,
 
     Int(String), // TODO: intern the strings and just store Ids here later
     Float(String),
@@ -130,13 +137,20 @@ impl TokenKind {
             | TokenKind::DotDot
             | TokenKind::RArrow
             | TokenKind::Fn
-            | TokenKind::Or => 2,
+            | TokenKind::Or
+            | TokenKind::If => 2,
 
-            TokenKind::Let | TokenKind::Var | TokenKind::Use | TokenKind::Mod | TokenKind::And => 3,
+            TokenKind::Let
+            | TokenKind::Var
+            | TokenKind::Use
+            | TokenKind::For
+            | TokenKind::Mod
+            | TokenKind::And => 3,
 
-            TokenKind::Type => 4,
-            TokenKind::Match => 5,
-            TokenKind::Extend => 6,
+            TokenKind::Type | TokenKind::Else => 4,
+            TokenKind::Match | TokenKind::Break | TokenKind::While => 5,
+            TokenKind::Extend | TokenKind::Return => 6,
+            TokenKind::Continue => 8,
             TokenKind::Implement => 9,
             TokenKind::Int(s) | TokenKind::Float(s) | TokenKind::Ident(s) => s.len(),
             TokenKind::String(s) => s.len() + 2,
@@ -156,6 +170,13 @@ impl TokenKind {
             "mod" => TokenKind::Mod,
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
+            "break" => TokenKind::Break,
+            "continue" => TokenKind::Continue,
+            "return" => TokenKind::Return,
+            "while" => TokenKind::While,
+            "for" => TokenKind::For,
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
             _ => return None,
         })
     }
@@ -425,6 +446,13 @@ impl fmt::Display for Token {
             TokenKind::Use => write!(f, "use"),
             TokenKind::Fn => write!(f, "fn"),
             TokenKind::Match => write!(f, "match"),
+            TokenKind::Break => write!(f, "break"),
+            TokenKind::Continue => write!(f, "continue"),
+            TokenKind::Return => write!(f, "return"),
+            TokenKind::While => write!(f, "while"),
+            TokenKind::For => write!(f, "for"),
+            TokenKind::If => write!(f, "if"),
+            TokenKind::Else => write!(f, "else"),
             TokenKind::Int(s) => write!(f, "{}", s),
             TokenKind::Float(s) => write!(f, "{}", s),
             TokenKind::String(s) => write!(f, "\"{}\"", s),

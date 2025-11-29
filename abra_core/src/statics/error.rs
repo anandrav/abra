@@ -31,7 +31,7 @@ impl Error {
                 labels.push(Label::secondary(*file, *index..index + 1).with_message("here"));
             }
             Error::UnexpectedToken(file, kind, span) => {
-                diagnostic = diagnostic.with_message("Unrecognized token");
+                diagnostic = diagnostic.with_message("Unexpected token");
                 labels.push(
                     Label::secondary(*file, span.lo..span.hi)
                         .with_message(format!("Unexpected token when parsing {kind}")),
