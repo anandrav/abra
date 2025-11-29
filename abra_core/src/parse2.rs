@@ -206,17 +206,7 @@ impl Parser {
             }))
         } else {
             let block_start = self.index;
-            self.expect_token(TokenTag::OpenBrace);
-            let mut statements: Vec<Rc<Stmt>> = vec![];
-            while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
-                statements.push(self.parse_stmt()?);
-                if self.current_token().kind == TokenKind::Newline {
-                    self.consume_token();
-                } else {
-                    break;
-                }
-            }
-            self.expect_token(TokenTag::CloseBrace);
+            let statements = self.parse_statement_block()?;
             let block_expr = Expr {
                 kind: ExprKind::Block(statements).into(),
                 loc: self.location(block_start),
@@ -230,6 +220,21 @@ impl Parser {
                 body: block_expr,
             }))
         }
+    }
+
+    fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
+        self.expect_token(TokenTag::OpenBrace);
+        let mut statements: Vec<Rc<Stmt>> = vec![];
+        while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+            statements.push(self.parse_stmt()?);
+            if self.current_token().kind == TokenKind::Newline {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+        self.expect_token(TokenTag::CloseBrace);
+        Ok(statements)
     }
 
     fn parse_expr(&mut self) -> Result<Rc<Expr>, Box<Error>> {
@@ -529,17 +534,7 @@ impl Parser {
                 let pat = self.parse_let_pattern()?;
                 self.expect_token(TokenTag::In);
                 let iterable = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace);
-                let mut statements: Vec<Rc<Stmt>> = vec![];
-                while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
-                    statements.push(self.parse_stmt()?);
-                    if self.current_token().kind == TokenKind::Newline {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseBrace);
+                let statements = self.parse_statement_block()?;
 
                 Stmt {
                     kind: StmtKind::ForLoop(pat, iterable, statements).into(),
@@ -550,18 +545,7 @@ impl Parser {
             TokenKind::If => {
                 self.expect_token(TokenTag::If);
                 let condition = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace);
-                // TODO code duplication for parsing statements
-                let mut statements_then: Vec<Rc<Stmt>> = vec![];
-                while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
-                    statements_then.push(self.parse_stmt()?);
-                    if self.current_token().kind == TokenKind::Newline {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseBrace);
+                let statements_then = self.parse_statement_block()?;
                 if matches!(self.current_token().kind, TokenKind::Else) {
                     todo!("handle if-else");
                     // self.expect_token(TokenTag::OpenBrace);
