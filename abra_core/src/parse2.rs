@@ -200,13 +200,22 @@ impl<'a> Parser<'a> {
     fn parse_expr_bp(&mut self, binding_power: u8) -> Option<Rc<Expr>> {
         let lo = self.index;
 
+        // pratt
         let mut lhs = self.parse_expr_term()?;
         loop {
             let Some(op) = self.parse_binop() else { return Some(lhs) };
             if op.precedence() <= binding_power {
+                // *** Looping for weaker operators and left-associativity ***
+                // since this op is lower precedence, the caller must make
+                // a tree first. Then the caller will loop again and handle
+                // the operator.
                 break;
             }
 
+            // *** Recursion for stronger operators and right-associativity ***
+            // since op is a higher precedence than what was encountered before,
+            // make a tree with this operator. The operator is lower height in the
+            // syntax tree since it is stronger
             self.consume_token();
             let rhs = self.parse_expr_bp(op.precedence())?;
             lhs = Rc::new(Expr {
