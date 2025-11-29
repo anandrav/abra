@@ -93,6 +93,7 @@ pub(crate) enum TokenKind {
     Return,
     While,
     For,
+    In,
     If,
     Else,
 
@@ -142,7 +143,8 @@ impl TokenKind {
             | TokenKind::RArrow
             | TokenKind::Fn
             | TokenKind::Or
-            | TokenKind::If => 2,
+            | TokenKind::If
+            | TokenKind::In => 2,
 
             TokenKind::Let
             | TokenKind::Var
@@ -179,6 +181,7 @@ impl TokenKind {
             "return" => TokenKind::Return,
             "while" => TokenKind::While,
             "for" => TokenKind::For,
+            "in" => TokenKind::In,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             _ => return None,
@@ -393,6 +396,8 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
         }
     }
 
+    lexer.emit(TokenKind::Eof);
+
     lexer.into_tokens()
 }
 
@@ -455,6 +460,7 @@ impl fmt::Display for Token {
             TokenKind::Return => write!(f, "return"),
             TokenKind::While => write!(f, "while"),
             TokenKind::For => write!(f, "for"),
+            TokenKind::In => write!(f, "in"),
             TokenKind::If => write!(f, "if"),
             TokenKind::Else => write!(f, "else"),
             TokenKind::Int(s) => write!(f, "{}", s),
