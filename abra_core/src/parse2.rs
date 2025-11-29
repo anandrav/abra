@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::ast::*;
 use crate::statics::{Error, StaticsContext};
-use crate::tokenizer::{Token, TokenKind, TokenTag, tokenize_file};
+use crate::tokenizer::{Span, Token, TokenKind, TokenTag, tokenize_file};
 use std::rc::Rc;
 use strum::IntoDiscriminant;
 
@@ -21,12 +21,24 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     // println!();
     // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
 
-    let mut parser = Parser::new(tokens, ctx, file_id);
+    let mut parser = Parser::new(tokens, file_id);
+    let mut clean = true;
     while !parser.done() {
-        if let Some(item) = parser.parse_item() {
-            items.push(item);
+        match parser.parse_item() {
+            Ok(item) => {
+                items.push(item);
+                clean = true
+            }
+            Err(e) => {
+                if clean {
+                    ctx.errors.push(e);
+                    clean = false;
+                }
+                parser.index += 1;
+            }
         }
     }
+    ctx.errors.extend(parser.errors);
 
     let file_data = ctx.file_db.get(file_id).unwrap();
     Rc::new(FileAst {
@@ -45,71 +57,63 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     })
 }
 
-struct Parser<'a> {
+struct Parser {
     index: usize,
     tokens: Vec<Token>,
 
-    ctx: &'a mut StaticsContext,
     file_id: FileId,
+    errors: Vec<Error>,
 }
 
-impl<'a> Parser<'a> {
-    fn new(tokens: Vec<Token>, ctx: &'a mut StaticsContext, file_id: FileId) -> Self {
+impl Parser {
+    fn new(tokens: Vec<Token>, file_id: FileId) -> Self {
         Parser {
             index: 0,
             tokens,
-            ctx,
             file_id,
+            errors: vec![],
         }
     }
 
     fn done(&self) -> bool {
-        self.index >= self.tokens.len()
+        self.current_token().kind == TokenKind::Eof
     }
 
-    // TODO: would using an EOF Token remove the need for this Option?
-    fn current_token(&mut self) -> Option<Token> {
+    fn current_token(&self) -> Token {
         match self.tokens.get(self.index) {
-            Some(t) => Some(t.clone()),
-            None => {
-                self.ctx.errors.push(Error::RanOutOfTokens(self.file_id));
-                None
-            }
+            Some(t) => t.clone(),
+            None => Token {
+                kind: TokenKind::Eof,
+                span: Span { lo: 0, hi: 0 },
+            }, // TODO: fix span of Eof
         }
     }
 
-    fn expect_token(&mut self, kind: TokenTag) -> Option<()> {
+    fn expect_token(&mut self, kind: TokenTag) -> Result<(), Error> {
         self.skip_newlines();
-        let current = self.current_token()?;
+        let current = self.current_token();
         if current.kind.discriminant() == kind {
             self.index += 1;
             self.skip_newlines();
+            Ok(())
         } else {
-            self.ctx.errors.push(Error::UnexpectedToken(
+            Err(Error::UnexpectedToken(
                 self.file_id,
                 kind.to_string(),
                 current.span,
-            ));
+            ))
         }
-        Some(())
-    }
-
-    fn expect_token_opt(&mut self, kind: TokenTag) -> Option<()> {
-        if self.current_token()?.kind.discriminant() == kind {
-            self.consume_token();
-        }
-        Some(())
     }
 
     fn consume_token(&mut self) {
         self.index += 1;
     }
 
-    fn expect_ident(&mut self) -> Option<Rc<Identifier>> {
-        let current = self.current_token()?;
+    fn expect_ident(&mut self) -> Result<Rc<Identifier>, Error> {
+        let current = self.current_token();
         self.index += 1;
         if let TokenKind::Ident(v) = current.kind {
-            Some(Rc::new(Identifier {
+            Ok(Rc::new(Identifier {
                 v,
                 loc: Location {
                     file_id: self.file_id,
@@ -119,19 +123,16 @@ impl<'a> Parser<'a> {
                 id: NodeId::new(),
             }))
         } else {
-            self.ctx.errors.push(Error::UnexpectedToken(
+            Err(Error::UnexpectedToken(
                 self.file_id,
                 "identifier".into(), // TODO: replace ??? with more context. what was being parsed. What kind of token was being expected? Maybe make a separate error type. An identifier was being expected
                 current.span,
-            ));
-            None
+            ))
         }
     }
 
     fn skip_newlines(&mut self) {
-        while let Some(tok) = self.current_token()
-            && tok.kind == TokenKind::Newline
-        {
+        while self.current_token().kind == TokenKind::Newline {
             self.index += 1;
         }
     }
@@ -140,15 +141,15 @@ impl<'a> Parser<'a> {
         Location {
             file_id: self.file_id,
             lo: begin as u32,
-            hi: self.current_token().unwrap().span.hi as u32,
+            hi: self.current_token().span.hi as u32,
         }
     }
 
-    fn parse_item(&mut self) -> Option<Rc<Item>> {
-        self.skip_newlines();
-        let current = self.current_token()?;
+    fn parse_item(&mut self) -> Result<Rc<Item>, Error> {
+        // self.skip_newlines();
+        let current = self.current_token();
         let lo = self.index;
-        Some(Rc::new(match current.kind {
+        Ok(Rc::new(match current.kind {
             TokenKind::Fn => {
                 let func_def = self.parse_func_def()?;
                 Item {
@@ -157,12 +158,9 @@ impl<'a> Parser<'a> {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::Eof => {
-                self.consume_token();
-                return None;
-            }
             _ => {
                 let stmt = self.parse_stmt()?;
+                self.expect_token(TokenTag::Newline)?;
                 Item {
                     kind: ItemKind::Stmt(stmt).into(),
                     loc: self.location(lo),
@@ -172,28 +170,28 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn parse_func_def(&mut self) -> Option<Rc<FuncDef>> {
-        self.expect_token(TokenTag::Fn);
+    fn parse_func_def(&mut self) -> Result<Rc<FuncDef>, Error> {
+        self.expect_token(TokenTag::Fn)?;
         let name = self.expect_ident()?;
-        self.expect_token(TokenTag::OpenParen);
+        self.expect_token(TokenTag::OpenParen)?;
         // todo get function args
         let mut args = vec![];
-        while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
+        while !matches!(self.current_token().kind, TokenKind::CloseParen) {
             let name = self.expect_ident()?;
             args.push((name, None)); // TODO: parse annotation
-            if self.current_token()?.kind == TokenKind::Comma {
+            if self.current_token().kind == TokenKind::Comma {
                 self.consume_token();
             } else {
                 break;
             }
         }
-        self.expect_token(TokenTag::CloseParen);
+        self.expect_token(TokenTag::CloseParen)?;
         // todo get optional return type
         let ret_type = None;
-        self.expect_token(TokenTag::Eq);
+        self.expect_token(TokenTag::Eq)?; // TODO: support the other syntax for func def
         let body = self.parse_expr()?;
 
-        Some(Rc::new(FuncDef {
+        Ok(Rc::new(FuncDef {
             name,
             args,
             ret_type,
@@ -201,11 +199,11 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn parse_expr(&mut self) -> Option<Rc<Expr>> {
+    fn parse_expr(&mut self) -> Result<Rc<Expr>, Error> {
         self.parse_expr_bp(0)
     }
 
-    fn parse_expr_bp(&mut self, binding_power: u8) -> Option<Rc<Expr>> {
+    fn parse_expr_bp(&mut self, binding_power: u8) -> Result<Rc<Expr>, Error> {
         let lo = self.index;
 
         // pratt
@@ -218,12 +216,12 @@ impl<'a> Parser<'a> {
                 }
 
                 self.consume_token();
-                self.handle_postfix_expr(&mut lhs, lo, op);
+                self.handle_postfix_expr(&mut lhs, lo, op)?;
                 continue;
             }
 
             // binary operators
-            let Some(op) = self.parse_binop() else { return Some(lhs) };
+            let Some(op) = self.parse_binop() else { return Ok(lhs) };
             if op.precedence() <= binding_power {
                 // *** Looping for weaker operators and left-associativity ***
                 // since this op is lower precedence, the caller must make
@@ -245,22 +243,27 @@ impl<'a> Parser<'a> {
             });
         }
 
-        Some(lhs)
+        Ok(lhs)
     }
 
-    fn handle_postfix_expr(&mut self, lhs: &mut Rc<Expr>, lo: usize, op: PostfixOp) -> Option<()> {
+    fn handle_postfix_expr(
+        &mut self,
+        lhs: &mut Rc<Expr>,
+        lo: usize,
+        op: PostfixOp,
+    ) -> Result<(), Error> {
         match op {
             PostfixOp::FuncCall => {
                 let mut args: Vec<Rc<Expr>> = vec![];
-                while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
+                while !matches!(self.current_token().kind, TokenKind::CloseParen) {
                     args.push(self.parse_expr()?);
-                    if self.current_token()?.kind == TokenKind::Comma {
+                    if self.current_token().kind == TokenKind::Comma {
                         self.consume_token();
                     } else {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseParen);
+                self.expect_token(TokenTag::CloseParen)?;
                 *lhs = Rc::new(Expr {
                     kind: ExprKind::FuncAp(lhs.clone(), args).into(),
                     loc: self.location(lo),
@@ -271,11 +274,11 @@ impl<'a> Parser<'a> {
             PostfixOp::IndexAccess => todo!(),
             PostfixOp::Unwrap => todo!(),
         }
-        Some(())
+        Ok(())
     }
 
     fn parse_binop(&mut self) -> Option<BinaryOperator> {
-        Some(match self.current_token()?.kind {
+        Some(match self.current_token().kind {
             TokenKind::Plus => BinaryOperator::Add,
             TokenKind::Minus => BinaryOperator::Subtract,
             TokenKind::Star => BinaryOperator::Multiply,
@@ -295,7 +298,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_postfix_op(&mut self) -> Option<PostfixOp> {
-        Some(match self.current_token()?.kind {
+        Some(match self.current_token().kind {
             TokenKind::OpenParen => PostfixOp::FuncCall,
             TokenKind::Dot => PostfixOp::MemberAccess,
             TokenKind::OpenBracket => PostfixOp::IndexAccess,
@@ -304,11 +307,11 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_expr_term(&mut self) -> Option<Rc<Expr>> {
+    fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Error> {
         // self.skip_newlines();
-        let current = self.current_token()?;
+        let current = self.current_token();
         let lo = self.index;
-        Some(Rc::new(match current.kind {
+        Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 self.consume_token();
                 Expr {
@@ -334,27 +337,28 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenKind::Match => {
-                self.expect_token(TokenTag::Match);
+                self.expect_token(TokenTag::Match)?;
                 let scrutiny = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace);
+                self.expect_token(TokenTag::OpenBrace)?;
                 let mut arms: Vec<Rc<MatchArm>> = vec![];
-                while !matches!(self.current_token()?.kind, TokenKind::CloseBrace) {
+                while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
                     let checkpoint = self.index;
                     match self.parse_match_arm() {
-                        Some(arm) => arms.push(arm),
-                        None => {
+                        Ok(arm) => arms.push(arm),
+                        Err(e) => {
+                            self.errors.push(e);
                             self.index = checkpoint;
                             break;
                         }
                     }
-                    if self.current_token()?.kind == TokenKind::Comma {
-                        self.consume_token();
+                    // TODO: instead of trailing commas for match arms just use newlines like statements!
+                    if self.current_token().kind == TokenKind::Newline {
                         self.skip_newlines();
                     } else {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseBrace);
+                self.expect_token(TokenTag::CloseBrace)?;
                 Expr {
                     kind: Rc::new(ExprKind::Match(scrutiny, arms)),
                     loc: self.location(lo),
@@ -362,24 +366,23 @@ impl<'a> Parser<'a> {
                 }
             }
             _ => {
-                self.ctx.errors.push(Error::UnexpectedToken(
+                return Err(Error::UnexpectedToken(
                     self.file_id,
                     "expression".into(),
                     current.span,
                 ));
-                return None;
             }
         }))
     }
 
-    fn parse_match_arm(&mut self) -> Option<Rc<MatchArm>> {
-        self.skip_newlines();
+    fn parse_match_arm(&mut self) -> Result<Rc<MatchArm>, Error> {
+        // self.skip_newlines();
         let lo = self.index;
 
         let pat = self.parse_match_pattern()?;
-        self.expect_token(TokenTag::RArrow);
+        self.expect_token(TokenTag::RArrow)?;
         let stmt = self.parse_stmt()?;
-        Some(Rc::new(MatchArm {
+        Ok(Rc::new(MatchArm {
             pat,
             stmt,
             loc: self.location(lo),
@@ -387,10 +390,10 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn parse_match_pattern(&mut self) -> Option<Rc<Pat>> {
-        let current = self.current_token()?;
+    fn parse_match_pattern(&mut self) -> Result<Rc<Pat>, Error> {
+        let current = self.current_token();
         let lo = self.index;
-        Some(Rc::new(match current.kind {
+        Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 self.consume_token();
                 Pat {
@@ -408,20 +411,19 @@ impl<'a> Parser<'a> {
                 }
             }
             _ => {
-                self.ctx.errors.push(Error::UnexpectedToken(
+                return Err(Error::UnexpectedToken(
                     self.file_id,
                     "match arm pattern".into(),
                     current.span,
                 ));
-                return None;
             }
         }))
     }
 
-    fn parse_let_pattern(&mut self) -> Option<Rc<Pat>> {
-        let current = self.current_token()?;
+    fn parse_let_pattern(&mut self) -> Result<Rc<Pat>, Error> {
+        let current = self.current_token();
         let lo = self.index;
-        Some(Rc::new(match current.kind {
+        Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 self.consume_token();
                 Pat {
@@ -431,20 +433,19 @@ impl<'a> Parser<'a> {
                 }
             }
             _ => {
-                self.ctx.errors.push(Error::UnexpectedToken(
+                return Err(Error::UnexpectedToken(
                     self.file_id,
                     "pattern".into(),
                     current.span,
                 ));
-                return None;
             }
         }))
     }
 
-    fn parse_stmt(&mut self) -> Option<Rc<Stmt>> {
-        let current = self.current_token()?;
+    fn parse_stmt(&mut self) -> Result<Rc<Stmt>, Error> {
+        let current = self.current_token();
         let lo = self.index;
-        Some(Rc::new(match current.kind {
+        Ok(Rc::new(match current.kind {
             TokenKind::Let => todo!(),
             TokenKind::Var => todo!(),
             TokenKind::Break => todo!(),
@@ -452,21 +453,21 @@ impl<'a> Parser<'a> {
             TokenKind::Return => todo!(),
             TokenKind::While => todo!(),
             TokenKind::For => {
-                self.expect_token(TokenTag::For);
+                self.expect_token(TokenTag::For)?;
                 let pat = self.parse_let_pattern()?;
-                self.expect_token(TokenTag::In);
+                self.expect_token(TokenTag::In)?;
                 let iterable = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace);
+                self.expect_token(TokenTag::OpenBrace)?;
                 let mut statements: Vec<Rc<Stmt>> = vec![];
-                while !matches!(self.current_token()?.kind, TokenKind::CloseBrace) {
+                while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
                     statements.push(self.parse_stmt()?);
-                    if self.current_token()?.kind == TokenKind::Newline {
+                    if self.current_token().kind == TokenKind::Newline {
                         self.consume_token();
                     } else {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseBrace);
+                self.expect_token(TokenTag::CloseBrace)?;
 
                 Stmt {
                     kind: StmtKind::ForLoop(pat, iterable, statements).into(),
