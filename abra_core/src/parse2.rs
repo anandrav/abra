@@ -545,30 +545,36 @@ impl Parser {
             TokenKind::If => {
                 self.expect_token(TokenTag::If);
                 let condition = self.parse_expr()?;
+                let then_start = self.index;
                 let statements_then = self.parse_statement_block()?;
                 if matches!(self.current_token().kind, TokenKind::Else) {
-                    todo!("handle if-else");
-                    // self.expect_token(TokenTag::OpenBrace);
-                    // // TODO code duplication for parsing statements
-                    // let mut statements_else: Vec<Rc<Stmt>> = vec![];
-                    // while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
-                    //     statements_else.push(self.parse_stmt()?);
-                    //     if self.current_token().kind == TokenKind::Newline {
-                    //         self.consume_token();
-                    //     } else {
-                    //         break;
-                    //     }
-                    // }
-                    // let expr = Expr {
-                    //     kind: Rc::new(ExprKind::IfElse(condition)),
-                    //     loc: self.location(lo),
-                    //     id: NodeId::new(),
-                    // }.into();
-                    // Stmt {
-                    //     kind: StmtKind::Expr(expr).into(),
-                    //     loc: self.location(lo),
-                    //     id: NodeId::new(),
-                    // }
+                    let then_block = Expr {
+                        kind: Rc::new(ExprKind::Block(statements_then)),
+                        loc: self.location(then_start),
+                        id: NodeId::new(),
+                    }
+                    .into();
+
+                    let else_start = self.index;
+                    let statements_else = self.parse_statement_block()?;
+                    let else_block = Expr {
+                        kind: Rc::new(ExprKind::Block(statements_else)),
+                        loc: self.location(else_start),
+                        id: NodeId::new(),
+                    }
+                    .into();
+
+                    let expr = Expr {
+                        kind: Rc::new(ExprKind::IfElse(condition, then_block, else_block)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into();
+                    Stmt {
+                        kind: StmtKind::Expr(expr).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
                 } else {
                     Stmt {
                         kind: StmtKind::If(condition, statements_then).into(),
