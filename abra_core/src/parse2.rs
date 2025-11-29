@@ -709,10 +709,20 @@ impl Parser {
             }
             _ => {
                 let expr = self.parse_expr()?;
-                Stmt {
-                    kind: StmtKind::Expr(expr).into(),
-                    loc: self.location(lo),
-                    id: NodeId::new(),
+                if self.current_token().kind == TokenKind::Eq {
+                    self.expect_token(TokenTag::Eq);
+                    let rhs = self.parse_expr()?;
+                    Stmt {
+                        kind: StmtKind::Set(expr, rhs).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                } else {
+                    Stmt {
+                        kind: StmtKind::Expr(expr).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
                 }
             }
         }))
