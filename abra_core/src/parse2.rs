@@ -67,6 +67,7 @@ impl<'a> Parser<'a> {
         self.index >= self.tokens.len()
     }
 
+    // TODO: would using an EOF Token remove the need for this Option?
     fn current_token(&mut self) -> Option<Token> {
         match self.tokens.get(self.index) {
             Some(t) => Some(t.clone()),
@@ -188,10 +189,61 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self) -> Option<Rc<Expr>> {
+        self.parse_expr_bp(0)
+    }
+
+    fn parse_expr_bp(&mut self, binding_power: u8) -> Option<Rc<Expr>> {
+        let lo = self.index;
+
+        let mut lhs = self.parse_expr_term()?;
+        loop {
+            let Some(op) = self.parse_binop() else { return Some(lhs) };
+            if op.precedence() <= binding_power {
+                break;
+            }
+
+            self.consume_token();
+            let rhs = self.parse_expr_bp(op.precedence())?;
+            lhs = Rc::new(Expr {
+                kind: ExprKind::BinOp(lhs, op, rhs).into(),
+                loc: self.location(lo),
+                id: NodeId::new(),
+            });
+        }
+
+        Some(lhs)
+    }
+
+    fn parse_binop(&mut self) -> Option<BinaryOperator> {
+        Some(match self.current_token()?.kind {
+            TokenKind::Plus => BinaryOperator::Add,
+            TokenKind::Minus => BinaryOperator::Subtract,
+            TokenKind::Star => BinaryOperator::Multiply,
+            TokenKind::Slash => BinaryOperator::Divide,
+            TokenKind::EqEq => BinaryOperator::Equal,
+            TokenKind::Lt => BinaryOperator::LessThan,
+            TokenKind::Le => BinaryOperator::LessThanOrEqual,
+            TokenKind::Gt => BinaryOperator::GreaterThan,
+            TokenKind::Ge => BinaryOperator::GreaterThanOrEqual,
+            TokenKind::Mod => BinaryOperator::Mod,
+            TokenKind::Caret => BinaryOperator::Pow,
+            TokenKind::DotDot => BinaryOperator::Format,
+            TokenKind::And => BinaryOperator::And,
+            TokenKind::Or => BinaryOperator::Or,
+            _ => return None,
+        })
+    }
+
+    fn parse_expr_term(&mut self) -> Option<Rc<Expr>> {
         // self.skip_newlines();
         let current = self.current_token()?;
         let lo = self.index;
         Some(Rc::new(match current.kind {
+            TokenKind::Ident(s) => Expr {
+                kind: Rc::new(ExprKind::Variable(s)),
+                loc: self.location(lo),
+                id: NodeId::new(),
+            },
             TokenKind::Match => {
                 self.expect_token(TokenTag::Match)?;
                 let scrutiny = self.parse_expr()?;
@@ -232,9 +284,38 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_match_pattern(&mut self) -> Option<Rc<Pat>> {
+        let current = self.current_token()?;
         let lo = self.index;
-
-        panic!();
+        Some(Rc::new(match current.kind {
+            TokenKind::Ident(s) => Pat {
+                kind: Rc::new(PatKind::Binding(s)),
+                loc: self.location(lo),
+                id: NodeId::new(),
+            },
+            // TokenKind::Match => {
+            //     self.expect_token(TokenTag::Match)?;
+            //     let scrutiny = self.parse_expr()?;
+            //     let mut arms: Vec<Rc<MatchArm>> = vec![];
+            //     while !matches!(self.current_token()?.kind, TokenKind::CloseBrace) {
+            //         arms.push(self.parse_match_arm()?);
+            //     }
+            //     self.expect_token(TokenTag::CloseBrace)?;
+            //     Expr {
+            //         kind: Rc::new(ExprKind::Match(scrutiny, arms)),
+            //         loc: self.location(lo),
+            //         id: NodeId::new(),
+            //     }
+            // }
+            _ => {
+                self.ctx.errors.push(Error::UnexpectedToken(
+                    self.file_id,
+                    "expression".into(),
+                    current.span,
+                ));
+                self.index += 1;
+                return None;
+            }
+        }))
     }
 
     fn parse_stmt(&mut self) -> Option<Rc<Stmt>> {

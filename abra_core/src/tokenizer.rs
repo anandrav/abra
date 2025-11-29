@@ -39,6 +39,12 @@ pub(crate) enum TokenKind {
     Slash,
     // `^`
     Caret,
+    // `mod`
+    Mod,
+    // `and`
+    And,
+    // `or`
+    Or,
 
     /// `.`
     Dot,
@@ -83,6 +89,7 @@ pub(crate) enum TokenKind {
     Float(String),
     String(String),
     Ident(String),
+    Wildcard,
 
     Newline,
     Eof,
@@ -111,6 +118,7 @@ impl TokenKind {
             | TokenKind::CloseBrace
             | TokenKind::OpenBracket
             | TokenKind::CloseBracket
+            | TokenKind::Wildcard
             | TokenKind::Newline
             | TokenKind::VBar
             | TokenKind::Eof => 1,
@@ -121,9 +129,10 @@ impl TokenKind {
             | TokenKind::Ge
             | TokenKind::DotDot
             | TokenKind::RArrow
-            | TokenKind::Fn => 2,
+            | TokenKind::Fn
+            | TokenKind::Or => 2,
 
-            TokenKind::Let | TokenKind::Var | TokenKind::Use => 3,
+            TokenKind::Let | TokenKind::Var | TokenKind::Use | TokenKind::Mod | TokenKind::And => 3,
 
             TokenKind::Type => 4,
             TokenKind::Match => 5,
@@ -273,6 +282,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '^' => lexer.emit(TokenKind::Caret),
             '#' => lexer.emit(TokenKind::Pound),
             '|' => lexer.emit(TokenKind::VBar),
+            '_' => lexer.emit(TokenKind::Wildcard),
             '=' => {
                 if let Some('=') = lexer.peek_char(1) {
                     lexer.emit(TokenKind::EqEq)
@@ -386,6 +396,9 @@ impl fmt::Display for Token {
             TokenKind::Star => write!(f, "*"),
             TokenKind::Slash => write!(f, "/"),
             TokenKind::Caret => write!(f, "^"),
+            TokenKind::Mod => write!(f, "mod"),
+            TokenKind::And => write!(f, "and"),
+            TokenKind::Or => write!(f, "or"),
             TokenKind::Dot => write!(f, "."),
             TokenKind::DotDot => write!(f, ".."),
             TokenKind::Comma => write!(f, ","),
@@ -400,6 +413,7 @@ impl fmt::Display for Token {
             TokenKind::CloseBrace => write!(f, "}}"),
             TokenKind::OpenBracket => write!(f, "["),
             TokenKind::CloseBracket => write!(f, "]"),
+            TokenKind::Wildcard => write!(f, "_"),
             TokenKind::Let => write!(f, "let"),
             TokenKind::Var => write!(f, "var"),
             TokenKind::Type => write!(f, "type"),
