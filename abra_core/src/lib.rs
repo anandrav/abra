@@ -177,7 +177,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     while let Some(file_id) = stack.pop_front() {
         let file_data = ctx.file_db.get(file_id).unwrap();
 
-        let file_ast = if file_data.name() == "slow_fib.abra" {
+        let file_ast = if file_data.name() == "ackermann.abra" {
             parse2::parse_file(ctx, file_id)
         } else {
             match parse::parse_or_err(file_id, file_data) {

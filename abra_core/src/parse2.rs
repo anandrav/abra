@@ -24,6 +24,7 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     let mut parser = Parser::new(tokens, file_id);
     let mut clean = true;
     while !parser.done() {
+        let before = parser.index;
         match parser.parse_item() {
             Ok(item) => {
                 items.push(item);
@@ -34,7 +35,9 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
                 ctx.errors.push(*e);
                 clean = false;
                 // }
-                // parser.index += 1;
+                if parser.index == before {
+                    parser.index += 1;
+                }
             }
         }
     }
@@ -191,15 +194,42 @@ impl Parser {
         self.expect_token(TokenTag::CloseParen);
         // todo get optional return type
         let ret_type = None;
-        self.expect_token(TokenTag::Eq); // TODO: support the other syntax for func def
-        let body = self.parse_expr()?;
+        if self.current_token().kind == TokenKind::Eq {
+            self.expect_token(TokenTag::Eq); // TODO: support the other syntax for func def
+            let body = self.parse_expr()?;
 
-        Ok(Rc::new(FuncDef {
-            name,
-            args,
-            ret_type,
-            body,
-        }))
+            Ok(Rc::new(FuncDef {
+                name,
+                args,
+                ret_type,
+                body,
+            }))
+        } else {
+            let block_start = self.index;
+            self.expect_token(TokenTag::OpenBrace);
+            let mut statements: Vec<Rc<Stmt>> = vec![];
+            while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+                statements.push(self.parse_stmt()?);
+                if self.current_token().kind == TokenKind::Newline {
+                    self.consume_token();
+                } else {
+                    break;
+                }
+            }
+            self.expect_token(TokenTag::CloseBrace);
+            let block_expr = Expr {
+                kind: ExprKind::Block(statements).into(),
+                loc: self.location(block_start),
+                id: NodeId::new(),
+            }
+            .into();
+            Ok(Rc::new(FuncDef {
+                name,
+                args,
+                ret_type,
+                body: block_expr,
+            }))
+        }
     }
 
     fn parse_expr(&mut self) -> Result<Rc<Expr>, Box<Error>> {
@@ -474,7 +504,15 @@ impl Parser {
             TokenKind::Var => todo!(),
             TokenKind::Break => todo!(),
             TokenKind::Continue => todo!(),
-            TokenKind::Return => todo!(),
+            TokenKind::Return => {
+                self.expect_token(TokenTag::Return);
+                let expr = self.parse_expr()?;
+                Stmt {
+                    kind: StmtKind::Return(expr).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::While => todo!(),
             TokenKind::For => {
                 self.expect_token(TokenTag::For);
@@ -499,7 +537,52 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::If => todo!(), // if statement or could be an if-else expression.
+            TokenKind::If => {
+                self.expect_token(TokenTag::If);
+                let condition = self.parse_expr()?;
+                self.expect_token(TokenTag::OpenBrace);
+                // TODO code duplication for parsing statements
+                let mut statements_then: Vec<Rc<Stmt>> = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+                    statements_then.push(self.parse_stmt()?);
+                    if self.current_token().kind == TokenKind::Newline {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseBrace);
+                if matches!(self.current_token().kind, TokenKind::Else) {
+                    todo!("handle if-else");
+                    // self.expect_token(TokenTag::OpenBrace);
+                    // // TODO code duplication for parsing statements
+                    // let mut statements_else: Vec<Rc<Stmt>> = vec![];
+                    // while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+                    //     statements_else.push(self.parse_stmt()?);
+                    //     if self.current_token().kind == TokenKind::Newline {
+                    //         self.consume_token();
+                    //     } else {
+                    //         break;
+                    //     }
+                    // }
+                    // let expr = Expr {
+                    //     kind: Rc::new(ExprKind::IfElse(condition)),
+                    //     loc: self.location(lo),
+                    //     id: NodeId::new(),
+                    // }.into();
+                    // Stmt {
+                    //     kind: StmtKind::Expr(expr).into(),
+                    //     loc: self.location(lo),
+                    //     id: NodeId::new(),
+                    // }
+                } else {
+                    Stmt {
+                        kind: StmtKind::If(condition, statements_then).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                }
+            }
             _ => {
                 let expr = self.parse_expr()?;
                 Stmt {
