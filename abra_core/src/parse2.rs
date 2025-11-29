@@ -31,7 +31,7 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
             }
             Err(e) => {
                 // if clean {
-                ctx.errors.push(e);
+                ctx.errors.push(*e);
                 clean = false;
                 // }
                 // parser.index += 1;
@@ -111,7 +111,7 @@ impl Parser {
         self.index += 1;
     }
 
-    fn expect_ident(&mut self) -> Result<Rc<Identifier>, Error> {
+    fn expect_ident(&mut self) -> Result<Rc<Identifier>, Box<Error>> {
         let current = self.current_token();
         self.index += 1;
         if let TokenKind::Ident(v) = current.kind {
@@ -130,7 +130,8 @@ impl Parser {
                 "identifier".into(),
                 current.kind.discriminant().to_string(),
                 current.span,
-            ))
+            )
+            .into())
         }
     }
 
@@ -148,7 +149,7 @@ impl Parser {
         }
     }
 
-    fn parse_item(&mut self) -> Result<Rc<Item>, Error> {
+    fn parse_item(&mut self) -> Result<Rc<Item>, Box<Error>> {
         self.skip_newlines();
         let current = self.current_token();
         let lo = self.current_token().span.lo;
@@ -172,7 +173,7 @@ impl Parser {
         }))
     }
 
-    fn parse_func_def(&mut self) -> Result<Rc<FuncDef>, Error> {
+    fn parse_func_def(&mut self) -> Result<Rc<FuncDef>, Box<Error>> {
         self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenParen);
@@ -192,7 +193,6 @@ impl Parser {
         let ret_type = None;
         self.expect_token(TokenTag::Eq); // TODO: support the other syntax for func def
         let body = self.parse_expr()?;
-        println!("finished parsing expr for func def");
 
         Ok(Rc::new(FuncDef {
             name,
@@ -202,19 +202,16 @@ impl Parser {
         }))
     }
 
-    fn parse_expr(&mut self) -> Result<Rc<Expr>, Error> {
+    fn parse_expr(&mut self) -> Result<Rc<Expr>, Box<Error>> {
         let ret = self.parse_expr_bp(0)?;
-        println!("finished parsing expr");
-        dbg!(&ret.kind);
         Ok(ret)
     }
 
-    fn parse_expr_bp(&mut self, binding_power: u8) -> Result<Rc<Expr>, Error> {
+    fn parse_expr_bp(&mut self, binding_power: u8) -> Result<Rc<Expr>, Box<Error>> {
         let lo = self.current_token().span.lo;
 
         // pratt
         let mut lhs = self.parse_expr_term()?;
-        dbg!(&lhs.kind);
         loop {
             // postfix operators/expressions
             if let Some(op) = self.parse_postfix_op() {
@@ -229,7 +226,6 @@ impl Parser {
 
             // binary operators
             let Some(op) = self.parse_binop() else {
-                println!("no binop so early return");
                 return Ok(lhs);
             };
             if op.precedence() <= binding_power {
@@ -253,9 +249,6 @@ impl Parser {
             });
         }
 
-        println!("done with that loop");
-        dbg!(&lhs.kind);
-
         Ok(lhs)
     }
 
@@ -264,7 +257,7 @@ impl Parser {
         lhs: &mut Rc<Expr>,
         lo: usize,
         op: PostfixOp,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Box<Error>> {
         match op {
             PostfixOp::FuncCall => {
                 let mut args: Vec<Rc<Expr>> = vec![];
@@ -320,7 +313,7 @@ impl Parser {
         })
     }
 
-    fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Error> {
+    fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Box<Error>> {
         // self.skip_newlines();
         let current = self.current_token();
         let lo = self.current_token().span.lo;
@@ -358,7 +351,6 @@ impl Parser {
                 let mut clean = true;
                 while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
                     arms.push(self.parse_match_arm()?);
-                    println!("got a match arm");
                     // let checkpoint = self.index;
                     // match self.parse_match_arm() {
                     //     Ok(arm) => {
@@ -383,7 +375,6 @@ impl Parser {
                     }
                 }
                 self.expect_token(TokenTag::CloseBrace);
-                println!("consumed the close brace of match");
                 Expr {
                     kind: Rc::new(ExprKind::Match(scrutiny, arms)),
                     loc: self.location(lo),
@@ -396,12 +387,13 @@ impl Parser {
                     "expression term".into(),
                     current.kind.discriminant().to_string(),
                     current.span,
-                ));
+                )
+                .into());
             }
         }))
     }
 
-    fn parse_match_arm(&mut self) -> Result<Rc<MatchArm>, Error> {
+    fn parse_match_arm(&mut self) -> Result<Rc<MatchArm>, Box<Error>> {
         // self.skip_newlines();
         let lo = self.current_token().span.lo;
 
@@ -416,7 +408,7 @@ impl Parser {
         }))
     }
 
-    fn parse_match_pattern(&mut self) -> Result<Rc<Pat>, Error> {
+    fn parse_match_pattern(&mut self) -> Result<Rc<Pat>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
@@ -442,12 +434,13 @@ impl Parser {
                     "match arm pattern".into(),
                     current.kind.discriminant().to_string(),
                     current.span,
-                ));
+                )
+                .into());
             }
         }))
     }
 
-    fn parse_let_pattern(&mut self) -> Result<Rc<Pat>, Error> {
+    fn parse_let_pattern(&mut self) -> Result<Rc<Pat>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
@@ -465,12 +458,13 @@ impl Parser {
                     "pattern".into(),
                     current.kind.discriminant().to_string(),
                     current.span,
-                ));
+                )
+                .into());
             }
         }))
     }
 
-    fn parse_stmt(&mut self) -> Result<Rc<Stmt>, Error> {
+    fn parse_stmt(&mut self) -> Result<Rc<Stmt>, Box<Error>> {
         self.skip_newlines();
 
         let current = self.current_token();
@@ -498,7 +492,6 @@ impl Parser {
                     }
                 }
                 self.expect_token(TokenTag::CloseBrace);
-                println!("consumed a close brace");
 
                 Stmt {
                     kind: StmtKind::ForLoop(pat, iterable, statements).into(),
@@ -509,8 +502,6 @@ impl Parser {
             TokenKind::If => todo!(), // if statement or could be an if-else expression.
             _ => {
                 let expr = self.parse_expr()?;
-                println!("done parsing expr for statement expression");
-                dbg!(&expr.kind);
                 Stmt {
                     kind: StmtKind::Expr(expr).into(),
                     loc: self.location(lo),

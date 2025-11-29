@@ -214,7 +214,7 @@ impl Translator {
         let file_id = location.file_id;
 
         let file = self.statics.file_db.get(file_id).unwrap();
-        let line_no = file.line_number_for_index(location.lo as usize);
+        let line_no = file.line_number_for_index(location.lo);
         st.curr_file = file_id;
         st.curr_lineno = line_no;
     }
