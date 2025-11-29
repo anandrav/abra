@@ -34,7 +34,7 @@ impl Error {
                 diagnostic = diagnostic.with_message("Unexpected token");
                 labels.push(
                     Label::secondary(*file, span.lo..span.hi)
-                        .with_message(format!("Unexpected token when parsing {kind}")),
+                        .with_message(format!("Found this when expecting `{kind}`")),
                 );
             }
             Error::RanOutOfTokens(file) => {

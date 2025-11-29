@@ -81,18 +81,17 @@ impl<'a> Parser<'a> {
     fn expect_token(&mut self, kind: TokenTag) -> Option<()> {
         self.skip_newlines();
         let current = self.current_token()?;
-        self.index += 1;
         if current.kind.discriminant() == kind {
+            self.index += 1;
             self.skip_newlines();
-            Some(())
         } else {
             self.ctx.errors.push(Error::UnexpectedToken(
                 self.file_id,
-                "???".into(), // TODO: replace ??? with more context. what was being parsed
+                kind.to_string(),
                 current.span,
             ));
-            None
         }
+        Some(())
     }
 
     fn expect_token_opt(&mut self, kind: TokenTag) -> Option<()> {
@@ -122,7 +121,7 @@ impl<'a> Parser<'a> {
         } else {
             self.ctx.errors.push(Error::UnexpectedToken(
                 self.file_id,
-                "???".into(), // TODO: replace ??? with more context. what was being parsed. What kind of token was being expected? Maybe make a separate error type. An identifier was being expected
+                "identifier".into(), // TODO: replace ??? with more context. what was being parsed. What kind of token was being expected? Maybe make a separate error type. An identifier was being expected
                 current.span,
             ));
             None
@@ -174,9 +173,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_func_def(&mut self) -> Option<Rc<FuncDef>> {
-        self.expect_token(TokenTag::Fn)?;
+        self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
-        self.expect_token(TokenTag::OpenParen)?;
+        self.expect_token(TokenTag::OpenParen);
         // todo get function args
         let mut args = vec![];
         while !matches!(self.current_token()?.kind, TokenKind::CloseParen) {
@@ -188,10 +187,10 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-        self.expect_token(TokenTag::CloseParen)?;
+        self.expect_token(TokenTag::CloseParen);
         // todo get optional return type
         let ret_type = None;
-        self.expect_token(TokenTag::Eq)?;
+        self.expect_token(TokenTag::Eq);
         let body = self.parse_expr()?;
 
         Some(Rc::new(FuncDef {
@@ -261,7 +260,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseParen)?;
+                self.expect_token(TokenTag::CloseParen);
                 *lhs = Rc::new(Expr {
                     kind: ExprKind::FuncAp(lhs.clone(), args).into(),
                     loc: self.location(lo),
@@ -335,15 +334,27 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenKind::Match => {
-                self.expect_token(TokenTag::Match)?;
+                self.expect_token(TokenTag::Match);
                 let scrutiny = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace)?;
+                self.expect_token(TokenTag::OpenBrace);
                 let mut arms: Vec<Rc<MatchArm>> = vec![];
                 while !matches!(self.current_token()?.kind, TokenKind::CloseBrace) {
-                    arms.push(self.parse_match_arm()?);
-                    self.skip_newlines();
+                    let checkpoint = self.index;
+                    match self.parse_match_arm() {
+                        Some(arm) => arms.push(arm),
+                        None => {
+                            self.index = checkpoint;
+                            break;
+                        }
+                    }
+                    if self.current_token()?.kind == TokenKind::Comma {
+                        self.consume_token();
+                        self.skip_newlines();
+                    } else {
+                        break;
+                    }
                 }
-                self.expect_token(TokenTag::CloseBrace)?;
+                self.expect_token(TokenTag::CloseBrace);
                 Expr {
                     kind: Rc::new(ExprKind::Match(scrutiny, arms)),
                     loc: self.location(lo),
@@ -356,7 +367,6 @@ impl<'a> Parser<'a> {
                     "expression".into(),
                     current.span,
                 ));
-                self.index += 1;
                 return None;
             }
         }))
@@ -367,9 +377,8 @@ impl<'a> Parser<'a> {
         let lo = self.index;
 
         let pat = self.parse_match_pattern()?;
-        self.expect_token(TokenTag::RArrow)?;
+        self.expect_token(TokenTag::RArrow);
         let stmt = self.parse_stmt()?;
-        self.expect_token_opt(TokenTag::Comma);
         Some(Rc::new(MatchArm {
             pat,
             stmt,
@@ -401,10 +410,9 @@ impl<'a> Parser<'a> {
             _ => {
                 self.ctx.errors.push(Error::UnexpectedToken(
                     self.file_id,
-                    "pattern".into(),
+                    "match arm pattern".into(),
                     current.span,
                 ));
-                self.index += 1;
                 return None;
             }
         }))
@@ -428,7 +436,6 @@ impl<'a> Parser<'a> {
                     "pattern".into(),
                     current.span,
                 ));
-                self.index += 1;
                 return None;
             }
         }))
@@ -445,11 +452,11 @@ impl<'a> Parser<'a> {
             TokenKind::Return => todo!(),
             TokenKind::While => todo!(),
             TokenKind::For => {
-                self.expect_token(TokenTag::For)?;
+                self.expect_token(TokenTag::For);
                 let pat = self.parse_let_pattern()?;
-                self.expect_token(TokenTag::In)?;
+                self.expect_token(TokenTag::In);
                 let iterable = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace)?;
+                self.expect_token(TokenTag::OpenBrace);
                 let mut statements: Vec<Rc<Stmt>> = vec![];
                 while !matches!(self.current_token()?.kind, TokenKind::CloseBrace) {
                     statements.push(self.parse_stmt()?);
@@ -459,7 +466,7 @@ impl<'a> Parser<'a> {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseBrace)?;
+                self.expect_token(TokenTag::CloseBrace);
 
                 Stmt {
                     kind: StmtKind::ForLoop(pat, iterable, statements).into(),
