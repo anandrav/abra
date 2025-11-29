@@ -30,11 +30,11 @@ impl Error {
                 diagnostic = diagnostic.with_message("Unrecognized token");
                 labels.push(Label::secondary(*file, *index..index + 1).with_message("here"));
             }
-            Error::UnexpectedToken(file, kind, span) => {
+            Error::UnexpectedToken(file, expected, found, found_span) => {
                 diagnostic = diagnostic.with_message("Unexpected token");
                 labels.push(
-                    Label::secondary(*file, span.lo..span.hi)
-                        .with_message(format!("Found this when expecting `{kind}`")),
+                    Label::secondary(*file, found_span.lo..found_span.hi)
+                        .with_message(format!("Found `{found}` when expecting `{expected}`")),
                 );
             }
             Error::RanOutOfTokens(file) => {

@@ -75,7 +75,8 @@ impl Parser {
         }
     }
 
-    fn done(&self) -> bool {
+    fn done(&mut self) -> bool {
+        self.skip_newlines();
         self.current_token().kind == TokenKind::Eof
     }
 
@@ -89,17 +90,18 @@ impl Parser {
         }
     }
 
-    fn expect_token(&mut self, kind: TokenTag) -> Result<(), Error> {
-        self.skip_newlines();
+    fn expect_token(&mut self, kind: TokenTag) {
+        if kind != TokenTag::Newline {
+            self.skip_newlines();
+        }
         let current = self.current_token();
         if current.kind.discriminant() == kind {
             self.index += 1;
-            self.skip_newlines();
-            Ok(())
         } else {
-            Err(Error::UnexpectedToken(
+            self.errors.push(Error::UnexpectedToken(
                 self.file_id,
                 kind.to_string(),
+                current.kind.discriminant().to_string(),
                 current.span,
             ))
         }
@@ -126,6 +128,7 @@ impl Parser {
             Err(Error::UnexpectedToken(
                 self.file_id,
                 "identifier".into(), // TODO: replace ??? with more context. what was being parsed. What kind of token was being expected? Maybe make a separate error type. An identifier was being expected
+                current.kind.discriminant().to_string(),
                 current.span,
             ))
         }
@@ -146,7 +149,7 @@ impl Parser {
     }
 
     fn parse_item(&mut self) -> Result<Rc<Item>, Error> {
-        // self.skip_newlines();
+        self.skip_newlines();
         let current = self.current_token();
         let lo = self.index;
         Ok(Rc::new(match current.kind {
@@ -160,7 +163,6 @@ impl Parser {
             }
             _ => {
                 let stmt = self.parse_stmt()?;
-                self.expect_token(TokenTag::Newline)?;
                 Item {
                     kind: ItemKind::Stmt(stmt).into(),
                     loc: self.location(lo),
@@ -171,9 +173,9 @@ impl Parser {
     }
 
     fn parse_func_def(&mut self) -> Result<Rc<FuncDef>, Error> {
-        self.expect_token(TokenTag::Fn)?;
+        self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
-        self.expect_token(TokenTag::OpenParen)?;
+        self.expect_token(TokenTag::OpenParen);
         // todo get function args
         let mut args = vec![];
         while !matches!(self.current_token().kind, TokenKind::CloseParen) {
@@ -185,11 +187,12 @@ impl Parser {
                 break;
             }
         }
-        self.expect_token(TokenTag::CloseParen)?;
+        self.expect_token(TokenTag::CloseParen);
         // todo get optional return type
         let ret_type = None;
-        self.expect_token(TokenTag::Eq)?; // TODO: support the other syntax for func def
+        self.expect_token(TokenTag::Eq); // TODO: support the other syntax for func def
         let body = self.parse_expr()?;
+        println!("finished parsing expr for func def");
 
         Ok(Rc::new(FuncDef {
             name,
@@ -200,7 +203,10 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Result<Rc<Expr>, Error> {
-        self.parse_expr_bp(0)
+        let ret = self.parse_expr_bp(0)?;
+        println!("finished parsing expr");
+        dbg!(&ret.kind);
+        Ok(ret)
     }
 
     fn parse_expr_bp(&mut self, binding_power: u8) -> Result<Rc<Expr>, Error> {
@@ -208,6 +214,7 @@ impl Parser {
 
         // pratt
         let mut lhs = self.parse_expr_term()?;
+        dbg!(&lhs.kind);
         loop {
             // postfix operators/expressions
             if let Some(op) = self.parse_postfix_op() {
@@ -221,7 +228,10 @@ impl Parser {
             }
 
             // binary operators
-            let Some(op) = self.parse_binop() else { return Ok(lhs) };
+            let Some(op) = self.parse_binop() else {
+                println!("no binop so early return");
+                return Ok(lhs);
+            };
             if op.precedence() <= binding_power {
                 // *** Looping for weaker operators and left-associativity ***
                 // since this op is lower precedence, the caller must make
@@ -243,6 +253,9 @@ impl Parser {
             });
         }
 
+        println!("done with that loop");
+        dbg!(&lhs.kind);
+
         Ok(lhs)
     }
 
@@ -263,7 +276,7 @@ impl Parser {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseParen)?;
+                self.expect_token(TokenTag::CloseParen);
                 *lhs = Rc::new(Expr {
                     kind: ExprKind::FuncAp(lhs.clone(), args).into(),
                     loc: self.location(lo),
@@ -337,28 +350,40 @@ impl Parser {
                 }
             }
             TokenKind::Match => {
-                self.expect_token(TokenTag::Match)?;
+                self.expect_token(TokenTag::Match);
                 let scrutiny = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace)?;
+                self.expect_token(TokenTag::OpenBrace);
                 let mut arms: Vec<Rc<MatchArm>> = vec![];
+                self.skip_newlines();
+                let mut clean = true;
                 while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
-                    let checkpoint = self.index;
-                    match self.parse_match_arm() {
-                        Ok(arm) => arms.push(arm),
-                        Err(e) => {
-                            self.errors.push(e);
-                            self.index = checkpoint;
-                            break;
-                        }
-                    }
-                    // TODO: instead of trailing commas for match arms just use newlines like statements!
+                    arms.push(self.parse_match_arm()?);
+                    println!("got a match arm");
+                    // let checkpoint = self.index;
+                    // match self.parse_match_arm() {
+                    //     Ok(arm) => {
+                    //         clean = true;
+                    //         arms.push(arm)
+                    //     }
+                    //     Err(e) => {
+                    //         self.errors.push(e);
+                    //         if clean {
+                    //             clean = false;
+                    //             continue;
+                    //         } else {
+                    //             self.index = checkpoint;
+                    //             break;
+                    //         }
+                    //     }
+                    // }
                     if self.current_token().kind == TokenKind::Newline {
                         self.skip_newlines();
                     } else {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseBrace)?;
+                self.expect_token(TokenTag::CloseBrace);
+                println!("consumed the close brace of match");
                 Expr {
                     kind: Rc::new(ExprKind::Match(scrutiny, arms)),
                     loc: self.location(lo),
@@ -368,7 +393,8 @@ impl Parser {
             _ => {
                 return Err(Error::UnexpectedToken(
                     self.file_id,
-                    "expression".into(),
+                    "expression term".into(),
+                    current.kind.discriminant().to_string(),
                     current.span,
                 ));
             }
@@ -380,7 +406,7 @@ impl Parser {
         let lo = self.index;
 
         let pat = self.parse_match_pattern()?;
-        self.expect_token(TokenTag::RArrow)?;
+        self.expect_token(TokenTag::RArrow);
         let stmt = self.parse_stmt()?;
         Ok(Rc::new(MatchArm {
             pat,
@@ -414,6 +440,7 @@ impl Parser {
                 return Err(Error::UnexpectedToken(
                     self.file_id,
                     "match arm pattern".into(),
+                    current.kind.discriminant().to_string(),
                     current.span,
                 ));
             }
@@ -436,6 +463,7 @@ impl Parser {
                 return Err(Error::UnexpectedToken(
                     self.file_id,
                     "pattern".into(),
+                    current.kind.discriminant().to_string(),
                     current.span,
                 ));
             }
@@ -443,6 +471,8 @@ impl Parser {
     }
 
     fn parse_stmt(&mut self) -> Result<Rc<Stmt>, Error> {
+        self.skip_newlines();
+
         let current = self.current_token();
         let lo = self.index;
         Ok(Rc::new(match current.kind {
@@ -453,11 +483,11 @@ impl Parser {
             TokenKind::Return => todo!(),
             TokenKind::While => todo!(),
             TokenKind::For => {
-                self.expect_token(TokenTag::For)?;
+                self.expect_token(TokenTag::For);
                 let pat = self.parse_let_pattern()?;
-                self.expect_token(TokenTag::In)?;
+                self.expect_token(TokenTag::In);
                 let iterable = self.parse_expr()?;
-                self.expect_token(TokenTag::OpenBrace)?;
+                self.expect_token(TokenTag::OpenBrace);
                 let mut statements: Vec<Rc<Stmt>> = vec![];
                 while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
                     statements.push(self.parse_stmt()?);
@@ -467,7 +497,8 @@ impl Parser {
                         break;
                     }
                 }
-                self.expect_token(TokenTag::CloseBrace)?;
+                self.expect_token(TokenTag::CloseBrace);
+                println!("consumed a close brace");
 
                 Stmt {
                     kind: StmtKind::ForLoop(pat, iterable, statements).into(),
@@ -478,6 +509,8 @@ impl Parser {
             TokenKind::If => todo!(), // if statement or could be an if-else expression.
             _ => {
                 let expr = self.parse_expr()?;
+                println!("done parsing expr for statement expression");
+                dbg!(&expr.kind);
                 Stmt {
                     kind: StmtKind::Expr(expr).into(),
                     loc: self.location(lo),

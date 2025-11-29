@@ -5,8 +5,7 @@ fn fib(x) = match x {
   _ -> fib(x-1) + fib(x-2)
 }
 
-jsdklfjks
-
 for i in range(32) {
   println(i .. ": " .. fib(i))
 }
+

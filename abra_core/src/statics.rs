@@ -260,7 +260,7 @@ pub(crate) enum Error {
     },
     // parsing phase
     UnrecognizedToken(FileId, usize),
-    UnexpectedToken(FileId, String, Span),
+    UnexpectedToken(FileId, String, String, Span),
     RanOutOfTokens(FileId),
     Parse(String),
     // resolution phase
