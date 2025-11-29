@@ -51,7 +51,7 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
         loc: Location {
             file_id,
             lo: 0,
-            hi: (file_data.source.len() - 1) as u32,
+            hi: (file_data.source.len() - 1),
         },
         id: NodeId::new(),
     })
@@ -119,15 +119,15 @@ impl Parser {
                 v,
                 loc: Location {
                     file_id: self.file_id,
-                    lo: current.span.lo as u32,
-                    hi: current.span.hi as u32,
-                }, // TODO: these conversions are annoying just use usize until it becomes a problem
+                    lo: current.span.lo,
+                    hi: current.span.hi,
+                },
                 id: NodeId::new(),
             }))
         } else {
             Err(Error::UnexpectedToken(
                 self.file_id,
-                "identifier".into(), // TODO: replace ??? with more context. what was being parsed. What kind of token was being expected? Maybe make a separate error type. An identifier was being expected
+                "identifier".into(),
                 current.kind.discriminant().to_string(),
                 current.span,
             ))
@@ -143,15 +143,15 @@ impl Parser {
     fn location(&mut self, begin: usize) -> Location {
         Location {
             file_id: self.file_id,
-            lo: begin as u32,
-            hi: self.current_token().span.hi as u32,
+            lo: begin,
+            hi: self.current_token().span.hi,
         }
     }
 
     fn parse_item(&mut self) -> Result<Rc<Item>, Error> {
         self.skip_newlines();
         let current = self.current_token();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
             TokenKind::Fn => {
                 let func_def = self.parse_func_def()?;
@@ -210,7 +210,7 @@ impl Parser {
     }
 
     fn parse_expr_bp(&mut self, binding_power: u8) -> Result<Rc<Expr>, Error> {
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
 
         // pratt
         let mut lhs = self.parse_expr_term()?;
@@ -323,7 +323,7 @@ impl Parser {
     fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Error> {
         // self.skip_newlines();
         let current = self.current_token();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 self.consume_token();
@@ -403,7 +403,7 @@ impl Parser {
 
     fn parse_match_arm(&mut self) -> Result<Rc<MatchArm>, Error> {
         // self.skip_newlines();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
 
         let pat = self.parse_match_pattern()?;
         self.expect_token(TokenTag::RArrow);
@@ -418,7 +418,7 @@ impl Parser {
 
     fn parse_match_pattern(&mut self) -> Result<Rc<Pat>, Error> {
         let current = self.current_token();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 self.consume_token();
@@ -449,7 +449,7 @@ impl Parser {
 
     fn parse_let_pattern(&mut self) -> Result<Rc<Pat>, Error> {
         let current = self.current_token();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 self.consume_token();
@@ -474,7 +474,7 @@ impl Parser {
         self.skip_newlines();
 
         let current = self.current_token();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
             TokenKind::Let => todo!(),
             TokenKind::Var => todo!(),

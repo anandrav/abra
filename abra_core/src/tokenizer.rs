@@ -108,7 +108,7 @@ pub(crate) enum TokenKind {
 }
 
 impl TokenKind {
-    fn len(&self) -> usize {
+    fn nchars(&self) -> usize {
         match self {
             TokenKind::Eq
             | TokenKind::Lt
@@ -158,8 +158,8 @@ impl TokenKind {
             TokenKind::Extend | TokenKind::Return => 6,
             TokenKind::Continue => 8,
             TokenKind::Implement => 9,
-            TokenKind::Int(s) | TokenKind::Float(s) | TokenKind::Ident(s) => s.len(),
-            TokenKind::String(s) => s.len() + 2,
+            TokenKind::Int(s) | TokenKind::Float(s) | TokenKind::Ident(s) => s.chars().count(),
+            TokenKind::String(s) => s.chars().count() + 2, // include quotes
         }
     }
 
@@ -224,10 +224,10 @@ impl Lexer {
     }
 
     fn emit(&mut self, kind: TokenKind) {
-        let len = kind.len();
+        let len = kind.nchars();
         let span = Span {
             lo: self.index,
-            hi: self.index + len,
+            hi: self.index + len - 1,
         };
         self.tokens.push(Token { kind, span });
         self.index += len;

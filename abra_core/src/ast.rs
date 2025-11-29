@@ -663,16 +663,16 @@ impl Default for NodeId {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Location {
     pub(crate) file_id: FileId,
-    pub(crate) lo: u32,
-    pub(crate) hi: u32,
+    pub(crate) lo: usize,
+    pub(crate) hi: usize,
 }
 
 impl Location {
     pub fn new(file_id: FileId, pest_span: pest::Span) -> Self {
         Location {
             file_id,
-            lo: pest_span.start() as u32,
-            hi: pest_span.end() as u32,
+            lo: pest_span.start(),
+            hi: pest_span.end(),
         }
     }
 
