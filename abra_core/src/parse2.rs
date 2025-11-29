@@ -502,8 +502,18 @@ impl Parser {
         Ok(Rc::new(match current.kind {
             TokenKind::Let => todo!(),
             TokenKind::Var => todo!(),
-            TokenKind::Break => todo!(),
-            TokenKind::Continue => todo!(),
+            TokenKind::Break => Stmt {
+                kind: StmtKind::Break.into(),
+                loc: self.location(lo),
+                id: NodeId::new(),
+            }
+            .into(),
+            TokenKind::Continue => Stmt {
+                kind: StmtKind::Continue.into(),
+                loc: self.location(lo),
+                id: NodeId::new(),
+            }
+            .into(),
             TokenKind::Return => {
                 self.expect_token(TokenTag::Return);
                 let expr = self.parse_expr()?;
