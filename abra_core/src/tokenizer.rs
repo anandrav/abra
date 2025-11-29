@@ -153,6 +153,9 @@ impl TokenKind {
             "use" => TokenKind::Use,
             "fn" => TokenKind::Fn,
             "match" => TokenKind::Match,
+            "mod" => TokenKind::Mod,
+            "and" => TokenKind::And,
+            "or" => TokenKind::Or,
             _ => return None,
         })
     }
