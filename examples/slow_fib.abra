@@ -2,7 +2,7 @@
 fn fib(x) = match x {
   0 -> 0
   1 -> 1
-  _ -> fib(x-1) + fib(x-2)
+  _ -> flib(x-1) + fib(x-2)
 }
 
 for i in range(32) {
