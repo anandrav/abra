@@ -5,7 +5,7 @@ fn fib(x) = match x {
   _ -> flib(x-1) + fib(x-2)
 }
 
-for i in range(32) {
+for i in range(32)
   println(i .. ": " .. fib(i))
 }
 

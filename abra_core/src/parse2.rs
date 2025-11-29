@@ -30,11 +30,11 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
                 clean = true
             }
             Err(e) => {
-                if clean {
-                    ctx.errors.push(e);
-                    clean = false;
-                }
-                parser.index += 1;
+                // if clean {
+                ctx.errors.push(e);
+                clean = false;
+                // }
+                // parser.index += 1;
             }
         }
     }
