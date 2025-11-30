@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::ast::*;
+use crate::lexer::{Span, Token, TokenKind, TokenTag, tokenize_file};
 use crate::statics::{Error, StaticsContext};
-use crate::tokenizer::{Span, Token, TokenKind, TokenTag, tokenize_file};
 use std::rc::Rc;
 use strum::IntoDiscriminant;
 

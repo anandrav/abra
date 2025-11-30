@@ -365,8 +365,8 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
     })
 }
 
+use crate::lexer::Span;
 use crate::statics::typecheck::Nominal;
-use crate::tokenizer::Span;
 use codespan_reporting::diagnostic::Label as CsLabel;
 
 impl AstNode {
