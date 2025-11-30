@@ -170,6 +170,13 @@ impl Parser {
     }
 
     fn parse_item(&mut self) -> Result<Rc<Item>, Box<Error>> {
+        self.parse_item_with_attributes(vec![])
+    }
+
+    fn parse_item_with_attributes(
+        &mut self,
+        mut attributes: Vec<Attribute>,
+    ) -> Result<Rc<Item>, Box<Error>> {
         self.skip_newlines();
         let current = self.current_token();
         let lo = self.current_token().span.lo;
@@ -184,10 +191,23 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            // TODO: need to parse shebang at beginning of file. Add different token for Shebang #!
+            TokenKind::Pound => {
+                self.consume_token();
+                let name = self.expect_ident()?;
+                attributes.push(Attribute {
+                    name,
+                    _args: vec![], // TODO: parse attribute args
+                });
+                return self.parse_item_with_attributes(attributes);
+            }
             TokenKind::Type => {
                 self.consume_token();
                 let name = self.expect_ident()?;
-                let args = vec![]; // TODO: parse type args
+                let mut args = vec![];
+                if self.current_token().kind == TokenKind::Lt {
+                    args = self.parse_type_args()?;
+                }
                 self.expect_token(TokenTag::Eq);
                 if self.current_token().kind == TokenKind::OpenBrace {
                     // struct
@@ -207,12 +227,29 @@ impl Parser {
                     }
                 }
             }
-            TokenKind::Fn => {
-                let func_def = self.parse_func_def()?;
+            TokenKind::Interface => {
+                let iface_def = self.parse_iface_def()?;
                 Item {
-                    kind: ItemKind::FuncDef(func_def).into(),
+                    kind: ItemKind::InterfaceDef(iface_def).into(),
                     loc: self.location(lo),
                     id: NodeId::new(),
+                }
+            }
+            TokenKind::Fn => {
+                if attributes.iter().any(Attribute::is_host) {
+                    let func_decl = self.parse_func_decl(attributes)?;
+                    Item {
+                        kind: ItemKind::FuncDecl(func_decl).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                } else {
+                    let func_def = self.parse_func_def()?;
+                    Item {
+                        kind: ItemKind::FuncDef(func_def).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
                 }
             }
             TokenKind::Implement => {
@@ -283,6 +320,69 @@ impl Parser {
         }))
     }
 
+    fn parse_type_args(&mut self) -> Result<Vec<Rc<Polytype>>, Box<Error>> {
+        self.expect_token(TokenTag::Lt);
+        let mut args: Vec<Rc<Polytype>> = vec![];
+        while !matches!(self.current_token().kind, TokenKind::Gt) {
+            self.skip_newlines();
+            let name = self.expect_ident()?; // TODO: identifier of polytype could also have leading '
+            let mut interfaces: Vec<Rc<Interface>> = vec![];
+            while self.current_token().kind.discriminant() == TokenTag::Ident {
+                interfaces.push(self.parse_interface_constraint()?);
+            }
+            args.push(Rc::new(Polytype { name, interfaces }));
+            if self.current_token().kind == TokenKind::Comma {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+        self.expect_token(TokenTag::Gt);
+        Ok(args)
+    }
+
+    fn parse_interface_constraint(&mut self) -> Result<Rc<Interface>, Box<Error>> {
+        let name = self.expect_ident()?;
+        let mut arguments: Vec<(Rc<Identifier>, Rc<Type>)> = vec![];
+        if self.current_token().kind == TokenKind::Lt {
+            self.consume_token();
+            while !matches!(self.current_token().kind, TokenKind::Gt) {
+                self.skip_newlines();
+                let name = self.expect_ident()?;
+                self.expect_token(TokenTag::Eq);
+                let val = self.parse_type()?;
+                arguments.push((name, val));
+                if self.current_token().kind == TokenKind::Comma {
+                    self.consume_token();
+                } else {
+                    break;
+                }
+            }
+            self.expect_token(TokenTag::Gt);
+        }
+        Ok(Rc::new(Interface { name, arguments }))
+    }
+
+    fn parse_iface_def(&mut self) -> Result<Rc<InterfaceDef>, Box<Error>> {
+        self.expect_token(TokenTag::Interface);
+        let name = self.expect_ident()?;
+        self.expect_token(TokenTag::OpenBrace);
+        let mut methods: Vec<Rc<FuncDecl>> = vec![];
+        loop {
+            self.skip_newlines();
+            if self.current_token().kind == TokenKind::CloseBrace {
+                break;
+            }
+            methods.push(self.parse_func_decl(vec![])?);
+        }
+        self.expect_token(TokenTag::CloseBrace);
+        Ok(Rc::new(InterfaceDef {
+            name,
+            methods,
+            output_types: vec![],
+        }))
+    }
+
     fn parse_struct_def(
         &mut self,
         name: Rc<Identifier>,
@@ -338,8 +438,9 @@ impl Parser {
             }
             variants.push(self.parse_variant()?);
             if self.current_token().kind == TokenKind::Newline {
-                self.consume_token();
                 self.skip_newlines()
+            } else if self.current_token().kind == TokenKind::VBar {
+                continue;
             } else {
                 break;
             }
@@ -357,13 +458,43 @@ impl Parser {
         self.skip_newlines();
         let lo = self.index;
         let ctor = self.expect_ident()?;
-        let data = None; // TODO: handle associated data
-        // ty = self.parse_typ()?;
+        let mut data = None; // TODO: handle associated data
+        if self.current_token().kind == TokenKind::OpenParen {
+            data = Some(self.parse_type()?);
+        }
         Ok(Rc::new(Variant {
             ctor,
             data,
             loc: self.location(lo),
             id: NodeId::new(),
+        }))
+    }
+
+    fn parse_func_decl(&mut self, attributes: Vec<Attribute>) -> Result<Rc<FuncDecl>, Box<Error>> {
+        self.skip_newlines();
+        self.expect_token(TokenTag::Fn);
+        let name = self.expect_ident()?;
+        self.expect_token(TokenTag::OpenParen);
+        let mut args = vec![];
+        while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+            args.push(self.parse_func_arg()?);
+            if self.current_token().kind == TokenKind::Comma {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+        self.expect_token(TokenTag::CloseParen);
+
+        self.expect_token(TokenTag::RArrow);
+
+        let ret_type = self.parse_type()?;
+
+        Ok(Rc::new(FuncDecl {
+            name,
+            args,
+            ret_type,
+            attributes,
         }))
     }
 
@@ -683,17 +814,18 @@ impl Parser {
                 }
                 .into();
 
-                let else_start = self.index;
-                let statements_else = self.parse_statement_block()?;
-                let else_block = Expr {
-                    kind: Rc::new(ExprKind::Block(statements_else)),
-                    loc: self.location(else_start),
-                    id: NodeId::new(),
-                }
-                .into();
+                // let else_start = self.index;
+                // let statements_else = self.parse_statement_block()?;
+                let else_expr = self.parse_expr()?;
+                // let else_block = Expr {
+                //     kind: Rc::new(ExprKind::Block(statements_else)),
+                //     loc: self.location(else_start),
+                //     id: NodeId::new(),
+                // }
+                //     .into();
 
                 Expr {
-                    kind: Rc::new(ExprKind::IfElse(condition, then_block, else_block)),
+                    kind: Rc::new(ExprKind::IfElse(condition, then_block, else_expr)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
@@ -732,7 +864,7 @@ impl Parser {
                 self.expect_token(TokenTag::CloseParen);
                 if elems.len() == 0 {
                     Expr {
-                        kind: Rc::new(ExprKind::Void),
+                        kind: Rc::new(ExprKind::Void), // TODO: I don't like using `()` for value of void type. Use 'nil' keyword instead
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
@@ -1100,6 +1232,37 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::OpenParen => {
+                self.consume_token();
+                let mut elems: Vec<Rc<Type>> = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                    elems.push(self.parse_type()?);
+                    if self.current_token().kind == TokenKind::Comma {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseParen);
+                if elems.len() == 0 {
+                    Type {
+                        kind: Rc::new(TypeKind::Void), // TODO: I don't like using `()` for void. Report an error instead
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                } else if elems.len() == 1 {
+                    //  parenthesized expression
+                    return Ok(elems[0].clone());
+                } else {
+                    Type {
+                        kind: Rc::new(TypeKind::Tuple(elems)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                }
+            }
             _ => {
                 return Err(Error::UnexpectedToken(
                     self.file_id,
@@ -1207,17 +1370,18 @@ impl Parser {
                     .into();
 
                     self.expect_token(TokenTag::Else);
-                    let else_start = self.index;
-                    let statements_else = self.parse_statement_block()?;
-                    let else_block = Expr {
-                        kind: Rc::new(ExprKind::Block(statements_else)),
-                        loc: self.location(else_start),
-                        id: NodeId::new(),
-                    }
-                    .into();
+                    // let else_start = self.index;
+                    let else_expr = self.parse_expr()?;
+                    // let statements_else = self.parse_statement_block()?;
+                    // let else_block = Expr {
+                    //     kind: Rc::new(ExprKind::Block(statements_else)),
+                    //     loc: self.location(else_start),
+                    //     id: NodeId::new(),
+                    // }
+                    //     .into();
 
                     let expr = Expr {
-                        kind: Rc::new(ExprKind::IfElse(condition, then_block, else_block)),
+                        kind: Rc::new(ExprKind::IfElse(condition, then_block, else_expr)),
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }

@@ -135,9 +135,7 @@ fn gather_declarations_item(
             }
             TypeDefKind::Struct(s) => {
                 let struct_name = s.name.v.clone();
-                namespace
-                    .declarations
-                    .insert(struct_name.clone(), Declaration::Struct(s.clone()));
+                namespace.add_declaration(ctx, struct_name.clone(), Declaration::Struct(s.clone()));
 
                 let fully_qualified_name = fullname(&qualifiers, &struct_name);
                 ctx.fully_qualified_names
@@ -463,16 +461,18 @@ impl Namespace {
     pub fn add_namespace(&mut self, name: String, namespace: Rc<Namespace>) {
         use std::collections::hash_map::*;
         match self.namespaces.entry(name.clone()) {
-            Entry::Occupied(_) => {
+            Entry::Occupied(mut occ) => {
                 // ASSUMPTION: this will never happen
                 // A namespace is only inserted
                 // 1. for structs and enums
                 //     - in this case, their declarations will conflict with each other already, so it's
                 //       OK if we overwrite the namespace of one with the other. The conflict between the
                 //       declarations will be detected in .add_declaration()
+                // TODO: NOT TRUE: files can come from two different directories, the directory of the mainfile and the directory modules/. Maybe others!
                 // 2. for files but ONLY into the root namespace
                 //     - a conflict cannot happen because two files/directories cannot be named the same thing
-                panic!("duplicate key in namespaces");
+                occ.insert(namespace.clone());
+                // panic!("duplicate key in namespaces: {}", name);
             }
             Entry::Vacant(vac) => {
                 vac.insert(namespace.clone());

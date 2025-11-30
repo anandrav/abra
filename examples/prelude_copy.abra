@@ -44,7 +44,7 @@ type option<T> = some(T) | none
 
 fn unwrap(m: option<T>) -> T {
     match m {
-        .some(x) -> x,
+        .some(x) -> x
         .none -> panic("cannot unwrap option.none")
     }
 }
@@ -72,6 +72,7 @@ implement Equal for bool {
         }
     }
 }
+println("helpworld")
 implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }
