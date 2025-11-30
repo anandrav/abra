@@ -84,6 +84,7 @@ pub(crate) enum TokenKind {
     Let,
     Var,
     Type,
+    Interface,
     Implement,
     Extend,
     Use,
@@ -174,7 +175,7 @@ impl TokenKind {
             | TokenKind::Float => 5,
             TokenKind::Extend | TokenKind::Return | TokenKind::String => 6,
             TokenKind::Continue => 8,
-            TokenKind::Implement => 9,
+            TokenKind::Implement | TokenKind::Interface => 9,
             TokenKind::IntLit(s) | TokenKind::FloatLit(s) | TokenKind::Ident(s) => {
                 s.chars().count()
             }
@@ -187,6 +188,7 @@ impl TokenKind {
             "let" => TokenKind::Let,
             "var" => TokenKind::Var,
             "type" => TokenKind::Type,
+            "interface" => TokenKind::Interface,
             "implement" => TokenKind::Implement,
             "extend" => TokenKind::Extend,
             "use" => TokenKind::Use,
@@ -495,6 +497,7 @@ impl fmt::Display for TokenTag {
             TokenTag::Let => write!(f, "let"),
             TokenTag::Var => write!(f, "var"),
             TokenTag::Type => write!(f, "type"),
+            TokenTag::Interface => write!(f, "interface"),
             TokenTag::Implement => write!(f, "implement"),
             TokenTag::Extend => write!(f, "extend"),
             TokenTag::Use => write!(f, "use"),
