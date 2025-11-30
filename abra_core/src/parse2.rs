@@ -347,7 +347,6 @@ impl Parser {
         self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenParen);
-        // todo get function args
         let mut args = vec![];
         while !matches!(self.current_token().kind, TokenKind::CloseParen) {
             args.push(self.parse_func_arg()?);
@@ -361,7 +360,7 @@ impl Parser {
         // todo get optional return type
         let ret_type = None;
         if self.current_token().kind == TokenKind::Eq {
-            self.expect_token(TokenTag::Eq); // TODO: support the other syntax for func def
+            self.expect_token(TokenTag::Eq);
             let body = self.parse_expr()?;
 
             Ok(Rc::new(FuncDef {
@@ -430,7 +429,7 @@ impl Parser {
                     break;
                 }
 
-                self.consume_token(); // TODO: consume the token in handle_postfix_expr(). Use expect_token instead to be sure
+                self.consume_token();
                 self.handle_postfix_expr(&mut lhs, lo, op)?;
                 continue;
             }
@@ -472,6 +471,7 @@ impl Parser {
         match op {
             PostfixOp::FuncCall => {
                 let mut args: Vec<Rc<Expr>> = vec![];
+                // TODO: code duplication make helper function for getting func args
                 while !matches!(self.current_token().kind, TokenKind::CloseParen) {
                     args.push(self.parse_expr()?);
                     if self.current_token().kind == TokenKind::Comma {
@@ -840,7 +840,7 @@ impl Parser {
             }
             TokenKind::Ident(_) => {
                 let name = self.expect_ident()?;
-                let mut args = vec![]; // TODO: get type args
+                let mut args = vec![];
                 if self.current_token().kind == TokenKind::Lt {
                     self.consume_token();
                     while !matches!(self.current_token().kind, TokenKind::Gt) {
