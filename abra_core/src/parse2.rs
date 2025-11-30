@@ -301,12 +301,19 @@ impl Parser {
         name: Rc<Identifier>,
         ty_args: Vec<Rc<Polytype>>,
     ) -> Result<Rc<EnumDef>, Box<Error>> {
-        self.expect_token_opt(TokenTag::VBar);
         let mut variants: Vec<Rc<Variant>> = vec![];
-        while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+        loop {
+            if variants.is_empty() {
+                self.expect_token_opt(TokenTag::VBar);
+            } else if matches!(self.current_token().kind, TokenKind::VBar) {
+                self.consume_token();
+            } else {
+                break;
+            }
             variants.push(self.parse_variant()?);
             if self.current_token().kind == TokenKind::Newline {
                 self.consume_token();
+                self.skip_newlines()
             } else {
                 break;
             }
@@ -663,6 +670,40 @@ impl Parser {
                     kind: Rc::new(ExprKind::Array(args)),
                     loc: self.location(lo),
                     id: NodeId::new(),
+                }
+            }
+            TokenKind::OpenParen => {
+                self.consume_token();
+                let mut elems: Vec<Rc<Expr>> = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                    elems.push(self.parse_expr()?);
+                    if self.current_token().kind == TokenKind::Comma {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseParen);
+                if elems.len() == 0 {
+                    let location = self.location(lo);
+                    return Err(Error::EmptyParentheses(
+                        self.file_id,
+                        Span {
+                            lo,
+                            hi: location.hi,
+                        },
+                    )
+                    .into()); // TODO: instead of passing FileId + Span, just pass a Location
+                } else if elems.len() == 1 {
+                    //  parenthesized expression
+                    return Ok(elems[0].clone());
+                } else {
+                    Expr {
+                        kind: Rc::new(ExprKind::Tuple(elems)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
                 }
             }
             _ => {
