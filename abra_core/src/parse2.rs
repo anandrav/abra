@@ -727,6 +727,7 @@ impl Parser {
         self.expect_token(TokenTag::OpenParen);
         let mut args: Vec<Rc<Expr>> = vec![];
         while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+            self.skip_newlines();
             args.push(self.parse_expr()?);
             if self.current_token().kind == TokenKind::Comma {
                 self.consume_token();
