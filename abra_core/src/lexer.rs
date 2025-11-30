@@ -262,6 +262,41 @@ impl Lexer {
     fn into_tokens(self) -> Vec<Token> {
         self.tokens
     }
+
+    fn handle_num(&mut self) {
+        let mut num = String::new();
+
+        let mut next = 0;
+        // negative sign
+        if self.current_char() == '-' {
+            num.push('-');
+            next += 1;
+        }
+        // first run of digits
+        while let Some(c) = self.peek_char(next)
+            && c.is_ascii_digit()
+        {
+            num.push(*c);
+            next += 1;
+        }
+        // potential decimal point
+        if let Some('.') = self.peek_char(next) {
+            num.push('.');
+            next += 1;
+        } else {
+            // no decimal point. it's an integer
+            self.emit(TokenKind::IntLit(num));
+            return;
+        }
+        // more digits after decimal point
+        while let Some(c) = self.peek_char(next)
+            && c.is_ascii_digit()
+        {
+            num.push(*c);
+            next += 1;
+        }
+        self.emit(TokenKind::FloatLit(num));
+    }
 }
 
 // TODO: just stick file_id in the file_data as well, annoying to pass both around
@@ -288,38 +323,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             continue;
         }
         if start_of_number(lexer.current_char()) {
-            let mut num = String::new();
-
-            let mut next = 0;
-            // negative sign
-            if lexer.current_char() == '-' {
-                num.push('-');
-                next += 1;
-            }
-            // first run of digits
-            while let Some(c) = lexer.peek_char(next)
-                && c.is_ascii_digit()
-            {
-                num.push(*c);
-                next += 1;
-            }
-            // potential decimal point
-            if let Some('.') = lexer.peek_char(next) {
-                num.push('.');
-                next += 1;
-            } else {
-                // no decimal point. it's an integer
-                lexer.emit(TokenKind::IntLit(num));
-                continue;
-            }
-            // more digits after decimal point
-            while let Some(c) = lexer.peek_char(next)
-                && c.is_ascii_digit()
-            {
-                num.push(*c);
-                next += 1;
-            }
-            lexer.emit(TokenKind::FloatLit(num));
+            lexer.handle_num();
 
             continue;
         }
@@ -371,6 +375,10 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '-' => {
                 if let Some('>') = lexer.peek_char(1) {
                     lexer.emit(TokenKind::RArrow);
+                } else if let Some(c) = lexer.peek_char(1)
+                    && start_of_number(*c)
+                {
+                    lexer.handle_num();
                 } else {
                     lexer.emit(TokenKind::Minus);
                 }

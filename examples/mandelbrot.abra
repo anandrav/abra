@@ -55,34 +55,34 @@ fn main() {
     while poll_key_event(1) {
       let key = get_key_event()
       match key {
-        .Char("q") -> quit = true,
-        .Esc -> quit = true,
+        .Char("q") -> quit = true
+        .Esc -> quit = true
         
         // Pan keys
-        .Up -> view.center_im = view.center_im - (view.scale * 2.0),
-        .Char("w") -> view.center_im = view.center_im - (view.scale * 2.0),
-        .Down -> view.center_im = view.center_im + (view.scale * 2.0),
-        .Char("s") -> view.center_im = view.center_im + (view.scale * 2.0),
-        .Left -> view.center_re = view.center_re - (view.scale * 2.0),
-        .Char("a") -> view.center_re = view.center_re - (view.scale * 2.0),
-        .Right -> view.center_re = view.center_re + (view.scale * 2.0),
-        .Char("d") -> view.center_re = view.center_re + (view.scale * 2.0),
+        .Up -> view.center_im = view.center_im - (view.scale * 2.0)
+        .Char("w") -> view.center_im = view.center_im - (view.scale * 2.0)
+        .Down -> view.center_im = view.center_im + (view.scale * 2.0)
+        .Char("s") -> view.center_im = view.center_im + (view.scale * 2.0)
+        .Left -> view.center_re = view.center_re - (view.scale * 2.0)
+        .Char("a") -> view.center_re = view.center_re - (view.scale * 2.0)
+        .Right -> view.center_re = view.center_re + (view.scale * 2.0)
+        .Char("d") -> view.center_re = view.center_re + (view.scale * 2.0)
 
         // Zoom in
         .Char("z") -> {
             view.scale = view.scale * 0.8
             view.max_iter = view.max_iter + 10 
-        },
+        }
         
         // Zoom Out
         .Char("x") -> {
             view.scale = view.scale * 1.25
             view.max_iter = view.max_iter - 10
             if view.max_iter < 50 { view.max_iter = 50 }
-        },
+        }
 
-        .Char("]") -> view.max_iter = view.max_iter + 50,
-        .Char("[") -> view.max_iter = view.max_iter - 50,
+        .Char("]") -> view.max_iter = view.max_iter + 50
+        .Char("[") -> view.max_iter = view.max_iter - 50
         
         // Reset View
         .Char("r") -> {
@@ -90,7 +90,7 @@ fn main() {
             view.center_im = 0.1318252536
             view.scale = 0.05
             view.max_iter = 150
-        },
+        }
 
         _ -> {}
       }

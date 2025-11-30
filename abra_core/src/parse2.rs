@@ -34,7 +34,6 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
                 clean = true
             }
             Err(e) => {
-                // println!("ERROR: {}", e.to_string(&ctx.file_db, false));
                 // if clean {
                 // println!("got an error when parsing item");
                 ctx.errors.push(*e);
@@ -977,6 +976,41 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            // TODO: code duplication with parse_match_pattern(). Make a helper function used by both
+            TokenKind::OpenParen => {
+                self.consume_token();
+                let mut elems: Vec<Rc<Pat>> = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                    elems.push(self.parse_match_pattern()?);
+                    if self.current_token().kind == TokenKind::Comma {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseParen);
+                if elems.len() == 0 {
+                    let location = self.location(lo);
+                    return Err(Error::EmptyParentheses(
+                        self.file_id,
+                        Span {
+                            lo,
+                            hi: location.hi,
+                        },
+                    )
+                    .into()); // TODO: instead of passing FileId + Span, just pass a Location
+                } else if elems.len() == 1 {
+                    //  parenthesized pattern
+                    return Ok(elems[0].clone());
+                } else {
+                    Pat {
+                        kind: Rc::new(PatKind::Tuple(elems)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                }
+            }
             _ => {
                 return Err(Error::UnexpectedToken(
                     self.file_id,
@@ -1164,6 +1198,7 @@ impl Parser {
                     }
                     .into();
 
+                    self.expect_token(TokenTag::Else);
                     let else_start = self.index;
                     let statements_else = self.parse_statement_block()?;
                     let else_block = Expr {
