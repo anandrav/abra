@@ -216,6 +216,36 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::Implement => {
+                self.consume_token();
+                let iface = self.expect_ident()?;
+                self.expect_token(TokenTag::For);
+                let typ = self.parse_type()?;
+                self.expect_token(TokenTag::OpenBrace);
+                let mut methods = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+                    methods.push(self.parse_func_def()?);
+                    if self.current_token().kind == TokenKind::Newline {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseBrace);
+
+                let interface_impl = InterfaceImpl {
+                    iface,
+                    typ,
+                    methods: vec![],
+                    id: NodeId::new(),
+                }
+                .into();
+                Item {
+                    kind: ItemKind::InterfaceImpl(interface_impl).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             _ => {
                 let stmt = self.parse_stmt()?;
                 Item {
@@ -257,7 +287,7 @@ impl Parser {
         let lo = self.index;
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::Colon);
-        let ty = self.parse_typ()?;
+        let ty = self.parse_type()?;
         Ok(Rc::new(StructField {
             name,
             ty,
@@ -306,6 +336,7 @@ impl Parser {
     }
 
     fn parse_func_def(&mut self) -> Result<Rc<FuncDef>, Box<Error>> {
+        self.skip_newlines();
         self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenParen);
@@ -353,9 +384,9 @@ impl Parser {
     fn parse_func_arg(&mut self) -> Result<ArgMaybeAnnotated, Box<Error>> {
         let name = self.expect_ident()?;
         let mut typ = None;
-        if self.current_token().kind == TokenKind::Semi {
+        if self.current_token().kind == TokenKind::Colon {
             self.consume_token();
-            typ = Some(self.parse_typ()?);
+            typ = Some(self.parse_type()?);
         }
         Ok((name, typ))
     }
@@ -723,14 +754,14 @@ impl Parser {
 
         let pat = self.parse_let_pattern()?;
         if self.current_token().kind == TokenKind::Colon {
-            let annot = self.parse_typ()?;
+            let annot = self.parse_type()?;
             Ok((pat, Some(annot)))
         } else {
             Ok((pat, None))
         }
     }
 
-    fn parse_typ(&mut self) -> Result<Rc<Type>, Box<Error>> {
+    fn parse_type(&mut self) -> Result<Rc<Type>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
