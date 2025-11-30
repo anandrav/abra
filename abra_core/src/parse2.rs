@@ -1071,6 +1071,14 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::Void => {
+                self.consume_token();
+                Type {
+                    kind: Rc::new(TypeKind::Void),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::Ident(_) => {
                 let name = self.expect_ident()?;
                 let mut args = vec![];
