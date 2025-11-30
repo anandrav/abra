@@ -706,6 +706,41 @@ impl Parser {
                     .into()
                 }
             }
+            TokenKind::Dot => {
+                self.consume_token();
+                let ident = self.expect_ident()?;
+                if self.current_token().kind == TokenKind::OpenParen {
+                    self.consume_token();
+                    // member func call
+                    // `.my_enum_variant(`
+                    // TODO: code duplication. Make helper function for getting args
+                    let mut args: Vec<Rc<Expr>> = vec![];
+                    while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                        args.push(self.parse_expr()?);
+                        if self.current_token().kind == TokenKind::Comma {
+                            self.consume_token();
+                        } else {
+                            break;
+                        }
+                    }
+                    self.expect_token(TokenTag::CloseParen);
+                    Expr {
+                        kind: ExprKind::MemberFuncAp(None, ident, args).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                } else {
+                    // member access
+                    // `.my_enum_variant`
+                    Expr {
+                        kind: ExprKind::MemberAccessLeadingDot(ident).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                }
+            }
             _ => {
                 // println!("got an unexpected token");
                 return Err(Error::UnexpectedToken(
@@ -752,6 +787,40 @@ impl Parser {
                     kind: Rc::new(PatKind::Int(s.parse::<i64>().unwrap())), // TODO: don't unwrap. report error if this can't fit in an i64
                     loc: self.location(lo),
                     id: NodeId::new(),
+                }
+            }
+            TokenKind::OpenParen => {
+                self.consume_token();
+                let mut elems: Vec<Rc<Pat>> = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                    elems.push(self.parse_match_pattern()?);
+                    if self.current_token().kind == TokenKind::Comma {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseParen);
+                if elems.len() == 0 {
+                    let location = self.location(lo);
+                    return Err(Error::EmptyParentheses(
+                        self.file_id,
+                        Span {
+                            lo,
+                            hi: location.hi,
+                        },
+                    )
+                    .into()); // TODO: instead of passing FileId + Span, just pass a Location
+                } else if elems.len() == 1 {
+                    //  parenthesized pattern
+                    return Ok(elems[0].clone());
+                } else {
+                    Pat {
+                        kind: Rc::new(PatKind::Tuple(elems)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
                 }
             }
             _ => {
