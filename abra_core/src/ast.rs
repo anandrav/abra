@@ -321,7 +321,7 @@ impl Item {
 pub(crate) enum ItemKind {
     FuncDecl(Rc<FuncDecl>),
     FuncDef(Rc<FuncDef>),
-    TypeDef(Rc<TypeDefKind>),
+    TypeDef(Rc<TypeDefKind>), // TODO: doesn't need to be an Rc<TypeDefKind>. Just use TypeDefKind
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceImpl(Rc<InterfaceImpl>),
     Extension(Rc<Extension>),

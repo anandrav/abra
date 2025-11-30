@@ -24,23 +24,31 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     let mut parser = Parser::new(tokens, file_id);
     let mut clean = true;
     while !parser.done() {
+        // println!("iteration index={}", parser.index);
         let before = parser.index;
         match parser.parse_item() {
             Ok(item) => {
+                // println!("is OK");
+                // dbg!(&item);
                 items.push(item);
                 clean = true
             }
             Err(e) => {
+                // println!("ERROR: {}", e.to_string(&ctx.file_db, false));
                 // if clean {
+                // println!("got an error when parsing item");
                 ctx.errors.push(*e);
                 clean = false;
                 // }
-                if parser.index == before {
-                    parser.index += 1;
-                }
+                // if parser.index == before {
+                // println!("incrementing index");
+                parser.index += 1;
+                // println!("index={}", parser.index);
+                // }
             }
         }
     }
+    // println!("parser is done");
     ctx.errors.extend(parser.errors);
 
     let file_data = ctx.file_db.get(file_id).unwrap();
@@ -110,6 +118,16 @@ impl Parser {
         }
     }
 
+    fn expect_token_opt(&mut self, kind: TokenTag) {
+        if kind != TokenTag::Newline {
+            self.skip_newlines();
+        }
+        let current = self.current_token();
+        if current.kind.discriminant() == kind {
+            self.index += 1;
+        }
+    }
+
     fn consume_token(&mut self) {
         self.index += 1;
     }
@@ -157,6 +175,39 @@ impl Parser {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
+            TokenKind::Use => {
+                self.consume_token();
+                let ident = self.expect_ident()?;
+                // TODO: handle import list
+                Item {
+                    kind: ItemKind::Import(ident, None).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::Type => {
+                self.consume_token();
+                let name = self.expect_ident()?;
+                let args = vec![]; // TODO: parse type args
+                self.expect_token(TokenTag::Eq);
+                if self.current_token().kind == TokenKind::OpenBrace {
+                    // struct
+                    let struct_def = self.parse_struct_def(name, args)?;
+                    Item {
+                        kind: ItemKind::TypeDef(TypeDefKind::Struct(struct_def).into()).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                } else {
+                    // enum
+                    let enum_def = self.parse_enum_def(name, args)?;
+                    Item {
+                        kind: ItemKind::TypeDef(TypeDefKind::Enum(enum_def).into()).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                }
+            }
             TokenKind::Fn => {
                 let func_def = self.parse_func_def()?;
                 Item {
@@ -173,6 +224,84 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+        }))
+    }
+
+    fn parse_struct_def(
+        &mut self,
+        name: Rc<Identifier>,
+        ty_args: Vec<Rc<Polytype>>,
+    ) -> Result<Rc<StructDef>, Box<Error>> {
+        self.expect_token(TokenTag::OpenBrace);
+        let mut fields: Vec<Rc<StructField>> = vec![];
+        while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+            fields.push(self.parse_struct_field()?);
+            if self.current_token().kind == TokenKind::Newline {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+        self.expect_token(TokenTag::CloseBrace);
+
+        Ok(Rc::new(StructDef {
+            name,
+            ty_args,
+            fields,
+            id: NodeId::new(),
+        }))
+    }
+
+    fn parse_struct_field(&mut self) -> Result<Rc<StructField>, Box<Error>> {
+        self.skip_newlines();
+        let lo = self.index;
+        let name = self.expect_ident()?;
+        self.expect_token(TokenTag::Colon);
+        let ty = self.parse_typ()?;
+        Ok(Rc::new(StructField {
+            name,
+            ty,
+            loc: self.location(lo),
+            id: NodeId::new(),
+        }))
+    }
+
+    fn parse_enum_def(
+        &mut self,
+        name: Rc<Identifier>,
+        ty_args: Vec<Rc<Polytype>>,
+    ) -> Result<Rc<EnumDef>, Box<Error>> {
+        self.expect_token_opt(TokenTag::VBar);
+        let mut variants: Vec<Rc<Variant>> = vec![];
+        while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+            variants.push(self.parse_variant()?);
+            if self.current_token().kind == TokenKind::Newline {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+        self.expect_token(TokenTag::CloseBrace);
+
+        Ok(Rc::new(EnumDef {
+            name,
+            ty_args,
+            variants,
+            id: NodeId::new(),
+        }))
+    }
+
+    fn parse_variant(&mut self) -> Result<Rc<Variant>, Box<Error>> {
+        self.skip_newlines();
+        let lo = self.index;
+        let ctor = self.expect_ident()?;
+        let data = None; // TODO: handle associated data
+        // ty = self.parse_typ()?;
+        Ok(Rc::new(Variant {
+            ctor,
+            data,
+            loc: self.location(lo),
+            id: NodeId::new(),
         }))
     }
 
@@ -497,6 +626,7 @@ impl Parser {
                 }
             }
             _ => {
+                // println!("got an unexpected token");
                 return Err(Error::UnexpectedToken(
                     self.file_id,
                     "expression term".into(),
@@ -701,18 +831,24 @@ impl Parser {
                 }
                 .into()
             }
-            TokenKind::Break => Stmt {
-                kind: StmtKind::Break.into(),
-                loc: self.location(lo),
-                id: NodeId::new(),
+            TokenKind::Break => {
+                self.consume_token();
+                Stmt {
+                    kind: StmtKind::Break.into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+                .into()
             }
-            .into(),
-            TokenKind::Continue => Stmt {
-                kind: StmtKind::Continue.into(),
-                loc: self.location(lo),
-                id: NodeId::new(),
+            TokenKind::Continue => {
+                self.consume_token();
+                Stmt {
+                    kind: StmtKind::Continue.into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+                .into()
             }
-            .into(),
             TokenKind::Return => {
                 self.expect_token(TokenTag::Return);
                 let expr = self.parse_expr()?;
