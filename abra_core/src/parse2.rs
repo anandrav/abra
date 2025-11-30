@@ -470,17 +470,7 @@ impl Parser {
     ) -> Result<(), Box<Error>> {
         match op {
             PostfixOp::FuncCall => {
-                let mut args: Vec<Rc<Expr>> = vec![];
-                // TODO: code duplication make helper function for getting func args
-                while !matches!(self.current_token().kind, TokenKind::CloseParen) {
-                    args.push(self.parse_expr()?);
-                    if self.current_token().kind == TokenKind::Comma {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseParen);
+                let args = self.parse_parenthesized_expression_list()?;
                 *lhs = Rc::new(Expr {
                     kind: ExprKind::FuncAp(lhs.clone(), args).into(),
                     loc: self.location(lo),
@@ -493,17 +483,7 @@ impl Parser {
                     self.consume_token();
                     // member func call
                     // `my_struct.my_member_func(`
-                    // TODO: code duplication. Make helper function for getting args
-                    let mut args: Vec<Rc<Expr>> = vec![];
-                    while !matches!(self.current_token().kind, TokenKind::CloseParen) {
-                        args.push(self.parse_expr()?);
-                        if self.current_token().kind == TokenKind::Comma {
-                            self.consume_token();
-                        } else {
-                            break;
-                        }
-                    }
-                    self.expect_token(TokenTag::CloseParen);
+                    let args = self.parse_parenthesized_expression_list()?;
                     *lhs = Rc::new(Expr {
                         kind: ExprKind::MemberFuncAp(Some(lhs.clone()), ident, args).into(),
                         loc: self.location(lo),
@@ -710,20 +690,9 @@ impl Parser {
                 self.consume_token();
                 let ident = self.expect_ident()?;
                 if self.current_token().kind == TokenKind::OpenParen {
-                    self.consume_token();
                     // member func call
                     // `.my_enum_variant(`
-                    // TODO: code duplication. Make helper function for getting args
-                    let mut args: Vec<Rc<Expr>> = vec![];
-                    while !matches!(self.current_token().kind, TokenKind::CloseParen) {
-                        args.push(self.parse_expr()?);
-                        if self.current_token().kind == TokenKind::Comma {
-                            self.consume_token();
-                        } else {
-                            break;
-                        }
-                    }
-                    self.expect_token(TokenTag::CloseParen);
+                    let args = self.parse_parenthesized_expression_list()?;
                     Expr {
                         kind: ExprKind::MemberFuncAp(None, ident, args).into(),
                         loc: self.location(lo),
@@ -752,6 +721,21 @@ impl Parser {
                 .into());
             }
         }))
+    }
+
+    fn parse_parenthesized_expression_list(&mut self) -> Result<Vec<Rc<Expr>>, Box<Error>> {
+        self.expect_token(TokenTag::OpenParen);
+        let mut args: Vec<Rc<Expr>> = vec![];
+        while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+            args.push(self.parse_expr()?);
+            if self.current_token().kind == TokenKind::Comma {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+        self.expect_token(TokenTag::CloseParen);
+        Ok(args)
     }
 
     fn parse_match_arm(&mut self) -> Result<Rc<MatchArm>, Box<Error>> {
@@ -823,6 +807,31 @@ impl Parser {
                     .into()
                 }
             }
+            TokenKind::Dot => {
+                self.consume_token();
+                let ident = self.expect_ident()?;
+                if self.current_token().kind == TokenKind::OpenParen {
+                    // member func call
+                    // `.my_enum_variant(`
+                    let data = self.parse_match_pattern()?;
+                    Pat {
+                        kind: PatKind::Variant(vec![], ident, Some(data)).into(), // TODO: handle leading identifiers instead of passing empty vec
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                } else {
+                    // member access
+                    // `.my_enum_variant`
+                    let data = None;
+                    Pat {
+                        kind: PatKind::Variant(vec![], ident, data).into(), // TODO: handle leading identifiers instead of passing empty vec
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                }
+            }
             _ => {
                 return Err(Error::UnexpectedToken(
                     self.file_id,
@@ -833,6 +842,21 @@ impl Parser {
                 .into());
             }
         }))
+    }
+
+    fn parse_parenthesized_match_pattern_list(&mut self) -> Result<Vec<Rc<Pat>>, Box<Error>> {
+        self.expect_token(TokenTag::OpenParen);
+        let mut args: Vec<Rc<Pat>> = vec![];
+        while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+            args.push(self.parse_match_pattern()?);
+            if self.current_token().kind == TokenKind::Comma {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+        self.expect_token(TokenTag::CloseParen);
+        Ok(args)
     }
 
     fn parse_let_pattern(&mut self) -> Result<Rc<Pat>, Box<Error>> {

@@ -43,10 +43,10 @@ type Status =
 implement Equal for Status {
   fn equal(s1: Status, s2: Status) {
     match (s1, s2) {
-      (.Playing, .Playing) -> true,
-      (.Lost, .Lost) -> true,
-      (.Won, .Won) -> true,
-      _ -> false,
+      (.Playing, .Playing) -> true
+      (.Lost, .Lost) -> true
+      (.Won, .Won) -> true
+      _ -> false
     }
   }
 }
@@ -82,13 +82,13 @@ fn main() {
       .Playing -> {
         st.snake.display()
         st.fruit.display()
-      },
+      }
       .Lost -> {
         display_game_over()
-      },
+      }
       .Won -> {
         display_win_screen()
-      },
+      }
     }
     flush()
 
@@ -97,16 +97,16 @@ fn main() {
     while poll_key_event(0) {
       let snake = st.snake
       match get_key_event() {
-        .Left -> snake.direction = .Left,
-        .Char("a") -> snake.direction = .Left,
-        .Right -> snake.direction = .Right,
-        .Char("d") -> snake.direction = .Right,
-        .Up -> snake.direction = .Up,
-        .Char("w") -> snake.direction = .Up,
-        .Down -> snake.direction = .Down,
-        .Char("s") -> snake.direction = .Down,
-        .Char("q") -> st.quit = true,
-        .Esc -> st.quit = true,
+        .Left -> snake.direction = .Left
+        .Char("a") -> snake.direction = .Left
+        .Right -> snake.direction = .Right
+        .Char("d") -> snake.direction = .Right
+        .Up -> snake.direction = .Up
+        .Char("w") -> snake.direction = .Up
+        .Down -> snake.direction = .Down
+        .Char("s") -> snake.direction = .Down
+        .Char("q") -> st.quit = true
+        .Esc -> st.quit = true
         _ -> {}
       }
     }
@@ -158,9 +158,9 @@ fn update(st: State) {
 
   let new_head = snake.body[0].clone()
   match snake.direction {
-    .Up -> new_head.y = new_head.y - 1,
-    .Down -> new_head.y = new_head.y + 1,
-    .Left -> new_head.x = new_head.x - 1,
+    .Up -> new_head.y = new_head.y - 1
+    .Down -> new_head.y = new_head.y + 1
+    .Left -> new_head.x = new_head.x - 1
     .Right -> new_head.x = new_head.x + 1
   }
 
