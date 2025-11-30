@@ -6,6 +6,7 @@ use crate::ast::FileId;
 use crate::statics::{Error, StaticsContext};
 use std::fmt;
 use std::fmt::Formatter;
+use strum::IntoDiscriminant;
 use strum_macros::EnumDiscriminants;
 
 #[derive(Clone)]
@@ -98,10 +99,15 @@ pub(crate) enum TokenKind {
     Else,
     True,
     False,
+    Int,
+    Float,
+    Bool,
+    String,
+    Void,
 
-    Int(String), // TODO: intern the strings and just store Ids here later
-    Float(String),
-    String(String),
+    IntLit(String), // TODO: intern the strings and just store Ids here later
+    FloatLit(String),
+    StringLit(String),
     Ident(String),
     Wildcard,
 
@@ -153,15 +159,26 @@ impl TokenKind {
             | TokenKind::Use
             | TokenKind::For
             | TokenKind::Mod
-            | TokenKind::And => 3,
+            | TokenKind::And
+            | TokenKind::Int => 3,
 
-            TokenKind::Type | TokenKind::Else | TokenKind::True => 4,
-            TokenKind::Match | TokenKind::Break | TokenKind::While | TokenKind::False => 5,
-            TokenKind::Extend | TokenKind::Return => 6,
+            TokenKind::Type
+            | TokenKind::Else
+            | TokenKind::True
+            | TokenKind::Bool
+            | TokenKind::Void => 4,
+            TokenKind::Match
+            | TokenKind::Break
+            | TokenKind::While
+            | TokenKind::False
+            | TokenKind::Float => 5,
+            TokenKind::Extend | TokenKind::Return | TokenKind::String => 6,
             TokenKind::Continue => 8,
             TokenKind::Implement => 9,
-            TokenKind::Int(s) | TokenKind::Float(s) | TokenKind::Ident(s) => s.chars().count(),
-            TokenKind::String(s) => s.chars().count() + 2, // include quotes
+            TokenKind::IntLit(s) | TokenKind::FloatLit(s) | TokenKind::Ident(s) => {
+                s.chars().count()
+            }
+            TokenKind::StringLit(s) => s.chars().count() + 2, // include quotes
         }
     }
 
@@ -188,6 +205,11 @@ impl TokenKind {
             "else" => TokenKind::Else,
             "true" => TokenKind::True,
             "false" => TokenKind::False,
+            "int" => TokenKind::Int,
+            "float" => TokenKind::Float,
+            "bool" => TokenKind::Bool,
+            "string" => TokenKind::String,
+            "void" => TokenKind::Void,
             _ => return None,
         })
     }
@@ -287,7 +309,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                 next += 1;
             } else {
                 // no decimal point. it's an integer
-                lexer.emit(TokenKind::Int(num));
+                lexer.emit(TokenKind::IntLit(num));
                 continue;
             }
             // more digits after decimal point
@@ -297,7 +319,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                 num.push(*c);
                 next += 1;
             }
-            lexer.emit(TokenKind::Float(num));
+            lexer.emit(TokenKind::FloatLit(num));
 
             continue;
         }
@@ -372,7 +394,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                     next += 1;
                 }
 
-                lexer.emit(TokenKind::String(s))
+                lexer.emit(TokenKind::StringLit(s))
             }
             '/' => {
                 if let Some('/') = lexer.peek_char(1) {
@@ -420,61 +442,11 @@ fn start_of_number(c: char) -> bool {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self.kind {
-            TokenKind::Eq => write!(f, "="),
-            TokenKind::Lt => write!(f, "<"),
-            TokenKind::Le => write!(f, "<="),
-            TokenKind::EqEq => write!(f, "=="),
-            TokenKind::Ne => write!(f, "!="),
-            TokenKind::Ge => write!(f, ">="),
-            TokenKind::Gt => write!(f, ">"),
-            TokenKind::Bang => write!(f, "!"),
-            TokenKind::Plus => write!(f, "+"),
-            TokenKind::Minus => write!(f, "-"),
-            TokenKind::Star => write!(f, "*"),
-            TokenKind::Slash => write!(f, "/"),
-            TokenKind::Caret => write!(f, "^"),
-            TokenKind::Mod => write!(f, "mod"),
-            TokenKind::And => write!(f, "and"),
-            TokenKind::Or => write!(f, "or"),
-            TokenKind::Dot => write!(f, "."),
-            TokenKind::DotDot => write!(f, ".."),
-            TokenKind::Comma => write!(f, ","),
-            TokenKind::Semi => write!(f, ";"),
-            TokenKind::Colon => write!(f, ":"),
-            TokenKind::RArrow => write!(f, "->"),
-            TokenKind::VBar => write!(f, "|"),
-            TokenKind::Pound => write!(f, "#"),
-            TokenKind::OpenParen => write!(f, "("),
-            TokenKind::CloseParen => write!(f, ")"),
-            TokenKind::OpenBrace => write!(f, "{{"),
-            TokenKind::CloseBrace => write!(f, "}}"),
-            TokenKind::OpenBracket => write!(f, "["),
-            TokenKind::CloseBracket => write!(f, "]"),
-            TokenKind::Wildcard => write!(f, "_"),
-            TokenKind::Let => write!(f, "let"),
-            TokenKind::Var => write!(f, "var"),
-            TokenKind::Type => write!(f, "type"),
-            TokenKind::Implement => write!(f, "implement"),
-            TokenKind::Extend => write!(f, "extend"),
-            TokenKind::Use => write!(f, "use"),
-            TokenKind::Fn => write!(f, "fn"),
-            TokenKind::Match => write!(f, "match"),
-            TokenKind::Break => write!(f, "break"),
-            TokenKind::Continue => write!(f, "continue"),
-            TokenKind::Return => write!(f, "return"),
-            TokenKind::While => write!(f, "while"),
-            TokenKind::For => write!(f, "for"),
-            TokenKind::In => write!(f, "in"),
-            TokenKind::If => write!(f, "if"),
-            TokenKind::Else => write!(f, "else"),
-            TokenKind::True => write!(f, "true"),
-            TokenKind::False => write!(f, "false"),
-            TokenKind::Int(s) => write!(f, "{}", s),
-            TokenKind::Float(s) => write!(f, "{}", s),
-            TokenKind::String(s) => write!(f, "\"{}\"", s),
+            TokenKind::IntLit(s) => write!(f, "{}", s),
+            TokenKind::FloatLit(s) => write!(f, "{}", s),
+            TokenKind::StringLit(s) => write!(f, "\"{}\"", s),
             TokenKind::Ident(s) => write!(f, "{}", s),
-            TokenKind::Newline => writeln!(f),
-            TokenKind::Eof => write!(f, "<EOF>"),
+            _ => write!(f, "{}", self.kind.discriminant()),
         }
     }
 }
@@ -530,9 +502,14 @@ impl fmt::Display for TokenTag {
             TokenTag::Else => write!(f, "else"),
             TokenTag::True => write!(f, "true"),
             TokenTag::False => write!(f, "false"),
-            TokenTag::Int => write!(f, "int literal"),
-            TokenTag::Float => write!(f, "float literal"),
-            TokenTag::String => write!(f, "string literal"),
+            TokenTag::Int => write!(f, "int"),
+            TokenTag::Float => write!(f, "float"),
+            TokenTag::Bool => write!(f, "bool"),
+            TokenTag::String => write!(f, "string"),
+            TokenTag::Void => write!(f, "void"),
+            TokenTag::IntLit => write!(f, "int literal"),
+            TokenTag::FloatLit => write!(f, "float literal"),
+            TokenTag::StringLit => write!(f, "string literal"),
             TokenTag::Ident => write!(f, "identifier"),
             TokenTag::Newline => write!(f, "newline"),
             TokenTag::Eof => write!(f, "<EOF>"),

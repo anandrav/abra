@@ -535,7 +535,7 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::Int(s) => {
+            TokenKind::IntLit(s) => {
                 self.consume_token();
                 Expr {
                     kind: Rc::new(ExprKind::Int(s.parse::<i64>().unwrap())), // TODO: don't unwrap. report error if this can't fit in an i64
@@ -543,7 +543,7 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::String(s) => {
+            TokenKind::StringLit(s) => {
                 self.consume_token();
                 Expr {
                     kind: Rc::new(ExprKind::Str(s)),
@@ -665,7 +665,7 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::Int(s) => {
+            TokenKind::IntLit(s) => {
                 self.consume_token();
                 Pat {
                     kind: Rc::new(PatKind::Int(s.parse::<i64>().unwrap())), // TODO: don't unwrap. report error if this can't fit in an i64
@@ -722,83 +722,51 @@ impl Parser {
     }
 
     fn parse_typ(&mut self) -> Result<Rc<Type>, Box<Error>> {
-        todo!()
-        // let current = self.current_token();
-        // let lo = self.current_token().span.lo;
-        // Ok(Rc::new(match current.kind {
-        //     TokenKind::Ident(s) => {
-        //         self.consume_token();
-        //         Expr {
-        //             kind: Rc::new(ExprKind::Variable(s)),
-        //             loc: self.location(lo),
-        //             id: NodeId::new(),
-        //         }
-        //     }
-        //     TokenKind::Int(s) => {
-        //         self.consume_token();
-        //         Expr {
-        //             kind: Rc::new(ExprKind::Int(s.parse::<i64>().unwrap())), // TODO: don't unwrap. report error if this can't fit in an i64
-        //             loc: self.location(lo),
-        //             id: NodeId::new(),
-        //         }
-        //     }
-        //     TokenKind::String(s) => {
-        //         self.consume_token();
-        //         Expr {
-        //             kind: Rc::new(ExprKind::Str(s)),
-        //             loc: self.location(lo),
-        //             id: NodeId::new(),
-        //         }
-        //     }
-        //     TokenKind::Match => {
-        //         self.expect_token(TokenTag::Match);
-        //         let scrutiny = self.parse_expr()?;
-        //         self.expect_token(TokenTag::OpenBrace);
-        //         let mut arms: Vec<Rc<MatchArm>> = vec![];
-        //         self.skip_newlines();
-        //         let mut clean = true;
-        //         while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
-        //             arms.push(self.parse_match_arm()?);
-        //             // let checkpoint = self.index;
-        //             // match self.parse_match_arm() {
-        //             //     Ok(arm) => {
-        //             //         clean = true;
-        //             //         arms.push(arm)
-        //             //     }
-        //             //     Err(e) => {
-        //             //         self.errors.push(e);
-        //             //         if clean {
-        //             //             clean = false;
-        //             //             continue;
-        //             //         } else {
-        //             //             self.index = checkpoint;
-        //             //             break;
-        //             //         }
-        //             //     }
-        //             // }
-        //             if self.current_token().kind == TokenKind::Newline {
-        //                 self.skip_newlines();
-        //             } else {
-        //                 break;
-        //             }
-        //         }
-        //         self.expect_token(TokenTag::CloseBrace);
-        //         Expr {
-        //             kind: Rc::new(ExprKind::Match(scrutiny, arms)),
-        //             loc: self.location(lo),
-        //             id: NodeId::new(),
-        //         }
-        //     }
-        //     _ => {
-        //         return Err(Error::UnexpectedToken(
-        //             self.file_id,
-        //             "expression term".into(),
-        //             current.kind.discriminant().to_string(),
-        //             current.span,
-        //         )
-        //             .into());
-        //     }
-        // }))
+        let current = self.current_token();
+        let lo = self.current_token().span.lo;
+        Ok(Rc::new(match current.kind {
+            TokenKind::Int => {
+                self.consume_token();
+                Type {
+                    kind: Rc::new(TypeKind::Int),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::Float => {
+                self.consume_token();
+                Type {
+                    kind: Rc::new(TypeKind::Float),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::String => {
+                self.consume_token();
+                Type {
+                    kind: Rc::new(TypeKind::Str),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::Bool => {
+                self.consume_token();
+                Type {
+                    kind: Rc::new(TypeKind::Bool),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            _ => {
+                return Err(Error::UnexpectedToken(
+                    self.file_id,
+                    "type".into(),
+                    current.kind.discriminant().to_string(),
+                    current.span,
+                )
+                .into());
+            }
+        }))
     }
 
     fn parse_stmt(&mut self) -> Result<Rc<Stmt>, Box<Error>> {
