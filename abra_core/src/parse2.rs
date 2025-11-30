@@ -312,8 +312,7 @@ impl Parser {
         // todo get function args
         let mut args = vec![];
         while !matches!(self.current_token().kind, TokenKind::CloseParen) {
-            let name = self.expect_ident()?;
-            args.push((name, None)); // TODO: parse annotation
+            args.push(self.parse_func_arg()?);
             if self.current_token().kind == TokenKind::Comma {
                 self.consume_token();
             } else {
@@ -349,6 +348,16 @@ impl Parser {
                 body: block_expr,
             }))
         }
+    }
+
+    fn parse_func_arg(&mut self) -> Result<ArgMaybeAnnotated, Box<Error>> {
+        let name = self.expect_ident()?;
+        let mut typ = None;
+        if self.current_token().kind == TokenKind::Semi {
+            self.consume_token();
+            typ = Some(self.parse_typ()?);
+        }
+        Ok((name, typ))
     }
 
     fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
@@ -753,6 +762,15 @@ impl Parser {
                 self.consume_token();
                 Type {
                     kind: Rc::new(TypeKind::Bool),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::Ident(_) => {
+                let name = self.expect_ident()?;
+                let args = vec![]; // TODO: get type args
+                Type {
+                    kind: Rc::new(TypeKind::NamedWithParams(name, args)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
