@@ -570,6 +570,14 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::FloatLit(s) => {
+                self.consume_token();
+                Expr {
+                    kind: Rc::new(ExprKind::Float(s)), // TODO: make sure float fits in an f64?
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::StringLit(s) => {
                 self.consume_token();
                 Expr {
@@ -711,7 +719,13 @@ impl Parser {
                 }
             }
             TokenKind::OpenBrace => {
-                todo!()
+                let statements = self.parse_statement_block()?;
+                Expr {
+                    kind: ExprKind::Block(statements).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+                .into()
             }
             _ => {
                 // println!("got an unexpected token");
@@ -769,10 +783,42 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::True => {
+                self.consume_token();
+                Pat {
+                    kind: Rc::new(PatKind::Bool(true)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::False => {
+                self.consume_token();
+                Pat {
+                    kind: Rc::new(PatKind::Bool(false)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::IntLit(s) => {
                 self.consume_token();
                 Pat {
                     kind: Rc::new(PatKind::Int(s.parse::<i64>().unwrap())), // TODO: don't unwrap. report error if this can't fit in an i64
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::FloatLit(s) => {
+                self.consume_token();
+                Pat {
+                    kind: Rc::new(PatKind::Float(s)), // TODO: report error if doesn't fit in f64?
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::StringLit(s) => {
+                self.consume_token();
+                Pat {
+                    kind: Rc::new(PatKind::Str(s)), // TODO: don't unwrap. report error if this can't fit in an i64
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
