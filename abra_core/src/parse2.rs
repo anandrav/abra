@@ -710,6 +710,9 @@ impl Parser {
                     .into()
                 }
             }
+            TokenKind::OpenBrace => {
+                todo!()
+            }
             _ => {
                 // println!("got an unexpected token");
                 return Err(Error::UnexpectedToken(
