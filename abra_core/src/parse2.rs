@@ -314,6 +314,7 @@ impl Parser {
             PostfixOp::MemberAccess => {
                 let ident = self.expect_ident()?;
                 if self.current_token().kind == TokenKind::OpenParen {
+                    self.consume_token();
                     // member func call
                     // `my_struct.my_member_func(`
                     // TODO: code duplication. Make helper function for getting args
@@ -421,6 +422,22 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::True => {
+                self.consume_token();
+                Expr {
+                    kind: Rc::new(ExprKind::Bool(true)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::False => {
+                self.consume_token();
+                Expr {
+                    kind: Rc::new(ExprKind::Bool(false)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::Match => {
                 self.expect_token(TokenTag::Match);
                 let scrutiny = self.parse_expr()?;
@@ -456,6 +473,25 @@ impl Parser {
                 self.expect_token(TokenTag::CloseBrace);
                 Expr {
                     kind: Rc::new(ExprKind::Match(scrutiny, arms)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::OpenBracket => {
+                self.expect_token(TokenTag::OpenBracket);
+                // TODO: code duplication. Make helper function for getting args/array literal elements/tuple expr elements
+                let mut args: Vec<Rc<Expr>> = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseBracket) {
+                    args.push(self.parse_expr()?);
+                    if self.current_token().kind == TokenKind::Comma {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseBracket);
+                Expr {
+                    kind: Rc::new(ExprKind::Array(args)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

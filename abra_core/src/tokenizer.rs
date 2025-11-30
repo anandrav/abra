@@ -96,6 +96,8 @@ pub(crate) enum TokenKind {
     In,
     If,
     Else,
+    True,
+    False,
 
     Int(String), // TODO: intern the strings and just store Ids here later
     Float(String),
@@ -153,8 +155,8 @@ impl TokenKind {
             | TokenKind::Mod
             | TokenKind::And => 3,
 
-            TokenKind::Type | TokenKind::Else => 4,
-            TokenKind::Match | TokenKind::Break | TokenKind::While => 5,
+            TokenKind::Type | TokenKind::Else | TokenKind::True => 4,
+            TokenKind::Match | TokenKind::Break | TokenKind::While | TokenKind::False => 5,
             TokenKind::Extend | TokenKind::Return => 6,
             TokenKind::Continue => 8,
             TokenKind::Implement => 9,
@@ -184,6 +186,8 @@ impl TokenKind {
             "in" => TokenKind::In,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
+            "true" => TokenKind::True,
+            "false" => TokenKind::False,
             _ => return None,
         })
     }
@@ -463,6 +467,8 @@ impl fmt::Display for Token {
             TokenKind::In => write!(f, "in"),
             TokenKind::If => write!(f, "if"),
             TokenKind::Else => write!(f, "else"),
+            TokenKind::True => write!(f, "true"),
+            TokenKind::False => write!(f, "false"),
             TokenKind::Int(s) => write!(f, "{}", s),
             TokenKind::Float(s) => write!(f, "{}", s),
             TokenKind::String(s) => write!(f, "\"{}\"", s),
@@ -522,6 +528,8 @@ impl fmt::Display for TokenTag {
             TokenTag::In => write!(f, "in"),
             TokenTag::If => write!(f, "if"),
             TokenTag::Else => write!(f, "else"),
+            TokenTag::True => write!(f, "true"),
+            TokenTag::False => write!(f, "false"),
             TokenTag::Int => write!(f, "int literal"),
             TokenTag::Float => write!(f, "float literal"),
             TokenTag::String => write!(f, "string literal"),
