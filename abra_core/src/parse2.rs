@@ -236,12 +236,39 @@ impl Parser {
                 let interface_impl = InterfaceImpl {
                     iface,
                     typ,
-                    methods: vec![],
+                    methods,
                     id: NodeId::new(),
                 }
                 .into();
                 Item {
                     kind: ItemKind::InterfaceImpl(interface_impl).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::Extend => {
+                self.consume_token();
+                let typ = self.parse_type()?;
+                self.expect_token(TokenTag::OpenBrace);
+                let mut methods = vec![];
+                while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
+                    methods.push(self.parse_func_def()?);
+                    if self.current_token().kind == TokenKind::Newline {
+                        self.consume_token();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_token(TokenTag::CloseBrace);
+
+                let extension = Extension {
+                    typ,
+                    methods,
+                    id: NodeId::new(),
+                }
+                .into();
+                Item {
+                    kind: ItemKind::Extension(extension).into(),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
@@ -318,7 +345,6 @@ impl Parser {
                 break;
             }
         }
-        self.expect_token(TokenTag::CloseBrace);
 
         Ok(Rc::new(EnumDef {
             name,
@@ -357,8 +383,11 @@ impl Parser {
             }
         }
         self.expect_token(TokenTag::CloseParen);
-        // todo get optional return type
-        let ret_type = None;
+        let mut ret_type = None;
+        if self.current_token().kind == TokenKind::RArrow {
+            self.consume_token();
+            ret_type = Some(self.parse_type()?);
+        }
         if self.current_token().kind == TokenKind::Eq {
             self.expect_token(TokenTag::Eq);
             let body = self.parse_expr()?;
@@ -429,7 +458,6 @@ impl Parser {
                     break;
                 }
 
-                self.consume_token();
                 self.handle_postfix_expr(&mut lhs, lo, op)?;
                 continue;
             }
@@ -478,9 +506,9 @@ impl Parser {
                 })
             }
             PostfixOp::MemberAccess => {
+                self.consume_token();
                 let ident = self.expect_ident()?;
                 if self.current_token().kind == TokenKind::OpenParen {
-                    self.consume_token();
                     // member func call
                     // `my_struct.my_member_func(`
                     let args = self.parse_parenthesized_expression_list()?;
@@ -500,6 +528,7 @@ impl Parser {
                 }
             }
             PostfixOp::IndexAccess => {
+                self.consume_token();
                 let index = self.parse_expr()?;
                 self.expect_token(TokenTag::CloseBracket);
                 *lhs = Rc::new(Expr {
@@ -509,6 +538,7 @@ impl Parser {
                 })
             }
             PostfixOp::Unwrap => {
+                self.consume_token();
                 *lhs = Rc::new(Expr {
                     kind: ExprKind::Unwrap(lhs.clone()).into(),
                     loc: self.location(lo),
@@ -641,6 +671,35 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::If => {
+                self.expect_token(TokenTag::If);
+                let condition = self.parse_expr()?;
+                let then_start = self.index;
+                let statements_then = self.parse_statement_block()?;
+                self.expect_token(TokenTag::Else);
+                let then_block = Expr {
+                    kind: Rc::new(ExprKind::Block(statements_then)),
+                    loc: self.location(then_start),
+                    id: NodeId::new(),
+                }
+                .into();
+
+                let else_start = self.index;
+                let statements_else = self.parse_statement_block()?;
+                let else_block = Expr {
+                    kind: Rc::new(ExprKind::Block(statements_else)),
+                    loc: self.location(else_start),
+                    id: NodeId::new(),
+                }
+                .into();
+
+                Expr {
+                    kind: Rc::new(ExprKind::IfElse(condition, then_block, else_block)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+                .into()
+            }
             TokenKind::OpenBracket => {
                 self.expect_token(TokenTag::OpenBracket);
                 // TODO: code duplication. Make helper function for getting args/array literal elements/tuple expr elements
@@ -673,15 +732,12 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.len() == 0 {
-                    let location = self.location(lo);
-                    return Err(Error::EmptyParentheses(
-                        self.file_id,
-                        Span {
-                            lo,
-                            hi: location.hi,
-                        },
-                    )
-                    .into()); // TODO: instead of passing FileId + Span, just pass a Location
+                    Expr {
+                        kind: Rc::new(ExprKind::Void),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
