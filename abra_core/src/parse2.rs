@@ -254,7 +254,7 @@ impl Parser {
                     break;
                 }
 
-                self.consume_token();
+                self.consume_token(); // TODO: consume the token in handle_postfix_expr(). Use expect_token instead to be sure
                 self.handle_postfix_expr(&mut lhs, lo, op)?;
                 continue;
             }
@@ -311,9 +311,53 @@ impl Parser {
                     id: NodeId::new(),
                 })
             }
-            PostfixOp::MemberAccess => todo!(),
-            PostfixOp::IndexAccess => todo!(),
-            PostfixOp::Unwrap => todo!(),
+            PostfixOp::MemberAccess => {
+                let ident = self.expect_ident()?;
+                if self.current_token().kind == TokenKind::OpenParen {
+                    // member func call
+                    // `my_struct.my_member_func(`
+                    // TODO: code duplication. Make helper function for getting args
+                    let mut args: Vec<Rc<Expr>> = vec![];
+                    while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                        args.push(self.parse_expr()?);
+                        if self.current_token().kind == TokenKind::Comma {
+                            self.consume_token();
+                        } else {
+                            break;
+                        }
+                    }
+                    self.expect_token(TokenTag::CloseParen);
+                    *lhs = Rc::new(Expr {
+                        kind: ExprKind::MemberFuncAp(Some(lhs.clone()), ident, args).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    })
+                } else {
+                    // member access
+                    // `my_struct.my_field`
+                    *lhs = Rc::new(Expr {
+                        kind: ExprKind::MemberAccess(lhs.clone(), ident).into(),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    })
+                }
+            }
+            PostfixOp::IndexAccess => {
+                let index = self.parse_expr()?;
+                self.expect_token(TokenTag::CloseBracket);
+                *lhs = Rc::new(Expr {
+                    kind: ExprKind::IndexAccess(lhs.clone(), index).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                })
+            }
+            PostfixOp::Unwrap => {
+                *lhs = Rc::new(Expr {
+                    kind: ExprKind::Unwrap(lhs.clone()).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                })
+            }
         }
         Ok(())
     }
