@@ -840,7 +840,19 @@ impl Parser {
             }
             TokenKind::Ident(_) => {
                 let name = self.expect_ident()?;
-                let args = vec![]; // TODO: get type args
+                let mut args = vec![]; // TODO: get type args
+                if self.current_token().kind == TokenKind::Lt {
+                    self.consume_token();
+                    while !matches!(self.current_token().kind, TokenKind::Gt) {
+                        args.push(self.parse_type()?);
+                        if self.current_token().kind == TokenKind::Comma {
+                            self.consume_token();
+                        } else {
+                            break;
+                        }
+                    }
+                    self.expect_token(TokenTag::Gt);
+                }
                 Type {
                     kind: Rc::new(TypeKind::NamedWithParams(name, args)),
                     loc: self.location(lo),
