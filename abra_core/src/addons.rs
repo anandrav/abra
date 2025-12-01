@@ -8,7 +8,7 @@ use crate::vm::{AbraInt, Vm};
 use crate::{
     FileAst, FileData, ItemKind, OsFileProvider,
     ast::{Type, TypeDefKind, TypeKind},
-    parse2,
+    parse,
 };
 use core::str;
 use std::{
@@ -262,7 +262,7 @@ pub fn generate_bindings_for_crate() {
         );
         let file_id = ctx.file_db.add(file_data);
 
-        let ast = parse2::parse_file(&mut ctx, file_id);
+        let ast = parse::parse_file(&mut ctx, file_id);
 
         add_items_from_ast(ast, output);
     }
@@ -682,7 +682,7 @@ fn find_abra_files(
                 let file_id = ctx.file_db.add(file_data);
                 // let file_data = ctx.file_db.get(file_id).unwrap();
 
-                let ast = parse2::parse_file(ctx, file_id);
+                let ast = parse::parse_file(ctx, file_id);
                 add_items_from_ast(ast, output);
 
                 output.push('}');

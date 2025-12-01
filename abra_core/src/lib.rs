@@ -23,7 +23,7 @@ pub mod environment;
 pub mod host;
 mod lexer;
 mod optimize_bytecode;
-mod parse2;
+mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_bytecode;
@@ -174,7 +174,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     }
 
     while let Some(file_id) = stack.pop_front() {
-        let file_ast = parse2::parse_file(ctx, file_id);
+        let file_ast = parse::parse_file(ctx, file_id);
 
         file_asts.push(file_ast.clone());
 
