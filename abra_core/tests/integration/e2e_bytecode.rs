@@ -612,7 +612,7 @@ fib(10)
 #[test]
 fn lambda1() {
     let src = r#"
-let double = x -> x + x
+let double: int -> int = x -> x + x
 double(5)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -628,7 +628,7 @@ double(5)
 #[test]
 fn lambda2() {
     let src = r#"
-let add = (x, y) -> x + y
+let add: (int,int) -> int = (x, y) -> x + y
 add(2, 3)
 "#;
     let program = unwrap_or_panic(compile_bytecode(

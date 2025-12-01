@@ -1354,7 +1354,7 @@ impl Parser {
     fn parse_type(&mut self) -> Result<Rc<Type>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
-        Ok(Rc::new(match current.kind {
+        let typ = Rc::new(match current.kind {
             TokenKind::Int => {
                 self.consume_token();
                 Type {
@@ -1465,7 +1465,30 @@ impl Parser {
                 )
                 .into());
             }
-        }))
+        });
+        if self.current_token().kind == TokenKind::RArrow {
+            // Function type
+            // use recursion for right-associativity
+            self.consume_token();
+            let rhs = self.parse_type()?;
+            let mut args: Vec<Rc<Type>> = vec![];
+            match &*typ.kind {
+                TypeKind::Tuple(tys) => {
+                    args.extend(tys.iter().cloned());
+                }
+                _ => {
+                    args.push(typ);
+                }
+            }
+            Ok(Type {
+                kind: Rc::new(TypeKind::Function(args, rhs)),
+                loc: self.location(lo),
+                id: NodeId::new(),
+            }
+            .into())
+        } else {
+            Ok(typ)
+        }
     }
 
     fn parse_stmt(&mut self) -> Result<Rc<Stmt>, Box<Error>> {
