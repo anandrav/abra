@@ -83,7 +83,7 @@ fn c(code: &str) -> &str {
 fn print_help() {
     let title = c("\x1b[38;2;230;100;230m");
     let cyan = c("\x1b[38;2;100;230;230m");
-    let gold = c("\x1b[38;2;225;180;0m");
+    let gold = c("\x1b[38;2;250;200;0m");
     let bold = c("\x1b[1m");
     let reset = c("\x1b[0m");
 
