@@ -57,7 +57,10 @@ impl Args {
             }
         }
 
-        let file = file.ok_or("Missing required argument: <FILE>")?;
+        let Some(file) = file else {
+            print_help();
+            exit(0);
+        };
 
         Ok(Args {
             file,
