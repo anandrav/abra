@@ -857,7 +857,7 @@ impl Parser {
             let body = self.parse_expr()?;
             Ok(Some(
                 Expr {
-                    kind: Rc::new(ExprKind::AnonymousFunction(args, None, body)), // TODO: need to support out annotation
+                    kind: Rc::new(ExprKind::AnonymousFunction(args, None, body)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
