@@ -829,11 +829,14 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
 
                 let mut list = vec![];
                 for pair in inner {
-                    list.push(Identifier {
-                        v: pair.as_str().to_string(),
-                        loc: span.clone(),
-                        id: NodeId::new(),
-                    });
+                    list.push(
+                        Identifier {
+                            v: pair.as_str().to_string(),
+                            loc: span.clone(),
+                            id: NodeId::new(),
+                        }
+                        .into(),
+                    );
                 }
 
                 match pair.as_rule() {

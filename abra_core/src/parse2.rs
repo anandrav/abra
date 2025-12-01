@@ -114,6 +114,16 @@ impl Parser {
         }
     }
 
+    fn peek_token(&self, diff: usize) -> Token {
+        match self.tokens.get(self.index + diff) {
+            Some(t) => t.clone(),
+            None => Token {
+                kind: TokenKind::Eof,
+                span: Span { lo: 0, hi: 0 },
+            }, // TODO: fix span of Eof
+        }
+    }
+
     fn expect_token(&mut self, kind: TokenTag) {
         if kind != TokenTag::Newline {
             self.skip_newlines();
@@ -222,9 +232,39 @@ impl Parser {
             TokenKind::Use => {
                 self.consume_token();
                 let ident = self.expect_ident()?;
-                // TODO: handle import list
+                let mut import_list: Option<ImportList> = None;
+                if self.current_token().kind == TokenKind::Except
+                    || self.current_token().kind == TokenKind::Dot
+                {
+                    let exclusion = self.current_token().kind == TokenKind::Except;
+                    self.consume_token();
+                    let mut list: Vec<Rc<Identifier>> = vec![];
+                    if self.current_token().kind == TokenKind::OpenParen {
+                        self.expect_token(TokenTag::OpenParen);
+                        while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                            self.skip_newlines();
+                            list.push(self.expect_ident()?);
+                            if self.current_token().kind == TokenKind::Comma {
+                                self.consume_token();
+                            } else {
+                                break;
+                            }
+                        }
+                        self.expect_token(TokenTag::CloseParen);
+                    } else {
+                        // single item unparenthesized
+                        list.push(self.expect_ident()?);
+                    }
+
+                    if exclusion {
+                        import_list = Some(ImportList::Exclusion(list))
+                    } else {
+                        import_list = Some(ImportList::Inclusion(list))
+                    }
+                }
+                dbg!(&import_list);
                 Item {
-                    kind: ItemKind::Import(ident, None).into(),
+                    kind: ItemKind::Import(ident, import_list).into(),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
@@ -274,7 +314,7 @@ impl Parser {
                 }
             }
             TokenKind::Fn => {
-                if attributes.iter().any(Attribute::is_host) {
+                if attributes.iter().any(|a| a.is_host() || a.is_foreign()) {
                     let func_decl = self.parse_func_decl(attributes)?;
                     Item {
                         kind: ItemKind::FuncDecl(func_decl).into(),
@@ -1014,10 +1054,21 @@ impl Parser {
     }
 
     fn parse_match_pattern(&mut self) -> Result<Rc<Pat>, Box<Error>> {
+        self.parse_match_pattern_with_prefixes(vec![])
+    }
+
+    fn parse_match_pattern_with_prefixes(
+        &mut self,
+        mut prefixes: Vec<Rc<Identifier>>,
+    ) -> Result<Rc<Pat>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
+                if self.peek_token(1).kind == TokenKind::Dot {
+                    prefixes.push(self.expect_ident()?);
+                    return self.parse_match_pattern_with_prefixes(prefixes);
+                }
                 self.consume_token();
                 Pat {
                     kind: Rc::new(PatKind::Binding(s)),
@@ -1104,7 +1155,7 @@ impl Parser {
                     // `.my_enum_variant(`
                     let data = self.parse_match_pattern()?;
                     Pat {
-                        kind: PatKind::Variant(vec![], ident, Some(data)).into(), // TODO: handle leading identifiers instead of passing empty vec
+                        kind: PatKind::Variant(prefixes, ident, Some(data)).into(), // TODO: handle leading identifiers instead of passing empty vec
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
@@ -1114,7 +1165,7 @@ impl Parser {
                     // `.my_enum_variant`
                     let data = None;
                     Pat {
-                        kind: PatKind::Variant(vec![], ident, data).into(), // TODO: handle leading identifiers instead of passing empty vec
+                        kind: PatKind::Variant(prefixes, ident, data).into(), // TODO: handle leading identifiers instead of passing empty vec
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }

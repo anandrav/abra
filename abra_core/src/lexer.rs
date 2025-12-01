@@ -90,6 +90,7 @@ pub(crate) enum TokenKind {
     Impl, // TODO: re-evaluate having both of these keywords
     Extend,
     Use,
+    Except,
     Fn,
     Match,
     Break,
@@ -177,7 +178,7 @@ impl TokenKind {
             | TokenKind::While
             | TokenKind::False
             | TokenKind::Float => 5,
-            TokenKind::Extend | TokenKind::Return | TokenKind::String => 6,
+            TokenKind::Extend | TokenKind::Return | TokenKind::String | TokenKind::Except => 6,
             TokenKind::Continue => 8,
             TokenKind::Implement | TokenKind::Interface => 9,
             TokenKind::OutputType => 10,
@@ -200,6 +201,7 @@ impl TokenKind {
             "impl" => TokenKind::Impl,
             "extend" => TokenKind::Extend,
             "use" => TokenKind::Use,
+            "except" => TokenKind::Except,
             "fn" => TokenKind::Fn,
             "match" => TokenKind::Match,
             "mod" => TokenKind::Mod,
@@ -537,6 +539,7 @@ impl fmt::Display for TokenTag {
             TokenTag::Impl => write!(f, "impl"),
             TokenTag::Extend => write!(f, "extend"),
             TokenTag::Use => write!(f, "use"),
+            TokenTag::Except => write!(f, "except"),
             TokenTag::Fn => write!(f, "fn"),
             TokenTag::Match => write!(f, "match"),
             TokenTag::Break => write!(f, "break"),

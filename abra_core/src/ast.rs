@@ -331,8 +331,8 @@ pub(crate) enum ItemKind {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ImportList {
-    Inclusion(Vec<Identifier>),
-    Exclusion(Vec<Identifier>),
+    Inclusion(Vec<Rc<Identifier>>),
+    Exclusion(Vec<Rc<Identifier>>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

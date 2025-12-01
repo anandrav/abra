@@ -177,21 +177,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     while let Some(file_id) = stack.pop_front() {
         let file_data = ctx.file_db.get(file_id).unwrap();
 
-        let file_ast = if file_data.name() == "prelude_copy.abra"
-            || file_data.name() == "snake.abra"
-            || file_data.name() == "matrix_rain.abra"
-            || file_data.name() == "prelude.abra"
-        {
-            parse2::parse_file(ctx, file_id)
-        } else {
-            match parse::parse_or_err(file_id, file_data) {
-                Ok(it) => it,
-                Err(e) => {
-                    ctx.errors.push(Error::Parse(e));
-                    continue;
-                }
-            }
-        };
+        let file_ast = parse2::parse_file(ctx, file_id);
 
         file_asts.push(file_ast.clone());
 
