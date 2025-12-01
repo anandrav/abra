@@ -327,6 +327,12 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                 next += 1;
             }
 
+            // since identifiers can start with '_', must handle wildcard here
+            if ident == "_" {
+                lexer.emit(TokenKind::Wildcard);
+                continue;
+            }
+
             if let Some(kw) = TokenKind::keyword_from_str(&ident) {
                 lexer.emit(kw);
             } else if is_poly_ident(&ident) {
@@ -357,7 +363,6 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '^' => lexer.emit(TokenKind::Caret),
             '#' => lexer.emit(TokenKind::Pound),
             '|' => lexer.emit(TokenKind::VBar),
-            '_' => lexer.emit(TokenKind::Wildcard),
             '=' => {
                 if let Some('=') = lexer.peek_char(1) {
                     lexer.emit(TokenKind::EqEq)

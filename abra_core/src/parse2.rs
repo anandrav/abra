@@ -1164,6 +1164,14 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::Wildcard => {
+                self.consume_token();
+                Pat {
+                    kind: Rc::new(PatKind::Wildcard),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::True => {
                 self.consume_token();
                 Pat {
