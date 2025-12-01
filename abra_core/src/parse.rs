@@ -5,6 +5,7 @@ use crate::ast::*;
 use crate::parse::lexer::{Token, TokenKind, TokenTag, tokenize_file};
 use crate::statics::{Error, StaticsContext};
 pub(crate) use lexer::Span;
+use std::mem;
 use std::rc::Rc;
 use strum::IntoDiscriminant;
 mod lexer;
@@ -874,7 +875,7 @@ impl Parser {
 
         // Try to speculatively parse a lambda expression first
         let checkpoint = self.index;
-        let checkpoint_errors = self.errors.clone();
+        let mut checkpoint_errors = mem::take(&mut self.errors);
 
         if let Some(lambda_expr) = self.try_parse_lambda_expr()? {
             return Ok(lambda_expr);
@@ -882,7 +883,8 @@ impl Parser {
 
         // rollback
         self.index = checkpoint;
-        self.errors = checkpoint_errors; // TODO: inefficient. This happens when parsing every single expression!
+        checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
+        self.errors = checkpoint_errors;
 
         // It's not a lambda.
         Ok(Rc::new(match current.kind {
