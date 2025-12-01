@@ -2,10 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::ast::*;
-use crate::lexer::{Span, Token, TokenKind, TokenTag, tokenize_file};
+use crate::parse::lexer::{Token, TokenKind, TokenTag, tokenize_file};
 use crate::statics::{Error, StaticsContext};
+pub(crate) use lexer::Span;
 use std::rc::Rc;
 use strum::IntoDiscriminant;
+mod lexer;
 
 pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAst> {
     let mut items: Vec<Rc<Item>> = vec![];

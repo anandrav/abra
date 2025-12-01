@@ -21,7 +21,6 @@ pub mod ast;
 mod builtin;
 pub mod environment;
 pub mod host;
-mod lexer;
 mod optimize_bytecode;
 mod parse;
 pub mod prelude;

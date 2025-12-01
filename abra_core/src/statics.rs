@@ -364,7 +364,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
     })
 }
 
-use crate::lexer::Span;
+use crate::parse::Span;
 use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
 
