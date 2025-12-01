@@ -23,7 +23,11 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     // println!();
     // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
 
-    let mut parser = Parser::new(tokens, file_id);
+    let file_len = {
+        let file_data = ctx.file_db.get(file_id).unwrap();
+        file_data.source.len()
+    };
+    let mut parser = Parser::new(tokens, file_id, file_len);
     // let mut clean = true;
     while !parser.done() {
         // println!("iteration index={}", parser.index);
@@ -87,15 +91,17 @@ struct Parser {
     tokens: Vec<Token>,
 
     file_id: FileId,
+    file_len: usize, // used for EOF tokens
     errors: Vec<Error>,
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>, file_id: FileId) -> Self {
+    fn new(tokens: Vec<Token>, file_id: FileId, file_len: usize) -> Self {
         Parser {
             index: 0,
             tokens,
             file_id,
+            file_len,
             errors: vec![],
         }
     }
@@ -108,20 +114,24 @@ impl Parser {
     fn current_token(&self) -> Token {
         match self.tokens.get(self.index) {
             Some(t) => t.clone(),
-            None => Token {
-                kind: TokenKind::Eof,
-                span: Span { lo: 0, hi: 0 },
-            }, // TODO: fix span of Eof
+            None => self.eof(),
         }
     }
 
     fn peek_token(&self, diff: usize) -> Token {
         match self.tokens.get(self.index + diff) {
             Some(t) => t.clone(),
-            None => Token {
-                kind: TokenKind::Eof,
-                span: Span { lo: 0, hi: 0 },
-            }, // TODO: fix span of Eof
+            None => self.eof(),
+        }
+    }
+
+    fn eof(&self) -> Token {
+        Token {
+            kind: TokenKind::Eof,
+            span: Span {
+                lo: self.file_len - 1,
+                hi: self.file_len - 1,
+            },
         }
     }
 
