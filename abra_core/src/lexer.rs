@@ -423,7 +423,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                     {
                         next += 1;
                     }
-                    lexer.index += next + 1;
+                    lexer.index += next;
                 } else if let Some('*') = lexer.peek_char(1) {
                     // multi-line comment
                     let mut next = 2;

@@ -132,6 +132,12 @@ impl Parser {
         if current.kind.discriminant() == kind {
             self.index += 1;
         } else {
+            // panic!("{:?}", Error::UnexpectedToken(
+            //     self.file_id,
+            //     kind.to_string(),
+            //     current.kind.discriminant().to_string(),
+            //     current.span,
+            // ));
             self.errors.push(Error::UnexpectedToken(
                 self.file_id,
                 kind.to_string(),
@@ -262,7 +268,6 @@ impl Parser {
                         import_list = Some(ImportList::Inclusion(list))
                     }
                 }
-                dbg!(&import_list);
                 Item {
                     kind: ItemKind::Import(ident, import_list).into(),
                     loc: self.location(lo),
@@ -654,6 +659,7 @@ impl Parser {
     fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
         let mut statements: Vec<Rc<Stmt>> = vec![];
+        self.skip_newlines();
         while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
             statements.push(self.parse_stmt()?);
             if self.current_token().kind == TokenKind::Newline {
@@ -833,6 +839,39 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::Minus => {
+                self.consume_token();
+                match self.current_token().kind {
+                    TokenKind::IntLit(s) => {
+                        self.consume_token();
+                        Expr {
+                            kind: Rc::new(ExprKind::Int(
+                                ("-".to_string() + &s).parse::<i64>().unwrap(),
+                            )), // TODO: don't unwrap. report error if this can't fit in an i64
+                            loc: self.location(lo),
+                            id: NodeId::new(),
+                        }
+                    }
+                    TokenKind::FloatLit(s) => {
+                        self.consume_token();
+                        Expr {
+                            kind: Rc::new(ExprKind::Float("-".to_string() + &s)), // TODO: make sure float fits in an f64?
+                            loc: self.location(lo),
+                            id: NodeId::new(),
+                        }
+                    }
+                    _ => {
+                        // TODO: verbose
+                        return Err(Error::UnexpectedToken(
+                            self.file_id,
+                            TokenTag::IntLit.to_string(),
+                            self.current_token().kind.discriminant().to_string(),
+                            self.current_token().span,
+                        )
+                        .into());
+                    }
+                }
+            }
             TokenKind::StringLit(s) => {
                 self.consume_token();
                 Expr {
@@ -931,6 +970,7 @@ impl Parser {
                 // TODO: code duplication. Make helper function for getting args/array literal elements/tuple expr elements
                 let mut args: Vec<Rc<Expr>> = vec![];
                 while !matches!(self.current_token().kind, TokenKind::CloseBracket) {
+                    self.skip_newlines();
                     args.push(self.parse_expr()?);
                     if self.current_token().kind == TokenKind::Comma {
                         self.consume_token();
@@ -1010,7 +1050,6 @@ impl Parser {
                 .into()
             }
             _ => {
-                // println!("got an unexpected token");
                 return Err(Error::UnexpectedToken(
                     self.file_id,
                     "expression term".into(),

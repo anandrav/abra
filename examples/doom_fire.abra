@@ -63,8 +63,8 @@ fn main() {
     // 4. Input
     while poll_key_event(1) {
       match get_key_event() {
-        .Char("q") -> quit = true,
-        .Esc -> quit = true,
+        .Char("q") -> quit = true
+        .Esc -> quit = true
         _ -> {}
       }
     }

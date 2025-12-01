@@ -77,8 +77,8 @@ fn main() {
     while poll_key_event(1) {
       let key = get_key_event()
       match key {
-        .Char("q") -> quit = true,
-        .Esc -> quit = true,
+        .Char("q") -> quit = true
+        .Esc -> quit = true
         _ -> {}
       }
     }

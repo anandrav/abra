@@ -609,7 +609,6 @@ fib(10)
     assert_eq!(top.get_int(&vm), 55);
 }
 
-#[ignore]
 #[test]
 fn lambda1() {
     let src = r#"
@@ -626,7 +625,6 @@ double(5)
     assert_eq!(top.get_int(&vm), 10);
 }
 
-#[ignore]
 #[test]
 fn lambda2() {
     let src = r#"

@@ -42,11 +42,11 @@ fn main() {
       let key = get_key_event()
       if not(action_taken) {
         match key {
-          .Char("q") -> quit = true,
-          .Esc -> quit = true,
-          .Char("p") -> world.paused = not(world.paused),
-          .Char("r") -> world = init_world(w, h), // Reset
-          .Char("c") -> world = clear_world(w, h), // Clear to empty
+          .Char("q") -> quit = true
+          .Esc -> quit = true
+          .Char("p") -> world.paused = not(world.paused)
+          .Char("r") -> world = init_world(w, h) // Reset
+          .Char("c") -> world = clear_world(w, h) // Clear to empty
           .Char(" ") -> {
             // Manual step if paused
             if world.paused {
@@ -54,7 +54,7 @@ fn main() {
             } else {
                world.paused = true
             }
-          },
+          }
           _ -> {}
         }
         action_taken = true
