@@ -324,6 +324,21 @@ impl Lexer {
 pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<Token> {
     let file_data = ctx.file_db.get(file_id).unwrap();
     let mut lexer = Lexer::new(&file_data.source);
+
+    // look for a shebang at the beginning of file
+    if !lexer.done()
+        && lexer.current_char() == '#'
+        && let Some('!') = lexer.peek_char(1)
+    {
+        // skip the rest of the line
+        let mut next = 1;
+        while let Some(c) = lexer.peek_char(next)
+            && *c != '\n'
+        {
+            next += 1;
+        }
+        lexer.index += next;
+    }
     while !lexer.done() {
         if start_of_ident(lexer.current_char()) {
             let mut ident = String::from(lexer.current_char());
