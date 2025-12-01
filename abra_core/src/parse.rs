@@ -878,12 +878,14 @@ impl Parser {
         let mut checkpoint_errors = mem::take(&mut self.errors);
 
         if let Some(lambda_expr) = self.try_parse_lambda_expr()? {
+            // restore
+            checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
+            self.errors = checkpoint_errors;
             return Ok(lambda_expr);
         }
 
         // rollback
         self.index = checkpoint;
-        checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
         self.errors = checkpoint_errors;
 
         // It's not a lambda.
