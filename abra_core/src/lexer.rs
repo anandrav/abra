@@ -15,6 +15,12 @@ pub(crate) struct Token {
     pub(crate) span: Span,
 }
 
+impl Token {
+    pub(crate) fn tag(&self) -> TokenTag {
+        self.kind.discriminant()
+    }
+}
+
 #[derive(Clone, PartialEq, EnumDiscriminants)]
 #[strum_discriminants(name(TokenTag))]
 pub(crate) enum TokenKind {
