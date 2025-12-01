@@ -57,7 +57,7 @@ impl Args {
             }
         }
 
-        let file = file.ok_or("Missing required argument: FILE")?;
+        let file = file.ok_or("Missing required argument: <FILE>")?;
 
         Ok(Args {
             file,
@@ -69,19 +69,34 @@ impl Args {
     }
 }
 
+use std::io::IsTerminal;
+
+fn c(code: &str) -> &str {
+    let use_color = std::io::stdout().is_terminal();
+
+    if use_color { code } else { "" }
+}
+
 fn print_help() {
+    let title = c("\x1b[38;2;230;100;230m");
+    let cyan = c("\x1b[38;2;100;230;230m");
+    let gold = c("\x1b[38;2;225;180;0m");
+    let bold = c("\x1b[1m");
+    let reset = c("\x1b[0m");
+
     println!(
-        "Usage: abra [OPTIONS] <FILE> [ARGS]...
+        "{title}{bold}Usage:{reset} {cyan}abra{reset} [OPTIONS] <FILE> [ARGS]...
+    {gold}ex: abra helloworld.abra{reset}
 
-Arguments:
-    <FILE>    The main Abra file to compile and execute
-    [ARGS]    Arguments to pass to the Abra program
+{title}{bold}Arguments:{reset}
+    {gold}<FILE>{reset}    The main Abra file to compile and execute
+    {gold}[ARGS]{reset}    Arguments to pass to the Abra program
 
-Options:
-    -m, --modules <DIRECTORY>          Override the default module directory
-    -s, --shared-objects <DIRECTORY>   Override the default shared objects directory
-    -a, --assembly                     Print the assembly for the Abra program
-    -h, --help                         Print help"
+{title}{bold}Options:{reset}
+    {gold}-m, --modules <DIRECTORY>{reset}          Override the default module directory
+    {gold}-s, --shared-objects <DIRECTORY>{reset}   Override the default shared objects directory
+    {gold}-a, --assembly{reset}                     Print the assembly for the Abra program
+    {gold}-h, --help{reset}                         Print help"
     );
 }
 
@@ -90,7 +105,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = match Args::parse() {
         Ok(a) => a,
         Err(err) => {
-            eprintln!("Error: {}", err);
+            let red = c("\x1b[38;2;230;100;100m");
+            let bold = c("\x1b[1m");
+            let reset = c("\x1b[0m");
+            eprintln!("{red}{bold}error:{reset} {}\n", err);
             print_help();
             exit(1);
         }
