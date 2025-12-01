@@ -74,7 +74,7 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
         loc: Location {
             file_id,
             lo: 0,
-            hi: (file_data.source.len() - 1),
+            hi: file_data.source.len() - 1,
         },
         id: NodeId::new(),
     })
@@ -450,7 +450,7 @@ impl Parser {
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenBrace);
         let mut methods: Vec<Rc<FuncDecl>> = vec![];
-        let mut output_types: Vec<Rc<InterfaceOutputType>> = vec![]; // TODO: parse these output types
+        let mut output_types: Vec<Rc<InterfaceOutputType>> = vec![];
         loop {
             self.skip_newlines();
             if self.current_token().tag() == TokenTag::Fn {
@@ -539,7 +539,7 @@ impl Parser {
         self.skip_newlines();
         let lo = self.index;
         let ctor = self.expect_ident()?;
-        let mut data = None; // TODO: handle associated data
+        let mut data = None;
         if self.current_token().tag() == TokenTag::OpenParen {
             data = Some(self.parse_type()?);
         }
@@ -555,7 +555,7 @@ impl Parser {
         // TODO: make type alias Ret<T> = Result<T, Box<Error>>
         self.expect_token(TokenTag::OutputType);
         let name = self.expect_ident()?;
-        let mut interfaces = vec![]; // TODO: parse interface args. helper function?
+        let mut interfaces = vec![];
         if self.current_token().tag() == TokenTag::Impl {
             self.consume_token();
             while self.current_token().tag() == TokenTag::Ident {
@@ -1029,7 +1029,6 @@ impl Parser {
             }
             TokenKind::OpenBracket => {
                 self.expect_token(TokenTag::OpenBracket);
-                // TODO: code duplication. Make helper function for getting args/array literal elements/tuple expr elements
                 let mut args: Vec<Rc<Expr>> = vec![];
                 while !matches!(self.current_token().tag(), TokenTag::CloseBracket) {
                     self.skip_newlines();
