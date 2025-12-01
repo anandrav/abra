@@ -37,7 +37,6 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
                 // println!("is OK");
                 // dbg!(&item);
 
-                // TODO: code duplication
                 // flush errors
                 // let mut scratch = vec![];
                 // mem::swap(&mut scratch, &mut parser.errors);
@@ -570,7 +569,6 @@ impl Parser {
     }
 
     fn parse_output_type_decl(&mut self) -> Result<Rc<InterfaceOutputType>, Box<Error>> {
-        // TODO: make type alias Ret<T> = Result<T, Box<Error>>
         self.expect_token(TokenTag::OutputType);
         let name = self.expect_ident()?;
         let mut interfaces = vec![];
@@ -1075,7 +1073,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
@@ -1251,7 +1249,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1271,7 +1269,7 @@ impl Parser {
                     // `.my_enum_variant(`
                     let data = self.parse_match_pattern()?;
                     Pat {
-                        kind: PatKind::Variant(prefixes, ident, Some(data)).into(), // TODO: handle leading identifiers instead of passing empty vec
+                        kind: PatKind::Variant(prefixes, ident, Some(data)).into(),
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
@@ -1280,7 +1278,7 @@ impl Parser {
                     // `.my_enum_variant`
                     let data = None;
                     Pat {
-                        kind: PatKind::Variant(prefixes, ident, data).into(), // TODO: handle leading identifiers instead of passing empty vec
+                        kind: PatKind::Variant(prefixes, ident, data).into(),
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
@@ -1323,7 +1321,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1448,7 +1446,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
