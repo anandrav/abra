@@ -101,6 +101,7 @@ pub(crate) enum TokenKind {
     In,
     If,
     Else,
+    Nil,
     True,
     False,
     Int,
@@ -165,7 +166,8 @@ impl TokenKind {
             | TokenKind::For
             | TokenKind::Mod
             | TokenKind::And
-            | TokenKind::Int => 3,
+            | TokenKind::Int
+            | TokenKind::Nil => 3,
 
             TokenKind::Type
             | TokenKind::Else
@@ -215,6 +217,7 @@ impl TokenKind {
             "in" => TokenKind::In,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
+            "nil" => TokenKind::Nil,
             "true" => TokenKind::True,
             "false" => TokenKind::False,
             "int" => TokenKind::Int,
@@ -555,6 +558,7 @@ impl fmt::Display for TokenTag {
             TokenTag::In => write!(f, "in"),
             TokenTag::If => write!(f, "if"),
             TokenTag::Else => write!(f, "else"),
+            TokenTag::Nil => write!(f, "nil"),
             TokenTag::True => write!(f, "true"),
             TokenTag::False => write!(f, "false"),
             TokenTag::Int => write!(f, "int"),

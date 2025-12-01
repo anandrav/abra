@@ -1588,7 +1588,7 @@ type person = {
     blah: void
     age: int
 }
-let x = person("Alice", (), 30)
+let x = person("Alice", nil, 30)
 x.name = "Bob"
 x.age = 2 * 3 * 6
 x.name ..  " " .. x.age
@@ -1606,7 +1606,7 @@ x.name ..  " " .. x.age
 #[test]
 fn tuple_with_void_field() {
     let src = r#"
-let person = ("Alice", (), 30)
+let person = ("Alice", nil, 30)
 let (name, blah, age) = person
 name ..  " " .. age
 "#;
@@ -1623,11 +1623,11 @@ name ..  " " .. age
 #[test]
 fn match_tuple_with_void_field() {
     let src = r#"
-let person = ("Alice", (), (), (), (), 30)
+let person = ("Alice", nil, nil, nil, nil, 30)
 let n = match person {
-  ("Bob", (), (), (), (), 50) -> 0
-  ("Alice", (), (), (), (), 20) -> 0
-  ("Alice", (), (), (), (), 30) -> 1
+  ("Bob", nil, nil, nil, nil, 50) -> 0
+  ("Alice", nil, nil, nil, nil, 20) -> 0
+  ("Alice", nil, nil, nil, nil, 30) -> 1
 }
 n
 "#;
@@ -1649,7 +1649,7 @@ type GlibbyGlob =
 | Glib
 
 let glib = GlibbyGlob.Glib
-let glob = GlibbyGlob.Glob(2, (), 5)
+let glob = GlibbyGlob.Glob(2, nil, 5)
 var n = match glob {
   GlibbyGlob.Glob(a, blah, c) -> a + c
   GlibbyGlob.Glib -> 0

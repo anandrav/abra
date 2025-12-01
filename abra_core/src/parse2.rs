@@ -878,6 +878,14 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::Nil => {
+                self.consume_token();
+                Expr {
+                    kind: Rc::new(ExprKind::Void),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::IntLit(s) => {
                 self.consume_token();
                 Expr {
@@ -1052,11 +1060,9 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    Expr {
-                        kind: Rc::new(ExprKind::Void), // TODO: I don't like using `()` for value of void type. Use 'nil' keyword instead
-                        loc: self.location(lo),
-                        id: NodeId::new(),
-                    }
+                    return Err(
+                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
+                    ); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
@@ -1172,6 +1178,14 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::Nil => {
+                self.consume_token();
+                Pat {
+                    kind: Rc::new(PatKind::Void),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::True => {
                 self.consume_token();
                 Pat {
@@ -1225,11 +1239,9 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    Pat {
-                        kind: Rc::new(PatKind::Void), // TODO: nil literal
-                        loc: self.location(lo),
-                        id: NodeId::new(),
-                    }
+                    return Err(
+                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
+                    ); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1302,11 +1314,9 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    Pat {
-                        kind: Rc::new(PatKind::Void), // TODO: use "nil" literal instead of () for value of type void
-                        loc: self.location(lo),
-                        id: NodeId::new(),
-                    }
+                    return Err(
+                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
+                    ); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1432,11 +1442,9 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    Type {
-                        kind: Rc::new(TypeKind::Void), // TODO: I don't like using `()` for void. Report an error instead
-                        loc: self.location(lo),
-                        id: NodeId::new(),
-                    }
+                    return Err(
+                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
+                    ); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());

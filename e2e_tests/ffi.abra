@@ -2,9 +2,9 @@ use test_ffi // TODO: make another native module like "test_ffi2" to make sure I
 
 println(pass_int(35))
 println(pass_bool(false))
-println(pass_void(()))
+println(pass_void(nil))
 println(pass_string("mystring"))
-let s = pass_struct(MyStruct(23, true, (), "another"))
+let s = pass_struct(MyStruct(23, true, nil, "another"))
 println(s.i)
 println(s.b)
 println(s.v)
@@ -16,12 +16,12 @@ match e {
 }
 let e = pass_enum(MyEnum.Void)
 match e {
-    MyEnum.Void -> ()
+    MyEnum.Void -> nil
     _ -> println("<wrong variant>")
 }
-let e = pass_enum(MyEnum.AnotherVoid(()))
+let e = pass_enum(MyEnum.AnotherVoid(nil))
 match e {
-    MyEnum.AnotherVoid(()) -> ()
+    MyEnum.AnotherVoid(nil) -> nil
     _ -> println("<wrong variant>")
 }
 let t = pass_tuple((true, 2, "3"))
