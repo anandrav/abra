@@ -4,7 +4,6 @@
 use crate::ast::*;
 use crate::lexer::{Span, Token, TokenKind, TokenTag, tokenize_file};
 use crate::statics::{Error, StaticsContext};
-use std::mem;
 use std::rc::Rc;
 use strum::IntoDiscriminant;
 
@@ -23,10 +22,10 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
 
     let mut parser = Parser::new(tokens, file_id);
-    let mut clean = true;
+    // let mut clean = true;
     while !parser.done() {
         // println!("iteration index={}", parser.index);
-        let before = parser.index;
+        // let before = parser.index;
         match parser.parse_item() {
             Ok(item) => {
                 // println!("is OK");
@@ -39,19 +38,19 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
                 // ctx.errors.extend(scratch);
 
                 items.push(item);
-                clean = true
+                // clean = true
             }
             Err(e) => {
                 // if clean {
                 // println!("got an error when parsing item");
 
                 // flush errors
-                let errs = mem::replace(&mut parser.errors, vec![]);
+                let errs = std::mem::take(&mut parser.errors);
                 ctx.errors.extend(errs);
                 parser.errors.clear();
 
                 ctx.errors.push(*e);
-                clean = false;
+                // clean = false;
                 // }
                 // if parser.index == before {
                 // println!("incrementing index");
@@ -830,13 +829,12 @@ impl Parser {
                 }
             }
             self.expect_token(TokenTag::CloseParen);
+        } else if let Ok(arg) = self.parse_func_arg() {
+            args.push(arg);
         } else {
-            if let Ok(arg) = self.parse_func_arg() {
-                args.push(arg);
-            } else {
-                return Ok(None);
-            }
+            return Ok(None);
         }
+
         if self.current_token().kind == TokenKind::RArrow {
             // It must be a lambda
             self.consume_token();
@@ -959,7 +957,7 @@ impl Parser {
                 self.expect_token(TokenTag::OpenBrace);
                 let mut arms: Vec<Rc<MatchArm>> = vec![];
                 self.skip_newlines();
-                let mut clean = true;
+                // let mut clean = true;
                 while !matches!(self.current_token().kind, TokenKind::CloseBrace) {
                     arms.push(self.parse_match_arm()?);
                     // let checkpoint = self.index;
@@ -1020,7 +1018,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
-                .into()
             }
             TokenKind::OpenBracket => {
                 self.expect_token(TokenTag::OpenBracket);
@@ -1054,13 +1051,12 @@ impl Parser {
                     }
                 }
                 self.expect_token(TokenTag::CloseParen);
-                if elems.len() == 0 {
+                if elems.is_empty() {
                     Expr {
                         kind: Rc::new(ExprKind::Void), // TODO: I don't like using `()` for value of void type. Use 'nil' keyword instead
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
@@ -1070,7 +1066,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 }
             }
             TokenKind::Dot => {
@@ -1085,7 +1080,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 } else {
                     // member access
                     // `.my_enum_variant`
@@ -1094,7 +1088,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 }
             }
             TokenKind::OpenBrace => {
@@ -1104,7 +1097,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
-                .into()
             }
             _ => {
                 return Err(Error::UnexpectedToken(
@@ -1224,13 +1216,12 @@ impl Parser {
                     }
                 }
                 self.expect_token(TokenTag::CloseParen);
-                if elems.len() == 0 {
+                if elems.is_empty() {
                     Pat {
                         kind: Rc::new(PatKind::Void), // TODO: nil literal
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1240,7 +1231,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 }
             }
             TokenKind::Dot => {
@@ -1255,7 +1245,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 } else {
                     // member access
                     // `.my_enum_variant`
@@ -1265,7 +1254,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 }
             }
             _ => {
@@ -1278,21 +1266,6 @@ impl Parser {
                 .into());
             }
         }))
-    }
-
-    fn parse_parenthesized_match_pattern_list(&mut self) -> Result<Vec<Rc<Pat>>, Box<Error>> {
-        self.expect_token(TokenTag::OpenParen);
-        let mut args: Vec<Rc<Pat>> = vec![];
-        while !matches!(self.current_token().kind, TokenKind::CloseParen) {
-            args.push(self.parse_match_pattern()?);
-            if self.current_token().kind == TokenKind::Comma {
-                self.consume_token();
-            } else {
-                break;
-            }
-        }
-        self.expect_token(TokenTag::CloseParen);
-        Ok(args)
     }
 
     fn parse_let_pattern(&mut self) -> Result<Rc<Pat>, Box<Error>> {
@@ -1320,13 +1293,12 @@ impl Parser {
                     }
                 }
                 self.expect_token(TokenTag::CloseParen);
-                if elems.len() == 0 {
+                if elems.is_empty() {
                     Pat {
                         kind: Rc::new(PatKind::Void), // TODO: use "nil" literal instead of () for value of type void
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1336,7 +1308,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 }
             }
             _ => {
@@ -1352,8 +1323,6 @@ impl Parser {
     }
 
     fn parse_let_pattern_annotated(&mut self) -> Result<PatAnnotated, Box<Error>> {
-        let lo = self.current_token().span.lo;
-
         let pat = self.parse_let_pattern()?;
         if self.current_token().kind == TokenKind::Colon {
             self.consume_token();
@@ -1454,13 +1423,12 @@ impl Parser {
                     }
                 }
                 self.expect_token(TokenTag::CloseParen);
-                if elems.len() == 0 {
+                if elems.is_empty() {
                     Type {
                         kind: Rc::new(TypeKind::Void), // TODO: I don't like using `()` for void. Report an error instead
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
@@ -1470,7 +1438,6 @@ impl Parser {
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
-                    .into()
                 }
             }
             _ => {
@@ -1501,7 +1468,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
-                .into()
             }
             TokenKind::Var => {
                 self.expect_token(TokenTag::Var);
@@ -1513,7 +1479,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
-                .into()
             }
             TokenKind::Break => {
                 self.consume_token();
@@ -1522,7 +1487,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
-                .into()
             }
             TokenKind::Continue => {
                 self.consume_token();
@@ -1531,7 +1495,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
-                .into()
             }
             TokenKind::Return => {
                 self.expect_token(TokenTag::Return);

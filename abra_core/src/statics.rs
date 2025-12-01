@@ -262,8 +262,6 @@ pub(crate) enum Error {
     UnrecognizedToken(FileId, usize),
     UnexpectedToken(FileId, String, String, Span),
     EmptyParentheses(FileId, Span),
-    RanOutOfTokens(FileId),
-    Parse(String),
     // resolution phase
     UnresolvedIdentifier {
         node: AstNode,

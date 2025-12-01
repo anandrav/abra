@@ -174,8 +174,6 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     }
 
     while let Some(file_id) = stack.pop_front() {
-        let file_data = ctx.file_db.get(file_id).unwrap();
-
         let file_ast = parse2::parse_file(ctx, file_id);
 
         file_asts.push(file_ast.clone());

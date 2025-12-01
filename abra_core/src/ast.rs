@@ -668,7 +668,7 @@ pub(crate) struct Location {
 }
 
 impl Location {
-    pub fn range(&self) -> std::ops::Range<usize> {
-        self.lo as usize..self.hi as usize
+    pub fn range(&self) -> Range<usize> {
+        self.lo..self.hi
     }
 }

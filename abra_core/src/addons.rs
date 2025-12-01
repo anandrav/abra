@@ -7,7 +7,7 @@
 use crate::vm::{AbraInt, Vm};
 use crate::{
     FileAst, FileData, ItemKind, OsFileProvider,
-    ast::{FileDatabase, Type, TypeDefKind, TypeKind},
+    ast::{Type, TypeDefKind, TypeKind},
     parse2,
 };
 use core::str;
@@ -261,11 +261,10 @@ pub fn generate_bindings_for_crate() {
             source,
         );
         let file_id = ctx.file_db.add(file_data);
-        let file_data = ctx.file_db.get(file_id).unwrap();
 
         let ast = parse2::parse_file(&mut ctx, file_id);
 
-        add_items_from_ast(&mut ctx, ast, output);
+        add_items_from_ast(ast, output);
     }
 
     // handle all other .abra files
@@ -331,7 +330,7 @@ pub mod ffi {{
     )
 }
 
-fn add_items_from_ast(ctx: &mut StaticsContext, ast: Rc<FileAst>, output: &mut String) {
+fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
         match &*item.kind {
             ItemKind::TypeDef(tydef) => match &**tydef {
@@ -681,10 +680,10 @@ fn find_abra_files(
                 nominal_path = nominal_path.join(format!("{no_extension}.abra"));
                 let file_data = FileData::new(nominal_path, path.clone(), source);
                 let file_id = ctx.file_db.add(file_data);
-                let file_data = ctx.file_db.get(file_id).unwrap();
+                // let file_data = ctx.file_db.get(file_id).unwrap();
 
                 let ast = parse2::parse_file(ctx, file_id);
-                add_items_from_ast(ctx, ast, output);
+                add_items_from_ast(ast, output);
 
                 output.push('}');
             }

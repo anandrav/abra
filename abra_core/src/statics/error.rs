@@ -41,12 +41,6 @@ impl Error {
                 diagnostic = diagnostic.with_message("Parentheses are empty");
                 labels.push(Label::secondary(*file, span.lo..span.hi));
             }
-            Error::RanOutOfTokens(file) => {
-                diagnostic = diagnostic.with_message("Ran out of tokens while parsing"); // TODO: while parsing what? Which file? Need more context.
-            }
-            Error::Parse(msg) => {
-                diagnostic = diagnostic.with_message(msg);
-            }
             Error::NameClash {
                 name,
                 original,
