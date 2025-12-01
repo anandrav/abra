@@ -30,16 +30,17 @@ impl Error {
                 diagnostic = diagnostic.with_message("Unrecognized token");
                 labels.push(Label::secondary(*file, *index..index + 1).with_message("here"));
             }
-            Error::UnexpectedToken(file, expected, found, found_span) => {
+            Error::UnexpectedToken(expected, found, location) => {
                 diagnostic = diagnostic.with_message("Unexpected token");
+
                 labels.push(
-                    Label::secondary(*file, found_span.lo..found_span.hi)
+                    Label::secondary(location.file_id, location.range())
                         .with_message(format!("Found `{found}` when expecting `{expected}`")),
                 );
             }
-            Error::EmptyParentheses(file, span) => {
+            Error::EmptyParentheses(location) => {
                 diagnostic = diagnostic.with_message("Parentheses are empty");
-                labels.push(Label::secondary(*file, span.lo..span.hi));
+                labels.push(Label::secondary(location.file_id, location.range()));
             }
             Error::NameClash {
                 name,

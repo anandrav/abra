@@ -4,7 +4,8 @@
 
 use crate::ast::{
     AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDef,
-    InterfaceImpl, InterfaceOutputType, NodeId, Polytype, StructDef, Type as AstType, TypeKind,
+    InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype, StructDef, Type as AstType,
+    TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use crate::{ErrorSummary, FileProvider};
@@ -260,8 +261,8 @@ pub(crate) enum Error {
     },
     // parsing phase
     UnrecognizedToken(FileId, usize),
-    UnexpectedToken(FileId, String, String, Span),
-    EmptyParentheses(FileId, Span),
+    UnexpectedToken(String, String, Location),
+    EmptyParentheses(Location),
     // resolution phase
     UnresolvedIdentifier {
         node: AstNode,
@@ -364,7 +365,6 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
     })
 }
 
-use crate::parse::Span;
 use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
 

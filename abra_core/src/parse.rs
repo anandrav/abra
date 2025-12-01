@@ -118,6 +118,15 @@ impl Parser {
         }
     }
 
+    fn current_token_location(&self) -> Location {
+        let current = self.current_token();
+        Location {
+            file_id: self.file_id,
+            lo: current.span.lo,
+            hi: current.span.hi,
+        }
+    }
+
     fn peek_token(&self, diff: usize) -> Token {
         match self.tokens.get(self.index + diff) {
             Some(t) => t.clone(),
@@ -150,10 +159,9 @@ impl Parser {
             //     current.span,
             // ));
             self.errors.push(Error::UnexpectedToken(
-                self.file_id,
                 kind.to_string(),
                 current.kind.discriminant().to_string(),
-                current.span,
+                self.current_token_location(),
             ))
         }
     }
@@ -187,10 +195,9 @@ impl Parser {
             }))
         } else {
             Err(Error::UnexpectedToken(
-                self.file_id,
                 "identifier".into(),
                 current.kind.discriminant().to_string(),
-                current.span,
+                self.current_token_location(),
             )
             .into())
         }
@@ -211,10 +218,9 @@ impl Parser {
             }))
         } else {
             Err(Error::UnexpectedToken(
-                self.file_id,
                 "polytype identifier".into(),
                 current.kind.discriminant().to_string(),
-                current.span,
+                self.current_token_location(),
             )
             .into())
         }
@@ -936,12 +942,10 @@ impl Parser {
                         }
                     }
                     _ => {
-                        // TODO: verbose
                         return Err(Error::UnexpectedToken(
-                            self.file_id,
                             TokenTag::IntLit.to_string(),
                             self.current_token().tag().to_string(),
-                            self.current_token().span,
+                            self.current_token_location(),
                         )
                         .into());
                     }
@@ -1071,9 +1075,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(
-                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
-                    ); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
@@ -1117,10 +1119,9 @@ impl Parser {
             }
             _ => {
                 return Err(Error::UnexpectedToken(
-                    self.file_id,
                     "expression term".into(),
                     current.kind.discriminant().to_string(),
-                    current.span,
+                    self.current_token_location(),
                 )
                 .into());
             }
@@ -1250,9 +1251,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(
-                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
-                    ); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1289,10 +1288,9 @@ impl Parser {
             }
             _ => {
                 return Err(Error::UnexpectedToken(
-                    self.file_id,
                     "match arm pattern".into(),
                     current.kind.discriminant().to_string(),
-                    current.span,
+                    self.current_token_location(),
                 )
                 .into());
             }
@@ -1325,9 +1323,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(
-                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
-                    ); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1341,10 +1337,9 @@ impl Parser {
             }
             _ => {
                 return Err(Error::UnexpectedToken(
-                    self.file_id,
                     "pattern".into(),
                     current.kind.discriminant().to_string(),
-                    current.span,
+                    self.current_token_location(),
                 )
                 .into());
             }
@@ -1453,9 +1448,7 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.is_empty() {
-                    return Err(
-                        Error::EmptyParentheses(self.file_id, Span { lo, hi: self.index }).into(),
-                    ); // TODO: just pass Location instead of file_id, Span
+                    return Err(Error::EmptyParentheses(self.location(lo)).into()); // TODO: just pass Location instead of file_id, Span
                 } else if elems.len() == 1 {
                     //  parenthesized expression
                     return Ok(elems[0].clone());
@@ -1469,10 +1462,9 @@ impl Parser {
             }
             _ => {
                 return Err(Error::UnexpectedToken(
-                    self.file_id,
                     "type".into(),
                     current.kind.discriminant().to_string(),
-                    current.span,
+                    self.current_token_location(),
                 )
                 .into());
             }
