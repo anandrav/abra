@@ -810,10 +810,67 @@ impl Parser {
         })
     }
 
-    fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Box<Error>> {
-        // self.skip_newlines();
+    fn try_parse_lambda_expr(&mut self) -> Result<Option<Rc<Expr>>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
+
+        let mut args: Vec<ArgMaybeAnnotated> = vec![];
+        if current.kind == TokenKind::OpenParen {
+            self.expect_token(TokenTag::OpenParen);
+            while !matches!(self.current_token().kind, TokenKind::CloseParen) {
+                if let Ok(arg) = self.parse_func_arg() {
+                    args.push(arg);
+                } else {
+                    return Ok(None);
+                }
+                if self.current_token().kind == TokenKind::Comma {
+                    self.consume_token();
+                } else {
+                    break;
+                }
+            }
+            self.expect_token(TokenTag::CloseParen);
+        } else {
+            if let Ok(arg) = self.parse_func_arg() {
+                args.push(arg);
+            } else {
+                return Ok(None);
+            }
+        }
+        if self.current_token().kind == TokenKind::RArrow {
+            // It must be a lambda
+            self.consume_token();
+            let body = self.parse_expr()?;
+            Ok(Some(
+                Expr {
+                    kind: Rc::new(ExprKind::AnonymousFunction(args, None, body)), // TODO: need to support out annotation
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+                .into(),
+            ))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Box<Error>> {
+        let current = self.current_token();
+        let lo = self.current_token().span.lo;
+
+        // Try to speculatively parse a lambda expression first
+        let checkpoint = self.index;
+        let checkpoint_errors = self.errors.clone();
+
+        if let Some(lambda_expr) = self.try_parse_lambda_expr()? {
+            return Ok(lambda_expr);
+        }
+
+        // rollback
+        self.index = checkpoint;
+        self.errors = checkpoint_errors; // TODO: inefficient. This happens when parsing every single expression!
+
+        // It's not a lambda.
         Ok(Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 self.consume_token();
