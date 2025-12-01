@@ -668,14 +668,6 @@ pub(crate) struct Location {
 }
 
 impl Location {
-    pub fn new(file_id: FileId, pest_span: pest::Span) -> Self {
-        Location {
-            file_id,
-            lo: pest_span.start(),
-            hi: pest_span.end(),
-        }
-    }
-
     pub fn range(&self) -> std::ops::Range<usize> {
         self.lo as usize..self.hi as usize
     }

@@ -6,9 +6,9 @@
 
 use crate::vm::{AbraInt, Vm};
 use crate::{
-    FileAst, FileData, ItemKind,
+    FileAst, FileData, ItemKind, OsFileProvider,
     ast::{FileDatabase, Type, TypeDefKind, TypeKind},
-    parse::parse_or_err,
+    parse2,
 };
 use core::str;
 use std::{
@@ -222,6 +222,7 @@ unsafe extern "C" fn abra_vm_array_len(vm: *mut c_void) -> usize {
     vm.array_len()
 }
 
+use crate::statics::StaticsContext;
 use std::env::current_dir;
 
 pub fn generate_bindings_for_crate() {
@@ -238,11 +239,18 @@ pub fn generate_bindings_for_crate() {
     toplevel_abra_file.pop();
     toplevel_abra_file = toplevel_abra_file.join(format!("{package_name}.abra"));
 
+    // TODO: this feels really icky, even if they're not getting used, passing package_dir as a dummy is strange. Maybe make them optional?
+    let file_provider = OsFileProvider::new(
+        package_dir.clone(),
+        package_dir.clone(),
+        package_dir.clone(),
+    );
+
     let output = &mut String::new();
 
     write_header(output, &package_name);
 
-    let mut file_db = FileDatabase::new();
+    let mut ctx = StaticsContext::new(file_provider);
 
     // handle toplevel .abra file
     {
@@ -252,16 +260,17 @@ pub fn generate_bindings_for_crate() {
             toplevel_abra_file,
             source,
         );
-        let file_id = file_db.add(file_data);
-        let file_data = file_db.get(file_id).unwrap();
-        let ast = parse_or_err(file_id, file_data).unwrap();
+        let file_id = ctx.file_db.add(file_data);
+        let file_data = ctx.file_db.get(file_id).unwrap();
 
-        add_items_from_ast(ast, output);
+        let ast = parse2::parse_file(&mut ctx, file_id);
+
+        add_items_from_ast(&mut ctx, ast, output);
     }
 
     // handle all other .abra files
     let mut prefixes = vec![package_name.clone()];
-    find_abra_files(&package_dir, &mut prefixes, &mut file_db, output).unwrap();
+    find_abra_files(&mut ctx, &package_dir, &mut prefixes, output).unwrap();
 
     // write_footer
     {
@@ -322,7 +331,7 @@ pub mod ffi {{
     )
 }
 
-fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
+fn add_items_from_ast(ctx: &mut StaticsContext, ast: Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
         match &*item.kind {
             ItemKind::TypeDef(tydef) => match &**tydef {
@@ -627,9 +636,9 @@ pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
 }
 
 fn find_abra_files(
+    ctx: &mut StaticsContext,
     search_dir: &Path,
     prefixes: &mut Vec<String>,
-    file_db: &mut FileDatabase,
     output: &mut String,
 ) -> std::io::Result<()> {
     for entry in fs::read_dir(search_dir)? {
@@ -638,7 +647,7 @@ fn find_abra_files(
         if path.is_dir() {
             // Recursively search this directory.
             prefixes.push(path.file_name().unwrap().to_str().unwrap().to_string());
-            find_abra_files(&path, prefixes, file_db, output)?;
+            find_abra_files(ctx, &path, prefixes, output)?;
             prefixes.pop();
         } else if let Some(ext) = path.extension() {
             // Check if the extension is "abra".
@@ -671,11 +680,11 @@ fn find_abra_files(
                 }
                 nominal_path = nominal_path.join(format!("{no_extension}.abra"));
                 let file_data = FileData::new(nominal_path, path.clone(), source);
-                let file_id = file_db.add(file_data);
-                let file_data = file_db.get(file_id).unwrap();
-                let ast = parse_or_err(file_id, file_data).unwrap();
+                let file_id = ctx.file_db.add(file_data);
+                let file_data = ctx.file_db.get(file_id).unwrap();
 
-                add_items_from_ast(ast, output);
+                let ast = parse2::parse_file(ctx, file_id);
+                add_items_from_ast(ctx, ast, output);
 
                 output.push('}');
             }

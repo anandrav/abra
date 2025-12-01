@@ -23,7 +23,6 @@ pub mod environment;
 pub mod host;
 mod lexer;
 mod optimize_bytecode;
-mod parse;
 mod parse2;
 pub mod prelude;
 pub mod statics;
