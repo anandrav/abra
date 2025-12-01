@@ -180,6 +180,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
         let file_ast = if file_data.name() == "prelude_copy.abra"
             || file_data.name() == "snake.abra"
             || file_data.name() == "matrix_rain.abra"
+            || file_data.name() == "prelude.abra"
         {
             parse2::parse_file(ctx, file_id)
         } else {

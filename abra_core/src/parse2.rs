@@ -4,6 +4,7 @@
 use crate::ast::*;
 use crate::lexer::{Span, Token, TokenKind, TokenTag, tokenize_file};
 use crate::statics::{Error, StaticsContext};
+use std::mem;
 use std::rc::Rc;
 use strum::IntoDiscriminant;
 
@@ -30,12 +31,25 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
             Ok(item) => {
                 // println!("is OK");
                 // dbg!(&item);
+
+                // TODO: code duplication
+                // flush errors
+                // let mut scratch = vec![];
+                // mem::swap(&mut scratch, &mut parser.errors);
+                // ctx.errors.extend(scratch);
+
                 items.push(item);
                 clean = true
             }
             Err(e) => {
                 // if clean {
                 // println!("got an error when parsing item");
+
+                // flush errors
+                let errs = mem::replace(&mut parser.errors, vec![]);
+                ctx.errors.extend(errs);
+                parser.errors.clear();
+
                 ctx.errors.push(*e);
                 clean = false;
                 // }
@@ -148,6 +162,30 @@ impl Parser {
             Err(Error::UnexpectedToken(
                 self.file_id,
                 "identifier".into(),
+                current.kind.discriminant().to_string(),
+                current.span,
+            )
+            .into())
+        }
+    }
+
+    fn expect_poly_ident(&mut self) -> Result<Rc<Identifier>, Box<Error>> {
+        let current = self.current_token();
+        self.index += 1;
+        if let TokenKind::PolyIdent(v) = current.kind {
+            Ok(Rc::new(Identifier {
+                v,
+                loc: Location {
+                    file_id: self.file_id,
+                    lo: current.span.lo,
+                    hi: current.span.hi,
+                },
+                id: NodeId::new(),
+            }))
+        } else {
+            Err(Error::UnexpectedToken(
+                self.file_id,
+                "polytype identifier".into(),
                 current.kind.discriminant().to_string(),
                 current.span,
             )
@@ -325,7 +363,7 @@ impl Parser {
         let mut args: Vec<Rc<Polytype>> = vec![];
         while !matches!(self.current_token().kind, TokenKind::Gt) {
             self.skip_newlines();
-            let name = self.expect_ident()?; // TODO: identifier of polytype could also have leading '
+            let name = self.expect_poly_ident()?;
             let mut interfaces: Vec<Rc<Interface>> = vec![];
             while self.current_token().kind.discriminant() == TokenTag::Ident {
                 interfaces.push(self.parse_interface_constraint()?);
@@ -368,18 +406,22 @@ impl Parser {
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenBrace);
         let mut methods: Vec<Rc<FuncDecl>> = vec![];
+        let mut output_types: Vec<Rc<InterfaceOutputType>> = vec![]; // TODO: parse these output types
         loop {
             self.skip_newlines();
-            if self.current_token().kind == TokenKind::CloseBrace {
+            if self.current_token().kind == TokenKind::Fn {
+                methods.push(self.parse_func_decl(vec![])?);
+            } else if self.current_token().kind == TokenKind::OutputType {
+                output_types.push(self.parse_output_type_decl()?);
+            } else {
                 break;
             }
-            methods.push(self.parse_func_decl(vec![])?);
         }
         self.expect_token(TokenTag::CloseBrace);
         Ok(Rc::new(InterfaceDef {
             name,
             methods,
-            output_types: vec![],
+            output_types,
         }))
     }
 
@@ -429,18 +471,13 @@ impl Parser {
     ) -> Result<Rc<EnumDef>, Box<Error>> {
         let mut variants: Vec<Rc<Variant>> = vec![];
         loop {
+            self.skip_newlines();
             if variants.is_empty() {
                 self.expect_token_opt(TokenTag::VBar);
+                variants.push(self.parse_variant()?);
             } else if matches!(self.current_token().kind, TokenKind::VBar) {
                 self.consume_token();
-            } else {
-                break;
-            }
-            variants.push(self.parse_variant()?);
-            if self.current_token().kind == TokenKind::Newline {
-                self.skip_newlines()
-            } else if self.current_token().kind == TokenKind::VBar {
-                continue;
+                variants.push(self.parse_variant()?);
             } else {
                 break;
             }
@@ -466,6 +503,24 @@ impl Parser {
             ctor,
             data,
             loc: self.location(lo),
+            id: NodeId::new(),
+        }))
+    }
+
+    fn parse_output_type_decl(&mut self) -> Result<Rc<InterfaceOutputType>, Box<Error>> {
+        // TODO: make type alias Ret<T> = Result<T, Box<Error>>
+        self.expect_token(TokenTag::OutputType);
+        let name = self.expect_ident()?;
+        let mut interfaces = vec![]; // TODO: parse interface args. helper function?
+        if self.current_token().kind == TokenKind::Impl {
+            self.consume_token();
+            while self.current_token().kind.discriminant() == TokenTag::Ident {
+                interfaces.push(self.parse_interface_constraint()?);
+            }
+        }
+        Ok(Rc::new(InterfaceOutputType {
+            name,
+            interfaces,
             id: NodeId::new(),
         }))
     }
@@ -1023,15 +1078,12 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.len() == 0 {
-                    let location = self.location(lo);
-                    return Err(Error::EmptyParentheses(
-                        self.file_id,
-                        Span {
-                            lo,
-                            hi: location.hi,
-                        },
-                    )
-                    .into()); // TODO: instead of passing FileId + Span, just pass a Location
+                    Pat {
+                        kind: Rc::new(PatKind::Void), // TODO: nil literal
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1122,15 +1174,12 @@ impl Parser {
                 }
                 self.expect_token(TokenTag::CloseParen);
                 if elems.len() == 0 {
-                    let location = self.location(lo);
-                    return Err(Error::EmptyParentheses(
-                        self.file_id,
-                        Span {
-                            lo,
-                            hi: location.hi,
-                        },
-                    )
-                    .into()); // TODO: instead of passing FileId + Span, just pass a Location
+                    Pat {
+                        kind: Rc::new(PatKind::Void), // TODO: use "nil" literal instead of () for value of type void
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                    .into()
                 } else if elems.len() == 1 {
                     //  parenthesized pattern
                     return Ok(elems[0].clone());
@@ -1160,6 +1209,7 @@ impl Parser {
 
         let pat = self.parse_let_pattern()?;
         if self.current_token().kind == TokenKind::Colon {
+            self.consume_token();
             let annot = self.parse_type()?;
             Ok((pat, Some(annot)))
         } else {
@@ -1228,6 +1278,19 @@ impl Parser {
                 }
                 Type {
                     kind: Rc::new(TypeKind::NamedWithParams(name, args)),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::PolyIdent(_) => {
+                let name = self.expect_poly_ident()?;
+                let mut interfaces = vec![];
+                while self.current_token().kind.discriminant() == TokenTag::Ident {
+                    interfaces.push(self.parse_interface_constraint()?);
+                }
+                let polytype = Rc::new(Polytype { name, interfaces });
+                Type {
+                    kind: Rc::new(TypeKind::Poly(polytype)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

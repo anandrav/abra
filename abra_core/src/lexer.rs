@@ -85,7 +85,9 @@ pub(crate) enum TokenKind {
     Var,
     Type,
     Interface,
+    OutputType,
     Implement,
+    Impl, // TODO: re-evaluate having both of these keywords
     Extend,
     Use,
     Fn,
@@ -110,6 +112,7 @@ pub(crate) enum TokenKind {
     FloatLit(String),
     StringLit(String),
     Ident(String),
+    PolyIdent(String), // T, U, V, T2, T123 etc.
     Wildcard,
 
     Newline,
@@ -167,7 +170,8 @@ impl TokenKind {
             | TokenKind::Else
             | TokenKind::True
             | TokenKind::Bool
-            | TokenKind::Void => 4,
+            | TokenKind::Void
+            | TokenKind::Impl => 4,
             TokenKind::Match
             | TokenKind::Break
             | TokenKind::While
@@ -176,9 +180,11 @@ impl TokenKind {
             TokenKind::Extend | TokenKind::Return | TokenKind::String => 6,
             TokenKind::Continue => 8,
             TokenKind::Implement | TokenKind::Interface => 9,
-            TokenKind::IntLit(s) | TokenKind::FloatLit(s) | TokenKind::Ident(s) => {
-                s.chars().count()
-            }
+            TokenKind::OutputType => 10,
+            TokenKind::IntLit(s)
+            | TokenKind::FloatLit(s)
+            | TokenKind::Ident(s)
+            | TokenKind::PolyIdent(s) => s.chars().count(),
             TokenKind::StringLit(s) => s.chars().count() + 2, // include quotes
         }
     }
@@ -189,7 +195,9 @@ impl TokenKind {
             "var" => TokenKind::Var,
             "type" => TokenKind::Type,
             "interface" => TokenKind::Interface,
+            "outputtype" => TokenKind::OutputType,
             "implement" => TokenKind::Implement,
+            "impl" => TokenKind::Impl,
             "extend" => TokenKind::Extend,
             "use" => TokenKind::Use,
             "fn" => TokenKind::Fn,
@@ -319,6 +327,8 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
 
             if let Some(kw) = TokenKind::keyword_from_str(&ident) {
                 lexer.emit(kw);
+            } else if is_poly_ident(&ident) {
+                lexer.emit(TokenKind::PolyIdent(ident));
             } else {
                 lexer.emit(TokenKind::Ident(ident));
             }
@@ -377,10 +387,6 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '-' => {
                 if let Some('>') = lexer.peek_char(1) {
                     lexer.emit(TokenKind::RArrow);
-                } else if let Some(c) = lexer.peek_char(1)
-                    && start_of_number(*c)
-                {
-                    lexer.handle_num();
                 } else {
                     lexer.emit(TokenKind::Minus);
                 }
@@ -408,7 +414,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             }
             '/' => {
                 if let Some('/') = lexer.peek_char(1) {
-                    // comment
+                    // single-line comment
                     let mut next = 1;
                     while let Some(c) = lexer.peek_char(next)
                         && *c != '\n'
@@ -416,6 +422,17 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         next += 1;
                     }
                     lexer.index += next + 1;
+                } else if let Some('*') = lexer.peek_char(1) {
+                    // multi-line comment
+                    let mut next = 2;
+                    while let Some(c) = lexer.peek_char(next)
+                        && let Some(c2) = lexer.peek_char(next + 1)
+                        && *c != '*'
+                        && *c2 != '/'
+                    {
+                        next += 1;
+                    }
+                    lexer.index += next + 2;
                 } else {
                     lexer.emit(TokenKind::Slash);
                 }
@@ -460,6 +477,23 @@ impl fmt::Display for Token {
         }
     }
 }
+
+fn is_poly_ident(ident: &str) -> bool {
+    if ident.is_empty() {
+        return false;
+    }
+    let mut chars = ident.chars();
+    if !chars.next().unwrap().is_uppercase() {
+        return false;
+    }
+    for char in chars {
+        if char.is_alphabetic() {
+            return false;
+        }
+    }
+    true
+}
+
 impl fmt::Display for TokenTag {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
@@ -498,7 +532,9 @@ impl fmt::Display for TokenTag {
             TokenTag::Var => write!(f, "var"),
             TokenTag::Type => write!(f, "type"),
             TokenTag::Interface => write!(f, "interface"),
+            TokenTag::OutputType => write!(f, "outputtype"),
             TokenTag::Implement => write!(f, "implement"),
+            TokenTag::Impl => write!(f, "impl"),
             TokenTag::Extend => write!(f, "extend"),
             TokenTag::Use => write!(f, "use"),
             TokenTag::Fn => write!(f, "fn"),
@@ -522,6 +558,7 @@ impl fmt::Display for TokenTag {
             TokenTag::FloatLit => write!(f, "float literal"),
             TokenTag::StringLit => write!(f, "string literal"),
             TokenTag::Ident => write!(f, "identifier"),
+            TokenTag::PolyIdent => write!(f, "polytype identifier"),
             TokenTag::Newline => write!(f, "newline"),
             TokenTag::Eof => write!(f, "<EOF>"),
         }

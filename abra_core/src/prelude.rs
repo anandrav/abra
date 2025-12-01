@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub const PRELUDE: &str = r#"
-#host
+pub const PRELUDE: &str = r#"#host
 fn print_string(s: string) -> void
 #host
 fn readline() -> string
@@ -49,7 +48,7 @@ type option<T> = some(T) | none
 
 fn unwrap(m: option<T>) -> T {
     match m {
-        .some(x) -> x,
+        .some(x) -> x
         .none -> panic("cannot unwrap option.none")
     }
 }
@@ -77,6 +76,7 @@ implement Equal for bool {
         }
     }
 }
+println("helpworld")
 implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }
@@ -123,7 +123,7 @@ implement ToString for int {
 	fn str(n) = int_to_string(n)
 }
 implement ToString for bool {
-	fn str(b) = if b "true" else "false"
+	fn str(b) = if b  { "true" } else  { "false" } // TODO: would be nice to write if b "true" else "false"
 }
 implement ToString for float {
     fn str(f) = float_to_string(f)
@@ -198,7 +198,7 @@ implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 T
 implement ToString for option<T ToString> {
     fn str(m: option<T ToString>) {
         match m {
-            .some(x) -> "some(" .. x .. ")",
+            .some(x) -> "some(" .. x .. ")"
             .none -> "none"
         }
     }
@@ -288,7 +288,7 @@ implement Iterator for RangeIterator {
             .none
         } else {
             let ret = self.begin
-            self.begin = self.begin + 1;
+            self.begin = self.begin + 1
             .some(ret)
         }
     }
@@ -324,8 +324,8 @@ extend array<T Equal> {
 
     fn contains(self, x: T Equal) -> bool {
         match self.find(x) {
-            .some(_) -> true,
-            .none -> false,
+            .some(_) -> true
+            .none -> false
         }
     }
 }

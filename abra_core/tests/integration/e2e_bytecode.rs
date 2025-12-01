@@ -373,8 +373,8 @@ fn match_int() {
     let src = r#"
 let n = 1
 match n {
-    0 -> 0,
-    1 -> 1,
+    0 -> 0
+    1 -> 1
     _ -> 2
 }
 "#;
@@ -393,8 +393,8 @@ fn match_int_wild() {
     let src = r#"
 let n = 42
 match n {
-    0 -> 0,
-    1 -> 1,
+    0 -> 0
+    1 -> 1
     _ -> 99
 }
 "#;
@@ -413,9 +413,9 @@ fn match_trailing_comma() {
     let src = r#"
 let n = 42
 match n {
-    0 -> 0,
-    1 -> 1,
-    _ -> 99,
+    0 -> 0
+    1 -> 1
+    _ -> 99
 }
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -433,12 +433,12 @@ fn match_two_bools() {
     let src = r#"
 let b = true
 let one = match b {
-    true -> 1,
+    true -> 1
     false -> 2
 }
 let b = false
 let two = match b {
-    true -> 1,
+    true -> 1
     false -> 2
 }
 let sum = one + two
@@ -459,8 +459,8 @@ fn match_pair_first_case() {
     let src = r#"
 let triplet = (1, 1)
 match triplet {
-      (1, 1) -> 100,
-      (1, 2) -> 101,
+      (1, 1) -> 100
+      (1, 2) -> 101
       _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -478,8 +478,8 @@ fn match_pair_second_case() {
     let src = r#"
 let pair = (1, 2)
 match pair {
-      (1, 1) -> 100,
-      (1, 2) -> 101,
+      (1, 1) -> 100
+      (1, 2) -> 101
       _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -497,8 +497,8 @@ fn match_pair_wild() {
     let src = r#"
 let pair = (2, 1)
 match pair {
-      (1, 1) -> 100,
-      (1, 2) -> 101,
+      (1, 1) -> 100
+      (1, 2) -> 101
       _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -516,8 +516,8 @@ fn match_quintuple_booleans() {
     let src = r#"
 let quintuple = (true, false, true, true, false)
 match quintuple {
-      (true, false, true, true, true) -> 100,
-      (true, false, true, true, false) -> 101,
+      (true, false, true, true, true) -> 100
+      (true, false, true, true, false) -> 101
       _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -535,8 +535,8 @@ fn match_nested_tuple() {
     let src = r#"
 let triplet = (1, (2, 3), 4)
 match triplet {
-      (1, (2, 88), 4) -> 100,
-      (1, (2, 3), 4) -> 101,
+      (1, (2, 88), 4) -> 100
+      (1, (2, 3), 4) -> 101
       _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -571,7 +571,7 @@ fn recursive_identity_function() {
     let src = r#"
 fn r(n) {
     match n {
-        0 -> 0,
+        0 -> 0
         _ -> 1 + r(n-1)
     }
 }
@@ -592,8 +592,8 @@ fn fib_naive() {
     let src = r#"
 fn fib(n) {
     match n {
-        0 -> 0,
-        1 -> 1,
+        0 -> 0
+        1 -> 1
         _ -> fib(n-1) + fib(n-2)
     }
 }
@@ -1320,8 +1320,8 @@ extend Person {
 extend Color {
   fn shout(self) -> string {
     match self {
-      .Red -> "red!",
-      _ -> "not red!",
+      .Red -> "red!"
+      _ -> "not red!"
     }
   }
 }
@@ -1364,8 +1364,8 @@ extend Person {
 extend Color {
   fn fullname(self) -> string {
     match self {
-      .Red -> "red!",
-      _ -> "not red!",
+      .Red -> "red!"
+      _ -> "not red!"
     }
   }
 }
@@ -1408,8 +1408,8 @@ type Color =
 extend Color {
   fn shout(self) -> string {
     match self {
-      .Red -> "red!",
-      _ -> "not red!",
+      .Red -> "red!"
+      _ -> "not red!"
     }
   }
 }
@@ -1519,8 +1519,8 @@ var sum = 0
 let it = arr.make_iterator()
 while true {
   match it.next() {
-    option.some(n) -> sum = sum + n,
-    option.none -> break,
+    option.some(n) -> sum = sum + n
+    option.none -> break
   }
 }
 
@@ -1625,8 +1625,8 @@ fn match_tuple_with_void_field() {
     let src = r#"
 let person = ("Alice", (), (), (), (), 30)
 let n = match person {
-  ("Bob", (), (), (), (), 50) -> 0,
-  ("Alice", (), (), (), (), 20) -> 0,
+  ("Bob", (), (), (), (), 50) -> 0
+  ("Alice", (), (), (), (), 20) -> 0
   ("Alice", (), (), (), (), 30) -> 1
 }
 n
@@ -1651,12 +1651,12 @@ type GlibbyGlob =
 let glib = GlibbyGlob.Glib
 let glob = GlibbyGlob.Glob(2, (), 5)
 var n = match glob {
-  GlibbyGlob.Glob(a, blah, c) -> a + c,
+  GlibbyGlob.Glob(a, blah, c) -> a + c
   GlibbyGlob.Glib -> 0
 }
 n = n + match glib {
-  GlibbyGlob.Glob(a, blah, c) -> 0,
-  GlibbyGlob.Glib -> 3,
+  GlibbyGlob.Glob(a, blah, c) -> 0
+  GlibbyGlob.Glib -> 3
 }
 
 n
