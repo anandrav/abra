@@ -166,7 +166,7 @@ fn update(st: State) {
 
   if out_of_bounds(new_head, width, height) or snake.body.contains(new_head) {
     st.status = .Lost
-    return ()
+    return nil
   }
 
   let fruit_was_eaten = (new_head == fruit.location)
