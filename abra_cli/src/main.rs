@@ -88,18 +88,17 @@ fn print_help() {
     let reset = c("\x1b[0m");
 
     println!(
-        "{title}{bold}Usage:{reset} {cyan}abra{reset} [OPTIONS] <FILE> [ARGS]...
-    {gold}ex: abra helloworld.abra{reset}
+        "{title}{bold}Usage:{reset} {cyan}abra [OPTIONS] <FILE> [ARGS]...{reset}
 
 {title}{bold}Arguments:{reset}
-    {gold}<FILE>{reset}    The main Abra file to compile and execute
-    {gold}[ARGS]{reset}    Arguments to pass to the Abra program
+    {cyan}<FILE>{reset}    The main Abra file to compile and execute
+    {cyan}[ARGS]{reset}    Arguments for the Abra program
 
 {title}{bold}Options:{reset}
-    {gold}-m, --modules <DIRECTORY>{reset}          Override the default module directory
-    {gold}-s, --shared-objects <DIRECTORY>{reset}   Override the default shared objects directory
-    {gold}-a, --assembly{reset}                     Print the assembly for the Abra program
-    {gold}-h, --help{reset}                         Print help"
+    {cyan}-m, --modules <DIRECTORY>{reset}          Override the default module directory
+    {cyan}-s, --shared-objects <DIRECTORY>{reset}   Override the default shared objects directory
+    {cyan}-a, --assembly{reset}                     Print the assembly for the Abra program
+    {cyan}-h, --help{reset}                         Print help"
     );
 }
 
