@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::parse::PrefixOp;
 use crate::vm::AbraInt;
 use std::fmt::Display;
 use std::hash::Hasher;
@@ -489,6 +490,7 @@ pub(crate) enum ExprKind {
     Match(Rc<Expr>, Vec<Rc<MatchArm>>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
+    Unop(PrefixOp, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     MemberFuncAp(Option<Rc<Expr>>, Rc<Identifier>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
@@ -502,6 +504,7 @@ pub(crate) enum ExprKind {
 pub enum BinaryOperator {
     // comparison
     Equal,
+    NotEqual,
     LessThan,
     LessThanOrEqual,
     GreaterThan,
@@ -523,7 +526,7 @@ pub enum BinaryOperator {
 impl BinaryOperator {
     pub(crate) fn precedence(&self) -> u8 {
         match self {
-            BinaryOperator::Equal => 1,
+            BinaryOperator::Equal | BinaryOperator::NotEqual => 1,
             BinaryOperator::Format => 2,
             BinaryOperator::And | BinaryOperator::Or => 4,
             BinaryOperator::LessThan

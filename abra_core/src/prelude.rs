@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub const PRELUDE: &str = r#"#host
-fn print_string(s: string) -> void
-#host
-fn readline() -> string
-//host fn get_args() -> array<string>
+pub const PRELUDE: &str = r#"#host fn print_string(s: string) -> void
+
+#host fn readline() -> string
+
+#host fn get_args() -> array<string>
 
 interface Num {
     fn add(a: Self, b: Self) -> Self
@@ -76,7 +76,7 @@ implement Equal for bool {
         }
     }
 }
-println("helpworld")
+
 implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }

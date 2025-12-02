@@ -42,7 +42,8 @@ let d = c * 3
 let e = d / 3
 let f = e ^ 3
 let g = f mod 5
-g
+let h = -g
+h
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -51,7 +52,7 @@ g
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    assert_eq!(top.get_int(&vm), -2);
 }
 
 #[test]
@@ -63,7 +64,8 @@ let c = b - 2.0
 let d = c * 3.0
 let e = d / 3.0
 let f = e ^ 3.0
-f
+let g = -f
+g
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -72,7 +74,7 @@ f
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_float(&vm), 27.0);
+    assert_eq!(top.get_float(&vm), -27.0);
 }
 
 #[test]
@@ -83,14 +85,16 @@ let b = 2 <= 3
 let c = 3 > 2
 let d = 3 >= 2
 let e = 2 == 2
+let e2 = 2 != 4
 
 let f = 2.0 < 3.0
 let g = 2.0 <= 3.0
 let h = 3.0 > 2.0
 let i = 3.0 >= 2.0
 let j = 2.0 == 2.0
+let j2 = 2.0 != 4.0
 
-let k = a and b and c and d and e and f and g and h and i and j
+let k = a and b and c and d and e and e2 and f and g and h and i and j and j2
 k
 "#;
     let program = unwrap_or_panic(compile_bytecode(

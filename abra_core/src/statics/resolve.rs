@@ -744,6 +744,9 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             resolve_names_expr(ctx, symbol_table, left);
             resolve_names_expr(ctx, symbol_table, right);
         }
+        ExprKind::Unop(_, right) => {
+            resolve_names_expr(ctx, symbol_table, right);
+        }
         ExprKind::Block(statements) => {
             let symbol_table = symbol_table.new_scope();
             for statement in statements.iter() {

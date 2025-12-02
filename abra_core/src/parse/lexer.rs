@@ -33,7 +33,7 @@ pub(crate) enum TokenKind {
     /// `==`
     EqEq,
     /// `!=`
-    Ne,
+    NotEq,
     /// `>=`
     Ge,
     /// `>`
@@ -157,7 +157,7 @@ impl TokenKind {
 
             TokenKind::Le
             | TokenKind::EqEq
-            | TokenKind::Ne
+            | TokenKind::NotEq
             | TokenKind::Ge
             | TokenKind::DotDot
             | TokenKind::RArrow
@@ -410,7 +410,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             }
             '!' => {
                 if let Some('=') = lexer.peek_char(1) {
-                    lexer.emit(TokenKind::Ne);
+                    lexer.emit(TokenKind::NotEq);
                 } else {
                     lexer.emit(TokenKind::Bang);
                 }
@@ -532,7 +532,7 @@ impl fmt::Display for TokenTag {
             TokenTag::Lt => write!(f, "<"),
             TokenTag::Le => write!(f, "<="),
             TokenTag::EqEq => write!(f, "=="),
-            TokenTag::Ne => write!(f, "!="),
+            TokenTag::NotEq => write!(f, "!="),
             TokenTag::Ge => write!(f, ">="),
             TokenTag::Gt => write!(f, ">"),
             TokenTag::Bang => write!(f, "!"),

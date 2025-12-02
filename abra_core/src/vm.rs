@@ -1159,11 +1159,11 @@ impl Vm {
             Instr::Modulo(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a % b);
+                self.store_offset_or_top(dest, a.rem_euclid(b));
             }
             Instr::ModuloImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a % self.int_constants[imm as usize]);
+                self.store_offset_or_top(dest, a.rem_euclid(self.int_constants[imm as usize]));
             }
             Instr::AddFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);

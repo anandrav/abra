@@ -121,6 +121,9 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
             check_pattern_exhaustiveness_expr(statics, left);
             check_pattern_exhaustiveness_expr(statics, right);
         }
+        ExprKind::Unop(_op, right) => {
+            check_pattern_exhaustiveness_expr(statics, right);
+        }
         ExprKind::Block(statements) => {
             for statement in statements {
                 check_pattern_exhaustiveness_stmt(statics, statement);

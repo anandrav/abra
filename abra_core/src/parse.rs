@@ -697,7 +697,20 @@ impl Parser {
         let lo = self.current_token().span.lo;
 
         // pratt
-        let mut lhs = self.parse_expr_term()?;
+
+        // prefix operators
+        let mut lhs = if let Some(op) = self.parse_prefix_op() {
+            self.consume_token();
+            let rhs = self.parse_expr_bp(op.precedence())?;
+            Rc::new(Expr {
+                kind: ExprKind::Unop(op, rhs).into(),
+                loc: self.location(lo),
+                id: NodeId::new(),
+            })
+        } else {
+            self.parse_expr_term()?
+        };
+
         loop {
             // postfix operators/expressions
             if let Some(op) = self.parse_postfix_op() {
@@ -803,6 +816,7 @@ impl Parser {
             TokenTag::Star => BinaryOperator::Multiply,
             TokenTag::Slash => BinaryOperator::Divide,
             TokenTag::EqEq => BinaryOperator::Equal,
+            TokenTag::NotEq => BinaryOperator::NotEqual,
             TokenTag::Lt => BinaryOperator::LessThan,
             TokenTag::Le => BinaryOperator::LessThanOrEqual,
             TokenTag::Gt => BinaryOperator::GreaterThan,
@@ -812,6 +826,20 @@ impl Parser {
             TokenTag::DotDot => BinaryOperator::Format,
             TokenTag::And => BinaryOperator::And,
             TokenTag::Or => BinaryOperator::Or,
+            _ => return None,
+        })
+    }
+
+    fn parse_prefix_op(&mut self) -> Option<PrefixOp> {
+        Some(match self.current_token().tag() {
+            TokenTag::Minus => {
+                let next_tag = self.peek_token(1).tag();
+                if next_tag != TokenTag::IntLit && next_tag != TokenTag::FloatLit {
+                    PrefixOp::Minus
+                } else {
+                    return None;
+                }
+            }
             _ => return None,
         })
     }
@@ -1635,6 +1663,19 @@ impl Parser {
                 }
             }
         }))
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) enum PrefixOp {
+    Minus,
+}
+
+impl PrefixOp {
+    fn precedence(&self) -> u8 {
+        match self {
+            PrefixOp::Minus => 6, // same as plus and minus
+        }
     }
 }
 

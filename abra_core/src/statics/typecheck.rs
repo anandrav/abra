@@ -13,6 +13,7 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
+use crate::parse::PrefixOp;
 use disjoint_sets::UnionFindNode;
 use std::borrow::Borrow;
 use std::cell::RefCell;
@@ -2089,6 +2090,7 @@ fn generate_constraints_expr(
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, left);
             match op {
                 BinaryOperator::Equal
+                | BinaryOperator::NotEqual
                 | BinaryOperator::LessThan
                 | BinaryOperator::LessThanOrEqual
                 | BinaryOperator::GreaterThan
@@ -2173,10 +2175,25 @@ fn generate_constraints_expr(
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
                 }
-                BinaryOperator::Equal => {
+                BinaryOperator::Equal | BinaryOperator::NotEqual => {
                     constrain_to_iface(ctx, &ty_left, left.node(), &equal_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &equal_iface);
                     constrain(ctx, &ty_out, &TypeVar::make_bool(reason_out));
+                }
+            }
+        }
+        ExprKind::Unop(op, right) => {
+            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, right);
+            let ty_right = TypeVar::from_node(ctx, right.node());
+            let ty_out = node_ty;
+
+            let num_iface =
+                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Num"));
+
+            match op {
+                PrefixOp::Minus => {
+                    constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
+                    constrain(ctx, &ty_out, &ty_right);
                 }
             }
         }

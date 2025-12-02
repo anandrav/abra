@@ -120,7 +120,7 @@ fn main() {
     }
 
     let now = get_time()
-    let end_time = start_time + 200.0 / 1000.0
+    let end_time = start_time + 150.0 / 1000.0
     let diff = end_time - now
     if diff > 0.0 {
       sleep(diff)

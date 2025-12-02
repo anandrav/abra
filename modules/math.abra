@@ -1,0 +1,19 @@
+extend int {
+    fn abs(self) -> int {
+        if self < 0 {
+            -self
+        } else {
+            self
+        }
+    }
+}
+
+extend float {
+    fn abs(self) -> float {
+        if self < 0.0 {
+            -self
+        } else {
+            self
+        }
+    }
+}

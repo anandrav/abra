@@ -8,6 +8,7 @@ use crate::ast::{FileAst, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use crate::optimize_bytecode::optimize;
+use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
 use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
@@ -610,23 +611,28 @@ impl Translator {
                         ),
                         _ => unreachable!(),
                     },
-                    BinaryOperator::Equal => match arg1_ty {
-                        SolvedType::Int => {
-                            self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top))
+                    BinaryOperator::Equal | BinaryOperator::NotEqual => {
+                        match arg1_ty {
+                            SolvedType::Int => {
+                                self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top))
+                            }
+                            SolvedType::Float => {
+                                self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top))
+                            }
+                            SolvedType::Bool => {
+                                self.emit(st, Instr::EqualBool(Reg::Top, Reg::Top, Reg::Top))
+                            }
+                            SolvedType::String => {
+                                self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top))
+                            }
+                            _ => {
+                                helper(monomorph_env, "prelude.Equal.equal");
+                            }
                         }
-                        SolvedType::Float => {
-                            self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top))
+                        if *op == BinaryOperator::NotEqual {
+                            self.emit(st, Instr::Not(Reg::Top, Reg::Top));
                         }
-                        SolvedType::Bool => {
-                            self.emit(st, Instr::EqualBool(Reg::Top, Reg::Top, Reg::Top))
-                        }
-                        SolvedType::String => {
-                            self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top))
-                        }
-                        _ => {
-                            helper(monomorph_env, "prelude.Equal.equal");
-                        }
-                    },
+                    }
                     BinaryOperator::Pow => match arg1_ty {
                         SolvedType::Int => {
                             self.emit(st, Instr::PowInt(Reg::Top, Reg::Top, Reg::Top))
@@ -665,6 +671,25 @@ impl Translator {
                     }
                 }
             }
+            ExprKind::Unop(op, right) => {
+                let arg1_ty = self.statics.solution_of_node(right.node()).unwrap();
+                // inline primitive operations instead of performing a function call
+                match op {
+                    PrefixOp::Minus => match arg1_ty {
+                        SolvedType::Int => {
+                            self.emit(st, Instr::PushInt(0));
+                            self.translate_expr(right, offset_table, monomorph_env, st);
+                            self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top))
+                        }
+                        SolvedType::Float => {
+                            self.emit(st, Instr::PushInt(0));
+                            self.translate_expr(right, offset_table, monomorph_env, st);
+                            self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
+                        _ => unreachable!(),
+                    },
+                }
+            }
             ExprKind::MemberFuncAp(expr, fname, args) => {
                 if let Some(expr) = expr {
                     self.translate_expr(expr, offset_table, monomorph_env, st);
@@ -694,6 +719,7 @@ impl Translator {
                     | ExprKind::Str(_)
                     | ExprKind::Array(_)
                     | ExprKind::BinOp(..)
+                    | ExprKind::Unop(..)
                     | ExprKind::Tuple(..) => panic!("lhs of FuncAp not a function"),
 
                     // TODO: shouldn't these all just be treated like a function object?
@@ -1664,6 +1690,9 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         }
         ExprKind::BinOp(left, _, right) => {
             collect_locals_expr(left, locals);
+            collect_locals_expr(right, locals);
+        }
+        ExprKind::Unop(_, right) => {
             collect_locals_expr(right, locals);
         }
         ExprKind::MemberAccess(accessed, _) => {

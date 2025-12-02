@@ -7,6 +7,7 @@ use abra_core::vm::*;
 pub enum HostFunction {
     Bar,
     Foo,
+    GetArgs,
     PrintString,
     Readline,
 }
@@ -15,8 +16,9 @@ impl From<u16> for HostFunction {
         match item {
             0 => HostFunction::Bar,
             1 => HostFunction::Foo,
-            2 => HostFunction::PrintString,
-            3 => HostFunction::Readline,
+            2 => HostFunction::GetArgs,
+            3 => HostFunction::PrintString,
+            4 => HostFunction::Readline,
             i => panic!("unrecognized host func: {i}"),
         }
     }
@@ -24,6 +26,7 @@ impl From<u16> for HostFunction {
 pub enum HostFunctionArgs {
     Bar(AbraInt, AbraInt),
     Foo(AbraInt, String),
+    GetArgs,
     PrintString(String),
     Readline,
 }
@@ -40,11 +43,12 @@ impl HostFunctionArgs {
                 let arg0: AbraInt = <AbraInt>::from_vm(vm);
                 HostFunctionArgs::Foo(arg0, arg1)
             }
-            2 => {
+            2 => HostFunctionArgs::GetArgs,
+            3 => {
                 let arg0: String = <String>::from_vm(vm);
                 HostFunctionArgs::PrintString(arg0)
             }
-            3 => HostFunctionArgs::Readline,
+            4 => HostFunctionArgs::Readline,
             _ => panic!("unexpected tag encountered: {pending_host_func}"),
         }
     }
@@ -52,6 +56,7 @@ impl HostFunctionArgs {
 pub enum HostFunctionRet {
     Bar(AbraInt, AbraInt),
     Foo(AbraInt),
+    GetArgs(Vec<String>),
     PrintString,
     Readline(String),
 }
@@ -62,6 +67,9 @@ impl HostFunctionRet {
                 (out0, out1).to_vm(vm);
             }
             HostFunctionRet::Foo(out) => {
+                out.to_vm(vm);
+            }
+            HostFunctionRet::GetArgs(out) => {
                 out.to_vm(vm);
             }
             HostFunctionRet::PrintString => {}

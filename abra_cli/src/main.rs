@@ -16,7 +16,7 @@ struct Args {
     modules: Option<String>,
     shared_objects: Option<String>,
     assembly: bool,
-    _args: Vec<String>,
+    abra_program_args: Vec<String>,
 }
 
 impl Args {
@@ -67,7 +67,7 @@ impl Args {
             modules,
             shared_objects,
             assembly,
-            _args: args,
+            abra_program_args: args,
         })
     }
 }
@@ -212,6 +212,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                             }
                             HostFunctionRet::Readline(input).into_vm(&mut vm);
+                        }
+                        HostFunctionArgs::GetArgs => {
+                            HostFunctionRet::GetArgs(args.abra_program_args.clone())
+                                .into_vm(&mut vm);
                         }
                     }
                 }

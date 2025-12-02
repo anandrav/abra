@@ -10,6 +10,94 @@ pub mod ffi {
         use std::ffi::c_void;
         /// # Safety
         /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_len")]
+        pub unsafe extern "C" fn string_len(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: AbraInt = strings::string_len(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_chars")]
+        pub unsafe extern "C" fn string_chars(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: Vec<String> = strings::string_chars(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_lines")]
+        pub unsafe extern "C" fn string_lines(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: Vec<String> = strings::string_lines(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_slice")]
+        pub unsafe extern "C" fn string_slice(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let end = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
+                let begin = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: String = strings::string_slice(s, begin, end);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_is_alphabetic")]
+        pub unsafe extern "C" fn string_is_alphabetic(
+            _vm: *mut c_void,
+            vm_funcs: *const AbraVmFunctions,
+        ) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: bool = strings::string_is_alphabetic(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_is_alphanumeric")]
+        pub unsafe extern "C" fn string_is_alphanumeric(
+            _vm: *mut c_void,
+            vm_funcs: *const AbraVmFunctions,
+        ) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: bool = strings::string_is_alphanumeric(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_is_numeric")]
+        pub unsafe extern "C" fn string_is_numeric(
+            _vm: *mut c_void,
+            vm_funcs: *const AbraVmFunctions,
+        ) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: bool = strings::string_is_numeric(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$strings$string_to_upper")]
         pub unsafe extern "C" fn string_to_upper(
             _vm: *mut c_void,
@@ -33,6 +121,31 @@ pub mod ffi {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: String = strings::string_to_lower(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_to_int")]
+        pub unsafe extern "C" fn string_to_int(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: Option<AbraInt> = strings::string_to_int(s);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$strings$string_to_float")]
+        pub unsafe extern "C" fn string_to_float(
+            _vm: *mut c_void,
+            vm_funcs: *const AbraVmFunctions,
+        ) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: Option<f64> = strings::string_to_float(s);
                 ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
