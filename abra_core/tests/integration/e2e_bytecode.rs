@@ -855,10 +855,10 @@ fn early_return() {
     let src = r#"
 fn fib(n) {
     if n < 2 {
-      return n
+        return n
     }
     return fib(n - 2) + fib(n - 1)
-  }
+}
   
 fib(10)
 "#;

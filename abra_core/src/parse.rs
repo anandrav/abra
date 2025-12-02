@@ -689,6 +689,7 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Result<Rc<Expr>, Box<Error>> {
+        self.skip_newlines();
         let ret = self.parse_expr_bp(0)?;
         Ok(ret)
     }

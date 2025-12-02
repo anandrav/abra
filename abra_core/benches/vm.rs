@@ -32,9 +32,9 @@ pub fn fib_benchmark(c: &mut Criterion) {
     let src = r#"
 fn fib(n) {
     match n {
-      | 0 -> 0
-      | 1 -> 1
-      | _ -> fib(n-1) + fib(n-2)
+        0 -> 0
+        1 -> 1
+        _ -> fib(n-1) + fib(n-2)
     }
 }   
 fib(17)
@@ -48,8 +48,8 @@ pub fn sum_benchmark(c: &mut Criterion) {
 let sum = 0
 var i = 0
 while i < 10000 {
-    sum := sum + i
-    i := i + 1
+    sum = sum + i
+    i = i + 1
 }
 sum
 "#;
@@ -60,9 +60,13 @@ sum
 pub fn ack_benchmark(c: &mut Criterion) {
     let src = r#"
 fn ack(m, n) {
-    if m = 0 { n + 1 }
-    else if n = 0 { ack(m - 1, 1) }
-    else  { ack(m - 1, ack(m, n - 1)) }
+    if m == 0 {
+        n + 1
+    } else if n == 0 {
+        ack(m - 1, 1)
+    } else {
+        ack(m - 1, ack(m, n - 1))
+    }
 }
 ack(3, 4)
 "#;
@@ -76,7 +80,7 @@ let a = 1664525
 let c = 1013904223
 let m = 2^32
 fn rng(seed, a, c, m, n) {
-    if n = 0 {
+    if n == 0 {
         seed
     } else {
         (a * rng(seed, a, c, m, n - 1) + c) mod m
@@ -94,7 +98,7 @@ let limit = 1000
 let primes = []
 var i = 0
 while i < limit {
-  append(primes, true)
+  primes.push(true)
   i = i + 1
 }
 var p = 2
@@ -102,7 +106,7 @@ while p * p < limit {
     if primes[p] {
         i = p * p
         while i < limit {
-            primes[i] := false
+            primes[i] = false
             i = i + p
         }
     }
