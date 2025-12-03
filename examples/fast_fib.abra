@@ -11,6 +11,6 @@ fn fib(n) {
   x
 }
 
-for i in range(32) {
+for i in 32 {
   println(i .. ": " .. fib(i))
 }

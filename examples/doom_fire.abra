@@ -38,10 +38,10 @@ fn main() {
 
     // 3. Draw
     // We iterate y from 0 to h-1 (skipping the very bottom source row usually looks better)
-    for y in range(h - 1) {
+    for y in h - 1 {
        var line = ""
        
-       for x in range(w) {
+       for x in w {
           let idx = y * w + x
           let heat = fire[idx]
           
@@ -86,7 +86,7 @@ fn main() {
 fn init_fire(w: int, h: int) -> array<int> {
    var arr = []
    let total = w * h
-   for i in range(total) {
+   for i in total {
       arr.push(0)
    }
    arr
@@ -95,15 +95,15 @@ fn init_fire(w: int, h: int) -> array<int> {
 fn update_fire(fire: array<int>, w: int, h: int) {
    // 1. Ignite the bottom row (The Source)
    let start_bottom = (h - 1) * w
-   for x in range(w) {
+   for x in w {
       // Set to max heat (36)
       fire[start_bottom + x] = 36
    }
 
    // 2. Propagate Heat
    // We loop through every pixel and calculate its value based on the pixel BELOW it.
-   for x in range(w) {
-      for y in range(h - 1) {
+   for x in w {
+      for y in h - 1 {
          // 'src' is the pixel directly below the current position (y, x)
          let src_idx = (y + 1) * w + x
          let heat = fire[src_idx]

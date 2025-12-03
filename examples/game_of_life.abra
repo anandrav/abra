@@ -90,7 +90,7 @@ fn init_world(w: int, h: int) -> World {
   var cells = []
   let total = w * h
   
-  for i in range(total) {
+  for i in total {
     // 20% chance to start alive
     if random_int(0, 100) < 20 {
       cells.push(1)
@@ -105,7 +105,7 @@ fn init_world(w: int, h: int) -> World {
 fn clear_world(w: int, h: int) -> World {
   var cells = []
   let total = w * h
-  for i in range(total) {
+  for i in total {
     cells.push(0)
   }
   World(cells, w, h, 0, true)
@@ -117,7 +117,7 @@ fn next_generation(old: World) -> World {
   let h = old.height
   let total = w * h
 
-  for i in range(total) {
+  for i in total {
     let x = i mod w
     let y = i / w
     
@@ -152,8 +152,8 @@ fn count_neighbors(world: World, x: int, y: int) -> int {
 
   // Check 8 neighbors
   // We wrap around edges (toroidal world) for better visuals
-  for dy in range(3) { // 0, 1, 2 -> -1, 0, 1
-    for dx in range(3) {
+  for dy in 3 { // 0, 1, 2 -> -1, 0, 1
+    for dx in 3 {
       if (dx == 1) and (dy == 1) {
         // Skip self (1,1 is the center in 0..2 loop)
       } else {
@@ -177,9 +177,9 @@ fn draw_world(world: World) {
   let h = world.height
   
   // Batch drawing strings for performance
-  for y in range(h) {
+  for y in h {
     var line = ""
-    for x in range(w) {
+    for x in w {
       let idx = y * w + x
       if world.cells[idx] == 1 {
         line = line .. "O"

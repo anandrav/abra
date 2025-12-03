@@ -35,7 +35,7 @@ fn main() {
     }
 
     // 2. Update & Draw Loop
-    for x in range(w) {
+    for x in w {
       // We access the stream directly
       let s = streams[x]
 
@@ -99,7 +99,7 @@ fn main() {
 
 fn init_streams(w: int, h: int) -> array<Stream> {
   var arr = []
-  for i in range(w) {
+  for i in w {
     // Initialize with random negative positions so they "rain" in naturally
     // Spread them out so they don't all come down as a flat wall
     let start_y = random_int(0, h) * -1

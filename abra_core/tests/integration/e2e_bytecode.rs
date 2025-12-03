@@ -1596,7 +1596,7 @@ fn range() {
     let src = r#"
 var sum = 0
 
-for n in range(4) {
+for n in 4 {
     sum = sum + n
 }
 sum

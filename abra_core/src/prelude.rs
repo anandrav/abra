@@ -268,12 +268,13 @@ implement Iterator for ArrayIterator<U> {
 }
 
 type range = {
+    begin: int
     end: int
 }
 
 implement Iterable for range {
     fn make_iterator(self) -> RangeIterator {
-        RangeIterator(0, self.end)
+        RangeIterator(self.begin, self.end)
     }
 }
 
@@ -291,6 +292,12 @@ implement Iterator for RangeIterator {
             self.begin = self.begin + 1
             .some(ret)
         }
+    }
+}
+
+implement Iterable for int {
+    fn make_iterator(self) -> RangeIterator {
+        RangeIterator(0, self)
     }
 }
 
@@ -314,7 +321,7 @@ extend array<T> {
 
 extend array<T Equal> {
     fn find(self, x: T Equal) -> option<int> {
-        for i in range(self.len()) {
+        for i in self.len() {
             if self[i] == x {
                 return .some(i)
             }
