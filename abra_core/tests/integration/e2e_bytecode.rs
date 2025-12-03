@@ -1542,6 +1542,34 @@ sum
 }
 
 #[test]
+fn for_loop_continue_and_break() {
+    let src = r#"
+let arr = [1, 2, 3, 4, 5]
+var last = 0
+
+for n in arr {
+    if n < 4 {
+        continue
+    }
+    last = n
+    if n == 4 {
+        break
+    }
+}
+last
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 4)
+}
+
+#[test]
 fn for_loop() {
     let src = r#"
 let arr = [1, 2, 3]

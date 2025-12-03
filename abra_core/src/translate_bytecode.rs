@@ -1487,7 +1487,8 @@ impl Translator {
                 );
                 // while loop:
                 let start_label = make_label("for_start");
-                let end_label = make_label("for_end");
+                let end_label_iter = make_label("for_end_iter");
+                let end_label_break = make_label("for_end_break");
                 self.emit(st, Line::Label(start_label.clone()));
                 // iterator.next()
                 self.emit(st, Instr::Duplicate);
@@ -1510,19 +1511,20 @@ impl Translator {
                 self.emit(st, Instr::DeconstructVariant);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
                 self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
-                self.emit(st, Instr::JumpIfFalse(end_label.clone()));
+                self.emit(st, Instr::JumpIfFalse(end_label_iter.clone()));
                 self.handle_pat_binding(pat, offset_table, st, monomorph_env);
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
-                    end_label: end_label.clone(),
+                    end_label: end_label_break.clone(),
                 });
                 for statement in statements.iter() {
                     self.translate_stmt(statement, false, offset_table, monomorph_env, st);
                 }
                 st.loop_stack.pop();
                 self.emit(st, Instr::Jump(start_label));
-                self.emit(st, Line::Label(end_label));
+                self.emit(st, Line::Label(end_label_iter));
                 self.emit(st, Instr::Pop);
+                self.emit(st, Line::Label(end_label_break));
                 self.emit(st, Instr::Pop);
             }
         }
@@ -1760,8 +1762,8 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 }
             }
             StmtKind::ForLoop(pat, iterable, statements) => {
-                collect_locals_expr(iterable, locals);
                 collect_locals_pat(pat, locals);
+                collect_locals_expr(iterable, locals);
                 for statement in statements {
                     collect_locals_stmt(std::slice::from_ref(statement), locals);
                 }

@@ -1909,9 +1909,11 @@ fn generate_constraints_stmt(
             let item_ty = item_ty.subst(&subst);
             generate_constraints_pat(ctx, Mode::ana(item_ty), pat);
 
+            ctx.loop_stack.push(Some(stmt.id));
             for statement in statements.iter() {
                 generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
             }
+            ctx.loop_stack.pop();
             // update bookkeeping for code generation
             // make_iterator type
             let make_iterator_method = imp
