@@ -1417,7 +1417,7 @@ impl Translator {
                 let is_void = expr_ty == SolvedType::Void;
                 self.translate_expr(expr, offset_table, monomorph_env, st);
                 if !is_last_in_block_expression && !is_void {
-                    self.emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop); // CULPRIT
                 }
             }
             StmtKind::Break => {
@@ -1437,15 +1437,6 @@ impl Translator {
                     let return_nargs = st.return_stack.last().unwrap();
                     self.emit(st, Instr::Return(*return_nargs));
                 }
-            }
-            StmtKind::If(cond, statements) => {
-                self.translate_expr(cond, offset_table, monomorph_env, st);
-                let end_label = make_label("endif");
-                self.emit(st, Instr::JumpIfFalse(end_label.clone()));
-                for statement in statements.iter() {
-                    self.translate_stmt(statement, false, offset_table, monomorph_env, st);
-                }
-                self.emit(st, Line::Label(end_label));
             }
             StmtKind::WhileLoop(cond, statements) => {
                 let start_label = make_label("while_start");
@@ -1748,12 +1739,6 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Continue | StmtKind::Break => {}
             StmtKind::Return(expr) => {
                 collect_locals_expr(expr, locals);
-            }
-            StmtKind::If(cond, body_statements) => {
-                collect_locals_expr(cond, locals);
-                for body_statement in body_statements {
-                    collect_locals_stmt(std::slice::from_ref(body_statement), locals);
-                }
             }
             StmtKind::WhileLoop(cond, statements) => {
                 collect_locals_expr(cond, locals);

@@ -70,12 +70,6 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
         StmtKind::Return(expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
-        StmtKind::If(cond, statements) => {
-            check_pattern_exhaustiveness_expr(statics, cond);
-            for statement in statements {
-                check_pattern_exhaustiveness_stmt(statics, statement);
-            }
-        }
         StmtKind::WhileLoop(cond, statements) => {
             check_pattern_exhaustiveness_expr(statics, cond);
             for statement in statements {

@@ -1050,7 +1050,6 @@ impl Parser {
                 let condition = self.parse_expr()?;
                 let then_start = self.index;
                 let statements_then = self.parse_statement_block()?;
-                self.expect_token(TokenTag::Else);
                 let then_block = Expr {
                     kind: Rc::new(ExprKind::Block(statements_then)),
                     loc: self.location(then_start),
@@ -1058,15 +1057,17 @@ impl Parser {
                 }
                 .into();
 
-                // let else_start = self.index;
-                // let statements_else = self.parse_statement_block()?;
-                let else_expr = self.parse_expr()?;
-                // let else_block = Expr {
-                //     kind: Rc::new(ExprKind::Block(statements_else)),
-                //     loc: self.location(else_start),
-                //     id: NodeId::new(),
-                // }
-                //     .into();
+                let else_expr = if self.current_token().tag() == TokenTag::Else {
+                    self.consume_token();
+                    self.parse_expr()?
+                } else {
+                    Expr {
+                        kind: Rc::new(ExprKind::Void),
+                        loc: self.location(self.index),
+                        id: NodeId::new(),
+                    }
+                    .into()
+                };
 
                 Expr {
                     kind: Rc::new(ExprKind::IfElse(condition, then_block, else_expr)),
@@ -1600,49 +1601,6 @@ impl Parser {
                     kind: StmtKind::ForLoop(pat, iterable, statements).into(),
                     loc: self.location(lo),
                     id: NodeId::new(),
-                }
-            }
-            TokenKind::If => {
-                self.expect_token(TokenTag::If);
-                let condition = self.parse_expr()?;
-                let then_start = self.index;
-                let statements_then = self.parse_statement_block()?;
-                if matches!(self.current_token().tag(), TokenTag::Else) {
-                    let then_block = Expr {
-                        kind: Rc::new(ExprKind::Block(statements_then)),
-                        loc: self.location(then_start),
-                        id: NodeId::new(),
-                    }
-                    .into();
-
-                    self.expect_token(TokenTag::Else);
-                    // let else_start = self.index;
-                    let else_expr = self.parse_expr()?;
-                    // let statements_else = self.parse_statement_block()?;
-                    // let else_block = Expr {
-                    //     kind: Rc::new(ExprKind::Block(statements_else)),
-                    //     loc: self.location(else_start),
-                    //     id: NodeId::new(),
-                    // }
-                    //     .into();
-
-                    let expr = Expr {
-                        kind: Rc::new(ExprKind::IfElse(condition, then_block, else_expr)),
-                        loc: self.location(lo),
-                        id: NodeId::new(),
-                    }
-                    .into();
-                    Stmt {
-                        kind: StmtKind::Expr(expr).into(),
-                        loc: self.location(lo),
-                        id: NodeId::new(),
-                    }
-                } else {
-                    Stmt {
-                        kind: StmtKind::If(condition, statements_then).into(),
-                        loc: self.location(lo),
-                        id: NodeId::new(),
-                    }
                 }
             }
             _ => {

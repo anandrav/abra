@@ -1248,13 +1248,16 @@ pub(crate) fn constrain_because(
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
             let potential_ty = tyvar2.single().unwrap();
-            tyvar1.0.with_data(|d: &mut TypeVarData| {
-                if d.types.is_empty() {
-                    assert!(!d.locked);
-                    d.locked = true
-                }
-                d.extend(potential_ty)
-            });
+            // Never should not spread to other nodes' types
+            if !matches!(potential_ty, PotentialType::Never(_)) {
+                tyvar1.0.with_data(|d: &mut TypeVarData| {
+                    if d.types.is_empty() {
+                        assert!(!d.locked);
+                        d.locked = true
+                    }
+                    d.extend(potential_ty)
+                });
+            }
         }
         (true, false) => {
             constrain_because(ctx, tyvar2, tyvar1, constraint_reason);
@@ -1841,20 +1844,6 @@ fn generate_constraints_stmt(
                 }
             }
         }
-        StmtKind::If(cond, statements) => {
-            generate_constraints_expr(
-                ctx,
-                polyvar_scope,
-                Mode::ana_reason(
-                    TypeVar::make_bool(Reason::Node(cond.node())),
-                    ConstraintReason::Condition,
-                ),
-                cond,
-            );
-            for statement in statements.iter() {
-                generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
-            }
-        }
         StmtKind::WhileLoop(cond, statements) => {
             generate_constraints_expr(
                 ctx,
@@ -2259,6 +2248,7 @@ fn generate_constraints_expr(
             let expr2_ty = TypeVar::from_node(ctx, expr2.node());
             constrain_because(ctx, &expr1_ty, &expr2_ty, ConstraintReason::IfElseBodies);
             constrain(ctx, &expr1_ty, &node_ty);
+            constrain(ctx, &expr2_ty, &node_ty);
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());
