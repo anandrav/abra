@@ -750,7 +750,9 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         ExprKind::IfElse(cond, expr1, expr2) => {
             resolve_names_expr(ctx, symbol_table, cond);
             resolve_names_expr(ctx, symbol_table, expr1);
-            resolve_names_expr(ctx, symbol_table, expr2);
+            if let Some(expr2) = expr2 {
+                resolve_names_expr(ctx, symbol_table, expr2);
+            }
         }
         ExprKind::Match(scrut, arms) => {
             resolve_names_expr(ctx, symbol_table, scrut);

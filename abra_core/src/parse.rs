@@ -1059,14 +1059,9 @@ impl Parser {
 
                 let else_expr = if self.current_token().tag() == TokenTag::Else {
                     self.consume_token();
-                    self.parse_expr()?
+                    Some(self.parse_expr()?)
                 } else {
-                    Expr {
-                        kind: Rc::new(ExprKind::Nil),
-                        loc: self.location(self.index),
-                        id: NodeId::new(),
-                    }
-                    .into()
+                    None
                 };
 
                 Expr {

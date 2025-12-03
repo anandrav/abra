@@ -126,7 +126,9 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
         ExprKind::IfElse(e1, e2, e3) => {
             check_pattern_exhaustiveness_expr(statics, e1);
             check_pattern_exhaustiveness_expr(statics, e2);
-            check_pattern_exhaustiveness_expr(statics, e3);
+            if let Some(e3) = e3 {
+                check_pattern_exhaustiveness_expr(statics, e3);
+            }
         }
         ExprKind::AnonymousFunction(_args, _out_annot, body) => {
             check_pattern_exhaustiveness_expr(statics, body);

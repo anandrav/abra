@@ -415,6 +415,7 @@ pub(crate) enum Reason {
     BinopOut(AstNode),
     IndexAccess,
     VariantNoData(AstNode), // the type of the data of a variant with no data, always Void.
+    IfWithoutElse(AstNode), // an if-else expression without an else body, always Void (effectively an if statement).
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -2243,12 +2244,20 @@ fn generate_constraints_expr(
             );
 
             generate_constraints_expr(ctx, polyvar_scope, mode.clone(), expr1);
-            generate_constraints_expr(ctx, polyvar_scope, mode.clone(), expr2);
             let expr1_ty = TypeVar::from_node(ctx, expr1.node());
-            let expr2_ty = TypeVar::from_node(ctx, expr2.node());
-            constrain_because(ctx, &expr1_ty, &expr2_ty, ConstraintReason::IfElseBodies);
+            if let Some(expr2) = expr2 {
+                generate_constraints_expr(ctx, polyvar_scope, mode.clone(), expr2);
+                let expr2_ty = TypeVar::from_node(ctx, expr2.node());
+                constrain_because(ctx, &expr1_ty, &expr2_ty, ConstraintReason::IfElseBodies);
+                constrain(ctx, &expr2_ty, &node_ty);
+            } else {
+                constrain(
+                    ctx,
+                    &expr1_ty,
+                    &TypeVar::make_void(Reason::IfWithoutElse(expr.node())),
+                );
+            }
             constrain(ctx, &expr1_ty, &node_ty);
-            constrain(ctx, &expr2_ty, &node_ty);
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());

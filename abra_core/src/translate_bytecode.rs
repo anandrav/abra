@@ -772,7 +772,9 @@ impl Translator {
                 self.translate_expr(then_block, offset_table, monomorph_env, st);
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(else_label));
-                self.translate_expr(else_block, offset_table, monomorph_env, st);
+                if let Some(else_block) = else_block {
+                    self.translate_expr(else_block, offset_table, monomorph_env, st);
+                }
                 self.emit(st, Line::Label(end_label));
             }
             ExprKind::MemberAccess(accessed, field_name) => {
@@ -1679,7 +1681,9 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         ExprKind::IfElse(cond, then_block, else_block) => {
             collect_locals_expr(cond, locals);
             collect_locals_expr(then_block, locals);
-            collect_locals_expr(else_block, locals);
+            if let Some(else_block) = else_block {
+                collect_locals_expr(else_block, locals);
+            }
         }
         ExprKind::BinOp(left, _, right) => {
             collect_locals_expr(left, locals);
