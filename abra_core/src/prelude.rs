@@ -284,7 +284,7 @@ type RangeIterator = {
 
 implement Iterator for RangeIterator {
     fn next(self) -> option<int> {
-        if self.begin == self.end {
+        if self.begin >= self.end {
             .none
         } else {
             let ret = self.begin
