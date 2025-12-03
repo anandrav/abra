@@ -1958,7 +1958,7 @@ fn generate_constraints_expr(
 ) {
     let node_ty = TypeVar::from_node(ctx, expr.node());
     match &*expr.kind {
-        ExprKind::Void => {
+        ExprKind::Nil => {
             constrain(
                 ctx,
                 &node_ty,

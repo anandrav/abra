@@ -466,7 +466,7 @@ impl Translator {
                 }
                 _ => panic!(),
             },
-            ExprKind::Void => {}
+            ExprKind::Nil => {}
             ExprKind::Bool(b) => {
                 self.emit(st, Instr::PushBool(*b));
             }
@@ -712,7 +712,7 @@ impl Translator {
                     }
                     ExprKind::MemberAccessLeadingDot(..) => unimplemented!(),
 
-                    ExprKind::Void
+                    ExprKind::Nil
                     | ExprKind::Int(_)
                     | ExprKind::Float(_)
                     | ExprKind::Bool(_)
@@ -1715,7 +1715,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         ExprKind::AnonymousFunction(..)
         | ExprKind::MemberAccessLeadingDot(..)
         | ExprKind::Variable(..)
-        | ExprKind::Void
+        | ExprKind::Nil
         | ExprKind::Int(..)
         | ExprKind::Float(..)
         | ExprKind::Bool(..)

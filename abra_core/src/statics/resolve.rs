@@ -723,7 +723,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
     match &*expr.kind {
         ExprKind::Int(_)
         | ExprKind::Float(_)
-        | ExprKind::Void
+        | ExprKind::Nil
         | ExprKind::Bool(_)
         | ExprKind::Str(_) => {}
         ExprKind::Array(exprs) => {

@@ -930,7 +930,7 @@ impl Parser {
             TokenKind::Nil => {
                 self.consume_token();
                 Expr {
-                    kind: Rc::new(ExprKind::Void),
+                    kind: Rc::new(ExprKind::Nil),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
@@ -1062,7 +1062,7 @@ impl Parser {
                     self.parse_expr()?
                 } else {
                     Expr {
-                        kind: Rc::new(ExprKind::Void),
+                        kind: Rc::new(ExprKind::Nil),
                         loc: self.location(self.index),
                         id: NodeId::new(),
                     }

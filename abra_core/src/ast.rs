@@ -478,7 +478,7 @@ impl Expr {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
     Variable(String),
-    Void,
+    Nil,
     Int(AbraInt),
     Float(String), // Float is represented as String to allow Eq and Hash
     Bool(bool),

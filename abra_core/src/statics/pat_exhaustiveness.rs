@@ -100,7 +100,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
             match_expr_exhaustive_check(statics, expr.node(), scrutiny, arms);
         }
 
-        ExprKind::Void
+        ExprKind::Nil
         | ExprKind::Int(_)
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
