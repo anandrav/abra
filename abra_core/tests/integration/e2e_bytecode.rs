@@ -41,7 +41,7 @@ let c = b - 2
 let d = c * 3
 let e = d / 3
 let f = e ^ 3
-let g = f mod 5
+let g = f % 5
 let h = -g
 h
 "#;

@@ -17,7 +17,7 @@ let b = a * 3
 let c = b / 2
 let d = c - 1
 let e = d ^ 2
-let f = e mod 3
+let f = e % 3
 "#;
     unwrap_or_panic(compile_bytecode(
         "main.abra",

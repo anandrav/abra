@@ -138,6 +138,7 @@ impl TokenKind {
             | TokenKind::Minus
             | TokenKind::Star
             | TokenKind::Slash
+            | TokenKind::Mod
             | TokenKind::Caret
             | TokenKind::Dot
             | TokenKind::Comma
@@ -170,7 +171,6 @@ impl TokenKind {
             | TokenKind::Var
             | TokenKind::Use
             | TokenKind::For
-            | TokenKind::Mod
             | TokenKind::And
             | TokenKind::Int
             | TokenKind::Nil => 3,
@@ -212,7 +212,6 @@ impl TokenKind {
             "except" => TokenKind::Except,
             "fn" => TokenKind::Fn,
             "match" => TokenKind::Match,
-            "mod" => TokenKind::Mod,
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
             "break" => TokenKind::Break,
@@ -384,6 +383,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '\n' => lexer.emit(TokenKind::Newline),
             '+' => lexer.emit(TokenKind::Plus),
             '*' => lexer.emit(TokenKind::Star),
+            '%' => lexer.emit(TokenKind::Mod),
             '^' => lexer.emit(TokenKind::Caret),
             '#' => lexer.emit(TokenKind::Pound),
             '|' => lexer.emit(TokenKind::VBar),

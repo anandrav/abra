@@ -83,7 +83,7 @@ fn rng(seed, a, c, m, n) {
     if n == 0 {
         seed
     } else {
-        (a * rng(seed, a, c, m, n - 1) + c) mod m
+        (a * rng(seed, a, c, m, n - 1) + c) % m
     }
 }
 rng(seed, a, c, m, 10000)
