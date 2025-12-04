@@ -6,7 +6,7 @@
 
 use crate::vm::{AbraInt, Vm};
 use crate::{
-    FileAst, FileData, ItemKind, OsFileProvider,
+    FileAst, FileData, ItemKind, MockFileProvider,
     ast::{Type, TypeDefKind, TypeKind},
     parse,
 };
@@ -239,12 +239,7 @@ pub fn generate_bindings_for_crate() {
     toplevel_abra_file.pop();
     toplevel_abra_file = toplevel_abra_file.join(format!("{package_name}.abra"));
 
-    // TODO: this feels really icky, even if they're not getting used, passing package_dir as a dummy is strange. Maybe make them optional?
-    let file_provider = OsFileProvider::new(
-        package_dir.clone(),
-        package_dir.clone(),
-        package_dir.clone(),
-    );
+    let file_provider = MockFileProvider::new(Default::default());
 
     let output = &mut String::new();
 
