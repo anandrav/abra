@@ -121,7 +121,7 @@ fn get_matrix_char(index: int) -> string {
                "Z", "X", "Y", "W", "K", "P", ":", ".", "*", "+"]
   
   // Safety check mod
-  let safe_index = index mod chars.len()
+  let safe_index = index % chars.len()
   chars[safe_index]
 }
 

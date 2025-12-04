@@ -12,7 +12,7 @@ fn fib(n) {
 
 
 println("The first 10 fibonacci numbers are:")
-for i in range(10) { 
+for i in 10 {
   println(fib(i))
 }
 ```

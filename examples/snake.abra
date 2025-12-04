@@ -205,7 +205,7 @@ fn update(st: State) {
 }
 
 fn index_to_point(index: int, width: int, height: int) -> Point {
-  let x = index mod width
+  let x = index % width
   let y = index / width
   Point(x, y)
 }

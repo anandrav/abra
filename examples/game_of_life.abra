@@ -118,7 +118,7 @@ fn next_generation(old: World) -> World {
   let total = w * h
 
   for i in total {
-    let x = i mod w
+    let x = i % w
     let y = i / w
     
     let neighbors = count_neighbors(old, x, y)
@@ -159,8 +159,8 @@ fn count_neighbors(world: World, x: int, y: int) -> int {
       } else {
         // Calculate wrapped coordinates
         // add w/h before mod to handle negative numbers correctly
-        let nx = (x + (dx - 1) + w) mod w
-        let ny = (y + (dy - 1) + h) mod h
+        let nx = (x + (dx - 1) + w) % w
+        let ny = (y + (dy - 1) + h) % h
         
         let index = ny * w + nx
         if world.cells[index] == 1 {

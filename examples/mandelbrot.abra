@@ -188,7 +188,7 @@ fn get_ascii_char(iter: int, max: int) -> string {
     return " "
   }
   let chars = [".", ":", "-", "=", "+", "*", "#", "%", "@"]
-  let index = iter mod chars.len()
+  let index = iter % chars.len()
   chars[index]
 }
 
