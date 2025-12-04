@@ -928,10 +928,14 @@ impl Translator {
                             fully_qualified_name,
                             f,
                         );
+                        return;
                     }
                 }
             }
         }
+        unreachable!(
+            "interface method call could not be translated. There is a bug with the typechecker"
+        )
     }
 
     fn translate_func_ap(
