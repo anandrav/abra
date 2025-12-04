@@ -1262,16 +1262,13 @@ pub(crate) fn constrain_because(
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
             let potential_ty = tyvar2.single().unwrap();
-            // Never should not spread to other nodes' types
-            if !matches!(potential_ty, PotentialType::Never(_)) {
-                tyvar1.0.with_data(|d: &mut TypeVarData| {
-                    if d.types.is_empty() {
-                        assert!(!d.locked);
-                        d.locked = true
-                    }
-                    d.extend(potential_ty);
-                });
-            }
+            tyvar1.0.with_data(|d: &mut TypeVarData| {
+                if d.types.is_empty() {
+                    assert!(!d.locked);
+                    d.locked = true
+                }
+                d.extend(potential_ty);
+            });
 
             TypeVar::merge_iface_constraints(tyvar1, tyvar2);
         }
@@ -2264,14 +2261,14 @@ fn generate_constraints_expr(
                 let expr2_ty = TypeVar::from_node(ctx, expr2.node());
                 constrain_because(ctx, &expr1_ty, &expr2_ty, ConstraintReason::IfElseBodies);
                 constrain(ctx, &expr2_ty, &node_ty);
+                constrain(ctx, &expr1_ty, &node_ty);
             } else {
                 constrain(
                     ctx,
-                    &expr1_ty,
+                    &node_ty,
                     &TypeVar::make_void(Reason::IfWithoutElse(expr.node())),
                 );
             }
-            constrain(ctx, &expr1_ty, &node_ty);
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());
