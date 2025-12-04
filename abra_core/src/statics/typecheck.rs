@@ -124,7 +124,7 @@ impl TypeVarData {
             types: first.types,
             locked: false,
             missing_info: first.missing_info || second.missing_info,
-            iface_constraints: Self::merge_iface_constraints(
+            iface_constraints: Self::merge_iface_constraints_helper(
                 first.iface_constraints,
                 second.iface_constraints,
             ),
@@ -136,7 +136,7 @@ impl TypeVarData {
         merged_types
     }
 
-    fn merge_iface_constraints(
+    fn merge_iface_constraints_helper(
         mut first: InterfaceConstraints,
         second: InterfaceConstraints,
     ) -> InterfaceConstraints {
@@ -601,6 +601,19 @@ impl TypeVar {
         let mut tyvar1 = tyvar1.clone();
         let mut tyvar2 = tyvar2.clone();
         tyvar1.0.union_with(&mut tyvar2.0, TypeVarData::merge_data);
+    }
+
+    fn merge_iface_constraints(tyvar1: &Self, tyvar2: &Self) {
+        let merged_iface_constraints = TypeVarData::merge_iface_constraints_helper(
+            tyvar1.0.clone_data().iface_constraints,
+            tyvar2.0.clone_data().iface_constraints,
+        );
+        tyvar1.0.with_data(|d| {
+            d.iface_constraints = merged_iface_constraints.clone();
+        });
+        tyvar2.0.with_data(|d| {
+            d.iface_constraints = merged_iface_constraints;
+        });
     }
 
     fn single(&self) -> Option<PotentialType> {
@@ -1260,17 +1273,7 @@ pub(crate) fn constrain_because(
                 });
             }
 
-            // TODO: code duplication
-            let merged_iface_constraints = TypeVarData::merge_iface_constraints(
-                tyvar1.0.clone_data().iface_constraints,
-                tyvar2.0.clone_data().iface_constraints,
-            );
-            tyvar1.0.with_data(|d| {
-                d.iface_constraints = merged_iface_constraints.clone();
-            });
-            tyvar2.0.with_data(|d| {
-                d.iface_constraints = merged_iface_constraints;
-            });
+            TypeVar::merge_iface_constraints(tyvar1, tyvar2);
         }
         (true, false) => {
             constrain_because(ctx, tyvar2, tyvar1, constraint_reason);
@@ -1312,17 +1315,7 @@ fn constrain_locked_typevars(
     tyvar2: &TypeVar,
     constraint_reason: ConstraintReason,
 ) {
-    // TODO: code duplication
-    let merged_iface_constraints = TypeVarData::merge_iface_constraints(
-        tyvar1.0.clone_data().iface_constraints,
-        tyvar2.0.clone_data().iface_constraints,
-    );
-    tyvar1.0.with_data(|d| {
-        d.iface_constraints = merged_iface_constraints.clone();
-    });
-    tyvar2.0.with_data(|d| {
-        d.iface_constraints = merged_iface_constraints;
-    });
+    TypeVar::merge_iface_constraints(tyvar1, tyvar2);
 
     let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
     let (key2, potential_ty2) = tyvar2.0.clone_data().types.into_iter().next().unwrap();
