@@ -273,7 +273,7 @@ impl Lexer {
         let len = kind.nchars();
         let span = Span {
             lo: self.index,
-            hi: self.index + len - 1,
+            hi: self.index + len,
         };
         self.tokens.push(Token { kind, span });
         self.index += len;

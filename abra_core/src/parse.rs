@@ -118,6 +118,13 @@ impl Parser {
         }
     }
 
+    fn prev_token(&self) -> Token {
+        match self.tokens.get(self.index - 1) {
+            Some(t) => t.clone(),
+            None => self.eof(),
+        }
+    }
+
     fn current_token_location(&self) -> Location {
         let current = self.current_token();
         Location {
@@ -236,7 +243,7 @@ impl Parser {
         Location {
             file_id: self.file_id,
             lo: begin,
-            hi: self.current_token().span.hi,
+            hi: self.prev_token().span.hi,
         }
     }
 
