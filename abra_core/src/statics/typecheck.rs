@@ -140,8 +140,8 @@ impl TypeVarData {
         mut first: InterfaceConstraints,
         second: InterfaceConstraints,
     ) -> InterfaceConstraints {
-        for (iface_and_args, nodes) in second {
-            first.entry(iface_and_args).or_default().extend(nodes)
+        for (iface_constraint, nodes) in second {
+            first.entry(iface_constraint).or_default().extend(nodes)
         }
         first
     }
@@ -1256,9 +1256,21 @@ pub(crate) fn constrain_because(
                         assert!(!d.locked);
                         d.locked = true
                     }
-                    d.extend(potential_ty)
+                    d.extend(potential_ty);
                 });
             }
+
+            // TODO: code duplication
+            let merged_iface_constraints = TypeVarData::merge_iface_constraints(
+                tyvar1.0.clone_data().iface_constraints,
+                tyvar2.0.clone_data().iface_constraints,
+            );
+            tyvar1.0.with_data(|d| {
+                d.iface_constraints = merged_iface_constraints.clone();
+            });
+            tyvar2.0.with_data(|d| {
+                d.iface_constraints = merged_iface_constraints;
+            });
         }
         (true, false) => {
             constrain_because(ctx, tyvar2, tyvar1, constraint_reason);
@@ -1300,6 +1312,18 @@ fn constrain_locked_typevars(
     tyvar2: &TypeVar,
     constraint_reason: ConstraintReason,
 ) {
+    // TODO: code duplication
+    let merged_iface_constraints = TypeVarData::merge_iface_constraints(
+        tyvar1.0.clone_data().iface_constraints,
+        tyvar2.0.clone_data().iface_constraints,
+    );
+    tyvar1.0.with_data(|d| {
+        d.iface_constraints = merged_iface_constraints.clone();
+    });
+    tyvar2.0.with_data(|d| {
+        d.iface_constraints = merged_iface_constraints;
+    });
+
     let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
     let (key2, potential_ty2) = tyvar2.0.clone_data().types.into_iter().next().unwrap();
     if key1 != key2 {
@@ -1399,7 +1423,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
 
         let repr = tyvar.0.find().with_data(|d| d.id);
         if visited_tyvars.contains(&repr) {
-            continue;
+            // continue; // TODO: add this back soon!
         }
         visited_tyvars.insert(repr);
 
@@ -1475,10 +1499,8 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
                 if let Some((first_arg_identifier, _)) = f.args.first() {
                     if first_arg_identifier.v == "self" {
                         let nominal_ty = ext.typ.to_typevar(ctx);
-                        // println!("type of extension is {}", nominal_ty);
                         let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
                         constrain(ctx, &ty_arg, &nominal_ty);
-                        // println!("ty of first arg is {}", ty_arg);
 
                         generate_constraints_func_decl(
                             ctx,
@@ -2015,7 +2037,6 @@ fn generate_constraints_expr(
                 && let Some(typ) = match decl {
                     Declaration::Var(node) => {
                         let tyvar = TypeVar::from_node(ctx, node.clone());
-                        // println!("type of {} is {}", s, tyvar);
                         Some(tyvar)
                     }
                     Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => {
@@ -2817,7 +2838,7 @@ fn generate_constraints_expr_funcap_helper(
         args.iter().zip(func_ty_args).for_each(|(arg, expected)| {
             generate_constraints_expr(ctx, polyvar_scope, Mode::ana(expected), arg);
         });
-    };
+    }
 
     // arguments
     let tys_args: Vec<TypeVar> = args
@@ -3035,6 +3056,7 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
 }
 
 impl SolvedType {
+    // TODO: need to use the args of the iface constraint
     pub(crate) fn implements_iface(&self, ctx: &StaticsContext, iface: &Rc<InterfaceDef>) -> bool {
         if let SolvedType::Poly(poly_decl) = &self {
             let ifaces = poly_decl.interfaces(ctx);
