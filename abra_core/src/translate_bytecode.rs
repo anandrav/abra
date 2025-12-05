@@ -294,7 +294,7 @@ impl Translator {
                         _ => None,
                     })
                     .collect();
-                collect_locals_stmt(&stmts, &mut locals);
+                collect_locals_stmts(&stmts, &mut locals);
 
                 self.emit(st, Instr::PushNil(locals.len() as u16));
                 let mut offset_table = OffsetTable::default();
@@ -1747,13 +1747,13 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
     match &*expr.kind {
         ExprKind::Block(statements) => {
             for statement in statements {
-                collect_locals_stmt(std::slice::from_ref(statement), locals);
+                collect_locals_stmt(statement, locals);
             }
         }
         ExprKind::Match(_, arms) => {
             for arm in arms {
                 collect_locals_pat(&arm.pat, locals);
-                collect_locals_stmt(std::slice::from_ref(&arm.stmt), locals);
+                collect_locals_stmt(&arm.stmt, locals);
             }
         }
         ExprKind::Array(exprs) => {
@@ -1768,9 +1768,9 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         }
         ExprKind::IfElse(cond, then_block, else_block) => {
             collect_locals_expr(cond, locals);
-            collect_locals_stmt(&[then_block.clone()], locals);
+            collect_locals_stmt(then_block, locals);
             if let Some(else_block) = else_block {
-                collect_locals_stmt(&[else_block.clone()], locals);
+                collect_locals_stmt(else_block, locals);
             }
         }
         ExprKind::BinOp(left, _, right) => {
@@ -1815,7 +1815,11 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
     }
 }
 
-fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
+fn collect_locals_stmt(statement: &Rc<Stmt>, locals: &mut HashSet<NodeId>) {
+    collect_locals_stmts(std::slice::from_ref(statement), locals);
+}
+
+fn collect_locals_stmts(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
     for statement in statements {
         match &*statement.kind {
             StmtKind::Expr(expr) => {
@@ -1835,14 +1839,14 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::WhileLoop(cond, statements) => {
                 collect_locals_expr(cond, locals);
                 for statement in statements {
-                    collect_locals_stmt(std::slice::from_ref(statement), locals);
+                    collect_locals_stmt(statement, locals);
                 }
             }
             StmtKind::ForLoop(pat, iterable, statements) => {
                 collect_locals_pat(pat, locals);
                 collect_locals_expr(iterable, locals);
                 for statement in statements {
-                    collect_locals_stmt(std::slice::from_ref(statement), locals);
+                    collect_locals_stmt(statement, locals);
                 }
             }
         }
