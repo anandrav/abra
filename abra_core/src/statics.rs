@@ -262,6 +262,7 @@ pub(crate) enum Error {
     // parsing phase
     UnrecognizedToken(FileId, usize),
     UnexpectedToken(String, String, Location),
+    UnrecognizedEscapeSequence(FileId, Span),
     EmptyParentheses(Location),
     // resolution phase
     UnresolvedIdentifier {
@@ -365,6 +366,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
     })
 }
 
+use crate::parse::Span;
 use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
 

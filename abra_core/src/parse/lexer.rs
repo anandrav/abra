@@ -201,7 +201,16 @@ impl TokenKind {
             | TokenKind::FloatLit(s)
             | TokenKind::Ident(s)
             | TokenKind::PolyIdent(s) => s.chars().count(),
-            TokenKind::StringLit(s) => s.chars().count() + 2, // include quotes
+            TokenKind::StringLit(s) => {
+                let mut ret = 0;
+                for char in s.chars() {
+                    match char {
+                        '\n' | '\t' | '\\' | '"' => ret += 2,
+                        _ => ret += 1,
+                    }
+                }
+                ret + 2
+            } // include quotes
         }
     }
 
@@ -273,8 +282,8 @@ impl Lexer {
         self.chars[self.index]
     }
 
-    fn peek_char(&self, dist: usize) -> Option<&char> {
-        self.chars.get(self.index + dist)
+    fn peek_char(&self, dist: usize) -> Option<char> {
+        self.chars.get(self.index + dist).cloned()
     }
 
     fn emit(&mut self, kind: TokenKind) {
@@ -305,7 +314,7 @@ impl Lexer {
         while let Some(c) = self.peek_char(next)
             && c.is_ascii_digit()
         {
-            num.push(*c);
+            num.push(c);
             next += 1;
         }
         // potential decimal point
@@ -321,7 +330,7 @@ impl Lexer {
         while let Some(c) = self.peek_char(next)
             && c.is_ascii_digit()
         {
-            num.push(*c);
+            num.push(c);
             next += 1;
         }
         self.emit(TokenKind::FloatLit(num));
@@ -341,7 +350,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
         // skip the rest of the line
         let mut next = 1;
         while let Some(c) = lexer.peek_char(next)
-            && *c != '\n'
+            && c != '\n'
         {
             next += 1;
         }
@@ -353,9 +362,9 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
 
             let mut next = 1;
             while let Some(c) = lexer.peek_char(next)
-                && middle_of_ident(*c)
+                && middle_of_ident(c)
             {
-                ident.push(*c);
+                ident.push(c);
                 next += 1;
             }
 
@@ -447,23 +456,55 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '"' => {
                 let mut s = String::new();
 
-                let mut next = 1;
+                let mut skipped_chars = 0;
+                let mut curr = 1;
                 // first run of digits
-                while let Some(c) = lexer.peek_char(next) // TODO: add escape codes
-                    && *c != '"'
+                while let Some(c) = lexer.peek_char(curr)
+                    && c != '"'
                 {
-                    s.push(*c);
-                    next += 1;
+                    if c == '\\'
+                        && let Some(c2) = lexer.peek_char(curr + 1)
+                    {
+                        match c2 {
+                            'n' => {
+                                s.push('\n');
+                            }
+                            't' => {
+                                s.push('\t');
+                            }
+                            '"' => {
+                                s.push('"');
+                            }
+                            '\\' => {
+                                s.push('\\');
+                            }
+                            _ => {
+                                ctx.errors.push(Error::UnrecognizedEscapeSequence(
+                                    file_id,
+                                    Span {
+                                        lo: lexer.index + curr,
+                                        hi: lexer.index + curr + 1,
+                                    },
+                                ));
+                                skipped_chars += 2;
+                            }
+                        }
+                        curr += 2;
+                    } else {
+                        s.push(c);
+                        curr += 1;
+                    }
                 }
 
-                lexer.emit(TokenKind::StringLit(s))
+                lexer.emit(TokenKind::StringLit(s));
+                lexer.index += skipped_chars;
             }
             '/' => {
                 if let Some('/') = lexer.peek_char(1) {
                     // single-line comment
                     let mut next = 1;
                     while let Some(c) = lexer.peek_char(next)
-                        && *c != '\n'
+                        && c != '\n'
                     {
                         next += 1;
                     }
@@ -473,8 +514,8 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                     let mut next = 2;
                     while let Some(c) = lexer.peek_char(next)
                         && let Some(c2) = lexer.peek_char(next + 1)
-                        && *c != '*'
-                        && *c2 != '/'
+                        && c != '*'
+                        && c2 != '/'
                     {
                         next += 1;
                     }

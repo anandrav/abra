@@ -38,6 +38,10 @@ impl Error {
                         .with_message(format!("Found `{found}` when expecting `{expected}`")),
                 );
             }
+            Error::UnrecognizedEscapeSequence(file, span) => {
+                diagnostic = diagnostic.with_message("Unrecognized escape sequence");
+                labels.push(Label::secondary(*file, span.lo..span.hi + 1).with_message("here"));
+            }
             Error::EmptyParentheses(location) => {
                 diagnostic = diagnostic.with_message("Parentheses are empty");
                 labels.push(Label::secondary(location.file_id, location.range()));
