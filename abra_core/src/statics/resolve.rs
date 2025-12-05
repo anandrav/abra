@@ -747,11 +747,11 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 resolve_names_stmt(ctx, &symbol_table, statement);
             }
         }
-        ExprKind::IfElse(cond, expr1, expr2) => {
+        ExprKind::IfElse(cond, stmt1, expr2) => {
             resolve_names_expr(ctx, symbol_table, cond);
-            resolve_names_expr(ctx, symbol_table, expr1);
-            if let Some(expr2) = expr2 {
-                resolve_names_expr(ctx, symbol_table, expr2);
+            resolve_names_stmt(ctx, symbol_table, stmt1);
+            if let Some(stmt2) = expr2 {
+                resolve_names_stmt(ctx, symbol_table, stmt2);
             }
         }
         ExprKind::Match(scrut, arms) => {

@@ -774,11 +774,11 @@ impl Translator {
                 let else_label = make_label("else");
                 let end_label = make_label("endif");
                 self.emit(st, Instr::JumpIfFalse(else_label.clone()));
-                self.translate_expr(then_block, offset_table, monomorph_env, st);
+                self.translate_stmt(then_block, true, offset_table, monomorph_env, st);
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(else_label));
                 if let Some(else_block) = else_block {
-                    self.translate_expr(else_block, offset_table, monomorph_env, st);
+                    self.translate_stmt(else_block, true, offset_table, monomorph_env, st);
                 }
                 self.emit(st, Line::Label(end_label));
             }
@@ -1686,9 +1686,9 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         }
         ExprKind::IfElse(cond, then_block, else_block) => {
             collect_locals_expr(cond, locals);
-            collect_locals_expr(then_block, locals);
+            collect_locals_stmt(&[then_block.clone()], locals);
             if let Some(else_block) = else_block {
-                collect_locals_expr(else_block, locals);
+                collect_locals_stmt(&[else_block.clone()], locals);
             }
         }
         ExprKind::BinOp(left, _, right) => {

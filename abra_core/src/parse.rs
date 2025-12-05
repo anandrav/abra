@@ -1057,24 +1057,17 @@ impl Parser {
             TokenKind::If => {
                 self.expect_token(TokenTag::If);
                 let condition = self.parse_expr()?;
-                let then_start = self.index;
-                let statements_then = self.parse_statement_block()?;
-                let then_block = Expr {
-                    kind: Rc::new(ExprKind::Block(statements_then)),
-                    loc: self.location(then_start),
-                    id: NodeId::new(),
-                }
-                .into();
+                let then_block = self.parse_stmt()?; // TODO: not a block technically, rename to then_stmt, else_stmt ?
 
-                let else_expr = if self.current_token().tag() == TokenTag::Else {
+                let else_block = if self.current_token().tag() == TokenTag::Else {
                     self.consume_token();
-                    Some(self.parse_expr()?)
+                    Some(self.parse_stmt()?)
                 } else {
                     None
                 };
 
                 Expr {
-                    kind: Rc::new(ExprKind::IfElse(condition, then_block, else_expr)),
+                    kind: Rc::new(ExprKind::IfElse(condition, then_block, else_block)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

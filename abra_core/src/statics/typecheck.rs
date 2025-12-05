@@ -1796,9 +1796,14 @@ fn generate_constraints_stmt(
     mode: Mode,
     stmt: &Rc<Stmt>,
 ) {
+    let node_ty = TypeVar::from_node(ctx, stmt.node());
+    let mut expr_statement = false;
     match &*stmt.kind {
         StmtKind::Expr(expr) => {
+            expr_statement = true;
             generate_constraints_expr(ctx, polyvar_scope, mode, expr);
+            let expr_ty = TypeVar::from_node(ctx, expr.node());
+            constrain(ctx, &node_ty, &expr_ty);
         }
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
             let ty_pat = TypeVar::from_node(ctx, pat.node());
@@ -1961,6 +1966,10 @@ fn generate_constraints_stmt(
             ctx.for_loop_next_types
                 .insert(stmt.id, next_method_typ.solution().unwrap());
         }
+    }
+    if !expr_statement {
+        let void_ty = TypeVar::make_void(Reason::Node(stmt.node()));
+        constrain(ctx, &node_ty, &void_ty);
     }
 }
 
@@ -2267,10 +2276,11 @@ fn generate_constraints_expr(
                 cond,
             );
 
-            generate_constraints_expr(ctx, polyvar_scope, mode.clone(), expr1);
+            // TODO rename expr to stmt
+            generate_constraints_stmt(ctx, polyvar_scope, mode.clone(), expr1);
             let expr1_ty = TypeVar::from_node(ctx, expr1.node());
             if let Some(expr2) = expr2 {
-                generate_constraints_expr(ctx, polyvar_scope, mode.clone(), expr2);
+                generate_constraints_stmt(ctx, polyvar_scope, mode.clone(), expr2);
                 let expr2_ty = TypeVar::from_node(ctx, expr2.node());
                 constrain_because(ctx, &expr1_ty, &expr2_ty, ConstraintReason::IfElseBodies);
                 constrain(ctx, &expr2_ty, &node_ty);

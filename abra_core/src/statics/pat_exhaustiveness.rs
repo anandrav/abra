@@ -123,11 +123,11 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
                 check_pattern_exhaustiveness_stmt(statics, statement);
             }
         }
-        ExprKind::IfElse(e1, e2, e3) => {
-            check_pattern_exhaustiveness_expr(statics, e1);
-            check_pattern_exhaustiveness_expr(statics, e2);
-            if let Some(e3) = e3 {
-                check_pattern_exhaustiveness_expr(statics, e3);
+        ExprKind::IfElse(cond, stmt1, stmt2) => {
+            check_pattern_exhaustiveness_expr(statics, cond);
+            check_pattern_exhaustiveness_stmt(statics, stmt1);
+            if let Some(stmt2) = stmt2 {
+                check_pattern_exhaustiveness_stmt(statics, stmt2);
             }
         }
         ExprKind::AnonymousFunction(_args, _out_annot, body) => {

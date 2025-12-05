@@ -485,7 +485,7 @@ pub(crate) enum ExprKind {
     Str(String),
     Array(Vec<Rc<Expr>>),
     AnonymousFunction(Vec<ArgMaybeAnnotated>, Option<Rc<Type>>, Rc<Expr>),
-    IfElse(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
+    IfElse(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
     Match(Rc<Expr>, Vec<Rc<MatchArm>>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
