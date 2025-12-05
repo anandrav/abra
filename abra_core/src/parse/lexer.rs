@@ -7,7 +7,7 @@ use crate::statics::{Error, StaticsContext};
 use std::fmt;
 use std::fmt::Formatter;
 use strum::IntoDiscriminant;
-use strum_macros::{EnumDiscriminants, EnumString};
+use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
 
 #[derive(Clone)]
 pub(crate) struct Token {
@@ -22,7 +22,8 @@ impl Token {
 }
 
 #[derive(Clone, PartialEq, EnumDiscriminants, EnumString)]
-#[strum_discriminants(name(TokenTag))] // TODO: use the to string utilities from Strum
+#[strum_discriminants(name(TokenTag))]
+#[strum_discriminants(derive(IntoStaticStr))]
 #[strum(serialize_all = "lowercase")]
 pub(crate) enum TokenKind {
     /// `=`
@@ -537,9 +538,6 @@ impl TokenTag {
             TokenTag::Slash => "/",
             TokenTag::Caret => "^",
             TokenTag::Mod => "%",
-            TokenTag::And => "and",
-            TokenTag::Or => "or",
-            TokenTag::Not => "not",
             TokenTag::Dot => ".",
             TokenTag::DotDot => "..",
             TokenTag::Comma => ",",
@@ -554,41 +552,7 @@ impl TokenTag {
             TokenTag::OpenBracket => "[",
             TokenTag::CloseBracket => "]",
             TokenTag::Wildcard => "_",
-            TokenTag::Let => "let",
-            TokenTag::Var => "var",
-            TokenTag::Type => "type",
-            TokenTag::Interface => "interface",
-            TokenTag::OutputType => "outputtype",
-            TokenTag::Implement => "implement",
-            TokenTag::Impl => "impl",
-            TokenTag::Extend => "extend",
-            TokenTag::Use => "use",
-            TokenTag::Except => "except",
-            TokenTag::Fn => "fn",
-            TokenTag::Match => "match",
-            TokenTag::Break => "break",
-            TokenTag::Continue => "continue",
-            TokenTag::Return => "return",
-            TokenTag::While => "while",
-            TokenTag::For => "for",
-            TokenTag::In => "in",
-            TokenTag::If => "if",
-            TokenTag::Else => "else",
-            TokenTag::Nil => "nil",
-            TokenTag::True => "true",
-            TokenTag::False => "false",
-            TokenTag::Int => "int",
-            TokenTag::Float => "float",
-            TokenTag::Bool => "bool",
-            TokenTag::String => "string",
-            TokenTag::Void => "void",
-            TokenTag::IntLit => "int literal",
-            TokenTag::FloatLit => "float literal",
-            TokenTag::StringLit => "string literal",
-            TokenTag::Ident => "identifier",
-            TokenTag::PolyIdent => "polytype identifier",
-            TokenTag::Newline => "newline",
-            TokenTag::Eof => "<EOF>",
+            _ => self.into(), // use strum IntoStaticStr
         }
     }
 }
