@@ -522,24 +522,6 @@ pub enum BinaryOperator {
     Format,
 }
 
-impl BinaryOperator {
-    pub(crate) fn precedence(&self) -> u8 {
-        match self {
-            BinaryOperator::Equal | BinaryOperator::NotEqual => 1,
-            BinaryOperator::Format => 2,
-            BinaryOperator::And | BinaryOperator::Or => 4,
-            BinaryOperator::LessThan
-            | BinaryOperator::LessThanOrEqual
-            | BinaryOperator::GreaterThan
-            | BinaryOperator::GreaterThanOrEqual => 5,
-            BinaryOperator::Add | BinaryOperator::Subtract => 6,
-            BinaryOperator::Multiply | BinaryOperator::Divide => 7,
-            BinaryOperator::Mod => 8,
-            BinaryOperator::Pow => 9,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct MatchArm {
     pub(crate) pat: Rc<Pat>,

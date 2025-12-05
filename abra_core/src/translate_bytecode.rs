@@ -677,6 +677,7 @@ impl Translator {
                 match op {
                     PrefixOp::Minus => match arg1_ty {
                         SolvedType::Int => {
+                            // TODO: does this get optimized?
                             self.emit(st, Instr::PushInt(0));
                             self.translate_expr(right, offset_table, monomorph_env, st);
                             self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top))
@@ -688,6 +689,10 @@ impl Translator {
                         }
                         _ => unreachable!(),
                     },
+                    PrefixOp::Not => {
+                        self.translate_expr(right, offset_table, monomorph_env, st);
+                        self.emit(st, Instr::Not(Reg::Top, Reg::Top));
+                    }
                 }
             }
             ExprKind::MemberFuncAp(expr, fname, args) => {
@@ -1160,9 +1165,6 @@ impl Translator {
                         st,
                         Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                     );
-                }
-                BuiltinOperation::Not => {
-                    self.emit(st, Instr::Not(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::EqualFloat => {
                     self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));

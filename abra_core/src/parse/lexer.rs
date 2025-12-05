@@ -22,7 +22,7 @@ impl Token {
 }
 
 #[derive(Clone, PartialEq, EnumDiscriminants)]
-#[strum_discriminants(name(TokenTag))]
+#[strum_discriminants(name(TokenTag))] // TODO: use the to string utilities from Strum
 pub(crate) enum TokenKind {
     /// `=`
     Eq,
@@ -56,6 +56,8 @@ pub(crate) enum TokenKind {
     And,
     // `or`
     Or,
+    // `not`
+    Not,
 
     /// `.`
     Dot,
@@ -129,6 +131,7 @@ pub(crate) enum TokenKind {
 
 impl TokenKind {
     fn nchars(&self) -> usize {
+        // TODO use strum for this lol
         match self {
             TokenKind::Eq
             | TokenKind::Lt
@@ -173,7 +176,8 @@ impl TokenKind {
             | TokenKind::For
             | TokenKind::And
             | TokenKind::Int
-            | TokenKind::Nil => 3,
+            | TokenKind::Nil
+            | TokenKind::Not => 3,
 
             TokenKind::Type
             | TokenKind::Else
@@ -214,6 +218,7 @@ impl TokenKind {
             "match" => TokenKind::Match,
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
+            "not" => TokenKind::Not,
             "break" => TokenKind::Break,
             "continue" => TokenKind::Continue,
             "return" => TokenKind::Return,
@@ -289,6 +294,7 @@ impl Lexer {
         let mut next = 0;
         // negative sign
         if self.current_char() == '-' {
+            // TODO just use unary minus operator now
             num.push('-');
             next += 1;
         }
@@ -434,7 +440,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
 
                 let mut next = 1;
                 // first run of digits
-                while let Some(c) = lexer.peek_char(next)
+                while let Some(c) = lexer.peek_char(next) // TODO: add escape codes
                     && *c != '"'
                 {
                     s.push(*c);
@@ -544,6 +550,7 @@ impl fmt::Display for TokenTag {
             TokenTag::Mod => write!(f, "mod"),
             TokenTag::And => write!(f, "and"),
             TokenTag::Or => write!(f, "or"),
+            TokenTag::Not => write!(f, "not"),
             TokenTag::Dot => write!(f, "."),
             TokenTag::DotDot => write!(f, ".."),
             TokenTag::Comma => write!(f, ","),

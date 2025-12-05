@@ -272,6 +272,10 @@ type range = {
     end: int
 }
 
+fn range_inclusive(begin: int, end: int) -> range {
+    range(begin, end+1)
+}
+
 implement Iterable for range {
     fn make_iterator(self) -> RangeIterator {
         RangeIterator(self.begin, self.end)
@@ -316,6 +320,10 @@ extend array<T> {
 
     fn pop(self) -> void {
         array_pop(self)
+    }
+
+    fn in_bounds(self, index: int) -> bool {
+        index >= 0 and index < self.len()
     }
 }
 

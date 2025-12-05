@@ -88,11 +88,11 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
 
 struct Parser {
     index: usize,
-    tokens: Vec<Token>,
+    errors: Vec<Error>,
 
+    tokens: Vec<Token>,
     file_id: FileId,
     file_len: usize, // used for EOF tokens
-    errors: Vec<Error>,
 }
 
 impl Parser {
@@ -272,6 +272,7 @@ impl Parser {
                     if self.current_token().tag() == TokenTag::OpenParen {
                         self.expect_token(TokenTag::OpenParen);
                         while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
+                            // TODO: remove this and similar, not necessary w/ tags
                             self.skip_newlines();
                             list.push(self.expect_ident()?);
                             if self.current_token().tag() == TokenTag::Comma {
@@ -298,7 +299,6 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            // TODO: need to parse shebang at beginning of file. Add different token for Shebang #!
             TokenKind::Pound => {
                 self.consume_token();
                 let name = self.expect_ident()?;
@@ -848,6 +848,7 @@ impl Parser {
                     return None;
                 }
             }
+            TokenTag::Not => PrefixOp::Not,
             _ => return None,
         })
     }
@@ -909,6 +910,7 @@ impl Parser {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
 
+        // TODO: this is not the hot path, move it to the _ -> below
         // Try to speculatively parse a lambda expression first
         let checkpoint = self.index;
         let mut checkpoint_errors = mem::take(&mut self.errors);
@@ -1629,15 +1631,8 @@ impl Parser {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum PrefixOp {
+    Not,
     Minus,
-}
-
-impl PrefixOp {
-    fn precedence(&self) -> u8 {
-        match self {
-            PrefixOp::Minus => 6, // same as plus and minus
-        }
-    }
 }
 
 enum PostfixOp {
@@ -1647,13 +1642,41 @@ enum PostfixOp {
     Unwrap,
 }
 
+impl BinaryOperator {
+    pub(crate) fn precedence(&self) -> u8 {
+        match self {
+            BinaryOperator::Equal | BinaryOperator::NotEqual => 1,
+            BinaryOperator::Format => 2,
+            BinaryOperator::And | BinaryOperator::Or => 4,
+            BinaryOperator::LessThan
+            | BinaryOperator::LessThanOrEqual
+            | BinaryOperator::GreaterThan
+            | BinaryOperator::GreaterThanOrEqual => 5,
+            BinaryOperator::Add | BinaryOperator::Subtract => 6,
+            BinaryOperator::Multiply | BinaryOperator::Divide => 7,
+            BinaryOperator::Mod => 8,
+            BinaryOperator::Pow => 9,
+        }
+    }
+}
+
+impl PrefixOp {
+    fn precedence(&self) -> u8 {
+        match self {
+            PrefixOp::Minus => 6, // same as plus and minus
+            PrefixOp::Not => 10,
+        }
+    }
+}
+
 impl PostfixOp {
     fn precedence(&self) -> u8 {
         match self {
-            PostfixOp::MemberAccess => 10,
-            PostfixOp::IndexAccess => 11,
-            PostfixOp::FuncCall => 12,
-            PostfixOp::Unwrap => 13,
+            // TODO: should these all just have the same precedence?
+            PostfixOp::MemberAccess => 11,
+            PostfixOp::IndexAccess => 12,
+            PostfixOp::FuncCall => 13,
+            PostfixOp::Unwrap => 14,
         }
     }
 }

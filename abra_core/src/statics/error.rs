@@ -315,6 +315,10 @@ fn handle_reason(
             let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message(format!("`{ty}` literal")));
         }
+        Reason::PrefixOp(node) => {
+            let (file, range) = node.get_file_and_range();
+            labels.push(Label::secondary(file, range).with_message("the operand of operator"));
+        }
         Reason::BinopLeft(node) => {
             let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message("the left operand of operator"));

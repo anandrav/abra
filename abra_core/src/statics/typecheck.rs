@@ -410,6 +410,7 @@ pub(crate) enum Reason {
     Annotation(AstNode),
     Literal(AstNode),
     Builtin(BuiltinOperation), // a builtin function or constant, which doesn't exist in the AST
+    PrefixOp(AstNode),
     BinopLeft(AstNode),
     BinopRight(AstNode),
     BinopOut(AstNode),
@@ -2186,7 +2187,6 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::Unop(op, right) => {
-            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, right);
             let ty_right = TypeVar::from_node(ctx, right.node());
             let ty_out = node_ty;
 
@@ -2195,7 +2195,20 @@ fn generate_constraints_expr(
 
             match op {
                 PrefixOp::Minus => {
+                    generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, right);
                     constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
+                    constrain(ctx, &ty_out, &ty_right);
+                }
+                PrefixOp::Not => {
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope,
+                        Mode::Ana {
+                            expected: TypeVar::make_bool(Reason::PrefixOp(expr.node())),
+                            constraint_reason: None,
+                        },
+                        right,
+                    );
                     constrain(ctx, &ty_out, &ty_right);
                 }
             }

@@ -732,7 +732,7 @@ arr.len()
 fn not() {
     let src = r#"
 let b = true
-not(b)
+not b
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
