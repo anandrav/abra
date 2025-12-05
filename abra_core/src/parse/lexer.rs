@@ -68,8 +68,6 @@ pub(crate) enum TokenKind {
     DotDot,
     /// `,`
     Comma,
-    /// `;`
-    Semi,
     /// `:`
     Colon,
     /// `->`
@@ -337,7 +335,6 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '[' => lexer.emit(TokenKind::OpenBracket),
             ']' => lexer.emit(TokenKind::CloseBracket),
             ':' => lexer.emit(TokenKind::Colon),
-            ';' => lexer.emit(TokenKind::Semi),
             ',' => lexer.emit(TokenKind::Comma),
             '\n' => lexer.emit(TokenKind::Newline),
             '*' => lexer.emit(TokenKind::Star),
@@ -546,7 +543,6 @@ impl TokenTag {
             TokenTag::Dot => ".",
             TokenTag::DotDot => "..",
             TokenTag::Comma => ",",
-            TokenTag::Semi => ";",
             TokenTag::Colon => ":",
             TokenTag::RArrow => "->",
             TokenTag::VBar => "|",
