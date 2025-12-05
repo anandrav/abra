@@ -272,6 +272,12 @@ type range = {
     end: int
 }
 
+extend range {
+    fn contains(self, i: int) -> bool {
+        i >= self.begin and i < self.end
+    }
+}
+
 fn range_inclusive(begin: int, end: int) -> range {
     range(begin, end+1)
 }
@@ -322,8 +328,8 @@ extend array<T> {
         array_pop(self)
     }
 
-    fn in_bounds(self, index: int) -> bool {
-        index >= 0 and index < self.len()
+    fn bounds(self) -> range {
+        range(0, self.len())
     }
 }
 
