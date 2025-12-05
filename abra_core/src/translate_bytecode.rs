@@ -1444,7 +1444,7 @@ impl Translator {
                                     accessed,
                                     &field_name.v,
                                 );
-                                self.emit(st, Instr::SetField(idx, Reg::Top));
+                                self.emit(st, Instr::GetField(idx, Reg::Top));
                                 // add number
                                 self.translate_expr(rvalue, offset_table, monomorph_env, st);
                                 add_instr(st);
@@ -1463,7 +1463,7 @@ impl Translator {
                                 // load from array at index
                                 self.translate_expr(index, offset_table, monomorph_env, st);
                                 self.translate_expr(array, offset_table, monomorph_env, st);
-                                self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                                self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
                                 // add number
                                 self.translate_expr(rvalue, offset_table, monomorph_env, st);
                                 add_instr(st);

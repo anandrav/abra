@@ -288,6 +288,7 @@ type person = {
 let x = person("Alice", 30)
 x.name = "Bob"
 x.age = 2 * 3 * 6
+x.age += 2
 x.age
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -297,7 +298,7 @@ x.age
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 36);
+    assert_eq!(top.get_int(&vm), 38);
 }
 
 #[test]
@@ -306,6 +307,7 @@ fn array_assign_and_access() {
 let arr = [ 1, 2, 3, 4 ]
 arr[2]
 arr[2] = 33
+arr[2] += 2
 arr[2]
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -315,7 +317,7 @@ arr[2]
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 33);
+    assert_eq!(top.get_int(&vm), 35);
 }
 
 #[test]
