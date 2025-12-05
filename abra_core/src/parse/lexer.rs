@@ -7,7 +7,7 @@ use crate::statics::{Error, StaticsContext};
 use std::fmt;
 use std::fmt::Formatter;
 use strum::IntoDiscriminant;
-use strum_macros::EnumDiscriminants;
+use strum_macros::{EnumDiscriminants, EnumString};
 
 #[derive(Clone)]
 pub(crate) struct Token {
@@ -21,8 +21,9 @@ impl Token {
     }
 }
 
-#[derive(Clone, PartialEq, EnumDiscriminants)]
+#[derive(Clone, PartialEq, EnumDiscriminants, EnumString)]
 #[strum_discriminants(name(TokenTag))] // TODO: use the to string utilities from Strum
+#[strum(serialize_all = "lowercase")]
 pub(crate) enum TokenKind {
     /// `=`
     Eq,
@@ -95,6 +96,7 @@ pub(crate) enum TokenKind {
     Var,
     Type,
     Interface,
+    #[strum(serialize = "outputtype")]
     OutputType,
     Implement,
     Impl, // TODO: re-evaluate having both of these keywords
@@ -133,70 +135,8 @@ pub(crate) enum TokenKind {
 
 impl TokenKind {
     fn nchars(&self) -> usize {
-        // TODO use strum for this lol
         match self {
-            TokenKind::Eq
-            | TokenKind::Lt
-            | TokenKind::Gt
-            | TokenKind::Bang
-            | TokenKind::Plus
-            | TokenKind::Minus
-            | TokenKind::Star
-            | TokenKind::Slash
-            | TokenKind::Mod
-            | TokenKind::Caret
-            | TokenKind::Dot
-            | TokenKind::Comma
-            | TokenKind::Semi
-            | TokenKind::Colon
-            | TokenKind::Pound
-            | TokenKind::OpenParen
-            | TokenKind::CloseParen
-            | TokenKind::OpenBrace
-            | TokenKind::CloseBrace
-            | TokenKind::OpenBracket
-            | TokenKind::CloseBracket
-            | TokenKind::Wildcard
-            | TokenKind::Newline
-            | TokenKind::VBar
-            | TokenKind::Eof => 1,
-
-            TokenKind::Le
-            | TokenKind::EqEq
-            | TokenKind::NotEq
-            | TokenKind::Ge
-            | TokenKind::DotDot
-            | TokenKind::RArrow
-            | TokenKind::Fn
-            | TokenKind::Or
-            | TokenKind::If
-            | TokenKind::In
-            | TokenKind::PlusEq => 2,
-
-            TokenKind::Let
-            | TokenKind::Var
-            | TokenKind::Use
-            | TokenKind::For
-            | TokenKind::And
-            | TokenKind::Int
-            | TokenKind::Nil
-            | TokenKind::Not => 3,
-
-            TokenKind::Type
-            | TokenKind::Else
-            | TokenKind::True
-            | TokenKind::Bool
-            | TokenKind::Void
-            | TokenKind::Impl => 4,
-            TokenKind::Match
-            | TokenKind::Break
-            | TokenKind::While
-            | TokenKind::False
-            | TokenKind::Float => 5,
-            TokenKind::Extend | TokenKind::Return | TokenKind::String | TokenKind::Except => 6,
-            TokenKind::Continue => 8,
-            TokenKind::Implement | TokenKind::Interface => 9,
-            TokenKind::OutputType => 10,
+            TokenKind::Newline | TokenKind::Eof => 1,
             TokenKind::IntLit(s)
             | TokenKind::FloatLit(s)
             | TokenKind::Ident(s)
@@ -211,6 +151,7 @@ impl TokenKind {
                 }
                 ret + 2
             } // include quotes
+            _ => self.discriminant().as_str().chars().count(),
         }
     }
 
@@ -581,77 +522,83 @@ fn is_poly_ident(ident: &str) -> bool {
     true
 }
 
+impl TokenTag {
+    fn as_str(&self) -> &str {
+        match &self {
+            TokenTag::Eq => "=",
+            TokenTag::Lt => "<",
+            TokenTag::Le => "<=",
+            TokenTag::EqEq => "==",
+            TokenTag::NotEq => "!=",
+            TokenTag::Ge => ">=",
+            TokenTag::Gt => ">",
+            TokenTag::Bang => "!",
+            TokenTag::Plus => "+",
+            TokenTag::PlusEq => "+=",
+            TokenTag::Minus => "-",
+            TokenTag::Star => "*",
+            TokenTag::Slash => "/",
+            TokenTag::Caret => "^",
+            TokenTag::Mod => "%",
+            TokenTag::And => "and",
+            TokenTag::Or => "or",
+            TokenTag::Not => "not",
+            TokenTag::Dot => ".",
+            TokenTag::DotDot => "..",
+            TokenTag::Comma => ",",
+            TokenTag::Semi => ";",
+            TokenTag::Colon => ":",
+            TokenTag::RArrow => "->",
+            TokenTag::VBar => "|",
+            TokenTag::Pound => "#",
+            TokenTag::OpenParen => "(",
+            TokenTag::CloseParen => ")",
+            TokenTag::OpenBrace => "{",
+            TokenTag::CloseBrace => "}",
+            TokenTag::OpenBracket => "[",
+            TokenTag::CloseBracket => "]",
+            TokenTag::Wildcard => "_",
+            TokenTag::Let => "let",
+            TokenTag::Var => "var",
+            TokenTag::Type => "type",
+            TokenTag::Interface => "interface",
+            TokenTag::OutputType => "outputtype",
+            TokenTag::Implement => "implement",
+            TokenTag::Impl => "impl",
+            TokenTag::Extend => "extend",
+            TokenTag::Use => "use",
+            TokenTag::Except => "except",
+            TokenTag::Fn => "fn",
+            TokenTag::Match => "match",
+            TokenTag::Break => "break",
+            TokenTag::Continue => "continue",
+            TokenTag::Return => "return",
+            TokenTag::While => "while",
+            TokenTag::For => "for",
+            TokenTag::In => "in",
+            TokenTag::If => "if",
+            TokenTag::Else => "else",
+            TokenTag::Nil => "nil",
+            TokenTag::True => "true",
+            TokenTag::False => "false",
+            TokenTag::Int => "int",
+            TokenTag::Float => "float",
+            TokenTag::Bool => "bool",
+            TokenTag::String => "string",
+            TokenTag::Void => "void",
+            TokenTag::IntLit => "int literal",
+            TokenTag::FloatLit => "float literal",
+            TokenTag::StringLit => "string literal",
+            TokenTag::Ident => "identifier",
+            TokenTag::PolyIdent => "polytype identifier",
+            TokenTag::Newline => "newline",
+            TokenTag::Eof => "<EOF>",
+        }
+    }
+}
+
 impl fmt::Display for TokenTag {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match &self {
-            TokenTag::Eq => write!(f, "="),
-            TokenTag::Lt => write!(f, "<"),
-            TokenTag::Le => write!(f, "<="),
-            TokenTag::EqEq => write!(f, "=="),
-            TokenTag::NotEq => write!(f, "!="),
-            TokenTag::Ge => write!(f, ">="),
-            TokenTag::Gt => write!(f, ">"),
-            TokenTag::Bang => write!(f, "!"),
-            TokenTag::Plus => write!(f, "+"),
-            TokenTag::PlusEq => write!(f, "+="),
-            TokenTag::Minus => write!(f, "-"),
-            TokenTag::Star => write!(f, "*"),
-            TokenTag::Slash => write!(f, "/"),
-            TokenTag::Caret => write!(f, "^"),
-            TokenTag::Mod => write!(f, "mod"),
-            TokenTag::And => write!(f, "and"),
-            TokenTag::Or => write!(f, "or"),
-            TokenTag::Not => write!(f, "not"),
-            TokenTag::Dot => write!(f, "."),
-            TokenTag::DotDot => write!(f, ".."),
-            TokenTag::Comma => write!(f, ","),
-            TokenTag::Semi => write!(f, ";"),
-            TokenTag::Colon => write!(f, ":"),
-            TokenTag::RArrow => write!(f, "->"),
-            TokenTag::VBar => write!(f, "|"),
-            TokenTag::Pound => write!(f, "#"),
-            TokenTag::OpenParen => write!(f, "("),
-            TokenTag::CloseParen => write!(f, ")"),
-            TokenTag::OpenBrace => write!(f, "{{"),
-            TokenTag::CloseBrace => write!(f, "}}"),
-            TokenTag::OpenBracket => write!(f, "["),
-            TokenTag::CloseBracket => write!(f, "]"),
-            TokenTag::Wildcard => write!(f, "_"),
-            TokenTag::Let => write!(f, "let"),
-            TokenTag::Var => write!(f, "var"),
-            TokenTag::Type => write!(f, "type"),
-            TokenTag::Interface => write!(f, "interface"),
-            TokenTag::OutputType => write!(f, "outputtype"),
-            TokenTag::Implement => write!(f, "implement"),
-            TokenTag::Impl => write!(f, "impl"),
-            TokenTag::Extend => write!(f, "extend"),
-            TokenTag::Use => write!(f, "use"),
-            TokenTag::Except => write!(f, "except"),
-            TokenTag::Fn => write!(f, "fn"),
-            TokenTag::Match => write!(f, "match"),
-            TokenTag::Break => write!(f, "break"),
-            TokenTag::Continue => write!(f, "continue"),
-            TokenTag::Return => write!(f, "return"),
-            TokenTag::While => write!(f, "while"),
-            TokenTag::For => write!(f, "for"),
-            TokenTag::In => write!(f, "in"),
-            TokenTag::If => write!(f, "if"),
-            TokenTag::Else => write!(f, "else"),
-            TokenTag::Nil => write!(f, "nil"),
-            TokenTag::True => write!(f, "true"),
-            TokenTag::False => write!(f, "false"),
-            TokenTag::Int => write!(f, "int"),
-            TokenTag::Float => write!(f, "float"),
-            TokenTag::Bool => write!(f, "bool"),
-            TokenTag::String => write!(f, "string"),
-            TokenTag::Void => write!(f, "void"),
-            TokenTag::IntLit => write!(f, "int literal"),
-            TokenTag::FloatLit => write!(f, "float literal"),
-            TokenTag::StringLit => write!(f, "string literal"),
-            TokenTag::Ident => write!(f, "identifier"),
-            TokenTag::PolyIdent => write!(f, "polytype identifier"),
-            TokenTag::Newline => write!(f, "newline"),
-            TokenTag::Eof => write!(f, "<EOF>"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
