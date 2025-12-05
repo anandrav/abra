@@ -6,6 +6,7 @@ use crate::ast::FileId;
 use crate::statics::{Error, StaticsContext};
 use std::fmt;
 use std::fmt::Formatter;
+use std::str::FromStr;
 use strum::IntoDiscriminant;
 use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
 
@@ -155,40 +156,86 @@ impl TokenKind {
     }
 
     fn keyword_from_str(s: &str) -> Option<Self> {
-        Some(match s {
-            "let" => TokenKind::Let,
-            "var" => TokenKind::Var,
-            "type" => TokenKind::Type,
-            "interface" => TokenKind::Interface,
-            "outputtype" => TokenKind::OutputType,
-            "implement" => TokenKind::Implement,
-            "impl" => TokenKind::Impl,
-            "extend" => TokenKind::Extend,
-            "use" => TokenKind::Use,
-            "except" => TokenKind::Except,
-            "fn" => TokenKind::Fn,
-            "match" => TokenKind::Match,
-            "and" => TokenKind::And,
-            "or" => TokenKind::Or,
-            "not" => TokenKind::Not,
-            "break" => TokenKind::Break,
-            "continue" => TokenKind::Continue,
-            "return" => TokenKind::Return,
-            "while" => TokenKind::While,
-            "for" => TokenKind::For,
-            "in" => TokenKind::In,
-            "if" => TokenKind::If,
-            "else" => TokenKind::Else,
-            "nil" => TokenKind::Nil,
-            "true" => TokenKind::True,
-            "false" => TokenKind::False,
-            "int" => TokenKind::Int,
-            "float" => TokenKind::Float,
-            "bool" => TokenKind::Bool,
-            "string" => TokenKind::String,
-            "void" => TokenKind::Void,
-            _ => return None,
-        })
+        let ret = TokenKind::from_str(s).ok();
+        if let Some(kind) = &ret
+            && kind.is_keyword()
+        {
+            return ret;
+        }
+        None
+    }
+
+    pub fn is_keyword(&self) -> bool {
+        match self {
+            TokenKind::Let
+            | TokenKind::Var
+            | TokenKind::Type
+            | TokenKind::Interface
+            | TokenKind::OutputType
+            | TokenKind::Implement
+            | TokenKind::Impl
+            | TokenKind::Extend
+            | TokenKind::Use
+            | TokenKind::Except
+            | TokenKind::Fn
+            | TokenKind::Match
+            | TokenKind::And
+            | TokenKind::Or
+            | TokenKind::Not
+            | TokenKind::Break
+            | TokenKind::Continue
+            | TokenKind::Return
+            | TokenKind::While
+            | TokenKind::For
+            | TokenKind::In
+            | TokenKind::If
+            | TokenKind::Else
+            | TokenKind::Nil
+            | TokenKind::True
+            | TokenKind::False
+            | TokenKind::Int
+            | TokenKind::Float
+            | TokenKind::Bool
+            | TokenKind::String
+            | TokenKind::Void => true,
+
+            TokenKind::Eq
+            | TokenKind::Lt
+            | TokenKind::Le
+            | TokenKind::EqEq
+            | TokenKind::NotEq
+            | TokenKind::Ge
+            | TokenKind::Gt
+            | TokenKind::Bang
+            | TokenKind::Plus
+            | TokenKind::PlusEq
+            | TokenKind::Minus
+            | TokenKind::Star
+            | TokenKind::Slash
+            | TokenKind::Caret
+            | TokenKind::Mod
+            | TokenKind::Dot
+            | TokenKind::DotDot
+            | TokenKind::Comma
+            | TokenKind::Colon
+            | TokenKind::RArrow
+            | TokenKind::VBar
+            | TokenKind::Pound
+            | TokenKind::OpenParen
+            | TokenKind::CloseParen
+            | TokenKind::OpenBrace
+            | TokenKind::CloseBrace
+            | TokenKind::OpenBracket
+            | TokenKind::CloseBracket
+            | TokenKind::Wildcard
+            | TokenKind::Newline
+            | TokenKind::Eof
+            | TokenKind::IntLit(_)
+            | TokenKind::FloatLit(_)
+            | TokenKind::StringLit(_)
+            | TokenKind::Ident(_)
+            | TokenKind::PolyIdent(_) => false,
+        }
     }
 }
 
