@@ -1472,6 +1472,7 @@ impl Translator {
                                 self.translate_expr(array, offset_table, monomorph_env, st);
                                 self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
                             }
+                            // TODO: allow tuples on LHS of assignment
                             _ => unimplemented!(), // TODO: unimplemented ??. What if the user put an expression here that shouldn't be?
                         }
                     }
