@@ -733,6 +733,33 @@ arr.len()
 }
 
 #[test]
+fn array_sort() {
+    let src = r#"
+let arr = [3, 2, 1]
+arr.sort()
+for n in arr {
+    print(n)
+}
+arr.len()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    for n in [1, 2, 3] {
+        let top = vm.top();
+        assert_eq!(top.view_string(&vm), n.to_string());
+        vm.pop();
+        vm.clear_pending_host_func();
+        vm.run();
+    }
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 3);
+}
+
+#[test]
 fn not() {
     let src = r#"
 let b = true

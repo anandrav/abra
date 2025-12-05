@@ -535,7 +535,9 @@ impl Translator {
                         &func_ty,
                     );
                 };
+                // TODO: this should all be wrapped up in a helper function to avoid forgetting to subst with monomorph_env
                 let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
+                let arg1_ty = arg1_ty.subst(monomorph_env);
                 // inline primitive operations instead of performing a function call
                 match op {
                     BinaryOperator::Add => match arg1_ty {

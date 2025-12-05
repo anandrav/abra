@@ -223,8 +223,7 @@ fn array_to_string_helper(arr: array<T ToString>, idx: int) {
 
 fn print(x: T ToString) { print_string(ToString.str(x)) }
 fn println(x: T ToString) {
-    print_string(ToString.str(x))
-    print_string(newline)
+    print_string(ToString.str(x) .. "\n")
 }
 
 fn format_append(s1: T1 ToString, s2: T2 ToString) {
@@ -349,6 +348,45 @@ extend array<T Equal> {
             .none -> false
         }
     }
+}
+
+extend array<T Num> {
+    fn sort(self) -> void {
+        quick_sort_impl(self, 0, self.len()-1)
+    }
+}
+
+// TODO: hide these helper functions:
+
+fn swap(arr: array<T Num>, i, j) {
+  let temp = arr[i]
+  arr[i] = arr[j]
+  arr[j] = temp
+}
+
+fn partition(arr: array<T Num>, low, high) {
+  let pivot = arr[high]
+  var i = low - 1
+  var j = low
+
+  while j < high {
+    if arr[j] <= pivot {
+      i = i + 1
+      swap(arr, i, j)
+    }
+    j = j + 1
+  }
+  swap(arr, i + 1, high)
+  i + 1
+}
+
+fn quick_sort_impl(arr: array<T Num>, low, high) {
+  if low < high {
+    let pi = partition(arr, low, high)
+
+    quick_sort_impl(arr, low, pi - 1)
+    quick_sort_impl(arr, pi + 1, high)
+  }
 }
 
 "#;
