@@ -6,9 +6,9 @@ use super::{
     Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Interface, InterfaceImpl,
-    InterfaceOutputType, ItemKind, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind,
-    TypeKind,
+    ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
+    InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, Stmt, StmtKind, Type as AstType,
+    TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
@@ -1827,15 +1827,32 @@ fn generate_constraints_stmt(
                 expr,
             );
         }
-        StmtKind::Set(lhs, rhs) => {
-            let ty_lhs = TypeVar::from_node(ctx, lhs.node());
-            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
-            generate_constraints_expr(
-                ctx,
-                polyvar_scope,
-                Mode::ana_reason(ty_lhs, ConstraintReason::LetSetLhsRhs),
-                rhs,
-            );
+        StmtKind::Set(lhs, assign_op, rhs) => {
+            match assign_op {
+                AssignOperator::Equal => {
+                    let ty_lhs = TypeVar::from_node(ctx, lhs.node());
+                    generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope,
+                        Mode::ana_reason(ty_lhs, ConstraintReason::LetSetLhsRhs),
+                        rhs,
+                    );
+                }
+                AssignOperator::PlusEq => {
+                    let ty_lhs = TypeVar::from_node(ctx, lhs.node());
+                    generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
+                    let num_iface =
+                        InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Num")); // TODO: make these member variables of ctx
+                    constrain_to_iface(ctx, &ty_lhs, lhs.node(), &num_iface);
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope,
+                        Mode::ana_reason(ty_lhs, ConstraintReason::LetSetLhsRhs),
+                        rhs,
+                    );
+                }
+            }
         }
         StmtKind::Break | StmtKind::Continue => {
             let enclosing_loop = ctx.loop_stack.last();

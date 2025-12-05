@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_constants};
-use crate::ast::{ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
+use crate::ast::{
+    ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind,
+};
 use crate::ast::{FileAst, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
@@ -1359,40 +1361,119 @@ impl Translator {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
                 self.handle_pat_binding(&pat.0, offset_table, st, monomorph_env);
             }
-            StmtKind::Set(expr1, rvalue) => {
+            StmtKind::Set(expr1, assign_op, rvalue) => {
                 let rvalue_ty = self
                     .statics
                     .solution_of_node(rvalue.node())
                     .unwrap()
                     .subst(monomorph_env);
-                if rvalue_ty != SolvedType::Void {
-                    match &*expr1.kind {
-                        // variable assignment
-                        ExprKind::Variable(_) => {
-                            let Declaration::Var(node) = &self.statics.resolution_map[&expr1.id]
-                            else {
-                                panic!("expected variableto be defined in node");
+                match assign_op {
+                    AssignOperator::Equal => {
+                        if rvalue_ty != SolvedType::Void {
+                            match &*expr1.kind {
+                                // variable assignment
+                                ExprKind::Variable(_) => {
+                                    let Declaration::Var(node) =
+                                        &self.statics.resolution_map[&expr1.id]
+                                    else {
+                                        panic!("expected variableto be defined in node");
+                                    };
+                                    let idx = offset_table.get(&node.id()).unwrap();
+                                    self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                    self.emit(st, Instr::StoreOffset(*idx));
+                                }
+                                // struct member assignment
+                                ExprKind::MemberAccess(accessed, field_name) => {
+                                    self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                    self.translate_expr(accessed, offset_table, monomorph_env, st);
+                                    let idx = idx_of_field(
+                                        &self.statics,
+                                        monomorph_env,
+                                        accessed,
+                                        &field_name.v,
+                                    );
+                                    self.emit(st, Instr::SetField(idx, Reg::Top));
+                                }
+                                // array assignment
+                                ExprKind::IndexAccess(array, index) => {
+                                    self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                    self.translate_expr(index, offset_table, monomorph_env, st);
+                                    self.translate_expr(array, offset_table, monomorph_env, st);
+                                    self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                                }
+                                _ => unimplemented!(), // TODO: unimplemented ??. What if the user put an expression here that shouldn't be?
+                            }
+                        }
+                    }
+                    AssignOperator::PlusEq => {
+                        let add_instr = |st| {
+                            match rvalue_ty {
+                                SolvedType::Int => {
+                                    self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
+                                }
+                                SolvedType::Float => {
+                                    self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
+                                }
+                                _ => unreachable!(),
                             };
-                            let idx = offset_table.get(&node.id()).unwrap();
-                            self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                            self.emit(st, Instr::StoreOffset(*idx));
+                        };
+                        match &*expr1.kind {
+                            // variable assignment
+                            ExprKind::Variable(_) => {
+                                let Declaration::Var(node) =
+                                    &self.statics.resolution_map[&expr1.id]
+                                else {
+                                    panic!("expected variableto be defined in node");
+                                };
+                                let idx = offset_table.get(&node.id()).unwrap();
+                                // load x
+                                self.emit(st, Instr::LoadOffset(*idx));
+                                // add number
+                                self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                add_instr(st);
+                                // store in x
+                                self.emit(st, Instr::StoreOffset(*idx));
+                            }
+                            // struct member assignment
+                            ExprKind::MemberAccess(accessed, field_name) => {
+                                // load struct.field
+                                self.translate_expr(accessed, offset_table, monomorph_env, st);
+                                let idx = idx_of_field(
+                                    &self.statics,
+                                    monomorph_env,
+                                    accessed,
+                                    &field_name.v,
+                                );
+                                self.emit(st, Instr::SetField(idx, Reg::Top));
+                                // add number
+                                self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                add_instr(st);
+                                // store in struct.field
+                                self.translate_expr(accessed, offset_table, monomorph_env, st);
+                                let idx = idx_of_field(
+                                    &self.statics,
+                                    monomorph_env,
+                                    accessed,
+                                    &field_name.v,
+                                );
+                                self.emit(st, Instr::SetField(idx, Reg::Top));
+                            }
+                            // array assignment
+                            ExprKind::IndexAccess(array, index) => {
+                                // load from array at index
+                                self.translate_expr(index, offset_table, monomorph_env, st);
+                                self.translate_expr(array, offset_table, monomorph_env, st);
+                                self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                                // add number
+                                self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                add_instr(st);
+                                // store in array at index
+                                self.translate_expr(index, offset_table, monomorph_env, st);
+                                self.translate_expr(array, offset_table, monomorph_env, st);
+                                self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                            }
+                            _ => unimplemented!(), // TODO: unimplemented ??. What if the user put an expression here that shouldn't be?
                         }
-                        // struct member assignment
-                        ExprKind::MemberAccess(accessed, field_name) => {
-                            self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                            self.translate_expr(accessed, offset_table, monomorph_env, st);
-                            let idx =
-                                idx_of_field(&self.statics, monomorph_env, accessed, &field_name.v);
-                            self.emit(st, Instr::SetField(idx, Reg::Top));
-                        }
-                        // array assignment
-                        ExprKind::IndexAccess(array, index) => {
-                            self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                            self.translate_expr(index, offset_table, monomorph_env, st);
-                            self.translate_expr(array, offset_table, monomorph_env, st);
-                            self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
-                        }
-                        _ => unimplemented!(),
                     }
                 }
             }
@@ -1743,7 +1824,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 collect_locals_pat(&pat.0, locals);
                 collect_locals_expr(expr, locals);
             }
-            StmtKind::Set(_, expr) => {
+            StmtKind::Set(_, _, expr) => {
                 collect_locals_expr(expr, locals);
             }
             StmtKind::Continue | StmtKind::Break => {}

@@ -358,7 +358,7 @@ impl Stmt {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum StmtKind {
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
-    Set(Rc<Expr>, Rc<Expr>),
+    Set(Rc<Expr>, AssignOperator, Rc<Expr>),
     Expr(Rc<Expr>),
     Continue,
     Break,
@@ -520,6 +520,21 @@ pub enum BinaryOperator {
     Or,
     // string
     Format,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Copy)]
+pub enum AssignOperator {
+    Equal,
+    // numeric
+    PlusEq,
+    // Subtract,
+    // Multiply,
+    // Divide,
+    // Mod,
+    // Pow,
+    // // boolean
+    // And,
+    // Or,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

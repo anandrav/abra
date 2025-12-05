@@ -838,6 +838,14 @@ impl Parser {
         })
     }
 
+    fn parse_assign_op(&mut self) -> Option<AssignOperator> {
+        Some(match self.current_token().tag() {
+            TokenTag::Eq => AssignOperator::Equal,
+            TokenTag::PlusEq => AssignOperator::PlusEq,
+            _ => return None,
+        })
+    }
+
     fn parse_prefix_op(&mut self) -> Option<PrefixOp> {
         Some(match self.current_token().tag() {
             TokenTag::Minus => {
@@ -1602,11 +1610,11 @@ impl Parser {
             }
             _ => {
                 let expr = self.parse_expr()?;
-                if self.current_token().tag() == TokenTag::Eq {
-                    self.expect_token(TokenTag::Eq);
+                if let Some(assign_op) = self.parse_assign_op() {
+                    self.consume_token();
                     let rhs = self.parse_expr()?;
                     Stmt {
-                        kind: StmtKind::Set(expr, rhs).into(),
+                        kind: StmtKind::Set(expr, assign_op, rhs).into(),
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }

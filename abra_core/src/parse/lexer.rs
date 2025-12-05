@@ -42,6 +42,8 @@ pub(crate) enum TokenKind {
     Bang,
     // `+`
     Plus,
+    // `+=`
+    PlusEq,
     // `-`
     Minus,
     // `*`
@@ -168,7 +170,8 @@ impl TokenKind {
             | TokenKind::Fn
             | TokenKind::Or
             | TokenKind::If
-            | TokenKind::In => 2,
+            | TokenKind::In
+            | TokenKind::PlusEq => 2,
 
             TokenKind::Let
             | TokenKind::Var
@@ -387,12 +390,18 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             ';' => lexer.emit(TokenKind::Semi),
             ',' => lexer.emit(TokenKind::Comma),
             '\n' => lexer.emit(TokenKind::Newline),
-            '+' => lexer.emit(TokenKind::Plus),
             '*' => lexer.emit(TokenKind::Star),
             '%' => lexer.emit(TokenKind::Mod),
             '^' => lexer.emit(TokenKind::Caret),
             '#' => lexer.emit(TokenKind::Pound),
             '|' => lexer.emit(TokenKind::VBar),
+            '+' => {
+                if let Some('=') = lexer.peek_char(1) {
+                    lexer.emit(TokenKind::PlusEq)
+                } else {
+                    lexer.emit(TokenKind::Plus)
+                }
+            }
             '=' => {
                 if let Some('=') = lexer.peek_char(1) {
                     lexer.emit(TokenKind::EqEq)
@@ -543,6 +552,7 @@ impl fmt::Display for TokenTag {
             TokenTag::Gt => write!(f, ">"),
             TokenTag::Bang => write!(f, "!"),
             TokenTag::Plus => write!(f, "+"),
+            TokenTag::PlusEq => write!(f, "+="),
             TokenTag::Minus => write!(f, "-"),
             TokenTag::Star => write!(f, "*"),
             TokenTag::Slash => write!(f, "/"),

@@ -674,7 +674,7 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
                 resolve_names_typ(ctx, symbol_table, ty_annot, false);
             }
         }
-        StmtKind::Set(lhs, rhs) => {
+        StmtKind::Set(lhs, _, rhs) => {
             resolve_names_expr(ctx, symbol_table, lhs);
             resolve_names_expr(ctx, symbol_table, rhs);
         }

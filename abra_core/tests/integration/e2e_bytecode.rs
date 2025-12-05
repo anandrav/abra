@@ -42,7 +42,8 @@ let d = c * 3
 let e = d / 3
 let f = e ^ 3
 let g = f % 5
-let h = -g
+var h = -g
+h += -1
 h
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -52,7 +53,7 @@ h
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), -2);
+    assert_eq!(top.get_int(&vm), -3);
 }
 
 #[test]
@@ -64,7 +65,8 @@ let c = b - 2.0
 let d = c * 3.0
 let e = d / 3.0
 let f = e ^ 3.0
-let g = -f
+var g = -f
+g += 2.0
 g
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -74,7 +76,7 @@ g
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_float(&vm), -27.0);
+    assert_eq!(top.get_float(&vm), -25.0);
 }
 
 #[test]
