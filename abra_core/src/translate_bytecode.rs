@@ -583,7 +583,9 @@ impl Translator {
                         SolvedType::Float => {
                             self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            helper(monomorph_env, "prelude.Ord.greater_than");
+                        }
                     },
                     BinaryOperator::LessThan => match arg1_ty {
                         SolvedType::Int => {
@@ -592,7 +594,9 @@ impl Translator {
                         SolvedType::Float => {
                             self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        _ => unreachable!(),
+                        _ => {
+                            helper(monomorph_env, "prelude.Ord.less_than");
+                        }
                     },
                     BinaryOperator::GreaterThanOrEqual => match arg1_ty {
                         SolvedType::Int => self.emit(
@@ -603,7 +607,9 @@ impl Translator {
                             st,
                             Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                         ),
-                        _ => unreachable!(),
+                        _ => {
+                            helper(monomorph_env, "prelude.Ord.greater_than_or_equal");
+                        }
                     },
                     BinaryOperator::LessThanOrEqual => match arg1_ty {
                         SolvedType::Int => {
@@ -613,7 +619,9 @@ impl Translator {
                             st,
                             Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                         ),
-                        _ => unreachable!(),
+                        _ => {
+                            helper(monomorph_env, "prelude.Ord.less_than_or_equal");
+                        }
                     },
                     BinaryOperator::Equal | BinaryOperator::NotEqual => {
                         match arg1_ty {
@@ -1192,13 +1200,34 @@ impl Translator {
                     self.emit(st, Instr::ConcatStrings(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayPush => {
+                    // TODO: code duplication, see inlining of array.push()
+                    let Some(SolvedType::Function(args, _)) =
+                        self.statics.solution_of_node(func_node.clone())
+                    else {
+                        unreachable!()
+                    };
+                    // second arg is element being pushed
+                    let arg_ty = args[1].subst(monomorph_env);
+                    if arg_ty == SolvedType::Void {
+                        self.emit(st, Instr::PushNil(1));
+                    }
                     self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayLength => {
                     self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayPop => {
+                    // TODO: code duplication, see inlining of array.pop()
                     self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
+                    let Some(SolvedType::Function(_, ret)) =
+                        self.statics.solution_of_node(func_node.clone())
+                    else {
+                        unreachable!()
+                    };
+                    let ret_ty = ret.subst(monomorph_env);
+                    if ret_ty == SolvedType::Void {
+                        self.emit(st, Instr::Pop);
+                    }
                 }
                 BuiltinOperation::Panic => {
                     self.emit(st, Instr::Panic);
@@ -1631,11 +1660,39 @@ impl Translator {
         let is_ident_func = |ty: &Option<SolvedType>, arg: SolvedType| {
             *ty == Some(SolvedType::Function(vec![arg.clone()], arg.into()))
         };
+        let second_arg_is_void = |ty: &Option<SolvedType>| {
+            if let Some(SolvedType::Function(args, _)) = ty {
+                // second arg is element being pushed
+                args[1] == SolvedType::Void
+            } else {
+                false
+            }
+        };
+        let ret_is_void = |ty: &Option<SolvedType>| {
+            if let Some(SolvedType::Function(_, ret)) = ty {
+                **ret == SolvedType::Void
+            } else {
+                false
+            }
+        };
         match (func_name.as_str(), overload_ty) {
+            // TODO: overload_ty doesn't need to be part of match scrutiny
             // inline basic/fundamental operations instead of performing function call
-            ("array.push", _) => self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top)),
+            ("array.push", ty) => {
+                // arrays of void use dummy values
+                if second_arg_is_void(&ty) {
+                    self.emit(st, Instr::PushNil(1));
+                }
+                self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top))
+            }
             ("array.len", _) => self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top)),
-            ("array.pop", _) => self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top)),
+            ("array.pop", ty) => {
+                self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
+                // arrays of void use dummy values
+                if ret_is_void(&ty) {
+                    self.emit(st, Instr::Pop);
+                }
+            }
             ("prelude.ToString.str", ty)
                 if is_func(&ty, SolvedType::String, SolvedType::String) =>
             { /* noop */ }

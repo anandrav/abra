@@ -14,10 +14,6 @@ interface Num {
     fn multiply(a: Self, b: Self) -> Self
     fn divide(a: Self, b: Self) -> Self
     fn power(a: Self, b: Self) -> Self
-    fn less_than(a: Self, b: Self) -> bool
-    fn less_than_or_equal(a: Self, b: Self) -> bool
-    fn greater_than(a: Self, b: Self) -> bool
-    fn greater_than_or_equal(a: Self, b: Self) -> bool
 }
 
 implement Num for int {
@@ -26,10 +22,6 @@ implement Num for int {
     fn multiply(a, b) = multiply_int(a, b)
     fn divide(a, b) = divide_int(a, b)
     fn power(a, b) = power_int(a, b)
-    fn less_than(a, b) = less_than_int(a, b)
-    fn less_than_or_equal(a, b) = less_than_or_equal_int(a, b)
-    fn greater_than(a, b) = greater_than_int(a, b)
-    fn greater_than_or_equal(a, b) = greater_than_or_equal_int(a, b)
 }
 
 implement Num for float {
@@ -38,10 +30,6 @@ implement Num for float {
     fn multiply(a, b) = multiply_float(a, b)
     fn divide(a, b) = divide_float(a, b)
     fn power(a, b) = power_float(a, b)
-    fn less_than(a, b) = less_than_float(a, b)
-    fn less_than_or_equal(a, b) = less_than_or_equal_float(a, b)
-    fn greater_than(a, b) = greater_than_float(a, b)
-    fn greater_than_or_equal(a, b) = greater_than_or_equal_float(a, b)
 }
 
 type option<T> = some(T) | none
@@ -80,6 +68,45 @@ implement Equal for bool {
 implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }
+
+// TODO implement Equal for tuples... do it at the bottom of the prelude
+
+interface Ord {
+    fn less_than(a: Self, b: Self) -> bool
+    fn less_than_or_equal(a: Self, b: Self) -> bool
+    fn greater_than(a: Self, b: Self) -> bool
+    fn greater_than_or_equal(a: Self, b: Self) -> bool
+}
+
+implement Ord for int {
+    fn less_than(a, b) = less_than_int(a, b)
+    fn less_than_or_equal(a, b) = less_than_or_equal_int(a, b)
+    fn greater_than(a, b) = greater_than_int(a, b)
+    fn greater_than_or_equal(a, b) = greater_than_or_equal_int(a, b)
+}
+
+implement Ord for float {
+    fn less_than(a, b) = less_than_float(a, b)
+    fn less_than_or_equal(a, b) = less_than_or_equal_float(a, b)
+    fn greater_than(a, b) = greater_than_float(a, b)
+    fn greater_than_or_equal(a, b) = greater_than_or_equal_float(a, b)
+}
+
+implement Ord for void {
+    fn less_than(a, b) = false
+    fn less_than_or_equal(a, b) = true
+    fn greater_than(a, b) = false
+    fn greater_than_or_equal(a, b) = true
+}
+
+implement Ord for bool {
+    fn less_than(a, b) = (not a) and b
+    fn less_than_or_equal(a, b) = not (a and not b)
+    fn greater_than(a, b) = a and (not b)
+    fn greater_than_or_equal(a, b) = a and not b
+}
+
+// TODO implement Ord for void, bool, string and tuples... do it at the bottom of the prelude
 
 interface Clone {
     fn clone(x: Self) -> Self
@@ -350,21 +377,22 @@ extend array<T Equal> {
     }
 }
 
-extend array<T Num> {
+extend array<T Ord> {
     fn sort(self) -> void {
+        // TODO: switch to a stable sorting algorithm
         quick_sort_impl(self, 0, self.len()-1)
     }
 }
 
-// TODO: hide these helper functions:
+// TODO: hide these helper functions, ideally scope them to the array.sort function. Allow defining functions inside functions (solely for scoping purposes, not lambda environment capture)
 
-fn swap(arr: array<T Num>, i, j) {
+fn swap(arr: array<T Ord>, i, j) {
   let temp = arr[i]
   arr[i] = arr[j]
   arr[j] = temp
 }
 
-fn partition(arr: array<T Num>, low, high) {
+fn partition(arr: array<T Ord>, low, high) {
   let pivot = arr[high]
   var i = low - 1
   var j = low
@@ -380,7 +408,7 @@ fn partition(arr: array<T Num>, low, high) {
   i + 1
 }
 
-fn quick_sort_impl(arr: array<T Num>, low, high) {
+fn quick_sort_impl(arr: array<T Ord>, low, high) {
   if low < high {
     let pi = partition(arr, low, high)
 

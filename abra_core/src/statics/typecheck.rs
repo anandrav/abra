@@ -344,6 +344,31 @@ impl SolvedType {
             Self::Nominal(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
         }
     }
+
+    // pub(crate) fn is_overloaded(&self) -> bool {
+    //     match self {
+    //         Self::Poly(polyty) => match polyty {
+    //             PolytypeDeclaration::InterfaceSelf(_) => true,
+    //             PolytypeDeclaration::Builtin(op, _) => match op {
+    //                 BuiltinOperation::ArrayPop | BuiltinOperation::ArrayPush => true,
+    //                 _ => false,
+    //             },
+    //             PolytypeDeclaration::Ordinary(p) => true, // !p.interfaces.is_empty(),
+    //         },
+    //         Self::InterfaceOutput(output_type) => true, // !output_type.interfaces.is_empty(),
+    //         Self::Void => false,
+    //         Self::Never => false,
+    //         Self::Int => false,
+    //         Self::Float => false,
+    //         Self::Bool => false,
+    //         Self::String => false,
+    //         Self::Function(args, out) => {
+    //             args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
+    //         }
+    //         Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded()),
+    //         Self::Nominal(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
+    //     }
+    // }
 }
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
@@ -1842,8 +1867,7 @@ fn generate_constraints_stmt(
                 AssignOperator::PlusEq => {
                     let ty_lhs = TypeVar::from_node(ctx, lhs.node());
                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
-                    let num_iface =
-                        InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Num")); // TODO: make these member variables of ctx
+                    let num_iface = InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.Num")); // TODO: make these member variables of ctx
                     constrain_to_iface(ctx, &ty_lhs, lhs.node(), &num_iface);
                     generate_constraints_expr(
                         ctx,
@@ -1907,8 +1931,8 @@ fn generate_constraints_stmt(
                 });
                 return;
             };
-            let iterable_iface_def = ctx.get_interface_declaration("prelude.Iterable");
-            let iterator_iface_def = ctx.get_interface_declaration("prelude.Iterator");
+            let iterable_iface_def = ctx.get_iface_decl("prelude.Iterable");
+            let iterator_iface_def = ctx.get_iface_decl("prelude.Iterator");
             let Some(imp) = iterable_ty_solved.get_iface_impls(ctx, &iterable_iface_def) else {
                 ctx.errors.push(Error::Generic {
                     msg: "For loop container does not implement `Iterable` interface.".to_string(),
@@ -2147,12 +2171,11 @@ fn generate_constraints_expr(
             }
             let ty_out = node_ty;
 
-            let num_iface =
-                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Num"));
-            let equal_iface =
-                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Equal"));
+            let num_iface = InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.Num"));
+            let equal_iface = InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.Equal"));
+            let ord_iface = InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.Ord"));
             let tostring_iface =
-                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.ToString"));
+                InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.ToString"));
 
             let reason_left = Reason::BinopLeft(expr.node());
             let reason_right = Reason::BinopRight(expr.node());
@@ -2191,8 +2214,8 @@ fn generate_constraints_expr(
                 | BinaryOperator::GreaterThan
                 | BinaryOperator::LessThanOrEqual
                 | BinaryOperator::GreaterThanOrEqual => {
-                    constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
-                    constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
+                    constrain_to_iface(ctx, &ty_left, left.node(), &ord_iface);
+                    constrain_to_iface(ctx, &ty_right, right.node(), &ord_iface);
                     constrain(ctx, &ty_out, &TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Format => {
@@ -2216,8 +2239,7 @@ fn generate_constraints_expr(
             let ty_right = TypeVar::from_node(ctx, right.node());
             let ty_out = node_ty;
 
-            let num_iface =
-                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Num"));
+            let num_iface = InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.Num"));
 
             match op {
                 PrefixOp::Minus => {
