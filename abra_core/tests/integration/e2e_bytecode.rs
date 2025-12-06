@@ -1549,11 +1549,11 @@ p1 == p2
 #[test]
 fn iterate() {
     let src = r#"
-let arr = [1, 2, 3]
+let arr = [1, 2, 3] // array<int>
 var sum = 0
-let it = arr.make_iterator()
+let it = arr.make_iterator()    // ArrayIterator<int>
 while true {
-  match it.next() {
+  match it.next() {             // option<int>
     option.some(n) -> sum = sum + n
     option.none -> break
   }

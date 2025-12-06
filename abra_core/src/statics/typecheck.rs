@@ -327,10 +327,15 @@ impl SolvedType {
         match self {
             Self::Poly(polyty) => match polyty {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
-                PolytypeDeclaration::Builtin(_, _) => false, // array_push, array_length, array_pop are not overloaded
-                PolytypeDeclaration::Ordinary(p) => !p.interfaces.is_empty(),
+                PolytypeDeclaration::Builtin(op, _) => match op {
+                    BuiltinOperation::ArrayPop
+                    | BuiltinOperation::ArrayPush
+                    | BuiltinOperation::ArrayLength => true,
+                    _ => false,
+                },
+                PolytypeDeclaration::Ordinary(p) => true, // !p.interfaces.is_empty(),
             },
-            Self::InterfaceOutput(output_type) => !output_type.interfaces.is_empty(),
+            Self::InterfaceOutput(output_type) => true, // !output_type.interfaces.is_empty(),
             Self::Void => false,
             Self::Never => false,
             Self::Int => false,
@@ -344,31 +349,6 @@ impl SolvedType {
             Self::Nominal(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
         }
     }
-
-    // pub(crate) fn is_overloaded(&self) -> bool {
-    //     match self {
-    //         Self::Poly(polyty) => match polyty {
-    //             PolytypeDeclaration::InterfaceSelf(_) => true,
-    //             PolytypeDeclaration::Builtin(op, _) => match op {
-    //                 BuiltinOperation::ArrayPop | BuiltinOperation::ArrayPush => true,
-    //                 _ => false,
-    //             },
-    //             PolytypeDeclaration::Ordinary(p) => true, // !p.interfaces.is_empty(),
-    //         },
-    //         Self::InterfaceOutput(output_type) => true, // !output_type.interfaces.is_empty(),
-    //         Self::Void => false,
-    //         Self::Never => false,
-    //         Self::Int => false,
-    //         Self::Float => false,
-    //         Self::Bool => false,
-    //         Self::String => false,
-    //         Self::Function(args, out) => {
-    //             args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
-    //         }
-    //         Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded()),
-    //         Self::Nominal(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
-    //     }
-    // }
 }
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
@@ -2714,7 +2694,8 @@ fn generate_constraints_expr(
             );
             let yes_ty = substitution[&y_poly_decl].clone();
 
-            generate_constraints_expr(ctx, polyvar_scope, Mode::ana(option_ty), expr);
+            generate_constraints_expr(ctx, polyvar_scope, Mode::ana(option_ty.clone()), expr);
+            println!("option_ty = {}", &option_ty);
 
             constrain(ctx, &node_ty, &yes_ty);
         }

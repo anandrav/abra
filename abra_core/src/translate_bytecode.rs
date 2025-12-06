@@ -148,6 +148,13 @@ impl Translator {
         Self { statics, file_asts }
     }
 
+    fn get_ty(&self, monomorph_env: &MonomorphEnv, node: AstNode) -> SolvedType {
+        self.statics
+            .solution_of_node(node)
+            .unwrap()
+            .subst(&monomorph_env)
+    }
+
     fn emit(&self, st: &mut TranslatorState, i: impl LineVariant) {
         let l: Line = i.to_line(st);
 
@@ -716,6 +723,7 @@ impl Translator {
                 }
 
                 let decl = &self.statics.resolution_map[&fname.id];
+
                 self.translate_func_ap(decl, fname.node(), offset_table, monomorph_env, st);
             }
             ExprKind::FuncAp(func, args) => {
@@ -890,6 +898,12 @@ impl Translator {
                 else {
                     panic!();
                 };
+                let generic_func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+                let SolvedType::Function(_, generic_data_ty) = generic_func_ty else {
+                    unreachable!()
+                };
+                let instantiated_data_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                monomorph_env.update(&generic_data_ty, &instantiated_data_ty);
                 self.translate_func_ap(decl, f.name.node(), offset_table, monomorph_env, st);
             }
         }
@@ -908,9 +922,17 @@ impl Translator {
         if !func_ty.is_overloaded() {
             self.handle_func_call(st, None, f_fully_qualified_name, f);
         } else {
-            let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
-            let substituted_ty = specific_func_ty.subst(monomorph_env);
-            self.handle_func_call(st, Some(substituted_ty), f_fully_qualified_name, f);
+            let generic_func_ty = self.statics.solution_of_node(func_node).unwrap();
+            println!(
+                "(helper) func name = {}, generic func ty = {}",
+                f_fully_qualified_name, generic_func_ty
+            );
+            let instance_func_ty = generic_func_ty.subst(monomorph_env);
+            println!(
+                "(helper) func name = {}, instance func ty = {}",
+                f_fully_qualified_name, instance_func_ty
+            );
+            self.handle_func_call(st, Some(instance_func_ty), f_fully_qualified_name, f);
         }
     }
 
@@ -982,6 +1004,19 @@ impl Translator {
             }
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
+
+                let generic_func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+                println!(
+                    "func name = {}, generic_func_ty: {}",
+                    f.name.v, generic_func_ty
+                );
+                let instance_func_ty = self.statics.solution_of_node(func_node.clone()).unwrap();
+                println!(
+                    "func name = {}, instance_func_ty: {}",
+                    f.name.v, instance_func_ty
+                );
+                monomorph_env.update(&generic_func_ty, &instance_func_ty);
+
                 self.translate_func_ap_helper(
                     f,
                     f_fully_qualified_name,
@@ -1023,17 +1058,45 @@ impl Translator {
                 iface: iface_def,
                 method,
             } => {
-                let func_ty = self.statics.solution_of_node(func_node).unwrap();
+                let generic_func_ty = self
+                    .statics
+                    .solution_of_node(iface_def.methods[*method].name.node())
+                    .unwrap();
+                println!(
+                    "func name = {}, generic_func_ty: {}",
+                    iface_def.methods[*method].name.v, generic_func_ty
+                );
+                let instance_func_ty = self.statics.solution_of_node(func_node.clone()).unwrap();
+                println!(
+                    "func name = {}, instance_func_ty: {}",
+                    iface_def.methods[*method].name.v, instance_func_ty
+                );
+                monomorph_env.update(&generic_func_ty, &instance_func_ty);
+
                 self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env,
                     iface_def,
                     *method as u16,
-                    &func_ty,
+                    &instance_func_ty,
                 );
             }
             Declaration::MemberFunction(f) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
+
+                // TODO: whenever getting the solution of node you must ALWAYS substitute with the monomorph env. Make a helper function that does this so you don't forget!!!
+                let generic_func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+                println!(
+                    "func name = {}, generic_func_ty: {}",
+                    f.name.v, generic_func_ty
+                );
+                let instance_func_ty = self.statics.solution_of_node(func_node.clone()).unwrap();
+                println!(
+                    "func name = {}, instance_func_ty: {}",
+                    f.name.v, instance_func_ty
+                );
+                monomorph_env.update(&generic_func_ty, &instance_func_ty);
+
                 self.translate_func_ap_helper(
                     f,
                     f_fully_qualified_name,
@@ -1589,7 +1652,7 @@ impl Translator {
                 };
                 let fn_make_iterator_ty = &self.statics.for_loop_make_iterator_types[&stmt.id];
                 // println!("iterable_ty: {}", iterable_ty);
-                // println!("fn_make_iterator_ty: {}", fn_make_iterator_ty);
+                println!("fn_make_iterator_ty: {}", fn_make_iterator_ty);
                 self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env,
@@ -1731,7 +1794,7 @@ impl Translator {
                 let label = match overload_ty {
                     None => func_name.clone(),
                     Some(overload_ty) => {
-                        // println!("overload_ty {}, name {}", overload_ty, func_name);
+                        println!("overload_ty {}, name {}", overload_ty, func_name);
                         let monoty = overload_ty.monotype().unwrap();
                         let mut label_hint = format!("{func_name}__{monoty}");
                         label_hint.retain(|c| !c.is_whitespace());
