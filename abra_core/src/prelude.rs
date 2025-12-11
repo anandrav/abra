@@ -106,7 +106,7 @@ implement Ord for bool {
     fn greater_than_or_equal(a, b) = a and not b
 }
 
-// TODO implement Ord for void, bool, string and tuples... do it at the bottom of the prelude
+// TODO implement Ord for void, string and tuples... do it at the bottom of the prelude
 
 interface Clone {
     fn clone(x: Self) -> Self
@@ -276,13 +276,13 @@ interface Iterator {
     fn next(self: Self) -> option<IteratorItem>
 }
 
-type ArrayIterator<U> = {
-    arr: array<U>
+type ArrayIterator<P> = {
+    arr: array<P>
     i: int
 }
 
-implement Iterator for ArrayIterator<U> {
-    fn next(self) -> option<U> {
+implement Iterator for ArrayIterator<V> {
+    fn next(self: ArrayIterator<V>) -> option<V> {
         if self.i == self.arr.len() {
             .none
         } else {

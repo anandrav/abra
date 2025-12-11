@@ -733,6 +733,47 @@ arr.len()
 }
 
 #[test]
+fn array_push_nil() {
+    let src = r#"
+let arr = []
+arr.push(nil)
+arr.push(nil)
+arr.push(nil)
+arr.len()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 3);
+}
+
+#[test]
+fn array_pop_nil() {
+    let src = r#"
+let arr = []
+arr.push(nil)
+arr.push(nil)
+arr.push(nil)
+arr.push(nil)
+arr.pop()
+arr.pop()
+arr.len()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 2);
+}
+
+#[test]
 fn array_sort() {
     let src = r#"
 let arr = [3, 2, 1]
@@ -1549,11 +1590,13 @@ p1 == p2
 #[test]
 fn iterate() {
     let src = r#"
-let arr = [1, 2, 3]
+let arr = [1, 2, 3]                     // array<int>
 var sum = 0
+// make_iterator(self: Self) -> Iter // make_iterator(array<int>) -> ArrayIterator<int>
+// subst = {
 let it = arr.make_iterator()
 while true {
-  match it.next() {
+  match it.next() {                     // ArrayIterator<int> -> option<int>
     option.some(n) -> sum = sum + n
     option.none -> break
   }

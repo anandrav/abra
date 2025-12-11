@@ -148,6 +148,13 @@ impl Translator {
         Self { statics, file_asts }
     }
 
+    fn get_ty(&self, monomorph_env: &MonomorphEnv, node: AstNode) -> SolvedType {
+        self.statics
+            .solution_of_node(node)
+            .unwrap()
+            .subst(monomorph_env)
+    }
+
     fn emit(&self, st: &mut TranslatorState, i: impl LineVariant) {
         let l: Line = i.to_line(st);
 
@@ -330,6 +337,7 @@ impl Translator {
                 for desc in iteration {
                     if let FuncKind::NamedFunc(f) = &desc.kind {
                         self.update_curr_function(st, &f.name.v);
+                        // println!("func_name = {}", f.name.v);
                     }
 
                     let (func_ty, args, body) = match &desc.kind {
@@ -349,6 +357,7 @@ impl Translator {
                     let monomorph_env = MonomorphEnv::empty();
                     if let Some(overload_ty) = &desc.overload_ty {
                         monomorph_env.update(&func_ty, overload_ty);
+                        // println!("monomorph_env: {:?}", monomorph_env);
                     }
 
                     let label = st.func_map.get(&desc).unwrap();
@@ -883,14 +892,24 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
 
-                let Some(decl @ Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))) = &self
-                    .statics
-                    .root_namespace
-                    .get_declaration("prelude.unwrap")
+                let Some(func_decl @ Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))) =
+                    &self
+                        .statics
+                        .root_namespace
+                        .get_declaration("prelude.unwrap")
                 else {
                     panic!();
                 };
-                self.translate_func_ap(decl, f.name.node(), offset_table, monomorph_env, st);
+                // TODO: this would be easier if the postfix unwrap operator had a dedicated AST node and its own type. Then we wouldn't have to do this weird hack here
+                let expr_ty = self.get_ty(monomorph_env, expr.node());
+                let ret_ty = f
+                    .ret_type
+                    .clone()
+                    .unwrap()
+                    .to_solved_type(&self.statics)
+                    .unwrap();
+                monomorph_env.update(&ret_ty, &expr_ty);
+                self.translate_func_ap(func_decl, f.name.node(), offset_table, monomorph_env, st);
             }
         }
     }
@@ -909,7 +928,19 @@ impl Translator {
             self.handle_func_call(st, None, f_fully_qualified_name, f);
         } else {
             let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
+            // println!(
+            //     "({f_fully_qualified_name}) specific_func_ty: {}",
+            //     specific_func_ty
+            // );
             let substituted_ty = specific_func_ty.subst(monomorph_env);
+            // println!(
+            //     "({f_fully_qualified_name}) substituted_ty: {}",
+            //     substituted_ty
+            // );
+            // println!(
+            //     "({f_fully_qualified_name}) monomorph_env: {:?}",
+            //     monomorph_env
+            // );
             self.handle_func_call(st, Some(substituted_ty), f_fully_qualified_name, f);
         }
     }
@@ -923,7 +954,12 @@ impl Translator {
         method: u16,
         func_ty: &SolvedType,
     ) {
+        // let func_name = &iface_def.methods[method as usize].name.v;
         let substituted_ty = func_ty.subst(monomorph_env);
+        // println!(
+        //     "({func_name}) iface func ty substituted: {}",
+        //     substituted_ty
+        // );
         let method = &iface_def.methods[method as usize].name;
         let impl_list = &self.statics.interface_impls[iface_def];
 
@@ -939,6 +975,7 @@ impl Translator {
 
                     if substituted_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
                         let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
+                        // println!("here we go");
                         self.handle_func_call(
                             st,
                             Some(substituted_ty.clone()),
@@ -1023,7 +1060,9 @@ impl Translator {
                 iface: iface_def,
                 method,
             } => {
+                // let func_name = &iface_def.methods[*method].name.v;
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
+                // println!("({func_name}) iface func_ty: {}", func_ty);
                 self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env,
@@ -1649,6 +1688,9 @@ impl Translator {
         func_name: &String,
         func_def: &Rc<FuncDef>,
     ) {
+        if let Some(overload_ty) = &overload_ty {
+            assert!(overload_ty.monotype().is_some());
+        }
         let desc = FuncDesc {
             kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),

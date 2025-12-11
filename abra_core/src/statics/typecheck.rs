@@ -327,10 +327,15 @@ impl SolvedType {
         match self {
             Self::Poly(polyty) => match polyty {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
-                PolytypeDeclaration::Builtin(_, _) => false, // array_push, array_length, array_pop are not overloaded
-                PolytypeDeclaration::Ordinary(p) => !p.interfaces.is_empty(),
+                PolytypeDeclaration::Builtin(op, _) => matches!(
+                    op,
+                    BuiltinOperation::ArrayPush
+                        | BuiltinOperation::ArrayPop
+                        | BuiltinOperation::ArrayLength
+                ),
+                PolytypeDeclaration::Ordinary(_p) => true, // !p.interfaces.is_empty(),
             },
-            Self::InterfaceOutput(output_type) => !output_type.interfaces.is_empty(),
+            Self::InterfaceOutput(_output_type) => true, // !output_type.interfaces.is_empty(),
             Self::Void => false,
             Self::Never => false,
             Self::Int => false,
@@ -2512,10 +2517,22 @@ fn generate_constraints_expr(
                                 ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                                 let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                                 match memfn_decl {
-                                    // TODO: this only works for ordinary, not host or FFI
                                     Declaration::MemberFunction(func) => {
-                                        let memfn_ty = TypeVar::from_node(ctx, func.name.node())
-                                            .instantiate(ctx, polyvar_scope, fname.node());
+                                        let memfn_ty = TypeVar::from_node(ctx, func.name.node());
+                                        /* TODO: may need to do something like this:
+                                           (will probably need struct_def/enum_def of member function to get the ty_args)
+                                           (not every polytype should be instantiated. some of them are known and shouldn't just be _)
+                                        */
+                                        // let mut substitution = Substitution::default();
+                                        // for (arg, value) in struct_def.ty_args.iter().zip(ty_args.iter()) {
+                                        //     substitution.insert(
+                                        //         PolytypeDeclaration::Ordinary(arg.clone()),
+                                        //         value.clone(),
+                                        //     );
+                                        // }
+                                        // let ty_field = ty_field.subst(&substitution);
+                                        let memfn_ty =
+                                            memfn_ty.instantiate(ctx, polyvar_scope, fname.node());
                                         constrain(ctx, &memfn_node_ty, &memfn_ty);
                                     }
                                     Declaration::InterfaceMethod {
@@ -2602,7 +2619,7 @@ fn generate_constraints_expr(
          * - qualified enum variant
          * - ...
          */
-        ExprKind::MemberAccess(expr, member_ident) => {
+        ExprKind::MemberAccess(accessed, member_ident) => {
             if let Some(Declaration::EnumVariant {
                 e: enum_def,
                 variant: _,
@@ -2611,29 +2628,52 @@ fn generate_constraints_expr(
                 // qualified enum with no associated data
                 let (def_type, _) = TypeVar::make_nominal_with_substitution(
                     ctx,
-                    Reason::Node(expr.node()),
+                    Reason::Node(accessed.node()),
                     Nominal::Enum(enum_def.clone()),
-                    expr.node(),
+                    accessed.node(),
                 );
                 constrain(ctx, &node_ty, &def_type);
             } else {
                 // struct field access
-                generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr);
-                let ty_expr = TypeVar::from_node(ctx, expr.node());
+                generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, accessed);
+                let ty_accessed = TypeVar::from_node(ctx, accessed.node());
 
-                if ty_expr.underdetermined() {
-                    ctx.errors
-                        .push(Error::MemberAccessNeedsAnnotation { node: expr.node() });
+                if ty_accessed.underdetermined() {
+                    ctx.errors.push(Error::MemberAccessNeedsAnnotation {
+                        node: accessed.node(),
+                    });
                     return;
                 }
-                let Some(inner) = ty_expr.single() else {
+                let Some(inner) = ty_accessed.single() else {
                     return;
                 };
-                if let PotentialType::Nominal(_, Nominal::Struct(struct_def), _) = inner {
+                if let PotentialType::Nominal(_, Nominal::Struct(struct_def), ty_args) = inner {
                     let mut resolved = false;
                     for field in &struct_def.fields {
                         if field.name.v == *member_ident.v {
                             let ty_field = field.ty.to_typevar(ctx);
+                            /* TODO: if the field is generic like type ArrayIterator<T>,
+                               and the field is an array<T>, but the struct being accessed has
+                               type ArrayIterator<V> for instance, then the field must actually be
+                               array<V>. But this does not do that currently. Very bad!
+                            */
+                            /* TODO: does this need to be addressed for other member accesses?
+                                For instance
+                                1. member function call (yes)
+                                2. enum constructor with data (yes)
+                                3. enum constructor without data (might as well)
+                            */
+                            // println!("ty of self: {}", ty_accessed);
+                            // println!("ty_field: {}", ty_field);
+                            let mut substitution = Substitution::default();
+                            for (arg, value) in struct_def.ty_args.iter().zip(ty_args.iter()) {
+                                substitution.insert(
+                                    PolytypeDeclaration::Ordinary(arg.clone()),
+                                    value.clone(),
+                                );
+                            }
+                            let ty_field = ty_field.subst(&substitution);
+                            // println!("ty_field after: {}", ty_field);
                             constrain(ctx, &node_ty, &ty_field);
                             resolved = true;
                         }
