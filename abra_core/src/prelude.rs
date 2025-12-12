@@ -110,25 +110,40 @@ implement Ord for (T1 Ord, T2 Ord) {
     fn less_than(a, b) {
         let (a1, a2) = a
         let (b1, b2) = b
+
         if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
         Ord.less_than(a2, b2)
     }
+
     fn less_than_or_equal(a, b) {
         let (a1, a2) = a
         let (b1, b2) = b
-        if Ord.less_than_or_equal(a1, b1) return true
+
+        if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
         Ord.less_than_or_equal(a2, b2)
     }
+
     fn greater_than(a, b) {
         let (a1, a2) = a
         let (b1, b2) = b
+
         if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
         Ord.greater_than(a2, b2)
     }
+
     fn greater_than_or_equal(a, b) {
         let (a1, a2) = a
         let (b1, b2) = b
-        if Ord.greater_than_or_equal(a1, b1) return true
+
+        if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
         Ord.greater_than_or_equal(a2, b2)
     }
 }
