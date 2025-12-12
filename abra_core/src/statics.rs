@@ -293,6 +293,9 @@ pub(crate) enum Error {
     MemberAccessNeedsAnnotation {
         node: AstNode,
     },
+    MemberAccessNeedsStruct {
+        node: AstNode,
+    },
     MustExtendType {
         node: AstNode,
     },

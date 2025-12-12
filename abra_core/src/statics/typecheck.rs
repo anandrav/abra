@@ -2683,6 +2683,10 @@ fn generate_constraints_expr(
                             node: member_ident.node(),
                         })
                     }
+                } else {
+                    ctx.errors.push(Error::MemberAccessNeedsStruct {
+                        node: accessed.node(),
+                    });
                 }
             }
         }

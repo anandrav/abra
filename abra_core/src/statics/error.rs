@@ -193,6 +193,12 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
+            Error::MemberAccessNeedsStruct { node } => {
+                diagnostic =
+                    diagnostic.with_message("Can't perform member access on non-struct type."); // TODO: say what type it actually was
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+            }
             Error::MustExtendType { node } => {
                 diagnostic = diagnostic.with_message("Must extend a type.".to_string());
                 let (file, range) = node.get_file_and_range();

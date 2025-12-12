@@ -1574,9 +1574,9 @@ impl Translator {
                     .solution_of_node(expr.node())
                     .unwrap()
                     .subst(monomorph_env);
-                let is_void = expr_ty == SolvedType::Void;
+                let yields_value = expr_ty != SolvedType::Void && expr_ty != SolvedType::Never;
                 self.translate_expr(expr, offset_table, monomorph_env, st);
-                if !is_last_in_block_expression && !is_void {
+                if !is_last_in_block_expression && yields_value {
                     self.emit(st, Instr::Pop); // CULPRIT
                 }
             }
