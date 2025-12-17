@@ -684,15 +684,17 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
         }
         StmtKind::WhileLoop(cond, statements) => {
             resolve_names_expr(ctx, symbol_table, cond);
+            let symbol_table = symbol_table.new_scope();
             for statement in statements.iter() {
-                resolve_names_stmt(ctx, symbol_table, statement);
+                resolve_names_stmt(ctx, &symbol_table, statement);
             }
         }
         StmtKind::ForLoop(pat, iterable, statements) => {
             resolve_names_expr(ctx, symbol_table, iterable);
             resolve_names_pat(ctx, symbol_table, pat);
+            let symbol_table = symbol_table.new_scope();
             for statement in statements.iter() {
-                resolve_names_stmt(ctx, symbol_table, statement);
+                resolve_names_stmt(ctx, &symbol_table, statement);
             }
         }
     }
