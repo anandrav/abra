@@ -426,7 +426,7 @@ extend array<T Ord> {
     }
 }
 
-// TODO: hide these helper functions, ideally scope them to the array.sort function. Allow defining functions inside functions (solely for scoping purposes, not lambda environment capture)
+// TODO: hide these helper functions, ideally scope them to the array.sort function. Allow defining functions inside functions (solely for scoping purposes, not lambda environment capture). Or just allow #private functions
 
 fn swap(arr: array<T Ord>, i, j) {
   let temp = arr[i]

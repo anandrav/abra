@@ -78,6 +78,11 @@ impl Error {
                 diagnostic = diagnostic.with_message("Can't solve type. Try adding an annotation");
                 labels.push(Label::secondary(file, range))
             }
+            Error::PartiallyUnsolvedType { node, tyvar } => {
+                let (file, range) = node.get_file_and_range();
+                diagnostic = diagnostic.with_message(format!("Can't fully solve type: {}", tyvar));
+                labels.push(Label::secondary(file, range))
+            }
             Error::ConflictingUnifvar { types } => {
                 diagnostic = diagnostic.with_message("Conflicting types during inference");
 

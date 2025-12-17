@@ -1469,6 +1469,11 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
                     }
                 }
             });
+        } else {
+            ctx.errors.push(Error::PartiallyUnsolvedType {
+                node: id.clone(),
+                tyvar: tyvar.clone(),
+            });
         }
     }
 }

@@ -282,6 +282,10 @@ pub(crate) enum Error {
     UnconstrainedUnifvar {
         node: AstNode,
     },
+    PartiallyUnsolvedType {
+        node: AstNode,
+        tyvar: TypeVar,
+    },
     ConflictingUnifvar {
         types: HashMap<TypeKey, PotentialType>,
     },
