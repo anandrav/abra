@@ -291,17 +291,21 @@ impl Lexer {
         let mut num = String::new();
 
         let mut next = 0;
+        let mut skipped_chars = 0;
         // negative sign
         if self.current_char() == '-' {
-            // TODO just use unary minus operator now
             num.push('-');
             next += 1;
         }
         // first run of digits
         while let Some(c) = self.peek_char(next)
-            && c.is_ascii_digit()
+            && (c.is_ascii_digit() || c == '_')
         {
-            num.push(c);
+            if c.is_ascii_digit() {
+                num.push(c);
+            } else {
+                skipped_chars += 1;
+            }
             next += 1;
         }
         // potential decimal point
@@ -311,16 +315,22 @@ impl Lexer {
         } else {
             // no decimal point. it's an integer
             self.emit(TokenKind::IntLit(num));
+            self.index += skipped_chars;
             return;
         }
         // more digits after decimal point
         while let Some(c) = self.peek_char(next)
-            && c.is_ascii_digit()
+            && (c.is_ascii_digit() || c == '_')
         {
-            num.push(c);
+            if c.is_ascii_digit() {
+                num.push(c);
+            } else {
+                skipped_chars += 1;
+            }
             next += 1;
         }
         self.emit(TokenKind::FloatLit(num));
+        self.index += skipped_chars;
     }
 }
 
