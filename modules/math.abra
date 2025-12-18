@@ -25,3 +25,11 @@ fn max(n1: T Ord, n2: T) -> T {
         n2
     }
 }
+
+fn min(n1: T Ord, n2: T) -> T {
+    if n1 < n2 {
+        n1
+    } else {
+        n2
+    }
+}
