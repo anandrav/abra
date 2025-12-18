@@ -283,6 +283,16 @@ impl Lexer {
         self.index += len;
     }
 
+    fn emit_with_skipped(&mut self, kind: TokenKind, skipped_chars: usize) {
+        let len = kind.nchars() + skipped_chars;
+        let span = Span {
+            lo: self.index,
+            hi: self.index + len,
+        };
+        self.tokens.push(Token { kind, span });
+        self.index += len;
+    }
+
     fn into_tokens(self) -> Vec<Token> {
         self.tokens
     }
@@ -314,8 +324,7 @@ impl Lexer {
             next += 1;
         } else {
             // no decimal point. it's an integer
-            self.emit(TokenKind::IntLit(num));
-            self.index += skipped_chars;
+            self.emit_with_skipped(TokenKind::IntLit(num), skipped_chars);
             return;
         }
         // more digits after decimal point
@@ -329,8 +338,7 @@ impl Lexer {
             }
             next += 1;
         }
-        self.emit(TokenKind::FloatLit(num));
-        self.index += skipped_chars;
+        self.emit_with_skipped(TokenKind::FloatLit(num), skipped_chars);
     }
 }
 
@@ -492,8 +500,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                     }
                 }
 
-                lexer.emit(TokenKind::StringLit(s));
-                lexer.index += skipped_chars;
+                lexer.emit_with_skipped(TokenKind::StringLit(s), skipped_chars);
             }
             '/' => {
                 if let Some('/') = lexer.peek_char(1) {
