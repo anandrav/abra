@@ -1705,6 +1705,44 @@ sum
 }
 
 #[test]
+fn func_with_int_args() {
+    let src = r#"
+fn blar(a: int, c: int, e: int) -> int {
+    a + c + e
+}
+
+blar(1, 2, 3)
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 6);
+}
+
+#[test]
+fn func_with_int_and_nil_args() {
+    let src = r#"
+fn blar(a: int, b: void, c: int, d: void, e: int) -> int {
+    a + c + e
+}
+
+blar(1, nil, 2, nil, 3)
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 6);
+}
+
+#[test]
 fn struct_with_void_field() {
     let src = r#"
 type person = {

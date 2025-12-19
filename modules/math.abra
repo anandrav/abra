@@ -18,6 +18,14 @@ extend float {
     }
 }
 
+fn int_max() -> int {
+    9_223_372_036_854_775_807
+}
+
+fn int_min() -> int {
+    -9_223_372_036_854_775_808
+}
+
 fn max(n1: T Ord, n2: T) -> T {
     if n1 > n2 {
         n1

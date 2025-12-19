@@ -1446,7 +1446,8 @@ impl Vm {
                 let idx = self.load_offset_or_top(reg1).get_int(self);
                 let arr = val.get_array(self);
                 if idx as usize >= arr.data.len() || idx < 0 {
-                    self.fail(VmErrorKind::ArrayOutOfBounds); // TODO: shouldn't panic here. need to set error instead and bail
+                    self.error = Some(self.make_error(VmErrorKind::ArrayOutOfBounds).into());
+                    return false;
                 }
                 let field = arr.data[idx as usize];
                 self.push(field);
@@ -1457,7 +1458,8 @@ impl Vm {
                 let rvalue = self.pop();
                 let arr = unsafe { val.get_array_mut(self) };
                 if idx as usize >= arr.data.len() || idx < 0 {
-                    self.fail(VmErrorKind::ArrayOutOfBounds); // TODO: shouldn't panic here. need to set error instead and bail
+                    self.error = Some(self.make_error(VmErrorKind::ArrayOutOfBounds).into());
+                    return false;
                 }
                 self.write_barrier(arr.header_ptr(), rvalue);
                 arr.data[idx as usize] = rvalue;
