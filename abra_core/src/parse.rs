@@ -1610,7 +1610,14 @@ impl Parser {
             }
             _ => {
                 let expr = self.parse_expr()?;
-                if let Some(assign_op) = self.parse_assign_op() {
+                if matches!(
+                    &*expr.kind,
+                    ExprKind::Variable(_)
+                        | ExprKind::Tuple(_)
+                        | ExprKind::IndexAccess(..)
+                        | ExprKind::MemberAccess(..)
+                ) && let Some(assign_op) = self.parse_assign_op()
+                {
                     self.consume_token();
                     let rhs = self.parse_expr()?;
                     Stmt {
