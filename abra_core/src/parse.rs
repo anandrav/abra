@@ -1614,7 +1614,7 @@ impl Parser {
                     self.consume_token();
                     let rhs = self.parse_expr()?;
                     Stmt {
-                        kind: StmtKind::Set(expr, assign_op, rhs).into(),
+                        kind: StmtKind::Assign(expr, assign_op, rhs).into(),
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }

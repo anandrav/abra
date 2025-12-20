@@ -57,7 +57,7 @@ fn check_pattern_exhaustiveness_item(statics: &mut StaticsContext, stmt: &Item) 
 
 fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) {
     match &*stmt.kind {
-        StmtKind::Set(_, _, expr) => {
+        StmtKind::Assign(_, _, expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
         StmtKind::Let(_, _, expr) => {

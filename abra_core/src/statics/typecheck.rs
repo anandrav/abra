@@ -1862,7 +1862,7 @@ fn generate_constraints_stmt(
                 expr,
             );
         }
-        StmtKind::Set(lhs, assign_op, rhs) => {
+        StmtKind::Assign(lhs, assign_op, rhs) => {
             match assign_op {
                 AssignOperator::Equal => {
                     let ty_lhs = TypeVar::from_node(ctx, lhs.node());

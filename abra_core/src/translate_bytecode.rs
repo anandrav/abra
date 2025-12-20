@@ -1438,7 +1438,7 @@ impl Translator {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
                 self.handle_pat_binding(&pat.0, offset_table, st, monomorph_env);
             }
-            StmtKind::Set(expr1, assign_op, rvalue) => {
+            StmtKind::Assign(expr1, assign_op, rvalue) => {
                 let rvalue_ty = self
                     .statics
                     .solution_of_node(rvalue.node())
@@ -1946,7 +1946,7 @@ impl Translator {
                     self.collect_locals_pat(&pat.0, locals, mono);
                     self.collect_locals_expr(expr, locals, mono);
                 }
-                StmtKind::Set(_, _, expr) => {
+                StmtKind::Assign(_, _, expr) => {
                     self.collect_locals_expr(expr, locals, mono);
                 }
                 StmtKind::Continue | StmtKind::Break => {}

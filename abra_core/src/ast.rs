@@ -361,7 +361,7 @@ impl Stmt {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum StmtKind {
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
-    Set(Rc<Expr>, AssignOperator, Rc<Expr>), // TODO: rename this to Assign since the "set" keyword no longer exists
+    Assign(Rc<Expr>, AssignOperator, Rc<Expr>), // TODO: rename this to Assign since the "set" keyword no longer exists
     Expr(Rc<Expr>),
     Continue,
     Break,
