@@ -255,7 +255,6 @@ pub(crate) enum AstNode {
     Stmt(Rc<Stmt>),
     Expr(Rc<Expr>),
     Pat(Rc<Pat>),
-    Lval(Rc<Lval>),
     Type(Rc<Type>),
     Identifier(Rc<Identifier>),
     Variant(Rc<Variant>),
@@ -276,7 +275,6 @@ impl AstNode {
             AstNode::Stmt(stmt) => &stmt.loc,
             AstNode::Expr(expr) => &expr.loc,
             AstNode::Pat(pat) => &pat.loc,
-            AstNode::Lval(lval) => &lval.loc,
             AstNode::Type(typ) => &typ.loc,
             AstNode::Identifier(identifier) => &identifier.loc,
             // AstNode::FuncDecl(decl) => &decl.loc,
@@ -291,7 +289,6 @@ impl AstNode {
             AstNode::Stmt(stmt) => stmt.id,
             AstNode::Expr(expr) => expr.id,
             AstNode::Pat(pat) => pat.id,
-            AstNode::Lval(lval) => lval.id,
             AstNode::Type(typ) => typ.id,
             AstNode::Identifier(identifier) => identifier.id,
             // AstNode::FuncDecl(decl) => decl.id,
@@ -538,33 +535,6 @@ pub enum AssignOperator {
     // // boolean
     // And,
     // Or,
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub(crate) struct Lval {
-    pub(crate) kind: Rc<ExprKind>,
-    pub(crate) loc: Location,
-    pub(crate) id: NodeId,
-}
-
-impl std::hash::Hash for Lval {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl Lval {
-    pub fn node(self: &Rc<Lval>) -> AstNode {
-        AstNode::Lval(self.clone())
-    }
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) enum LvalKind {
-    Variable(String),
-    Tuple(Vec<Rc<Expr>>),
-    MemberAccess(Rc<Expr>, Rc<Identifier>),
-    IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
