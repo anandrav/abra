@@ -376,7 +376,7 @@ impl Translator {
                             .entry(*local)
                             .or_insert((i + captures.len()) as i16);
                     }
-                    let nargs = count_args(&self.statics, args, desc.overload_ty); // TODO: redundant?
+                    let nargs = arg_ids.len();
                     st.return_stack.push(nargs as u32);
                     self.translate_expr(body, &offset_table, &monomorph_env, st);
                     st.return_stack.pop();
