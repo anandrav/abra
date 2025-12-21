@@ -364,8 +364,9 @@ impl Translator {
                     self.emit(st, Line::Label(label.clone()));
 
                     let mut locals = HashSet::default();
+                    // TODO: here collect captures
                     self.collect_locals_expr(body, &mut locals, &monomorph_env);
-                    let locals_count = locals.len();
+                    let locals_count = locals.len(); // TODO: locals_count = locals.len() - captures_count
                     self.emit(st, Instr::PushNil(locals_count as u16));
                     let mut offset_table = OffsetTable::default();
                     let mut arg_index = 0;
@@ -877,7 +878,7 @@ impl Translator {
                 }
                 self.emit(st, Line::Label(end_label));
             }
-            ExprKind::AnonymousFunction(..) => {
+            ExprKind::AnonymousFunction(args, ret, body) => {
                 let func_ty = self.statics.solution_of_node(expr.node()).unwrap();
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
@@ -894,6 +895,7 @@ impl Translator {
 
                 let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
+                // TODO: captures must be gathered from the body, loaded onto stack. MakeClosure instr should take number of captures
                 self.emit(st, Instr::MakeClosure { func_addr: label });
             }
             ExprKind::Unwrap(expr) => {
@@ -1999,6 +2001,170 @@ impl Translator {
             | PatKind::Str(..)
             | PatKind::Wildcard => {}
         }
+    }
+
+    fn collect_captures_expr(
+        &self,
+        expr: &Rc<Expr>,
+        locals: &mut HashSet<NodeId>,
+        mono: &MonomorphEnv,
+    ) {
+        match &*expr.kind {
+            ExprKind::Variable(s) => {
+                let ty = self.get_ty(mono, expr.node());
+                if ty != SolvedType::Void {
+                    let decl = &self.statics.resolution_map[&expr.id];
+                    if let Declaration::Var(node) = decl {
+                        locals.insert(node.id());
+                    }
+                }
+            }
+            ExprKind::Block(statements) => {
+                for statement in statements {
+                    self.collect_captures_stmt(statement, locals, mono);
+                }
+            }
+            ExprKind::Match(_, arms) => {
+                for arm in arms {
+                    self.collect_captures_pat(&arm.pat, locals, mono);
+                    self.collect_captures_stmt(&arm.stmt, locals, mono);
+                }
+            }
+            ExprKind::Array(exprs) => {
+                for expr in exprs {
+                    self.collect_captures_expr(expr, locals, mono);
+                }
+            }
+            ExprKind::Tuple(exprs) => {
+                for expr in exprs {
+                    self.collect_captures_expr(expr, locals, mono);
+                }
+            }
+            ExprKind::IfElse(cond, then_block, else_block) => {
+                self.collect_captures_expr(cond, locals, mono);
+                self.collect_captures_stmt(then_block, locals, mono);
+                if let Some(else_block) = else_block {
+                    self.collect_captures_stmt(else_block, locals, mono);
+                }
+            }
+            ExprKind::BinOp(left, _, right) => {
+                self.collect_captures_expr(left, locals, mono);
+                self.collect_captures_expr(right, locals, mono);
+            }
+            ExprKind::Unop(_, right) => {
+                self.collect_captures_expr(right, locals, mono);
+            }
+            ExprKind::MemberAccess(accessed, _) => {
+                self.collect_captures_expr(accessed, locals, mono);
+            }
+            ExprKind::IndexAccess(array, index) => {
+                self.collect_captures_expr(array, locals, mono);
+                self.collect_captures_expr(index, locals, mono);
+            }
+            ExprKind::Unwrap(expr) => {
+                self.collect_captures_expr(expr, locals, mono);
+            }
+            ExprKind::FuncAp(func, args) => {
+                self.collect_captures_expr(func, locals, mono);
+                for arg in args {
+                    self.collect_captures_expr(arg, locals, mono);
+                }
+            }
+            ExprKind::MemberFuncAp(expr, _, args) => {
+                if let Some(expr) = expr {
+                    self.collect_captures_expr(expr, locals, mono);
+                }
+                for arg in args {
+                    self.collect_captures_expr(arg, locals, mono);
+                }
+            }
+            ExprKind::AnonymousFunction(..)
+            | ExprKind::MemberAccessLeadingDot(..)
+            | ExprKind::Nil
+            | ExprKind::Int(..)
+            | ExprKind::Float(..)
+            | ExprKind::Bool(..)
+            | ExprKind::Str(..) => {}
+        }
+    }
+
+    fn collect_captures_stmt(
+        &self,
+        statement: &Rc<Stmt>,
+        locals: &mut HashSet<NodeId>,
+        mono: &MonomorphEnv,
+    ) {
+        self.collect_captures_stmts(std::slice::from_ref(statement), locals, mono);
+    }
+
+    fn collect_captures_stmts(
+        &self,
+        statements: &[Rc<Stmt>],
+        locals: &mut HashSet<NodeId>,
+        mono: &MonomorphEnv,
+    ) {
+        for statement in statements {
+            match &*statement.kind {
+                StmtKind::Expr(expr) => {
+                    self.collect_captures_expr(expr, locals, mono);
+                }
+                StmtKind::Let(_, pat, expr) => {
+                    self.collect_captures_pat(&pat.0, locals, mono);
+                    self.collect_captures_expr(expr, locals, mono);
+                }
+                StmtKind::Assign(_, _, expr) => {
+                    self.collect_captures_expr(expr, locals, mono);
+                }
+                StmtKind::Continue | StmtKind::Break => {}
+                StmtKind::Return(expr) => {
+                    self.collect_captures_expr(expr, locals, mono);
+                }
+                StmtKind::WhileLoop(cond, statements) => {
+                    self.collect_captures_expr(cond, locals, mono);
+                    for statement in statements {
+                        self.collect_captures_stmt(statement, locals, mono);
+                    }
+                }
+                StmtKind::ForLoop(pat, iterable, statements) => {
+                    self.collect_captures_pat(pat, locals, mono);
+                    self.collect_captures_expr(iterable, locals, mono);
+                    for statement in statements {
+                        self.collect_captures_stmt(statement, locals, mono);
+                    }
+                }
+            }
+        }
+    }
+
+    fn collect_captures_pat(
+        &self,
+        pat: &Rc<Pat>,
+        locals: &mut HashSet<NodeId>,
+        monomorph_env: &MonomorphEnv,
+    ) {
+        // match &*pat.kind {
+        //     PatKind::Binding(_) => {
+        //         let ty = self.get_ty(monomorph_env, pat.node());
+        //         if ty != SolvedType::Void {
+        //             locals.insert(pat.id);
+        //         }
+        //     }
+        //     PatKind::Tuple(pats) => {
+        //         for pat in pats {
+        //             self.collect_captures_pat(pat, locals, monomorph_env);
+        //         }
+        //     }
+        //     PatKind::Variant(_prefixes, _, Some(inner)) => {
+        //         self.collect_captures_pat(inner, locals, monomorph_env);
+        //     }
+        //     PatKind::Variant(_prefixes, _, None) => {}
+        //     PatKind::Void
+        //     | PatKind::Bool(..)
+        //     | PatKind::Int(..)
+        //     | PatKind::Float(..)
+        //     | PatKind::Str(..)
+        //     | PatKind::Wildcard => {}
+        // }
     }
 }
 
