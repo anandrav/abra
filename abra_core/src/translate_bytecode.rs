@@ -354,7 +354,7 @@ impl Translator {
                     self.emit(st, Line::Label(label.clone()));
 
                     let (arg_ids, captures, locals) =
-                        self.calculate_args_captures_locals(args, body, &mono);
+                        self.calculate_args_captures_locals(&desc.overload_ty, args, body, &mono);
                     self.emit(st, Instr::PushNil(locals.len() as u16));
                     let mut offset_table = OffsetTable::default();
                     for (index, arg_id) in arg_ids.iter().enumerate() {
@@ -874,9 +874,10 @@ impl Translator {
                     overload_ty: overload_ty.clone(),
                 };
 
-                let label = self.get_func_label(st, desc, overload_ty, &func_name);
+                let label = self.get_func_label(st, desc, &overload_ty, &func_name);
 
-                let (_, captures, _locals) = self.calculate_args_captures_locals(args, body, mono);
+                let (_, captures, _locals) =
+                    self.calculate_args_captures_locals(&overload_ty, args, body, mono);
 
                 for capture in &captures {
                     let offs = offset_table.get(capture).unwrap();
@@ -1657,7 +1658,7 @@ impl Translator {
             kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),
         };
-        let label = self.get_func_label(st, desc, overload_ty.clone(), func_name);
+        let label = self.get_func_label(st, desc, &overload_ty, func_name);
         let is_func = |ty: &Option<SolvedType>, arg: SolvedType, out: SolvedType| {
             *ty == Some(SolvedType::Function(vec![arg], out.into()))
         };
@@ -1714,9 +1715,13 @@ impl Translator {
                     || is_ident_func(&ty, SolvedType::String) =>
             { /* noop */ }
             (_, overload_ty) => {
-                let (args, _, _) =
-                    self.calculate_args_captures_locals(&func_def.args, &func_def.body, &mono);
-                let nargs = count_args(&self.statics, &func_def.args, overload_ty); // TODO: don't use this anymore
+                let (args, _, _) = self.calculate_args_captures_locals(
+                    &overload_ty,
+                    &func_def.args,
+                    &func_def.body,
+                    mono,
+                );
+                let nargs = args.len();
                 self.emit(st, Instr::Call(nargs, label));
             }
         }
@@ -1726,7 +1731,7 @@ impl Translator {
         &self,
         st: &mut TranslatorState,
         desc: FuncDesc,
-        overload_ty: Option<Type>,
+        overload_ty: &Option<Type>,
         func_name: &String,
     ) -> Label {
         let entry = st.func_map.entry(desc.clone());
@@ -1955,6 +1960,7 @@ impl Translator {
 
     fn calculate_args_captures_locals(
         &self,
+        overload_ty: &Option<SolvedType>,
         args: &[ArgMaybeAnnotated],
         body: &Rc<Expr>,
         mono: &MonomorphEnv,
@@ -1965,12 +1971,26 @@ impl Translator {
         self.collect_locals_expr(body, &mut locals, mono);
         let mut locals_and_args = locals.clone();
         let mut arg_ids = Vec::default();
-        for (arg_ident, _) in args.iter().rev() {
-            let arg_ty = self.get_ty(mono, arg_ident.node()).unwrap();
-            if arg_ty != SolvedType::Void {
-                arg_ids.push(arg_ident.id);
+        match overload_ty {
+            Some(overload_ty) => {
+                let SolvedType::Function(arg_tys, _) = overload_ty else { unreachable!() };
+                for (i, arg_ty) in arg_tys.iter().enumerate().rev() {
+                    if *arg_ty != SolvedType::Void {
+                        arg_ids.push(args[i].0.id);
+                    }
+                }
+            }
+            None => {
+                for (i, arg) in args.iter().enumerate().rev() {
+                    let arg_ty = self.get_ty(mono, arg.0.node()).unwrap();
+                    // let arg_ty = ctx.solution_of_node(arg.0.node()).unwrap();
+                    if arg_ty != SolvedType::Void {
+                        arg_ids.push(args[i].0.id)
+                    }
+                }
             }
         }
+
         locals_and_args.extend(arg_ids.clone());
         let mut captures = locals_and_args.clone();
         self.collect_captures_expr(body, &mut captures, mono);
@@ -2107,26 +2127,6 @@ impl Translator {
                 }
             }
         }
-    }
-}
-
-fn count_args(
-    ctx: &StaticsContext,
-    args: &[ArgMaybeAnnotated],
-    overload_ty: Option<SolvedType>,
-) -> usize {
-    match overload_ty {
-        Some(overload_ty) => {
-            let SolvedType::Function(args, _) = overload_ty else { unreachable!() };
-            args.iter().filter(|arg| **arg != SolvedType::Void).count()
-        }
-        None => args
-            .iter()
-            .filter(|arg| {
-                let arg_ty = ctx.solution_of_node(arg.0.node()).unwrap();
-                arg_ty != SolvedType::Void
-            })
-            .count(),
     }
 }
 
