@@ -1275,8 +1275,7 @@ impl Translator {
     ) {
         match &*pat.kind {
             PatKind::Wildcard | PatKind::Binding(_) | PatKind::Void => {
-                let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
-                let pat_ty = pat_ty.subst(mono);
+                let pat_ty = self.get_ty(mono, pat.node()).unwrap();
 
                 if pat_ty != SolvedType::Void {
                     self.emit(st, Instr::Pop);
@@ -1292,6 +1291,13 @@ impl Translator {
                 PatKind::Int(i) => {
                     self.emit(st, Instr::PushInt(*i));
                     self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
+                }
+                _ => panic!("unexpected pattern: {:?}", pat.kind),
+            },
+            Type::Float => match &*pat.kind {
+                PatKind::Float(f) => {
+                    self.emit(st, Instr::PushFloat(f.clone()));
+                    self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -1393,7 +1399,17 @@ impl Translator {
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
-            _ => unimplemented!(),
+            SolvedType::Void => self.emit(st, Instr::PushBool(true)),
+            SolvedType::Function(_, _) => {
+                // functions are always not equal.
+                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::PushBool(false));
+            }
+            SolvedType::Never => {
+                // noop, will never execute
+            }
+            SolvedType::Poly(_) => unreachable!(),
+            Type::InterfaceOutput(_) => unreachable!(),
         }
     }
 
