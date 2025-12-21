@@ -668,6 +668,29 @@ add(2, 3)
 }
 
 #[test]
+fn lambda_capture() {
+    let src = r#"
+let n = 42
+let arr = [1, 2, 3, 4, 5]
+let f = (x) -> {
+    arr.push(x)
+    arr.push(n)
+}
+f(6)
+
+arr[arr.len()-2] + arr[arr.len()-1]
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 48);
+}
+
+#[test]
 fn sqrt_float() {
     let src = r#"
 let f = 4.0

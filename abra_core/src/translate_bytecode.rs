@@ -365,7 +365,25 @@ impl Translator {
                     let mut locals = HashSet::default();
                     self.collect_locals_expr(body, &mut locals, &monomorph_env);
                     let locals_count = locals.len();
-                    // self.collect_captures_expr(body, &mut locals, &monomorph_env); // TODO: re-enable
+                    // println!("locals_count: {}", locals_count);
+                    // dbg!(&locals);
+                    let mut locals_and_args = locals.clone();
+                    let mut arg_ids = HashSet::default();
+                    for (arg_ident, _) in args.iter().rev() {
+                        let arg_ty = self.get_ty(&monomorph_env, arg_ident.node()).unwrap();
+                        if arg_ty != SolvedType::Void {
+                            arg_ids.insert(arg_ident.id);
+                        }
+                    }
+                    locals_and_args.extend(arg_ids);
+                    let mut captures = locals_and_args.clone();
+                    self.collect_captures_expr(body, &mut captures, &monomorph_env); // TODO: re-enable
+                    let mut captures: HashSet<_> =
+                        captures.difference(&locals_and_args).cloned().collect();
+                    // captures.clear(); // TODO: re-enable
+                    let captures_count = captures.len();
+                    // println!("captures_count: {}", captures_count);
+                    // dbg!(&captures);
                     self.emit(st, Instr::PushNil(locals_count as u16));
                     let mut offset_table = OffsetTable::default();
                     let mut arg_index = 0;
@@ -378,8 +396,14 @@ impl Translator {
                             arg_index += 1;
                         }
                     }
+                    // TODO: captures must come first on the stack! First do captures then do locals. Easy!
+                    for (i, capture) in captures.iter().enumerate() {
+                        offset_table.entry(*capture).or_insert(i as i16);
+                    }
                     for (i, local) in locals.iter().enumerate() {
-                        offset_table.entry(*local).or_insert(i as i16);
+                        offset_table
+                            .entry(*local)
+                            .or_insert((i + captures_count) as i16);
                     }
                     let nargs = count_args(&self.statics, args, desc.overload_ty);
                     st.return_stack.push(nargs as u32);
@@ -890,31 +914,37 @@ impl Translator {
 
                 let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
+                // TODO: when everything is settled fix the code duplication for collecting captures etc:
+
                 // TODO: captures must be gathered from the body, loaded onto stack. MakeClosure instr should take number of captures
                 let mut locals = HashSet::default();
                 self.collect_locals_expr(body, &mut locals, &monomorph_env);
                 let locals_count = locals.len();
-                // self.collect_captures_expr(body, &mut locals, &monomorph_env); // TODO: re-enable
-                // let captures_count = locals.len() - locals_count;
-                // self.collect_locals_expr(body, &mut locals, &monomorph_env);
-                // let mut offset_table = OffsetTable::default();
-                // let mut arg_index = 0;
-                // for arg in args.iter().rev() {
-                //     let arg_ty = self.get_ty(&monomorph_env, arg.0.node());
-                //     if arg_ty != SolvedType::Void {
-                //         offset_table
-                //             .entry(arg.0.id)
-                //             .or_insert(-(arg_index as i16) - 1);
-                //         arg_index += 1;
-                //     }
-                // }
-                for local in locals.iter().skip(locals_count) {
-                    let offs = offset_table.get(local).unwrap();
-                    // self.emit(st, Instr::LoadOffset(*offs)); // TODO re-enable
+                // println!("locals_count: {}", locals_count);
+                // dbg!(&locals);
+                let mut locals_and_args = locals.clone();
+                let mut arg_ids = HashSet::default();
+                for (arg_ident, _) in args.iter().rev() {
+                    let arg_ty = self.get_ty(&monomorph_env, arg_ident.node()).unwrap();
+                    if arg_ty != SolvedType::Void {
+                        arg_ids.insert(arg_ident.id);
+                    }
+                }
+                locals_and_args.extend(arg_ids);
+                let mut captures = locals_and_args.clone();
+                self.collect_captures_expr(body, &mut captures, &monomorph_env); // TODO: re-enable
+                let mut captures: HashSet<_> =
+                    captures.difference(&locals_and_args).cloned().collect();
+                // captures.clear(); // TODO: re-enable
+                let captures_count = captures.len();
+
+                for capture in captures {
+                    let offs = offset_table.get(&capture).unwrap();
+                    self.emit(st, Instr::LoadOffset(*offs)); // TODO re-enable
                 }
 
                 self.emit(st, Instr::PushAddr(label.clone()));
-                self.emit(st, Instr::MakeClosure(0)); // TODO: do number of captures here
+                self.emit(st, Instr::MakeClosure(captures_count as u16)); // TODO: do number of captures here
             }
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
@@ -2024,7 +2054,7 @@ impl Translator {
     fn collect_captures_expr(
         &self,
         expr: &Rc<Expr>,
-        locals: &mut HashSet<NodeId>,
+        captures: &mut HashSet<NodeId>,
         mono: &MonomorphEnv,
     ) {
         match &*expr.kind {
@@ -2033,68 +2063,68 @@ impl Translator {
                     if ty != SolvedType::Void {
                         let decl = &self.statics.resolution_map[&expr.id];
                         if let Declaration::Var(node) = decl {
-                            locals.insert(node.id());
+                            captures.insert(node.id());
                         }
                     }
                 }
             }
             ExprKind::Block(statements) => {
                 for statement in statements {
-                    self.collect_captures_stmt(statement, locals, mono);
+                    self.collect_captures_stmt(statement, captures, mono);
                 }
             }
             ExprKind::Match(_, arms) => {
                 for arm in arms {
-                    self.collect_captures_pat(&arm.pat, locals, mono);
-                    self.collect_captures_stmt(&arm.stmt, locals, mono);
+                    self.collect_captures_pat(&arm.pat, captures, mono);
+                    self.collect_captures_stmt(&arm.stmt, captures, mono);
                 }
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.collect_captures_expr(expr, locals, mono);
+                    self.collect_captures_expr(expr, captures, mono);
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.collect_captures_expr(expr, locals, mono);
+                    self.collect_captures_expr(expr, captures, mono);
                 }
             }
             ExprKind::IfElse(cond, then_block, else_block) => {
-                self.collect_captures_expr(cond, locals, mono);
-                self.collect_captures_stmt(then_block, locals, mono);
+                self.collect_captures_expr(cond, captures, mono);
+                self.collect_captures_stmt(then_block, captures, mono);
                 if let Some(else_block) = else_block {
-                    self.collect_captures_stmt(else_block, locals, mono);
+                    self.collect_captures_stmt(else_block, captures, mono);
                 }
             }
             ExprKind::BinOp(left, _, right) => {
-                self.collect_captures_expr(left, locals, mono);
-                self.collect_captures_expr(right, locals, mono);
+                self.collect_captures_expr(left, captures, mono);
+                self.collect_captures_expr(right, captures, mono);
             }
             ExprKind::Unop(_, right) => {
-                self.collect_captures_expr(right, locals, mono);
+                self.collect_captures_expr(right, captures, mono);
             }
             ExprKind::MemberAccess(accessed, _) => {
-                self.collect_captures_expr(accessed, locals, mono);
+                self.collect_captures_expr(accessed, captures, mono);
             }
             ExprKind::IndexAccess(array, index) => {
-                self.collect_captures_expr(array, locals, mono);
-                self.collect_captures_expr(index, locals, mono);
+                self.collect_captures_expr(array, captures, mono);
+                self.collect_captures_expr(index, captures, mono);
             }
             ExprKind::Unwrap(expr) => {
-                self.collect_captures_expr(expr, locals, mono);
+                self.collect_captures_expr(expr, captures, mono);
             }
             ExprKind::FuncAp(func, args) => {
-                self.collect_captures_expr(func, locals, mono);
+                self.collect_captures_expr(func, captures, mono);
                 for arg in args {
-                    self.collect_captures_expr(arg, locals, mono);
+                    self.collect_captures_expr(arg, captures, mono);
                 }
             }
             ExprKind::MemberFuncAp(expr, _, args) => {
                 if let Some(expr) = expr {
-                    self.collect_captures_expr(expr, locals, mono);
+                    self.collect_captures_expr(expr, captures, mono);
                 }
                 for arg in args {
-                    self.collect_captures_expr(arg, locals, mono);
+                    self.collect_captures_expr(arg, captures, mono);
                 }
             }
             ExprKind::AnonymousFunction(..)
