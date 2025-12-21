@@ -1382,13 +1382,8 @@ impl Vm {
             }
             Instr::CallFuncObj(nargs) => {
                 let top = self.pop();
-                let func_obj = top.get_struct(self);
-                let addr = func_obj
-                    .get_fields()
-                    .iter()
-                    .next_back()
-                    .unwrap()
-                    .get_addr(self);
+                let mut fields = top.get_struct(self).get_fields().iter();
+                let addr = fields.next().unwrap().get_addr(self);
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
@@ -1399,8 +1394,7 @@ impl Vm {
                 self.stack_base = self.value_stack.len();
 
                 // captured values
-                self.value_stack
-                    .extend(func_obj.get_fields().iter().rev().skip(1).rev()); // TODO: simplify this lol
+                self.value_stack.extend(fields);
             }
             Instr::Return(nargs) => {
                 let idx = self.stack_base - nargs as usize;

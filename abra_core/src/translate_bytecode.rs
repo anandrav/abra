@@ -879,12 +879,12 @@ impl Translator {
                 let (_, captures, _locals) =
                     self.calculate_args_captures_locals(&overload_ty, args, body, mono);
 
+                self.emit(st, Instr::PushAddr(label.clone()));
                 for capture in &captures {
                     let offs = offset_table.get(capture).unwrap();
                     self.emit(st, Instr::LoadOffset(*offs));
                 }
 
-                self.emit(st, Instr::PushAddr(label.clone()));
                 self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
             ExprKind::Unwrap(expr) => {
