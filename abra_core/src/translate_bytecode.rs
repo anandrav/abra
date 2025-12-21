@@ -13,7 +13,7 @@ use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
+use crate::statics::{_print_node, Declaration, PolytypeDeclaration, TypeProv};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
@@ -148,11 +148,10 @@ impl Translator {
         Self { statics, file_asts }
     }
 
-    fn get_ty(&self, monomorph_env: &MonomorphEnv, node: AstNode) -> SolvedType {
+    fn get_ty(&self, monomorph_env: &MonomorphEnv, node: AstNode) -> Option<SolvedType> {
         self.statics
             .solution_of_node(node)
-            .unwrap()
-            .subst(monomorph_env)
+            .map(|t| t.subst(monomorph_env))
     }
 
     fn emit(&self, st: &mut TranslatorState, i: impl LineVariant) {
@@ -364,14 +363,14 @@ impl Translator {
                     self.emit(st, Line::Label(label.clone()));
 
                     let mut locals = HashSet::default();
-                    // TODO: here collect captures
                     self.collect_locals_expr(body, &mut locals, &monomorph_env);
-                    let locals_count = locals.len(); // TODO: locals_count = locals.len() - captures_count
+                    let locals_count = locals.len();
+                    // self.collect_captures_expr(body, &mut locals, &monomorph_env); // TODO: re-enable
                     self.emit(st, Instr::PushNil(locals_count as u16));
                     let mut offset_table = OffsetTable::default();
                     let mut arg_index = 0;
                     for arg in args.iter().rev() {
-                        let arg_ty = self.get_ty(&monomorph_env, arg.0.node());
+                        let arg_ty = self.get_ty(&monomorph_env, arg.0.node()).unwrap();
                         if arg_ty != SolvedType::Void {
                             offset_table
                                 .entry(arg.0.id)
@@ -892,6 +891,28 @@ impl Translator {
                 let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
                 // TODO: captures must be gathered from the body, loaded onto stack. MakeClosure instr should take number of captures
+                let mut locals = HashSet::default();
+                self.collect_locals_expr(body, &mut locals, &monomorph_env);
+                let locals_count = locals.len();
+                // self.collect_captures_expr(body, &mut locals, &monomorph_env); // TODO: re-enable
+                // let captures_count = locals.len() - locals_count;
+                // self.collect_locals_expr(body, &mut locals, &monomorph_env);
+                // let mut offset_table = OffsetTable::default();
+                // let mut arg_index = 0;
+                // for arg in args.iter().rev() {
+                //     let arg_ty = self.get_ty(&monomorph_env, arg.0.node());
+                //     if arg_ty != SolvedType::Void {
+                //         offset_table
+                //             .entry(arg.0.id)
+                //             .or_insert(-(arg_index as i16) - 1);
+                //         arg_index += 1;
+                //     }
+                // }
+                for local in locals.iter().skip(locals_count) {
+                    let offs = offset_table.get(local).unwrap();
+                    // self.emit(st, Instr::LoadOffset(*offs)); // TODO re-enable
+                }
+
                 self.emit(st, Instr::PushAddr(label.clone()));
                 self.emit(st, Instr::MakeClosure(0)); // TODO: do number of captures here
             }
@@ -907,7 +928,7 @@ impl Translator {
                     panic!();
                 };
                 // TODO: this would be easier if the postfix unwrap operator had a dedicated AST node and its own type. Then we wouldn't have to do this weird hack here
-                let expr_ty = self.get_ty(monomorph_env, expr.node());
+                let expr_ty = self.get_ty(monomorph_env, expr.node()).unwrap();
                 let ret_ty = f
                     .ret_type
                     .clone()
@@ -1977,7 +1998,7 @@ impl Translator {
     ) {
         match &*pat.kind {
             PatKind::Binding(_) => {
-                let ty = self.get_ty(monomorph_env, pat.node());
+                let ty = self.get_ty(monomorph_env, pat.node()).unwrap();
                 if ty != SolvedType::Void {
                     locals.insert(pat.id);
                 }
@@ -2008,11 +2029,12 @@ impl Translator {
     ) {
         match &*expr.kind {
             ExprKind::Variable(s) => {
-                let ty = self.get_ty(mono, expr.node());
-                if ty != SolvedType::Void {
-                    let decl = &self.statics.resolution_map[&expr.id];
-                    if let Declaration::Var(node) = decl {
-                        locals.insert(node.id());
+                if let Some(ty) = self.get_ty(mono, expr.node()) {
+                    if ty != SolvedType::Void {
+                        let decl = &self.statics.resolution_map[&expr.id];
+                        if let Declaration::Var(node) = decl {
+                            locals.insert(node.id());
+                        }
                     }
                 }
             }
