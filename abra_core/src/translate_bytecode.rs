@@ -418,15 +418,10 @@ impl Translator {
                         self.emit(st, Instr::LoadOffset(*idx));
                     }
                 }
-                Declaration::Builtin(b) => match b {
-                    BuiltinOperation::Newline => {
-                        self.emit(st, Instr::PushString("\n".to_owned()));
-                    }
-                    _ => {
-                        // TODO: need wrappers for all builtin operations
-                        unimplemented!()
-                    }
-                },
+                Declaration::Builtin(b) => {
+                    // TODO: need wrappers for all builtin operations
+                    unimplemented!()
+                }
 
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
                 | Declaration::MemberFunction(f) => {
@@ -1259,9 +1254,6 @@ impl Translator {
                 }
                 BuiltinOperation::Panic => {
                     self.emit(st, Instr::Panic);
-                }
-                BuiltinOperation::Newline => {
-                    panic!("not a function");
                 }
             },
             Declaration::InterfaceOutputType { .. }

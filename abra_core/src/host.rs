@@ -1,10 +1,9 @@
-use crate::addons::name_of_ty;
+use crate::addons::{name_of_ty, run_formatter};
 use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::path::Path;
-use std::process::Command;
 use std::rc::Rc;
 use utils::swrite;
 
@@ -220,11 +219,7 @@ pub enum HostFunctionRet {
 
     std::fs::write(destination, output).unwrap();
 
-    Command::new("rustfmt")
-        .arg(destination)
-        .status()
-        .map_err(|e| e.to_string())
-        .map_err(ErrorSummary::msg)?;
+    run_formatter(destination.to_str().unwrap());
 
     Ok(())
 }

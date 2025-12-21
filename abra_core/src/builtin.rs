@@ -62,10 +62,6 @@ pub enum BuiltinOperation {
     ArrayPop,
 
     Panic,
-
-    // TODO: add support for "\n" in source, then remove this
-    // TODO: also, this isn't even an operation
-    Newline,
 }
 
 impl BuiltinOperation {
@@ -234,8 +230,6 @@ impl BuiltinOperation {
                 TypeVar::make_never(reason.clone()),
                 reason.clone(),
             ),
-
-            BuiltinOperation::Newline => TypeVar::make_string(reason.clone()),
         }
     }
 }

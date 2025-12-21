@@ -280,26 +280,30 @@ pub fn generate_bindings_for_crate() {
 
     std::fs::write(&output_path, output).unwrap();
 
+    run_formatter("src/lib.rs");
+}
+
+pub fn run_formatter(output_path: &str) {
     let status = std::process::Command::new("cargo")
         .arg("+nightly")
         .arg("fmt")
         .arg("--")
         .arg("--unstable-features")
         .arg("--skip-children")
-        .arg("src/lib.rs")
+        .arg(output_path)
         .status();
     match status {
         Ok(status) => {
             if !status.success() {
                 println!(
-                    "cargo:warning=Failed to format src/lib.rs. {}. command: cargo +nightly fmt -- --unstable-features --skip-children src/lib.rs",
+                    "cargo:warning=Failed to format {output_path}. {}. command: cargo +nightly fmt -- --unstable-features --skip-children {output_path}",
                     status
                 );
             }
         }
         Err(e) => {
             println!(
-                "cargo:warning=Failed to format src/lib.rs. error={}. command run: cargo +nightly fmt -- --unstable-features --skip-children src/lib.rs",
+                "cargo:warning=Failed to format {output_path}. error={}. command run: cargo +nightly fmt -- --unstable-features --skip-children {output_path}",
                 e
             );
         }
