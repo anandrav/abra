@@ -1958,6 +1958,7 @@ impl Translator {
         }
     }
 
+    // TODO: memoize this
     fn calculate_args_captures_locals(
         &self,
         overload_ty: &Option<SolvedType>,
@@ -2139,6 +2140,8 @@ fn make_label(hint: &str) -> Label {
     format!("{hint}__#{id:X}")
 }
 
+// TODO: this is O(N)
+// TODO: just precompute for all structs then lookup in table
 fn idx_of_field(
     statics: &StaticsContext,
     mono: &MonomorphEnv,
