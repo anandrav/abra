@@ -681,7 +681,13 @@ impl Translator {
 
                         let substituted_ty = specific_func_ty.subst(monomorph_env);
 
-                        self.handle_func_call(st, Some(substituted_ty), func_name, &func_def);
+                        self.handle_func_call(
+                            st,
+                            monomorph_env,
+                            Some(substituted_ty),
+                            func_name,
+                            &func_def,
+                        );
                     }
                     BinaryOperator::Or => unreachable!(),
                     BinaryOperator::And => unreachable!(),
@@ -932,7 +938,7 @@ impl Translator {
     ) {
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
         if !func_ty.is_overloaded() {
-            self.handle_func_call(st, None, f_fully_qualified_name, f);
+            self.handle_func_call(st, monomorph_env, None, f_fully_qualified_name, f);
         } else {
             let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
             // println!(
@@ -948,7 +954,13 @@ impl Translator {
             //     "({f_fully_qualified_name}) monomorph_env: {:?}",
             //     monomorph_env
             // );
-            self.handle_func_call(st, Some(substituted_ty), f_fully_qualified_name, f);
+            self.handle_func_call(
+                st,
+                monomorph_env,
+                Some(substituted_ty),
+                f_fully_qualified_name,
+                f,
+            );
         }
     }
 
@@ -985,6 +997,7 @@ impl Translator {
                         // println!("here we go");
                         self.handle_func_call(
                             st,
+                            monomorph_env,
                             Some(substituted_ty.clone()),
                             fully_qualified_name,
                             f,
@@ -1691,6 +1704,7 @@ impl Translator {
     fn handle_func_call(
         &self,
         st: &mut TranslatorState,
+        mono: &MonomorphEnv,
         overload_ty: Option<Type>,
         func_name: &String,
         func_def: &Rc<FuncDef>,
@@ -1759,7 +1773,9 @@ impl Translator {
                     || is_ident_func(&ty, SolvedType::String) =>
             { /* noop */ }
             (_, overload_ty) => {
-                let nargs = count_args(&self.statics, &func_def.args, overload_ty);
+                let (args, _, _) =
+                    self.calculate_args_captures_locals(&func_def.args, &func_def.body, &mono);
+                let nargs = count_args(&self.statics, &func_def.args, overload_ty); // TODO: don't use this anymore
                 self.emit(st, Instr::Call(nargs, label));
             }
         }
