@@ -356,40 +356,17 @@ impl Translator {
                     let monomorph_env = MonomorphEnv::empty();
                     if let Some(overload_ty) = &desc.overload_ty {
                         monomorph_env.update(&func_ty, overload_ty);
-                        // println!("monomorph_env: {:?}", monomorph_env);
                     }
 
                     let label = st.func_map.get(&desc).unwrap();
                     self.emit(st, Line::Label(label.clone()));
 
-                    let mut locals = HashSet::default();
-                    self.collect_locals_expr(body, &mut locals, &monomorph_env);
-                    let locals_count = locals.len();
-                    let mut locals_and_args = locals.clone();
-                    let mut arg_ids = HashSet::default();
-                    for (arg_ident, _) in args.iter().rev() {
-                        let arg_ty = self.get_ty(&monomorph_env, arg_ident.node()).unwrap();
-                        if arg_ty != SolvedType::Void {
-                            arg_ids.insert(arg_ident.id);
-                        }
-                    }
-                    locals_and_args.extend(arg_ids);
-                    let mut captures = locals_and_args.clone();
-                    self.collect_captures_expr(body, &mut captures, &monomorph_env);
-                    let captures: HashSet<_> =
-                        captures.difference(&locals_and_args).cloned().collect();
-                    let captures_count = captures.len();
-                    self.emit(st, Instr::PushNil(locals_count as u16));
+                    let (arg_ids, captures, locals) =
+                        self.calculate_args_captures_locals(args, body, &monomorph_env);
+                    self.emit(st, Instr::PushNil(locals.len() as u16));
                     let mut offset_table = OffsetTable::default();
-                    let mut arg_index = 0;
-                    for arg in args.iter().rev() {
-                        let arg_ty = self.get_ty(&monomorph_env, arg.0.node()).unwrap();
-                        if arg_ty != SolvedType::Void {
-                            offset_table
-                                .entry(arg.0.id)
-                                .or_insert(-(arg_index as i16) - 1);
-                            arg_index += 1;
-                        }
+                    for (index, arg_id) in arg_ids.iter().enumerate() {
+                        offset_table.entry(*arg_id).or_insert(-(index as i16) - 1);
                     }
                     for (i, capture) in captures.iter().enumerate() {
                         offset_table.entry(*capture).or_insert(i as i16);
@@ -397,9 +374,9 @@ impl Translator {
                     for (i, local) in locals.iter().enumerate() {
                         offset_table
                             .entry(*local)
-                            .or_insert((i + captures_count) as i16);
+                            .or_insert((i + captures.len()) as i16);
                     }
-                    let nargs = count_args(&self.statics, args, desc.overload_ty);
+                    let nargs = count_args(&self.statics, args, desc.overload_ty); // TODO: redundant?
                     st.return_stack.push(nargs as u32);
                     self.translate_expr(body, &offset_table, &monomorph_env, st);
                     st.return_stack.pop();
@@ -908,30 +885,16 @@ impl Translator {
 
                 let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
-                // TODO: when everything is settled fix the code duplication for collecting captures etc:
-                let mut locals = HashSet::default();
-                self.collect_locals_expr(body, &mut locals, monomorph_env);
-                let mut locals_and_args = locals.clone();
-                let mut arg_ids = HashSet::default();
-                for (arg_ident, _) in args.iter().rev() {
-                    let arg_ty = self.get_ty(monomorph_env, arg_ident.node()).unwrap();
-                    if arg_ty != SolvedType::Void {
-                        arg_ids.insert(arg_ident.id);
-                    }
-                }
-                locals_and_args.extend(arg_ids);
-                let mut captures = locals_and_args.clone();
-                self.collect_captures_expr(body, &mut captures, monomorph_env);
-                let captures: HashSet<_> = captures.difference(&locals_and_args).cloned().collect();
-                let captures_count = captures.len();
+                let (_, captures, _locals) =
+                    self.calculate_args_captures_locals(args, body, monomorph_env);
 
-                for capture in captures {
-                    let offs = offset_table.get(&capture).unwrap();
+                for capture in &captures {
+                    let offs = offset_table.get(capture).unwrap();
                     self.emit(st, Instr::LoadOffset(*offs));
                 }
 
                 self.emit(st, Instr::PushAddr(label.clone()));
-                self.emit(st, Instr::MakeClosure(captures_count as u16));
+                self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
@@ -2036,6 +1999,31 @@ impl Translator {
             | PatKind::Str(..)
             | PatKind::Wildcard => {}
         }
+    }
+
+    fn calculate_args_captures_locals(
+        &self,
+        args: &[ArgMaybeAnnotated],
+        body: &Rc<Expr>,
+        mono: &MonomorphEnv,
+    ) -> (Vec<NodeId>, HashSet<NodeId>, HashSet<NodeId>) {
+        // TODO: this could be more performant. Lots of clones and a set difference()
+        // TODO: use index map instead of HashSet?
+        let mut locals = HashSet::default();
+        self.collect_locals_expr(body, &mut locals, mono);
+        let mut locals_and_args = locals.clone();
+        let mut arg_ids = Vec::default();
+        for (arg_ident, _) in args.iter().rev() {
+            let arg_ty = self.get_ty(mono, arg_ident.node()).unwrap();
+            if arg_ty != SolvedType::Void {
+                arg_ids.push(arg_ident.id);
+            }
+        }
+        locals_and_args.extend(arg_ids.clone());
+        let mut captures = locals_and_args.clone();
+        self.collect_captures_expr(body, &mut captures, mono);
+        let captures: HashSet<_> = captures.difference(&locals_and_args).cloned().collect();
+        (arg_ids, captures, locals)
     }
 
     fn collect_captures_expr(
