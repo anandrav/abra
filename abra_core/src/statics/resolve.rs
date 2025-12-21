@@ -765,9 +765,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             }
         }
         ExprKind::AnonymousFunction(args, out_ty, body) => {
-            // TODO: this is wrong. It excludes toplevel symbols like free functions or type definitions...
-            // TODO: ideally the lambda just captures everything so you can just do `let symbol_table = symbol_table.new_scope();`
-            let symbol_table = SymbolTable::empty();
+            let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, &symbol_table, args, body, out_ty);
         }
         ExprKind::Tuple(exprs) => {
