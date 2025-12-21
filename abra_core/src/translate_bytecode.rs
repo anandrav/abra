@@ -148,10 +148,8 @@ impl Translator {
         Self { statics, file_asts }
     }
 
-    fn get_ty(&self, monomorph_env: &MonomorphEnv, node: AstNode) -> Option<SolvedType> {
-        self.statics
-            .solution_of_node(node)
-            .map(|t| t.subst(monomorph_env))
+    fn get_ty(&self, mono: &MonomorphEnv, node: AstNode) -> Option<SolvedType> {
+        self.statics.solution_of_node(node).map(|t| t.subst(mono))
     }
 
     fn emit(&self, st: &mut TranslatorState, i: impl LineVariant) {
@@ -273,7 +271,7 @@ impl Translator {
         {
             let st = &mut st;
 
-            let monomorph_env = MonomorphEnv::empty();
+            let mono = MonomorphEnv::empty();
 
             // Initialization routine before main function (load shared libraries)
             for (i, lib) in self.statics.dylibs.iter().enumerate() {
@@ -300,7 +298,7 @@ impl Translator {
                         _ => None,
                     })
                     .collect();
-                self.collect_locals_stmts(&stmts, &mut locals, &monomorph_env);
+                self.collect_locals_stmts(&stmts, &mut locals, &mono);
 
                 self.emit(st, Instr::PushNil(locals.len() as u16));
                 let mut offset_table = OffsetTable::default();
@@ -317,13 +315,7 @@ impl Translator {
                     })
                     .collect::<Vec<_>>();
                 for (i, stmt) in statements.iter().enumerate() {
-                    self.translate_stmt(
-                        stmt,
-                        i == statements.len() - 1,
-                        &offset_table,
-                        &monomorph_env,
-                        st,
-                    );
+                    self.translate_stmt(stmt, i == statements.len() - 1, &offset_table, &mono, st);
                 }
 
                 self.emit(st, Instr::Stop);
@@ -353,16 +345,16 @@ impl Translator {
                         }
                     };
 
-                    let monomorph_env = MonomorphEnv::empty();
+                    let mono = MonomorphEnv::empty();
                     if let Some(overload_ty) = &desc.overload_ty {
-                        monomorph_env.update(&func_ty, overload_ty);
+                        mono.update(&func_ty, overload_ty);
                     }
 
                     let label = st.func_map.get(&desc).unwrap();
                     self.emit(st, Line::Label(label.clone()));
 
                     let (arg_ids, captures, locals) =
-                        self.calculate_args_captures_locals(args, body, &monomorph_env);
+                        self.calculate_args_captures_locals(args, body, &mono);
                     self.emit(st, Instr::PushNil(locals.len() as u16));
                     let mut offset_table = OffsetTable::default();
                     for (index, arg_id) in arg_ids.iter().enumerate() {
@@ -378,7 +370,7 @@ impl Translator {
                     }
                     let nargs = arg_ids.len();
                     st.return_stack.push(nargs as u32);
-                    self.translate_expr(body, &offset_table, &monomorph_env, st);
+                    self.translate_expr(body, &offset_table, &mono, st);
                     st.return_stack.pop();
 
                     let SolvedType::Function(_, out_ty) = func_ty else { unreachable!() };
@@ -402,7 +394,7 @@ impl Translator {
         &self,
         expr: &Rc<Expr>,
         offset_table: &OffsetTable,
-        monomorph_env: &MonomorphEnv,
+        mono: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         self.update_current_file_and_lineno(st, expr.node());
@@ -420,7 +412,7 @@ impl Translator {
                 }
                 Declaration::Var(node) => {
                     let expr_ty = self.statics.solution_of_node(expr.node()).unwrap();
-                    let expr_ty = expr_ty.subst(monomorph_env);
+                    let expr_ty = expr_ty.subst(mono);
                     if expr_ty != SolvedType::Void {
                         let idx = offset_table.get(&node.id()).unwrap();
                         self.emit(st, Instr::LoadOffset(*idx));
@@ -489,13 +481,13 @@ impl Translator {
                 self.emit(st, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left, offset_table, monomorph_env, st);
+                self.translate_expr(left, offset_table, mono, st);
                 match op {
                     BinaryOperator::Or => {
                         let short_circuit = make_label("short_circuit_or");
                         let end_label = make_label("end_or");
                         self.emit(st, Instr::JumpIf(short_circuit.clone()));
-                        self.translate_expr(right, offset_table, monomorph_env, st);
+                        self.translate_expr(right, offset_table, mono, st);
                         self.emit(st, Instr::Jump(end_label.clone()));
                         self.emit(st, short_circuit);
                         self.emit(st, Instr::PushBool(true));
@@ -506,7 +498,7 @@ impl Translator {
                         let short_circuit = make_label("short_circuit_and");
                         let end_label = make_label("end_and");
                         self.emit(st, Instr::JumpIfFalse(short_circuit.clone()));
-                        self.translate_expr(right, offset_table, monomorph_env, st);
+                        self.translate_expr(right, offset_table, mono, st);
                         self.emit(st, Instr::Jump(end_label.clone()));
                         self.emit(st, short_circuit);
                         self.emit(st, Instr::PushBool(false));
@@ -515,8 +507,8 @@ impl Translator {
                     }
                     _ => {}
                 };
-                self.translate_expr(right, offset_table, monomorph_env, st);
-                let mut helper = |monomorph_env: &MonomorphEnv, method_name: &str| {
+                self.translate_expr(right, offset_table, mono, st);
+                let mut helper = |mono: &MonomorphEnv, method_name: &str| {
                     let iface_method = self
                         .statics
                         .root_namespace
@@ -536,15 +528,15 @@ impl Translator {
 
                     self.translate_iface_method_ap_helper(
                         st,
-                        monomorph_env,
+                        mono,
                         &iface_def,
                         method as u16,
                         &func_ty,
                     );
                 };
-                // TODO: this should all be wrapped up in a helper function to avoid forgetting to subst with monomorph_env
+                // TODO: this should all be wrapped up in a helper function to avoid forgetting to subst with mono
                 let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
-                let arg1_ty = arg1_ty.subst(monomorph_env);
+                let arg1_ty = arg1_ty.subst(mono);
                 // inline primitive operations instead of performing a function call
                 match op {
                     BinaryOperator::Add => match arg1_ty {
@@ -591,7 +583,7 @@ impl Translator {
                             self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top))
                         }
                         _ => {
-                            helper(monomorph_env, "prelude.Ord.greater_than");
+                            helper(mono, "prelude.Ord.greater_than");
                         }
                     },
                     BinaryOperator::LessThan => match arg1_ty {
@@ -602,7 +594,7 @@ impl Translator {
                             self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top))
                         }
                         _ => {
-                            helper(monomorph_env, "prelude.Ord.less_than");
+                            helper(mono, "prelude.Ord.less_than");
                         }
                     },
                     BinaryOperator::GreaterThanOrEqual => match arg1_ty {
@@ -615,7 +607,7 @@ impl Translator {
                             Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                         ),
                         _ => {
-                            helper(monomorph_env, "prelude.Ord.greater_than_or_equal");
+                            helper(mono, "prelude.Ord.greater_than_or_equal");
                         }
                     },
                     BinaryOperator::LessThanOrEqual => match arg1_ty {
@@ -627,7 +619,7 @@ impl Translator {
                             Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                         ),
                         _ => {
-                            helper(monomorph_env, "prelude.Ord.less_than_or_equal");
+                            helper(mono, "prelude.Ord.less_than_or_equal");
                         }
                     },
                     BinaryOperator::Equal | BinaryOperator::NotEqual => {
@@ -645,7 +637,7 @@ impl Translator {
                                 self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top))
                             }
                             _ => {
-                                helper(monomorph_env, "prelude.Equal.equal");
+                                helper(mono, "prelude.Equal.equal");
                             }
                         }
                         if *op == BinaryOperator::NotEqual {
@@ -679,15 +671,9 @@ impl Translator {
                         let specific_func_ty =
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
-                        let substituted_ty = specific_func_ty.subst(monomorph_env);
+                        let substituted_ty = specific_func_ty.subst(mono);
 
-                        self.handle_func_call(
-                            st,
-                            monomorph_env,
-                            Some(substituted_ty),
-                            func_name,
-                            &func_def,
-                        );
+                        self.handle_func_call(st, mono, Some(substituted_ty), func_name, &func_def);
                     }
                     BinaryOperator::Or => unreachable!(),
                     BinaryOperator::And => unreachable!(),
@@ -704,36 +690,36 @@ impl Translator {
                         SolvedType::Int => {
                             // TODO: does this get optimized?
                             self.emit(st, Instr::PushInt(0));
-                            self.translate_expr(right, offset_table, monomorph_env, st);
+                            self.translate_expr(right, offset_table, mono, st);
                             self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top))
                         }
                         SolvedType::Float => {
                             self.emit(st, Instr::PushInt(0));
-                            self.translate_expr(right, offset_table, monomorph_env, st);
+                            self.translate_expr(right, offset_table, mono, st);
                             self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top))
                         }
                         _ => unreachable!(),
                     },
                     PrefixOp::Not => {
-                        self.translate_expr(right, offset_table, monomorph_env, st);
+                        self.translate_expr(right, offset_table, mono, st);
                         self.emit(st, Instr::Not(Reg::Top, Reg::Top));
                     }
                 }
             }
             ExprKind::MemberFuncAp(expr, fname, args) => {
                 if let Some(expr) = expr {
-                    self.translate_expr(expr, offset_table, monomorph_env, st);
+                    self.translate_expr(expr, offset_table, mono, st);
                 }
                 for arg in args {
-                    self.translate_expr(arg, offset_table, monomorph_env, st);
+                    self.translate_expr(arg, offset_table, mono, st);
                 }
 
                 let decl = &self.statics.resolution_map[&fname.id];
-                self.translate_func_ap(decl, fname.node(), offset_table, monomorph_env, st);
+                self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
             }
             ExprKind::FuncAp(func, args) => {
                 for arg in args {
-                    self.translate_expr(arg, offset_table, monomorph_env, st);
+                    self.translate_expr(arg, offset_table, mono, st);
                 }
                 let decl = match &*func.kind {
                     ExprKind::Variable(_) => &self.statics.resolution_map[&func.id],
@@ -763,7 +749,7 @@ impl Translator {
                     ExprKind::AnonymousFunction(_items, _, _expr) => unimplemented!(),
                 };
 
-                self.translate_func_ap(decl, func.node(), offset_table, monomorph_env, st);
+                self.translate_func_ap(decl, func.node(), offset_table, mono, st);
             }
             ExprKind::Block(statements) => {
                 for (i, statement) in statements.iter().enumerate() {
@@ -771,14 +757,14 @@ impl Translator {
                         statement,
                         i == statements.len() - 1,
                         offset_table,
-                        monomorph_env,
+                        mono,
                         st,
                     );
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr, offset_table, monomorph_env, st);
+                    self.translate_expr(expr, offset_table, mono, st);
                 }
                 let mut nargs = 0;
                 for expr in exprs {
@@ -787,7 +773,7 @@ impl Translator {
                         .statics
                         .solution_of_node(expr.node())
                         .unwrap()
-                        .subst(monomorph_env);
+                        .subst(mono);
                     if expr_ty != SolvedType::Void {
                         nargs += 1;
                     }
@@ -795,15 +781,15 @@ impl Translator {
                 self.emit(st, Instr::ConstructStruct(nargs));
             }
             ExprKind::IfElse(cond, then_block, else_block) => {
-                self.translate_expr(cond, offset_table, monomorph_env, st);
+                self.translate_expr(cond, offset_table, mono, st);
                 let else_label = make_label("else");
                 let end_label = make_label("endif");
                 self.emit(st, Instr::JumpIfFalse(else_label.clone()));
-                self.translate_stmt(then_block, true, offset_table, monomorph_env, st);
+                self.translate_stmt(then_block, true, offset_table, mono, st);
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(else_label));
                 if let Some(else_block) = else_block {
-                    self.translate_stmt(else_block, true, offset_table, monomorph_env, st);
+                    self.translate_stmt(else_block, true, offset_table, mono, st);
                 }
                 self.emit(st, Line::Label(end_label));
             }
@@ -823,30 +809,29 @@ impl Translator {
                         .statics
                         .solution_of_node(expr.node())
                         .unwrap()
-                        .subst(monomorph_env);
+                        .subst(mono);
                     if expr_ty != SolvedType::Void {
-                        self.translate_expr(accessed, offset_table, monomorph_env, st);
-                        let idx =
-                            idx_of_field(&self.statics, monomorph_env, accessed, &field_name.v);
+                        self.translate_expr(accessed, offset_table, mono, st);
+                        let idx = idx_of_field(&self.statics, mono, accessed, &field_name.v);
                         self.emit(st, Instr::GetField(idx, Reg::Top));
                     }
                 }
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr, offset_table, monomorph_env, st);
+                    self.translate_expr(expr, offset_table, mono, st);
                 }
                 self.emit(st, Instr::ConstructArray(exprs.len() as u16));
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index, offset_table, monomorph_env, st);
-                self.translate_expr(array, offset_table, monomorph_env, st);
+                self.translate_expr(index, offset_table, mono, st);
+                self.translate_expr(array, offset_table, mono, st);
                 self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.statics.solution_of_node(expr.node()).unwrap();
 
-                self.translate_expr(expr, offset_table, monomorph_env, st);
+                self.translate_expr(expr, offset_table, mono, st);
                 let end_label = make_label("endmatch");
                 // Check scrutinee against each arm's pattern
                 let arm_labels = arms
@@ -859,15 +844,15 @@ impl Translator {
 
                     // duplicate the scrutinee before doing a comparison
                     self.emit(st, Instr::Duplicate);
-                    self.translate_pat_comparison(&ty, &arm.pat, st, monomorph_env);
+                    self.translate_pat_comparison(&ty, &arm.pat, st, mono);
                     self.emit(st, Instr::JumpIf(arm_label));
                 }
                 for (i, arm) in arms.iter().enumerate() {
                     self.emit(st, Line::Label(arm_labels[i].clone()));
 
-                    self.handle_pat_binding(&arm.pat, offset_table, st, monomorph_env);
+                    self.handle_pat_binding(&arm.pat, offset_table, st, mono);
 
-                    self.translate_stmt(&arm.stmt, true, offset_table, monomorph_env, st);
+                    self.translate_stmt(&arm.stmt, true, offset_table, mono, st);
                     if i != arms.len() - 1 {
                         self.emit(st, Instr::Jump(end_label.clone()));
                     }
@@ -879,7 +864,7 @@ impl Translator {
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
                 } else {
-                    let substituted_ty = func_ty.subst(monomorph_env);
+                    let substituted_ty = func_ty.subst(mono);
                     Some(substituted_ty)
                 };
 
@@ -891,8 +876,7 @@ impl Translator {
 
                 let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
-                let (_, captures, _locals) =
-                    self.calculate_args_captures_locals(args, body, monomorph_env);
+                let (_, captures, _locals) = self.calculate_args_captures_locals(args, body, mono);
 
                 for capture in &captures {
                     let offs = offset_table.get(capture).unwrap();
@@ -903,7 +887,7 @@ impl Translator {
                 self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
             ExprKind::Unwrap(expr) => {
-                self.translate_expr(expr, offset_table, monomorph_env, st);
+                self.translate_expr(expr, offset_table, mono, st);
 
                 let Some(func_decl @ Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))) =
                     &self
@@ -914,15 +898,15 @@ impl Translator {
                     panic!();
                 };
                 // TODO: this would be easier if the postfix unwrap operator had a dedicated AST node and its own type. Then we wouldn't have to do this weird hack here
-                let expr_ty = self.get_ty(monomorph_env, expr.node()).unwrap();
+                let expr_ty = self.get_ty(mono, expr.node()).unwrap();
                 let ret_ty = f
                     .ret_type
                     .clone()
                     .unwrap()
                     .to_solved_type(&self.statics)
                     .unwrap();
-                monomorph_env.update(&ret_ty, &expr_ty);
-                self.translate_func_ap(func_decl, f.name.node(), offset_table, monomorph_env, st);
+                mono.update(&ret_ty, &expr_ty);
+                self.translate_func_ap(func_decl, f.name.node(), offset_table, mono, st);
             }
         }
     }
@@ -933,34 +917,28 @@ impl Translator {
         f: &Rc<FuncDef>,
         f_fully_qualified_name: &String,
         func_node: AstNode,
-        monomorph_env: &MonomorphEnv,
+        mono: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
         if !func_ty.is_overloaded() {
-            self.handle_func_call(st, monomorph_env, None, f_fully_qualified_name, f);
+            self.handle_func_call(st, mono, None, f_fully_qualified_name, f);
         } else {
             let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
             // println!(
             //     "({f_fully_qualified_name}) specific_func_ty: {}",
             //     specific_func_ty
             // );
-            let substituted_ty = specific_func_ty.subst(monomorph_env);
+            let substituted_ty = specific_func_ty.subst(mono);
             // println!(
             //     "({f_fully_qualified_name}) substituted_ty: {}",
             //     substituted_ty
             // );
             // println!(
-            //     "({f_fully_qualified_name}) monomorph_env: {:?}",
-            //     monomorph_env
+            //     "({f_fully_qualified_name}) mono: {:?}",
+            //     mono
             // );
-            self.handle_func_call(
-                st,
-                monomorph_env,
-                Some(substituted_ty),
-                f_fully_qualified_name,
-                f,
-            );
+            self.handle_func_call(st, mono, Some(substituted_ty), f_fully_qualified_name, f);
         }
     }
 
@@ -968,13 +946,13 @@ impl Translator {
     fn translate_iface_method_ap_helper(
         &self,
         st: &mut TranslatorState,
-        monomorph_env: &MonomorphEnv,
+        mono: &MonomorphEnv,
         iface_def: &Rc<InterfaceDef>,
         method: u16,
         func_ty: &SolvedType,
     ) {
         // let func_name = &iface_def.methods[method as usize].name.v;
-        let substituted_ty = func_ty.subst(monomorph_env);
+        let substituted_ty = func_ty.subst(mono);
         // println!(
         //     "({func_name}) iface func ty substituted: {}",
         //     substituted_ty
@@ -997,7 +975,7 @@ impl Translator {
                         // println!("here we go");
                         self.handle_func_call(
                             st,
-                            monomorph_env,
+                            mono,
                             Some(substituted_ty.clone()),
                             fully_qualified_name,
                             f,
@@ -1017,7 +995,7 @@ impl Translator {
         decl: &Declaration,
         func_node: AstNode,
         offset_table: &OffsetTable,
-        monomorph_env: &MonomorphEnv,
+        mono: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         match decl {
@@ -1032,20 +1010,14 @@ impl Translator {
                 self.emit(st, Instr::LoadOffset(*idx));
                 let nargs = args
                     .iter()
-                    .map(|arg| arg.subst(monomorph_env))
+                    .map(|arg| arg.subst(mono))
                     .filter(|arg| *arg != SolvedType::Void)
                     .count();
                 self.emit(st, Instr::CallFuncObj(nargs as u32));
             }
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
-                self.translate_func_ap_helper(
-                    f,
-                    f_fully_qualified_name,
-                    func_node,
-                    monomorph_env,
-                    st,
-                );
+                self.translate_func_ap_helper(f, f_fully_qualified_name, func_node, mono, st);
             }
             Declaration::FreeFunction(FuncResolutionKind::Host(decl)) => {
                 let idx = self.statics.host_funcs.get_id(decl) as u16;
@@ -1085,7 +1057,7 @@ impl Translator {
                 // println!("({func_name}) iface func_ty: {}", func_ty);
                 self.translate_iface_method_ap_helper(
                     st,
-                    monomorph_env,
+                    mono,
                     iface_def,
                     *method as u16,
                     &func_ty,
@@ -1093,23 +1065,13 @@ impl Translator {
             }
             Declaration::MemberFunction(f) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
-                self.translate_func_ap_helper(
-                    f,
-                    f_fully_qualified_name,
-                    func_node,
-                    monomorph_env,
-                    st,
-                );
+                self.translate_func_ap_helper(f, f_fully_qualified_name, func_node, mono, st);
             }
             Declaration::Struct(def) => {
                 let mut nargs = 0;
                 for field in &*def.fields {
                     // TODO: duplicated logic
-                    let field_ty = field
-                        .ty
-                        .to_solved_type(&self.statics)
-                        .unwrap()
-                        .subst(monomorph_env);
+                    let field_ty = field.ty.to_solved_type(&self.statics).unwrap().subst(mono);
                     if field_ty != SolvedType::Void {
                         nargs += 1;
                     }
@@ -1122,10 +1084,7 @@ impl Translator {
             } => {
                 let nargs = match &enum_def.variants[*variant].data {
                     Some(data_ty) => {
-                        let data_ty = data_ty
-                            .to_solved_type(&self.statics)
-                            .unwrap()
-                            .subst(monomorph_env);
+                        let data_ty = data_ty.to_solved_type(&self.statics).unwrap().subst(mono);
                         match data_ty {
                             SolvedType::Tuple(elems) => {
                                 // TODO: duplicated logic
@@ -1266,7 +1225,7 @@ impl Translator {
                         unreachable!()
                     };
                     // second arg is element being pushed
-                    let arg_ty = args[1].subst(monomorph_env);
+                    let arg_ty = args[1].subst(mono);
                     if arg_ty == SolvedType::Void {
                         self.emit(st, Instr::PushNil(1));
                     }
@@ -1283,7 +1242,7 @@ impl Translator {
                     else {
                         unreachable!()
                     };
-                    let ret_ty = ret.subst(monomorph_env);
+                    let ret_ty = ret.subst(mono);
                     if ret_ty == SolvedType::Void {
                         self.emit(st, Instr::Pop);
                     }
@@ -1311,12 +1270,12 @@ impl Translator {
         scrutinee_ty: &Type,
         pat: &Rc<Pat>,
         st: &mut TranslatorState,
-        monomorph_env: &MonomorphEnv,
+        mono: &MonomorphEnv,
     ) {
         match &*pat.kind {
             PatKind::Wildcard | PatKind::Binding(_) | PatKind::Void => {
                 let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
-                let pat_ty = pat_ty.subst(monomorph_env);
+                let pat_ty = pat_ty.subst(mono);
 
                 if pat_ty != SolvedType::Void {
                     self.emit(st, Instr::Pop);
@@ -1372,7 +1331,7 @@ impl Translator {
                     if let Some(inner) = inner {
                         let inner_ty = self.statics.solution_of_node(inner.node()).unwrap();
                         if inner_ty != SolvedType::Void {
-                            self.translate_pat_comparison(&inner_ty, inner, st, monomorph_env);
+                            self.translate_pat_comparison(&inner_ty, inner, st, mono);
                             self.emit(st, Instr::Jump(end_label.clone()));
                         } else {
                             void_case();
@@ -1405,7 +1364,7 @@ impl Translator {
                         .collect::<Vec<_>>();
                     for (i, pat) in pats.iter().enumerate() {
                         let ty = &types[i];
-                        self.translate_pat_comparison(ty, pat, st, monomorph_env);
+                        self.translate_pat_comparison(ty, pat, st, mono);
                         let is_last = i == pats.len() - 1;
                         self.emit(st, Instr::JumpIfFalse(failure_labels[i].clone()));
                         // SUCCESS
@@ -1442,21 +1401,21 @@ impl Translator {
         stmt: &Rc<Stmt>,
         is_last_in_block_expression: bool,
         offset_table: &OffsetTable,
-        monomorph_env: &MonomorphEnv,
+        mono: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         self.update_current_file_and_lineno(st, stmt.node());
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
-                self.translate_expr(expr, offset_table, monomorph_env, st);
-                self.handle_pat_binding(&pat.0, offset_table, st, monomorph_env);
+                self.translate_expr(expr, offset_table, mono, st);
+                self.handle_pat_binding(&pat.0, offset_table, st, mono);
             }
             StmtKind::Assign(expr1, assign_op, rvalue) => {
                 let rvalue_ty = self
                     .statics
                     .solution_of_node(rvalue.node())
                     .unwrap()
-                    .subst(monomorph_env);
+                    .subst(mono);
                 match assign_op {
                     AssignOperator::Equal => {
                         if rvalue_ty != SolvedType::Void {
@@ -1469,26 +1428,22 @@ impl Translator {
                                         panic!("expected variableto be defined in node");
                                     };
                                     let idx = offset_table.get(&node.id()).unwrap();
-                                    self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                    self.translate_expr(rvalue, offset_table, mono, st);
                                     self.emit(st, Instr::StoreOffset(*idx));
                                 }
                                 // struct member assignment
                                 ExprKind::MemberAccess(accessed, field_name) => {
-                                    self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                                    self.translate_expr(accessed, offset_table, monomorph_env, st);
-                                    let idx = idx_of_field(
-                                        &self.statics,
-                                        monomorph_env,
-                                        accessed,
-                                        &field_name.v,
-                                    );
+                                    self.translate_expr(rvalue, offset_table, mono, st);
+                                    self.translate_expr(accessed, offset_table, mono, st);
+                                    let idx =
+                                        idx_of_field(&self.statics, mono, accessed, &field_name.v);
                                     self.emit(st, Instr::SetField(idx, Reg::Top));
                                 }
                                 // array assignment
                                 ExprKind::IndexAccess(array, index) => {
-                                    self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                                    self.translate_expr(index, offset_table, monomorph_env, st);
-                                    self.translate_expr(array, offset_table, monomorph_env, st);
+                                    self.translate_expr(rvalue, offset_table, mono, st);
+                                    self.translate_expr(index, offset_table, mono, st);
+                                    self.translate_expr(array, offset_table, mono, st);
                                     self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
                                 }
                                 _ => unreachable!(),
@@ -1519,7 +1474,7 @@ impl Translator {
                                 // load x
                                 self.emit(st, Instr::LoadOffset(*idx));
                                 // add number
-                                self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                self.translate_expr(rvalue, offset_table, mono, st);
                                 add_instr(st);
                                 // store in x
                                 self.emit(st, Instr::StoreOffset(*idx));
@@ -1527,39 +1482,31 @@ impl Translator {
                             // struct member assignment
                             ExprKind::MemberAccess(accessed, field_name) => {
                                 // load struct.field
-                                self.translate_expr(accessed, offset_table, monomorph_env, st);
-                                let idx = idx_of_field(
-                                    &self.statics,
-                                    monomorph_env,
-                                    accessed,
-                                    &field_name.v,
-                                );
+                                self.translate_expr(accessed, offset_table, mono, st);
+                                let idx =
+                                    idx_of_field(&self.statics, mono, accessed, &field_name.v);
                                 self.emit(st, Instr::GetField(idx, Reg::Top));
                                 // add number
-                                self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                self.translate_expr(rvalue, offset_table, mono, st);
                                 add_instr(st);
                                 // store in struct.field
-                                self.translate_expr(accessed, offset_table, monomorph_env, st);
-                                let idx = idx_of_field(
-                                    &self.statics,
-                                    monomorph_env,
-                                    accessed,
-                                    &field_name.v,
-                                );
+                                self.translate_expr(accessed, offset_table, mono, st);
+                                let idx =
+                                    idx_of_field(&self.statics, mono, accessed, &field_name.v);
                                 self.emit(st, Instr::SetField(idx, Reg::Top));
                             }
                             // array assignment
                             ExprKind::IndexAccess(array, index) => {
                                 // load from array at index
-                                self.translate_expr(index, offset_table, monomorph_env, st);
-                                self.translate_expr(array, offset_table, monomorph_env, st);
+                                self.translate_expr(index, offset_table, mono, st);
+                                self.translate_expr(array, offset_table, mono, st);
                                 self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
                                 // add number
-                                self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                                self.translate_expr(rvalue, offset_table, mono, st);
                                 add_instr(st);
                                 // store in array at index
-                                self.translate_expr(index, offset_table, monomorph_env, st);
-                                self.translate_expr(array, offset_table, monomorph_env, st);
+                                self.translate_expr(index, offset_table, mono, st);
+                                self.translate_expr(array, offset_table, mono, st);
                                 self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
                             }
                             // TODO: allow tuples on LHS of assignment
@@ -1593,9 +1540,9 @@ impl Translator {
                     .statics
                     .solution_of_node(expr.node())
                     .unwrap()
-                    .subst(monomorph_env);
+                    .subst(mono);
                 let yields_value = expr_ty != SolvedType::Void && expr_ty != SolvedType::Never;
-                self.translate_expr(expr, offset_table, monomorph_env, st);
+                self.translate_expr(expr, offset_table, mono, st);
                 if !is_last_in_block_expression && yields_value {
                     self.emit(st, Instr::Pop); // CULPRIT
                 }
@@ -1609,7 +1556,7 @@ impl Translator {
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
             }
             StmtKind::Return(expr) => {
-                self.translate_expr(expr, offset_table, monomorph_env, st);
+                self.translate_expr(expr, offset_table, mono, st);
                 let ret_ty = self.statics.solution_of_node(expr.node()).unwrap();
                 if ret_ty == SolvedType::Void {
                     self.emit(st, Instr::ReturnVoid);
@@ -1623,21 +1570,21 @@ impl Translator {
                 let end_label = make_label("while_end");
 
                 self.emit(st, Line::Label(start_label.clone()));
-                self.translate_expr(cond, offset_table, monomorph_env, st);
+                self.translate_expr(cond, offset_table, mono, st);
                 self.emit(st, Instr::JumpIfFalse(end_label.clone()));
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
                 });
                 for statement in statements.iter() {
-                    self.translate_stmt(statement, false, offset_table, monomorph_env, st);
+                    self.translate_stmt(statement, false, offset_table, mono, st);
                 }
                 st.loop_stack.pop();
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
             }
             StmtKind::ForLoop(pat, iterable, statements) => {
-                self.translate_expr(iterable, offset_table, monomorph_env, st);
+                self.translate_expr(iterable, offset_table, mono, st);
                 // iterable.make_iterator()
                 let Some(Declaration::InterfaceDef(iterable_iface_def)) = self
                     .statics
@@ -1651,7 +1598,7 @@ impl Translator {
                 // println!("fn_make_iterator_ty: {}", fn_make_iterator_ty);
                 self.translate_iface_method_ap_helper(
                     st,
-                    monomorph_env,
+                    mono,
                     &iterable_iface_def,
                     0,
                     fn_make_iterator_ty,
@@ -1671,25 +1618,19 @@ impl Translator {
                     unreachable!()
                 };
                 let fn_next_ty = &self.statics.for_loop_next_types[&stmt.id];
-                self.translate_iface_method_ap_helper(
-                    st,
-                    monomorph_env,
-                    &iterator_iface_def,
-                    0,
-                    fn_next_ty,
-                );
+                self.translate_iface_method_ap_helper(st, mono, &iterator_iface_def, 0, fn_next_ty);
                 // check return value of iterator.next() and branch
                 self.emit(st, Instr::DeconstructVariant);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
                 self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 self.emit(st, Instr::JumpIfFalse(end_label_iter.clone()));
-                self.handle_pat_binding(pat, offset_table, st, monomorph_env);
+                self.handle_pat_binding(pat, offset_table, st, mono);
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label_break.clone(),
                 });
                 for statement in statements.iter() {
-                    self.translate_stmt(statement, false, offset_table, monomorph_env, st);
+                    self.translate_stmt(statement, false, offset_table, mono, st);
                 }
                 st.loop_stack.pop();
                 self.emit(st, Instr::Jump(start_label));
@@ -1814,12 +1755,12 @@ impl Translator {
         pat: &Rc<Pat>,
         locals: &OffsetTable,
         st: &mut TranslatorState,
-        monomorph_env: &MonomorphEnv,
+        mono: &MonomorphEnv,
     ) {
         match &*pat.kind {
             PatKind::Binding(_) => {
                 let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
-                let pat_ty = pat_ty.subst(monomorph_env);
+                let pat_ty = pat_ty.subst(mono);
 
                 if pat_ty != SolvedType::Void {
                     let idx = locals.get(&pat.id).unwrap();
@@ -1829,7 +1770,7 @@ impl Translator {
             PatKind::Tuple(pats) => {
                 self.emit(st, Instr::DeconstructStruct);
                 for pat in pats.iter() {
-                    self.handle_pat_binding(pat, locals, st, monomorph_env);
+                    self.handle_pat_binding(pat, locals, st, mono);
                 }
             }
             PatKind::Variant(_prefixes, _, inner) => {
@@ -1838,14 +1779,14 @@ impl Translator {
                 };
                 if let Some(inner) = inner {
                     let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
-                    let pat_ty = pat_ty.subst(monomorph_env);
+                    let pat_ty = pat_ty.subst(mono);
 
                     if pat_ty != SolvedType::Void {
                         // unpack tag and associated data
                         self.emit(st, Instr::DeconstructVariant);
                         // pop tag
                         self.emit(st, Instr::Pop);
-                        self.handle_pat_binding(inner, locals, st, monomorph_env);
+                        self.handle_pat_binding(inner, locals, st, mono);
                     } else {
                         void_case();
                     }
@@ -1986,26 +1927,21 @@ impl Translator {
         }
     }
 
-    fn collect_locals_pat(
-        &self,
-        pat: &Rc<Pat>,
-        locals: &mut HashSet<NodeId>,
-        monomorph_env: &MonomorphEnv,
-    ) {
+    fn collect_locals_pat(&self, pat: &Rc<Pat>, locals: &mut HashSet<NodeId>, mono: &MonomorphEnv) {
         match &*pat.kind {
             PatKind::Binding(_) => {
-                let ty = self.get_ty(monomorph_env, pat.node()).unwrap();
+                let ty = self.get_ty(mono, pat.node()).unwrap();
                 if ty != SolvedType::Void {
                     locals.insert(pat.id);
                 }
             }
             PatKind::Tuple(pats) => {
                 for pat in pats {
-                    self.collect_locals_pat(pat, locals, monomorph_env);
+                    self.collect_locals_pat(pat, locals, mono);
                 }
             }
             PatKind::Variant(_prefixes, _, Some(inner)) => {
-                self.collect_locals_pat(inner, locals, monomorph_env);
+                self.collect_locals_pat(inner, locals, mono);
             }
             PatKind::Variant(_prefixes, _, None) => {}
             PatKind::Void
@@ -2205,7 +2141,7 @@ fn make_label(hint: &str) -> Label {
 
 fn idx_of_field(
     statics: &StaticsContext,
-    monomorph_env: &MonomorphEnv,
+    mono: &MonomorphEnv,
     accessed: &Rc<Expr>,
     field_name: &str,
 ) -> u16 {
@@ -2219,11 +2155,7 @@ fn idx_of_field(
                 if field.name.v == field_name {
                     return index as u16;
                 }
-                let field_ty = field
-                    .ty
-                    .to_solved_type(statics)
-                    .unwrap()
-                    .subst(monomorph_env);
+                let field_ty = field.ty.to_solved_type(statics).unwrap().subst(mono);
                 if field_ty != SolvedType::Void {
                     index += 1;
                 }
