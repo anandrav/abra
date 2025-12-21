@@ -4,7 +4,6 @@
 
 A 64-bit signed integer.
 Supports addition, subtraction, multiplication, division, and exponentiation operators.
-
 ```
 let a = 5
 let b = 2 + 2   // 4
@@ -44,7 +43,7 @@ let name = "Merlin"
 let message = name & " is a wizard." // "Merlin is a wizard."
 ```
 
-### array<T>
+### array&lt;T&gt;
 
 A built-in dynamic array data structure. Supports random access (zero-indexed), pushing, and popping elements.
 Arrays are homogenous; elements of the array must have the same type i.e. an array cannot mix `int` and `float`

@@ -5,7 +5,6 @@ src = "src"
 title = "The Abra Programming Language"
 
 [output.html]
-chapter-numbering = false
 default-theme = "light"
 preferred-dark-theme = "ayu"
 git-repository-url = "https://github.com/anandrav/abra"
