@@ -71,6 +71,7 @@ pub enum Instr {
     PushInt(AbraInt),
     PushFloat(String),
     PushString(String),
+    PushAddr(Label),
 
     // Arithmetic
     AddInt(Reg, Reg, Reg),
@@ -151,7 +152,7 @@ pub enum Instr {
     SetField(u16, Reg),
     GetIndex(Reg, Reg),
     SetIndex(Reg, Reg),
-    MakeClosure { func_addr: Label },
+    MakeClosure(u16),
 
     ArrayPush(Reg, Reg),
     ArrayPushIntImm(Reg, AbraInt),
@@ -349,6 +350,7 @@ impl Display for Instr {
             Instr::PushInt(n) => write!(f, "push_int {n}"),
             Instr::PushFloat(n) => write!(f, "push_float {n}"),
             Instr::PushString(s) => write!(f, "push_string {:?}", s),
+            Instr::PushAddr(addr) => write!(f, "push_addr {addr}"),
             Instr::Jump(loc) => write!(f, "jump {loc}"),
             Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
             Instr::JumpIfFalse(loc) => write!(f, "jump_if_false {loc}"),
@@ -372,8 +374,8 @@ impl Display for Instr {
             Instr::SetField(index, offset) => write!(f, "set_field {index} {offset}"),
             Instr::GetIndex(reg1, reg2) => write!(f, "get_index {reg1} {reg2}"),
             Instr::SetIndex(reg1, reg2) => write!(f, "set_index {reg1} {reg2}"),
-            Instr::MakeClosure { func_addr } => {
-                write!(f, "make_closure {func_addr}")
+            Instr::MakeClosure(ncaptures) => {
+                write!(f, "make_closure {ncaptures}")
             }
             Instr::ArrayPush(reg1, reg2) => write!(f, "array_push {reg1} {reg2}"),
             Instr::ArrayPushIntImm(reg1, imm) => write!(f, "array_push_int_imm {reg1} {imm}"),
@@ -626,6 +628,7 @@ fn instr_to_vminstr(
         Instr::PushString(s) => {
             VmInstr::PushString(constants.string_constants.try_get_id(s).unwrap())
         }
+        Instr::PushAddr(label) => VmInstr::PushAddr(ProgramCounter::new(label_to_idx[label])),
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIfFalse(label) => VmInstr::JumpIfFalse(ProgramCounter::new(label_to_idx[label])),
@@ -650,12 +653,7 @@ fn instr_to_vminstr(
         Instr::GetIndex(reg1, reg2) => VmInstr::GetIndex(reg1.encode(), reg2.encode()),
         Instr::SetIndex(reg1, reg2) => VmInstr::SetIndex(reg1.encode(), reg2.encode()),
         Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag: *tag },
-        Instr::MakeClosure { func_addr } => {
-            // dbg!(func_addr);
-            VmInstr::MakeClosure {
-                func_addr: ProgramCounter::new(label_to_idx[func_addr]),
-            }
-        }
+        Instr::MakeClosure(ncaptures) => VmInstr::MakeClosure(*ncaptures),
         Instr::ArrayPush(reg1, reg2) => VmInstr::ArrayPush(reg1.encode(), reg2.encode()),
         Instr::ArrayPushIntImm(reg1, imm) => VmInstr::ArrayPushIntImm(
             reg1.encode(),

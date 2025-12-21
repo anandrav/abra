@@ -445,12 +445,8 @@ impl Translator {
                 }
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
                     let name = &self.statics.fully_qualified_names[&f.name.id];
-                    self.emit(
-                        st,
-                        Instr::MakeClosure {
-                            func_addr: name.clone(),
-                        },
-                    );
+                    self.emit(st, Instr::PushAddr(name.clone()));
+                    self.emit(st, Instr::MakeClosure(0));
                 }
 
                 Declaration::FreeFunction(_)
@@ -896,7 +892,8 @@ impl Translator {
                 let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
                 // TODO: captures must be gathered from the body, loaded onto stack. MakeClosure instr should take number of captures
-                self.emit(st, Instr::MakeClosure { func_addr: label });
+                self.emit(st, Instr::PushAddr(label.clone()));
+                self.emit(st, Instr::MakeClosure(0)); // TODO: do number of captures here
             }
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);

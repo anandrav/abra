@@ -430,6 +430,7 @@ pub enum Instr {
     PushInt(u32),
     PushFloat(u32),
     PushString(u32),
+    PushAddr(ProgramCounter),
 
     // Arithmetic
     AddInt(u16, u16, u16),
@@ -518,7 +519,7 @@ pub enum Instr {
     GetIndex(u16, u16),
     SetIndex(u16, u16),
 
-    MakeClosure { func_addr: ProgramCounter },
+    MakeClosure(u16),
 
     ArrayPush(u16, u16),
     ArrayPushIntImm(u16, u16),
@@ -1019,6 +1020,9 @@ impl Vm {
                 let s = self.static_strings[idx as usize];
                 self.push(s);
             }
+            Instr::PushAddr(addr) => {
+                self.push(addr);
+            }
             Instr::Pop => {
                 self.pop();
             }
@@ -1377,7 +1381,9 @@ impl Vm {
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallFuncObj(nargs) => {
-                let addr = self.pop_addr();
+                let top = self.pop();
+                let func_obj = top.get_struct(self);
+                let addr = func_obj.get_fields()[0].get_addr(self);
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
@@ -1386,6 +1392,9 @@ impl Vm {
 
                 self.pc = addr;
                 self.stack_base = self.value_stack.len();
+
+                // captured values
+                self.value_stack.extend(func_obj.get_fields()[1..].iter());
             }
             Instr::Return(nargs) => {
                 let idx = self.stack_base - nargs as usize;
@@ -1467,8 +1476,8 @@ impl Vm {
             Instr::ConstructVariant { tag } => {
                 self.construct_variant(tag);
             }
-            Instr::MakeClosure { func_addr } => {
-                self.push(func_addr);
+            Instr::MakeClosure(ncaptures) => {
+                self.construct_struct(ncaptures as usize + 1);
             }
             Instr::ArrayPush(reg1, reg2) => {
                 let rvalue = self.load_offset_or_top(reg2);
