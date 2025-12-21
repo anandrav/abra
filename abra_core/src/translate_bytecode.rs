@@ -423,22 +423,28 @@ impl Translator {
                         self.emit(st, Instr::PushString("\n".to_owned()));
                     }
                     _ => {
+                        // TODO: need wrappers for all builtin operations
                         unimplemented!()
                     }
                 },
-                Declaration::InterfaceOutputType { .. } | Declaration::BuiltinType(_) => {
-                    unreachable!()
-                }
-                Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
+
+                Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
+                | Declaration::MemberFunction(f) => {
+                    // TODO: what if the function is overloaded?
+                    unimplemented!();
                     let name = &self.statics.fully_qualified_names[&f.name.id];
                     self.emit(st, Instr::PushAddr(name.clone()));
                     self.emit(st, Instr::MakeClosure(0));
                 }
 
-                Declaration::FreeFunction(_)
-                | Declaration::InterfaceMethod { .. }
-                | Declaration::MemberFunction { .. } => unimplemented!(),
+                Declaration::InterfaceMethod { iface, method } => {
+                    // TODO: this should be disallowed. Cannot be done dynamically at this time.
+                    unimplemented!()
+                }
 
+                // TODO: need wrappers for all host functions and foreign functions. Should be a single instruction
+                Declaration::FreeFunction(FuncResolutionKind::Host(_)) => unimplemented!(),
+                Declaration::FreeFunction(FuncResolutionKind::_Foreign { .. }) => unimplemented!(),
                 Declaration::Struct(_)
                 | Declaration::Enum { .. }
                 | Declaration::InterfaceDef(_) => {
@@ -450,7 +456,10 @@ impl Translator {
                     // ^^^^^
                 }
 
-                Declaration::Array | Declaration::Polytype(_) => {
+                Declaration::Array
+                | Declaration::Polytype(_)
+                | Declaration::InterfaceOutputType { .. }
+                | Declaration::BuiltinType(_) => {
                     unreachable!()
                 }
             },
@@ -1527,7 +1536,7 @@ impl Translator {
                                 self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
                             }
                             // TODO: allow tuples on LHS of assignment
-                            _ => unimplemented!(), // TODO: unimplemented ??. What if the user put an expression here that shouldn't be?
+                            _ => unreachable!(),
                         }
                     }
                 }
