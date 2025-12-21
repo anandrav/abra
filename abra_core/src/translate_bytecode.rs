@@ -13,7 +13,7 @@ use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::{_print_node, Declaration, PolytypeDeclaration, TypeProv};
+use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
@@ -365,8 +365,6 @@ impl Translator {
                     let mut locals = HashSet::default();
                     self.collect_locals_expr(body, &mut locals, &monomorph_env);
                     let locals_count = locals.len();
-                    // println!("locals_count: {}", locals_count);
-                    // dbg!(&locals);
                     let mut locals_and_args = locals.clone();
                     let mut arg_ids = HashSet::default();
                     for (arg_ident, _) in args.iter().rev() {
@@ -377,13 +375,10 @@ impl Translator {
                     }
                     locals_and_args.extend(arg_ids);
                     let mut captures = locals_and_args.clone();
-                    self.collect_captures_expr(body, &mut captures, &monomorph_env); // TODO: re-enable
-                    let mut captures: HashSet<_> =
+                    self.collect_captures_expr(body, &mut captures, &monomorph_env);
+                    let captures: HashSet<_> =
                         captures.difference(&locals_and_args).cloned().collect();
-                    // captures.clear(); // TODO: re-enable
                     let captures_count = captures.len();
-                    // println!("captures_count: {}", captures_count);
-                    // dbg!(&captures);
                     self.emit(st, Instr::PushNil(locals_count as u16));
                     let mut offset_table = OffsetTable::default();
                     let mut arg_index = 0;
@@ -396,7 +391,6 @@ impl Translator {
                             arg_index += 1;
                         }
                     }
-                    // TODO: captures must come first on the stack! First do captures then do locals. Easy!
                     for (i, capture) in captures.iter().enumerate() {
                         offset_table.entry(*capture).or_insert(i as i16);
                     }
@@ -897,7 +891,7 @@ impl Translator {
                 }
                 self.emit(st, Line::Label(end_label));
             }
-            ExprKind::AnonymousFunction(args, ret, body) => {
+            ExprKind::AnonymousFunction(args, _, body) => {
                 let func_ty = self.statics.solution_of_node(expr.node()).unwrap();
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
@@ -915,36 +909,29 @@ impl Translator {
                 let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
                 // TODO: when everything is settled fix the code duplication for collecting captures etc:
-
-                // TODO: captures must be gathered from the body, loaded onto stack. MakeClosure instr should take number of captures
                 let mut locals = HashSet::default();
-                self.collect_locals_expr(body, &mut locals, &monomorph_env);
-                let locals_count = locals.len();
-                // println!("locals_count: {}", locals_count);
-                // dbg!(&locals);
+                self.collect_locals_expr(body, &mut locals, monomorph_env);
                 let mut locals_and_args = locals.clone();
                 let mut arg_ids = HashSet::default();
                 for (arg_ident, _) in args.iter().rev() {
-                    let arg_ty = self.get_ty(&monomorph_env, arg_ident.node()).unwrap();
+                    let arg_ty = self.get_ty(monomorph_env, arg_ident.node()).unwrap();
                     if arg_ty != SolvedType::Void {
                         arg_ids.insert(arg_ident.id);
                     }
                 }
                 locals_and_args.extend(arg_ids);
                 let mut captures = locals_and_args.clone();
-                self.collect_captures_expr(body, &mut captures, &monomorph_env); // TODO: re-enable
-                let mut captures: HashSet<_> =
-                    captures.difference(&locals_and_args).cloned().collect();
-                // captures.clear(); // TODO: re-enable
+                self.collect_captures_expr(body, &mut captures, monomorph_env);
+                let captures: HashSet<_> = captures.difference(&locals_and_args).cloned().collect();
                 let captures_count = captures.len();
 
                 for capture in captures {
                     let offs = offset_table.get(&capture).unwrap();
-                    self.emit(st, Instr::LoadOffset(*offs)); // TODO re-enable
+                    self.emit(st, Instr::LoadOffset(*offs));
                 }
 
                 self.emit(st, Instr::PushAddr(label.clone()));
-                self.emit(st, Instr::MakeClosure(captures_count as u16)); // TODO: do number of captures here
+                self.emit(st, Instr::MakeClosure(captures_count as u16));
             }
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
@@ -2058,13 +2045,13 @@ impl Translator {
         mono: &MonomorphEnv,
     ) {
         match &*expr.kind {
-            ExprKind::Variable(s) => {
-                if let Some(ty) = self.get_ty(mono, expr.node()) {
-                    if ty != SolvedType::Void {
-                        let decl = &self.statics.resolution_map[&expr.id];
-                        if let Declaration::Var(node) = decl {
-                            captures.insert(node.id());
-                        }
+            ExprKind::Variable(_) => {
+                if let Some(ty) = self.get_ty(mono, expr.node())
+                    && ty != SolvedType::Void
+                {
+                    let decl = &self.statics.resolution_map[&expr.id];
+                    if let Declaration::Var(node) = decl {
+                        captures.insert(node.id());
                     }
                 }
             }
@@ -2075,7 +2062,6 @@ impl Translator {
             }
             ExprKind::Match(_, arms) => {
                 for arm in arms {
-                    self.collect_captures_pat(&arm.pat, captures, mono);
                     self.collect_captures_stmt(&arm.stmt, captures, mono);
                 }
             }
@@ -2157,8 +2143,7 @@ impl Translator {
                 StmtKind::Expr(expr) => {
                     self.collect_captures_expr(expr, locals, mono);
                 }
-                StmtKind::Let(_, pat, expr) => {
-                    self.collect_captures_pat(&pat.0, locals, mono);
+                StmtKind::Let(_, _, expr) => {
                     self.collect_captures_expr(expr, locals, mono);
                 }
                 StmtKind::Assign(_, _, expr) => {
@@ -2174,8 +2159,7 @@ impl Translator {
                         self.collect_captures_stmt(statement, locals, mono);
                     }
                 }
-                StmtKind::ForLoop(pat, iterable, statements) => {
-                    self.collect_captures_pat(pat, locals, mono);
+                StmtKind::ForLoop(_, iterable, statements) => {
                     self.collect_captures_expr(iterable, locals, mono);
                     for statement in statements {
                         self.collect_captures_stmt(statement, locals, mono);
@@ -2183,37 +2167,6 @@ impl Translator {
                 }
             }
         }
-    }
-
-    fn collect_captures_pat(
-        &self,
-        pat: &Rc<Pat>,
-        locals: &mut HashSet<NodeId>,
-        monomorph_env: &MonomorphEnv,
-    ) {
-        // match &*pat.kind {
-        //     PatKind::Binding(_) => {
-        //         let ty = self.get_ty(monomorph_env, pat.node());
-        //         if ty != SolvedType::Void {
-        //             locals.insert(pat.id);
-        //         }
-        //     }
-        //     PatKind::Tuple(pats) => {
-        //         for pat in pats {
-        //             self.collect_captures_pat(pat, locals, monomorph_env);
-        //         }
-        //     }
-        //     PatKind::Variant(_prefixes, _, Some(inner)) => {
-        //         self.collect_captures_pat(inner, locals, monomorph_env);
-        //     }
-        //     PatKind::Variant(_prefixes, _, None) => {}
-        //     PatKind::Void
-        //     | PatKind::Bool(..)
-        //     | PatKind::Int(..)
-        //     | PatKind::Float(..)
-        //     | PatKind::Str(..)
-        //     | PatKind::Wildcard => {}
-        // }
     }
 }
 

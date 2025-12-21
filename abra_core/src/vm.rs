@@ -1386,8 +1386,7 @@ impl Vm {
                 let addr = func_obj
                     .get_fields()
                     .iter()
-                    .rev()
-                    .next()
+                    .next_back()
                     .unwrap()
                     .get_addr(self);
                 self.call_stack.push(CallFrame {
@@ -1865,10 +1864,6 @@ impl Vm {
 
     pub(crate) fn pop_bool(&mut self) -> bool {
         self.pop().get_bool(self)
-    }
-
-    fn pop_addr(&mut self) -> ProgramCounter {
-        self.pop().get_addr(self)
     }
 }
 
