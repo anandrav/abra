@@ -110,10 +110,6 @@ pub struct ErrorSummary {
 }
 
 impl ErrorSummary {
-    fn msg(msg: String) -> Self {
-        Self { msg, more: None }
-    }
-
     pub fn emit(&self) {
         eprintln!("{}", self.msg);
         if let Some((file_db, errors)) = &self.more {
