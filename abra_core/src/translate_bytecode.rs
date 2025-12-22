@@ -426,7 +426,7 @@ impl Translator {
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
                 | Declaration::MemberFunction(f) => {
                     let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-                    println!("(translator) type of `{}` is {}", f.name.v, func_ty);
+                    // println!("(translator) type of `{}` is {}", f.name.v, func_ty);
                     // self.statics.solution_of_node(expr.node()).unwrap();
                     let overload_ty = if !func_ty.is_overloaded() {
                         None
@@ -944,11 +944,11 @@ impl Translator {
             self.handle_func_call(st, mono, None, f_fully_qualified_name, f);
         } else {
             let func_instance_ty = self.get_ty(mono, func_node).unwrap();
-            println!(
-                "({f_fully_qualified_name}) func_instance_ty: {}",
-                func_instance_ty
-            );
-            println!("({f_fully_qualified_name}) mono: {:?}", mono);
+            // println!(
+            //     "({f_fully_qualified_name}) func_instance_ty: {}",
+            //     func_instance_ty
+            // );
+            // println!("({f_fully_qualified_name}) mono: {:?}", mono);
             self.handle_func_call(st, mono, Some(func_instance_ty), f_fully_qualified_name, f);
         }
     }
@@ -1675,7 +1675,7 @@ impl Translator {
         func_def: &Rc<FuncDef>,
     ) {
         if let Some(overload_ty) = &overload_ty {
-            println!("overload_ty is {}", overload_ty);
+            // println!("overload_ty is {}", overload_ty);
             assert!(overload_ty.monotype().is_some());
         }
         let desc = FuncDesc {

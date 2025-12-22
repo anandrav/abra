@@ -181,7 +181,7 @@ impl BuiltinOperation {
             BuiltinOperation::ArrayPush => {
                 let a = TypeVar::make_poly(
                     reason.clone(),
-                    PolytypeDeclaration::Builtin(*self, "a".to_string()),
+                    PolytypeDeclaration::BuiltinOperation(*self, "a".to_string()), // TODO: rename this and others to "T"
                 );
                 TypeVar::make_func(
                     vec![
@@ -196,7 +196,7 @@ impl BuiltinOperation {
             BuiltinOperation::ArrayLength => {
                 let a = TypeVar::make_poly(
                     reason.clone(),
-                    PolytypeDeclaration::Builtin(*self, "a".to_string()),
+                    PolytypeDeclaration::BuiltinOperation(*self, "a".to_string()),
                 );
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(
@@ -212,7 +212,7 @@ impl BuiltinOperation {
             BuiltinOperation::ArrayPop => {
                 let a = TypeVar::make_poly(
                     reason.clone(),
-                    PolytypeDeclaration::Builtin(*self, "a".to_string()),
+                    PolytypeDeclaration::BuiltinOperation(*self, "a".to_string()),
                 );
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(

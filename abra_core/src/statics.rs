@@ -223,9 +223,10 @@ pub(crate) enum FuncResolutionKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum PolytypeDeclaration {
-    InterfaceSelf(Rc<InterfaceDef>),   // `Self`
-    Ordinary(Rc<Polytype>),            // `a`
-    Builtin(BuiltinOperation, String), // `a` in array_push: array<a> -> void
+    InterfaceSelf(Rc<InterfaceDef>),            // `Self`
+    Ordinary(Rc<Polytype>),                     // `T` in `struct Car<T>` in source code
+    ArrayArg, // `T` in `struct array<T> = ` if that was actually in the source
+    BuiltinOperation(BuiltinOperation, String), // `T` in `fn array_push(arr: array<T>) -> void` if that was actually in the source
 }
 
 // TODO: this is weird

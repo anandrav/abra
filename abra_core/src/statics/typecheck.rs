@@ -255,6 +255,22 @@ impl Nominal {
             Self::Array => "array",
         }
     }
+
+    pub(crate) fn ty_args(&self) -> Vec<PolytypeDeclaration> {
+        match self {
+            Self::Struct(struct_def) => struct_def
+                .ty_args
+                .iter()
+                .map(|a| PolytypeDeclaration::Ordinary(a.clone()))
+                .collect(),
+            Self::Enum(enum_def) => enum_def
+                .ty_args
+                .iter()
+                .map(|a| PolytypeDeclaration::Ordinary(a.clone()))
+                .collect(),
+            Self::Array => vec![PolytypeDeclaration::ArrayArg],
+        }
+    }
 }
 
 impl SolvedType {
@@ -327,7 +343,8 @@ impl SolvedType {
         match self {
             Self::Poly(polyty) => match polyty {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
-                PolytypeDeclaration::Builtin(op, _) => matches!(
+                PolytypeDeclaration::ArrayArg => true,
+                PolytypeDeclaration::BuiltinOperation(op, _) => matches!(
                     op,
                     BuiltinOperation::ArrayPush
                         | BuiltinOperation::ArrayPop
@@ -1033,7 +1050,8 @@ impl PolytypeDeclaration {
             PolytypeDeclaration::InterfaceSelf(iface) => {
                 vec![InterfaceConstraint::new(iface.clone(), vec![])]
             }
-            PolytypeDeclaration::Builtin(_, _) => vec![],
+            PolytypeDeclaration::ArrayArg => vec![],
+            PolytypeDeclaration::BuiltinOperation(_, _) => vec![],
             PolytypeDeclaration::Ordinary(polyty) => interfaces_helper(ctx, &polyty.interfaces),
         }
     }
@@ -2093,9 +2111,9 @@ fn generate_constraints_expr(
                     Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => {
                         let fnode = func_def.name.node();
                         let func_ty = TypeVar::from_node(ctx, fnode.clone());
-                        println!("ty of func `{}` is {}", func_def.name.v, func_ty);
+                        // println!("ty of func `{}` is {}", func_def.name.v, func_ty);
                         let inst = func_ty.instantiate(ctx, polyvar_scope, expr.node());
-                        println!("instantiated `{}` is {}", func_def.name.v, inst);
+                        // println!("instantiated `{}` is {}", func_def.name.v, inst);
                         Some(inst)
                     }
                     Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
@@ -2135,8 +2153,6 @@ fn generate_constraints_expr(
                     }
                     Declaration::InterfaceDef(..)
                     | Declaration::InterfaceOutputType { .. }
-                    | Declaration::Enum(_)
-                    | Declaration::Array
                     | Declaration::BuiltinType(_)
                     | Declaration::Polytype(_)
                     | Declaration::EnumVariant { .. }
@@ -2147,6 +2163,9 @@ fn generate_constraints_expr(
                             .push(Error::UnresolvedIdentifier { node: expr.node() });
                         None
                     }
+                    // these are used to access member functions
+                    // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
+                    Declaration::Enum(_) | Declaration::Array => None,
                 }
                 .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
@@ -2529,7 +2548,7 @@ fn generate_constraints_expr(
                                 match memfn_decl {
                                     Declaration::MemberFunction(func) => {
                                         let memfn_ty = TypeVar::from_node(ctx, func.name.node());
-                                        /* TODO: may need to do something like this:
+                                        /* TODO: definitely need to do something like this:
                                            (will probably need struct_def/enum_def of member function to get the ty_args)
                                            (not every polytype should be instantiated. some of them are known and shouldn't just be _)
                                         */
@@ -2643,7 +2662,44 @@ fn generate_constraints_expr(
                     accessed.node(),
                 );
                 constrain(ctx, &node_ty, &def_type);
-            } else {
+            }
+            // TODO: else if accessed resolves to some nominal type (struct or enum or array) try to get member function
+            // else if let Some(Declaration::EnumVariant {
+            //                        e: enum_def,
+            //                        variant: _,
+            //                    }) = ctx.resolution_map.get(&member_ident.id).cloned()
+            // {
+            //     // qualified enum with no associated data
+            //     let (def_type, _) = TypeVar::make_nominal_with_substitution(
+            //         ctx,
+            //         Reason::Node(accessed.node()),
+            //         Nominal::Enum(enum_def.clone()),
+            //         accessed.node(),
+            //     );
+            //     constrain(ctx, &node_ty, &def_type);
+            // }
+            // TODO: and do this stuff
+            /*
+
+                            if !resolved && let PotentialType::Nominal(_, nominal, ty_args) = &inner && let Some(Declaration::MemberFunction(memfn)) = ctx
+                .member_functions
+                .get(&(TypeKey::TyApp(nominal.clone()), member_ident.v.clone()))
+            {
+                let memfn_ty = TypeVar::from_node(ctx, memfn.name.node());
+                let mut substitution = Substitution::default();
+                let tydef_args = nominal.ty_args();
+                for (arg, value) in tydef_args.iter().zip(ty_args.iter()) {
+                    substitution.insert(
+                        arg.clone(),
+                        value.clone(),
+                    );
+                }
+                let memfn_ty = memfn_ty.subst(&substitution);
+                constrain(ctx, &node_ty, &memfn_ty);
+                resolved = true;
+            }
+             */
+            else {
                 // struct field access
                 generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, accessed);
                 let ty_accessed = TypeVar::from_node(ctx, accessed.node());
@@ -2655,9 +2711,14 @@ fn generate_constraints_expr(
                     return;
                 }
                 let Some(inner) = ty_accessed.single() else {
+                    ctx.errors.push(Error::MemberAccessNeedsAnnotation {
+                        node: accessed.node(),
+                    });
                     return;
                 };
-                if let PotentialType::Nominal(_, Nominal::Struct(struct_def), ty_args) = inner {
+                if let PotentialType::Nominal(_, nominal @ Nominal::Struct(struct_def), ty_args) =
+                    &inner
+                {
                     let mut resolved = false;
                     for field in &struct_def.fields {
                         if field.name.v == *member_ident.v {
@@ -2676,11 +2737,8 @@ fn generate_constraints_expr(
                             // println!("ty of self: {}", ty_accessed);
                             // println!("ty_field: {}", ty_field);
                             let mut substitution = Substitution::default();
-                            for (arg, value) in struct_def.ty_args.iter().zip(ty_args.iter()) {
-                                substitution.insert(
-                                    PolytypeDeclaration::Ordinary(arg.clone()),
-                                    value.clone(),
-                                );
+                            for (arg, value) in nominal.ty_args().iter().zip(ty_args.iter()) {
+                                substitution.insert(arg.clone(), value.clone());
                             }
                             let ty_field = ty_field.subst(&substitution);
                             // println!("ty_field after: {}", ty_field);
@@ -2696,7 +2754,7 @@ fn generate_constraints_expr(
                 } else {
                     ctx.errors.push(Error::MemberAccessNeedsStruct {
                         node: accessed.node(),
-                    });
+                    })
                 }
             }
         }
@@ -3286,7 +3344,8 @@ impl Display for PotentialType {
                             }
                         }
                     }
-                    PolytypeDeclaration::Builtin(_, name) => write!(f, "{}", name)?,
+                    PolytypeDeclaration::ArrayArg => write!(f, "T")?,
+                    PolytypeDeclaration::BuiltinOperation(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => write!(f, "Self")?,
                 }
 
@@ -3360,7 +3419,8 @@ impl Display for SolvedType {
                             }
                         }
                     }
-                    PolytypeDeclaration::Builtin(_, name) => write!(f, "{}", name)?,
+                    PolytypeDeclaration::ArrayArg => write!(f, "T")?,
+                    PolytypeDeclaration::BuiltinOperation(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => {
                         write!(f, "Self")?;
                     }
