@@ -976,7 +976,7 @@ impl Translator {
                 self.emit(st, Instr::MakeClosure(0));
             }
 
-            Declaration::InterfaceMethod { iface, method } => {
+            Declaration::InterfaceMethod { .. } => {
                 // TODO: this should be disallowed. Cannot be done dynamically at this time.
                 unimplemented!()
             }
