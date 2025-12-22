@@ -235,6 +235,7 @@ pub trait FileProvider {
 pub struct OsFileProvider {
     main_file_dir: PathBuf,
     standard_modules_dir: PathBuf,
+    import_dirs: Vec<PathBuf>,
     #[cfg(feature = "ffi")]
     dynamic_libraries_dir: PathBuf,
 }
@@ -243,13 +244,15 @@ impl OsFileProvider {
     pub fn new(
         main_file_dir: PathBuf,
         standard_modules_dir: PathBuf,
-        _dynamic_libraries_dir: PathBuf,
+        import_dirs: Vec<PathBuf>,
+        _shared_objects_dir: PathBuf,
     ) -> Box<Self> {
         Box::new(Self {
             main_file_dir,
             standard_modules_dir,
+            import_dirs,
             #[cfg(feature = "ffi")]
-            dynamic_libraries_dir: _dynamic_libraries_dir,
+            dynamic_libraries_dir: _shared_objects_dir,
         })
     }
 }
@@ -259,6 +262,16 @@ impl FileProvider for OsFileProvider {
         // look in dir of main file
         {
             let desired = self.main_file_dir.join(path);
+            if let Ok(contents) = std::fs::read_to_string(&desired) {
+                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
+            }
+        }
+
+        // TODO: files in dir of main file shadow those in modules. Emit an error if shadowing is detected when searching for a file
+        // TODO: let mut found = false; if already_found { report_shadowing_error }
+        // look in modules
+        for dir in &self.import_dirs {
+            let desired = dir.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
                 return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
             }

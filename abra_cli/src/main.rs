@@ -15,7 +15,7 @@ struct Args {
     file: String,
     modules: Option<String>,
     dynamic_libraries: Option<String>,
-    import_dir: Option<String>, // TODO: use this?
+    import_dir: Option<String>,
     assembly: bool,
     abra_program_args: Vec<String>,
 }
@@ -166,6 +166,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let mut import_dirs = vec![];
+    if let Some(import_dir) = args.import_dir {
+        import_dirs.push(PathBuf::from(import_dir));
+    }
+
     let main_file_dir = if main_file_path.is_absolute() {
         main_file_path.parent().unwrap()
     } else {
@@ -176,6 +181,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file_provider = OsFileProvider::new(
         main_file_dir.into(),
         standard_modules_dir,
+        import_dirs,
         dynamic_libraries_dir,
     );
 
