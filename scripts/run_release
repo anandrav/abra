@@ -2,5 +2,5 @@
 
 set -euo pipefail
 
-./target/release/abra -m modules -s target/release "$@"
+./target/release/abra --standard-modules modules --dynamic-libraries target/release "$@"
 

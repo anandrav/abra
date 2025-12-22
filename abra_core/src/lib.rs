@@ -234,22 +234,22 @@ pub trait FileProvider {
 #[derive(Default, Debug)]
 pub struct OsFileProvider {
     main_file_dir: PathBuf,
-    modules: PathBuf,
+    standard_modules_dir: PathBuf,
     #[cfg(feature = "ffi")]
-    shared_objects_dir: PathBuf,
+    dynamic_libraries_dir: PathBuf,
 }
 
 impl OsFileProvider {
     pub fn new(
         main_file_dir: PathBuf,
-        modules: PathBuf,
-        _shared_objects_dir: PathBuf,
+        standard_modules_dir: PathBuf,
+        _dynamic_libraries_dir: PathBuf,
     ) -> Box<Self> {
         Box::new(Self {
             main_file_dir,
-            modules,
+            standard_modules_dir,
             #[cfg(feature = "ffi")]
-            shared_objects_dir: _shared_objects_dir,
+            dynamic_libraries_dir: _dynamic_libraries_dir,
         })
     }
 }
@@ -268,7 +268,7 @@ impl FileProvider for OsFileProvider {
         // TODO: let mut found = false; if already_found { report_shadowing_error }
         // look in modules
         {
-            let desired = self.modules.join(path);
+            let desired = self.standard_modules_dir.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
                 return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
             }
@@ -282,7 +282,7 @@ impl FileProvider for OsFileProvider {
 
     #[cfg(feature = "ffi")]
     fn shared_objects_dir(&self) -> &PathBuf {
-        &self.shared_objects_dir
+        &self.dynamic_libraries_dir
     }
 }
 

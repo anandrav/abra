@@ -20,7 +20,7 @@ Arguments:
   [ARGS]...  Arguments to pass to the Abra program
 
 Options:
-  -m, --modules <DIRECTORY>  Override the default module directory (~/.abra/modules).
+  -m, --standard-modules <DIRECTORY>  Override the default module directory (~/.abra/modules).
   -h, --help                 Print help
   -V, --version              Print version
 
