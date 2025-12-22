@@ -392,7 +392,7 @@ extend array<T> {
         array_push(self, x)
     }
 
-    fn pop(self) -> void {
+    fn pop(self) -> T {
         array_pop(self)
     }
 

@@ -346,7 +346,9 @@ impl Translator {
                             self.translate_func_body_helper(st, &desc, func_ty, args, body);
                         }
                         FuncKind::BuiltinWrapper(b, func_node) => {
-                            self.emit_builtin(st, &mono, *b, func_node.clone());
+                            let label = st.func_map.get(&desc).unwrap();
+                            self.emit(st, Line::Label(label.clone()));
+                            self.emit_builtin(st, &mono, *b, func_node.clone(), true);
                         }
                     };
                 }
@@ -930,9 +932,16 @@ impl Translator {
                 }
             }
             Declaration::Builtin(b) => {
+                let func_ty = b.type_signature().solution().unwrap();
+                let overload_ty = if !func_ty.is_overloaded() {
+                    None
+                } else {
+                    let substituted_ty = self.get_ty(mono, ast_node.clone()).unwrap();
+                    Some(substituted_ty)
+                };
                 let desc = FuncDesc {
                     kind: FuncKind::BuiltinWrapper(*b, ast_node),
-                    overload_ty: None, // TODO: need an overload ty, it could be overloaded... Array push and Pop
+                    overload_ty,
                 };
                 let label = self.get_func_label(st, desc, &b.name());
                 self.emit(st, Instr::PushAddr(label.clone()));
@@ -1202,7 +1211,7 @@ impl Translator {
             Declaration::Enum { .. } => {
                 panic!("can't call enum name as ctor");
             }
-            Declaration::Builtin(b) => self.emit_builtin(st, mono, *b, func_node),
+            Declaration::Builtin(b) => self.emit_builtin(st, mono, *b, func_node, false),
             Declaration::InterfaceOutputType { .. }
             | Declaration::InterfaceDef(_)
             | Declaration::Array
@@ -1219,7 +1228,57 @@ impl Translator {
         mono: &MonomorphEnv,
         b: BuiltinOperation,
         func_node: AstNode,
+        for_function_body: bool, // if emitting builtin for a function body, load arguments and return value
     ) {
+        let nargs = match b {
+            BuiltinOperation::AddInt => 2,
+            BuiltinOperation::SubtractInt => 2,
+            BuiltinOperation::MultiplyInt => 2,
+            BuiltinOperation::DivideInt => 2,
+            BuiltinOperation::PowerInt => 2,
+            BuiltinOperation::Modulo => 2,
+            BuiltinOperation::SqrtInt => 1,
+            BuiltinOperation::AddFloat => 2,
+            BuiltinOperation::SubtractFloat => 2,
+            BuiltinOperation::MultiplyFloat => 2,
+            BuiltinOperation::DivideFloat => 2,
+            BuiltinOperation::PowerFloat => 2,
+            BuiltinOperation::SqrtFloat => 1,
+            BuiltinOperation::LessThanInt => 2,
+            BuiltinOperation::LessThanOrEqualInt => 2,
+            BuiltinOperation::GreaterThanInt => 2,
+            BuiltinOperation::GreaterThanOrEqualInt => 2,
+            BuiltinOperation::EqualInt => 2,
+            BuiltinOperation::LessThanFloat => 2,
+            BuiltinOperation::LessThanOrEqualFloat => 2,
+            BuiltinOperation::GreaterThanFloat => 2,
+            BuiltinOperation::GreaterThanOrEqualFloat => 2,
+            BuiltinOperation::EqualFloat => 2,
+            BuiltinOperation::EqualString => 2,
+            BuiltinOperation::IntToFloat => 1,
+            BuiltinOperation::FloatToInt => 1,
+            BuiltinOperation::IntToString => 1,
+            BuiltinOperation::FloatToString => 1,
+            BuiltinOperation::ConcatStrings => 2,
+            BuiltinOperation::ArrayPush => {
+                // TODO: code duplication, see inlining of array.push()
+                let Some(SolvedType::Function(args, _)) = self.get_ty(mono, func_node.clone())
+                else {
+                    unreachable!()
+                };
+                // second arg is element being pushed
+                let arg_ty = &args[1];
+                if *arg_ty == SolvedType::Void { 1 } else { 2 }
+            }
+            BuiltinOperation::ArrayLength => 1,
+            BuiltinOperation::ArrayPop => 1,
+            BuiltinOperation::Panic => 1,
+        };
+        if for_function_body {
+            for i in (0..nargs).rev() {
+                self.emit(st, Instr::LoadOffset(-i - 1));
+            }
+        }
         match b {
             BuiltinOperation::AddInt => {
                 self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
@@ -1319,14 +1378,13 @@ impl Translator {
             }
             BuiltinOperation::ArrayPush => {
                 // TODO: code duplication, see inlining of array.push()
-                let Some(SolvedType::Function(args, _)) =
-                    self.statics.solution_of_node(func_node.clone())
+                let Some(SolvedType::Function(args, _)) = self.get_ty(mono, func_node.clone())
                 else {
                     unreachable!()
                 };
                 // second arg is element being pushed
-                let arg_ty = args[1].subst(mono);
-                if arg_ty == SolvedType::Void {
+                let arg_ty = &args[1];
+                if *arg_ty == SolvedType::Void {
                     self.emit(st, Instr::PushNil(1));
                 }
                 self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
@@ -1349,6 +1407,13 @@ impl Translator {
             }
             BuiltinOperation::Panic => {
                 self.emit(st, Instr::Panic);
+            }
+        }
+        if for_function_body {
+            if nargs == 0 {
+                self.emit(st, Instr::ReturnVoid);
+            } else {
+                self.emit(st, Instr::Return(nargs as u32));
             }
         }
     }
@@ -1838,7 +1903,7 @@ impl Translator {
         &self,
         st: &mut TranslatorState,
         desc: FuncDesc,
-        func_name: &String,
+        func_name: &String, // TODO: instead of passing in func_name just get it from the FuncDesc.
     ) -> Label {
         let entry = st.func_map.entry(desc.clone());
         match entry {

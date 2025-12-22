@@ -220,7 +220,7 @@ impl BuiltinOperation {
                         Nominal::Array,
                         vec![a.clone()],
                     )],
-                    TypeVar::make_void(reason.clone()),
+                    a.clone(),
                     reason.clone(),
                 )
             }

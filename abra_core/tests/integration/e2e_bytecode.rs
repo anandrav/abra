@@ -1572,6 +1572,62 @@ f(123) .. arr.str()
 }
 
 #[test]
+fn builtin_operations_lambda1() {
+    let src = r#"
+let f = subtract_int
+let n = f(5, 3)
+n
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    let s = top.get_int(&vm);
+    assert_eq!(s, 2);
+}
+
+#[test]
+fn builtin_operations_lambda2() {
+    let src = r#"
+var s = ""
+
+let g = array_push
+let arr = [1, 2, 3]
+g(arr, 4)
+s = s .. arr
+
+let h = array_pop
+h(arr)
+s = s .. arr
+
+let g = array_push
+let arr = []
+g(arr, nil)
+s = s .. arr
+
+let h = array_pop
+h(arr)
+s = s .. arr
+
+s
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    let s = top.view_string(&vm);
+    assert_eq!(s, "[ 1, 2, 3, 4 ][ 1, 2, 3 ][ () ][  ]");
+}
+
+#[test]
 fn lambda_in_block() {
     let src = r#"
 { x -> x + 2 }(3)
