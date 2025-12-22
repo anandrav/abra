@@ -400,78 +400,13 @@ impl Translator {
         self.update_current_file_and_lineno(st, expr.node());
 
         match &*expr.kind {
-            ExprKind::Variable(_) => match &self.statics.resolution_map[&expr.id] {
-                Declaration::EnumVariant { variant, .. } => {
-                    self.emit(st, Instr::PushNil(1)); // TODO: optimize this away
-                    self.emit(
-                        st,
-                        Instr::ConstructVariant {
-                            tag: *variant as u16,
-                        },
-                    );
-                }
-                Declaration::Var(node) => {
-                    let expr_ty = self.statics.solution_of_node(expr.node()).unwrap();
-                    let expr_ty = expr_ty.subst(mono);
-                    if expr_ty != SolvedType::Void {
-                        let idx = offset_table.get(&node.id()).unwrap();
-                        self.emit(st, Instr::LoadOffset(*idx));
-                    }
-                }
-                Declaration::Builtin(b) => {
-                    // TODO: need wrappers for all builtin operations
-                    unimplemented!()
-                }
-
-                Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
-                | Declaration::MemberFunction(f) => {
-                    let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-                    // println!("(translator) type of `{}` is {}", f.name.v, func_ty);
-                    // self.statics.solution_of_node(expr.node()).unwrap();
-                    let overload_ty = if !func_ty.is_overloaded() {
-                        None
-                    } else {
-                        let substituted_ty = self.get_ty(mono, expr.node()).unwrap();
-                        Some(substituted_ty)
-                    };
-
-                    let func_name = &self.statics.fully_qualified_names[&f.name.id];
-                    let desc = FuncDesc {
-                        kind: FuncKind::NamedFunc(f.clone()),
-                        overload_ty: overload_ty.clone(),
-                    };
-
-                    let label = self.get_func_label(st, desc, &overload_ty, &func_name);
-                    self.emit(st, Instr::PushAddr(label.clone()));
-                    self.emit(st, Instr::MakeClosure(0));
-                }
-
-                Declaration::InterfaceMethod { iface, method } => {
-                    // TODO: this should be disallowed. Cannot be done dynamically at this time.
-                    unimplemented!()
-                }
-
-                // TODO: need wrappers for all host functions and foreign functions. Should be a single instruction
-                Declaration::FreeFunction(FuncResolutionKind::Host(_)) => unimplemented!(),
-                Declaration::FreeFunction(FuncResolutionKind::_Foreign { .. }) => unimplemented!(),
-                Declaration::Struct(_)
-                | Declaration::Enum { .. }
-                | Declaration::InterfaceDef(_) => {
-                    // noop, does not exist at runtime
-                    //
-                    // Person.fullname(my_person)
-                    // ^^^^^
-                    // Clone.clone(my_array)
-                    // ^^^^^
-                }
-
-                Declaration::Array
-                | Declaration::Polytype(_)
-                | Declaration::InterfaceOutputType { .. }
-                | Declaration::BuiltinType(_) => {
-                    unreachable!()
-                }
-            },
+            ExprKind::Variable(_) => self.translate_declaration(
+                &self.statics.resolution_map[&expr.id],
+                expr.node(),
+                offset_table,
+                mono,
+                st,
+            ),
             ExprKind::MemberAccessLeadingDot(ident) => match self.statics.resolution_map[&ident.id]
             {
                 Declaration::EnumVariant { variant, .. } => {
@@ -822,6 +757,17 @@ impl Translator {
                             tag: *variant as u16,
                         },
                     );
+                } else if let Some(Declaration::MemberFunction(..)) =
+                    &self.statics.resolution_map.get(&field_name.id)
+                {
+                    // member function
+                    self.translate_declaration(
+                        &self.statics.resolution_map[&field_name.id],
+                        field_name.node(),
+                        offset_table,
+                        mono,
+                        st,
+                    );
                 } else {
                     let expr_ty = self
                         .statics
@@ -926,6 +872,90 @@ impl Translator {
                     .unwrap();
                 mono.update(&ret_ty, &expr_ty);
                 self.translate_func_ap(func_decl, f.name.node(), offset_table, mono, st);
+            }
+        }
+    }
+
+    fn translate_declaration(
+        &self,
+        decl: &Declaration,
+        ast_node: AstNode,
+        offset_table: &OffsetTable,
+        mono: &MonomorphEnv,
+        st: &mut TranslatorState,
+    ) {
+        match decl {
+            Declaration::EnumVariant { variant, .. } => {
+                self.emit(st, Instr::PushNil(1)); // TODO: optimize this away
+                self.emit(
+                    st,
+                    Instr::ConstructVariant {
+                        tag: *variant as u16,
+                    },
+                );
+            }
+            Declaration::Var(node) => {
+                let expr_ty = self.statics.solution_of_node(ast_node).unwrap();
+                let expr_ty = expr_ty.subst(mono);
+                if expr_ty != SolvedType::Void {
+                    let idx = offset_table.get(&node.id()).unwrap();
+                    self.emit(st, Instr::LoadOffset(*idx));
+                }
+            }
+            Declaration::Builtin(b) => {
+                // TODO: need wrappers for all builtin operations
+                unimplemented!()
+            }
+
+            Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
+            | Declaration::MemberFunction(f) => {
+                let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+                // println!("(translator) type of `{}` is {}", f.name.v, func_ty);
+                // self.statics.solution_of_node(expr.node()).unwrap();
+                let overload_ty = if !func_ty.is_overloaded() {
+                    None
+                } else {
+                    let substituted_ty = self.get_ty(mono, ast_node).unwrap();
+                    Some(substituted_ty)
+                };
+
+                let func_name = &self.statics.fully_qualified_names[&f.name.id];
+                let desc = FuncDesc {
+                    kind: FuncKind::NamedFunc(f.clone()),
+                    overload_ty: overload_ty.clone(),
+                };
+
+                let label = self.get_func_label(st, desc, &overload_ty, func_name);
+                self.emit(st, Instr::PushAddr(label.clone()));
+                self.emit(st, Instr::MakeClosure(0));
+            }
+
+            Declaration::InterfaceMethod { iface, method } => {
+                // TODO: this should be disallowed. Cannot be done dynamically at this time.
+                unimplemented!()
+            }
+
+            // TODO: need wrappers for all host functions and foreign functions. Should be a single instruction
+            Declaration::FreeFunction(FuncResolutionKind::Host(_)) => unimplemented!(),
+            Declaration::FreeFunction(FuncResolutionKind::_Foreign { .. }) => unimplemented!(),
+            Declaration::Struct(_)
+            | Declaration::Enum { .. }
+            | Declaration::Array
+            | Declaration::InterfaceDef(_) => {
+                // noop, does not exist at runtime
+                //
+                // Person.fullname(my_person)
+                // ^^^^^
+                // Clone.clone(my_array)
+                // ^^^^^
+                // array.push
+                // ^^^^^
+            }
+
+            Declaration::Polytype(_)
+            | Declaration::InterfaceOutputType { .. }
+            | Declaration::BuiltinType(_) => {
+                unreachable!()
             }
         }
     }
@@ -1457,6 +1487,8 @@ impl Translator {
                                 }
                                 // struct member assignment
                                 ExprKind::MemberAccess(accessed, field_name) => {
+                                    // TODO: if member function is being accessed, that should be disallowed earlier by the compiler
+                                    // for instance, Person.fullname = (p: Person) -> "hello world". Should not be allowed.
                                     self.translate_expr(rvalue, offset_table, mono, st);
                                     self.translate_expr(accessed, offset_table, mono, st);
                                     let idx =

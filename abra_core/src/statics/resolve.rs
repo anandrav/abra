@@ -792,8 +792,16 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         }
         ExprKind::MemberAccess(expr, field) => {
             resolve_names_expr(ctx, symbol_table, expr);
-
-            resolve_names_member_helper(ctx, expr, field);
+            // TODO simplify
+            if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned()
+                && let Some(nominal) = decl.nominal()
+            {
+                if matches!(nominal, Nominal::Enum(..)) {
+                    resolve_names_member_helper(ctx, expr, field);
+                }
+            } else {
+                resolve_names_member_helper(ctx, expr, field);
+            }
         }
         ExprKind::MemberAccessLeadingDot(_ident) => {
             // do nothing

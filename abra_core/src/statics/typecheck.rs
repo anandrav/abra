@@ -2663,21 +2663,37 @@ fn generate_constraints_expr(
                 );
                 constrain(ctx, &node_ty, &def_type);
             }
-            // TODO: else if accessed resolves to some nominal type (struct or enum or array) try to get member function
-            // else if let Some(Declaration::EnumVariant {
-            //                        e: enum_def,
-            //                        variant: _,
-            //                    }) = ctx.resolution_map.get(&member_ident.id).cloned()
-            // {
-            //     // qualified enum with no associated data
-            //     let (def_type, _) = TypeVar::make_nominal_with_substitution(
-            //         ctx,
-            //         Reason::Node(accessed.node()),
-            //         Nominal::Enum(enum_def.clone()),
-            //         accessed.node(),
-            //     );
-            //     constrain(ctx, &node_ty, &def_type);
-            // }
+            // TODO: else if accessed resolves to some nominal type (struct or enum or array) try to resolve member_ident to a member function
+            else if let Some(decl) = ctx.resolution_map.get(&accessed.id).cloned()
+                && let Some(nominal) = decl.nominal()
+            {
+                // accessing member function of some nominal type
+                if let Some(Declaration::MemberFunction(memfn)) = ctx
+                    .member_functions
+                    .get(&(TypeKey::TyApp(nominal.clone()), member_ident.v.clone()))
+                {
+                    ctx.resolution_map
+                        .insert(member_ident.id, Declaration::MemberFunction(memfn.clone()));
+                    let memfn_ty = TypeVar::from_node(ctx, memfn.name.node());
+                    // let mut substitution = Substitution::default();
+                    // let tydef_args = nominal.ty_args();
+                    // for (arg, value) in tydef_args.iter().zip(ty_args.iter()) {
+                    //     substitution.insert(
+                    //         arg.clone(),
+                    //         value.clone(),
+                    //     );
+                    // }
+                    // let memfn_ty = memfn_ty.subst(&substitution);
+                    let memfn_ty = memfn_ty.instantiate(ctx, polyvar_scope, expr.node());
+                    constrain(ctx, &node_ty, &memfn_ty);
+                    let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
+                    constrain(ctx, &node_ty, &member_ident_ty);
+                } else {
+                    ctx.errors.push(Error::UnresolvedIdentifier {
+                        node: member_ident.node(),
+                    })
+                }
+            }
             // TODO: and do this stuff
             /*
 

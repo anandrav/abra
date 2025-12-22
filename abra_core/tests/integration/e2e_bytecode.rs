@@ -1546,6 +1546,32 @@ Person.fullname(p) .. " " .. Color.shout(Color.Red)
 }
 
 #[test]
+fn member_functions_lambda() {
+    let src = r#"
+fn foo(x: T ToString) {
+  ToString.str(x)
+}
+
+let f = foo
+let g = array.push
+
+let arr = [1, 2, 3, 4]
+g(arr, 5)
+f(123) .. arr.str()
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    let s = top.view_string(&vm);
+    assert_eq!(s, "123[ 1, 2, 3, 4, 5 ]");
+}
+
+#[test]
 fn interface_method_fully_qualified() {
     let src = r#"
 let blah = 12345

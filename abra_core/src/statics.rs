@@ -196,18 +196,28 @@ pub(crate) enum Declaration {
         ty: Rc<InterfaceOutputType>,
     },
     Enum(Rc<EnumDef>),
+    // alternatively, add helper functions to check if it's a data type and to extract the NodeId from the particular declaration
+    Struct(Rc<StructDef>),
+    Array,
+    BuiltinType(BuiltinType), // TODO: why isn't Array part of BuiltinType
     EnumVariant {
         e: Rc<EnumDef>,
         variant: usize,
     },
-    // alternatively, add helper functions to check if it's a data type and to extract the NodeId from the particular declaration
-    Struct(Rc<StructDef>),
-    Array,
-    // BuiltinType(BuiltinType),
     Builtin(BuiltinOperation),
-    BuiltinType(BuiltinType),
     Var(AstNode),
     Polytype(PolytypeDeclaration),
+}
+
+impl Declaration {
+    fn nominal(self) -> Option<Nominal> {
+        Some(match self {
+            Self::Enum(e) => Nominal::Enum(e),
+            Self::Struct(s) => Nominal::Struct(s),
+            Self::Array => Nominal::Array,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
