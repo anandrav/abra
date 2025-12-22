@@ -24,13 +24,13 @@ strum_macros = "0.27.2"
 utils = { workspace = true }
 
 [dev-dependencies]
-criterion = { version = "0.7.0", default-features = false, features = [
+criterion = { version = "0.8.1", default-features = false, features = [
     "html_reports",
     "plotters",
     "cargo_bench_support",
 ] }
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-criterion = { version = "0.7.0", features = ["rayon"] }
+criterion = { version = "0.8.1", features = ["rayon"] }
 
 [[bench]]
 name = "vm"
