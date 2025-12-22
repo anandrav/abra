@@ -774,35 +774,23 @@ arr.len()
 }
 
 #[test]
-fn array_push_nil() {
+fn array_of_nils() {
     let src = r#"
-let arr = []
-arr.push(nil)
-arr.push(nil)
-arr.push(nil)
-arr.len()
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
-}
+let s = ""
 
-#[test]
-fn array_pop_nil() {
-    let src = r#"
-let arr = []
+let arr = [nil, nil, nil]
+s = s .. arr
+
 arr.push(nil)
 arr.push(nil)
-arr.push(nil)
-arr.push(nil)
+s = s .. arr
+
 arr.pop()
 arr.pop()
-arr.len()
+arr.pop()
+s = s .. arr
+
+s
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -811,7 +799,10 @@ arr.len()
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    assert_eq!(
+        top.view_string(&vm),
+        "[ nil, nil, nil ][ nil, nil, nil, nil, nil ][ nil, nil ]"
+    );
 }
 
 #[test]
@@ -1624,7 +1615,7 @@ s
     vm.run();
     let top = vm.top();
     let s = top.view_string(&vm);
-    assert_eq!(s, "[ 1, 2, 3, 4 ][ 1, 2, 3 ][ () ][  ]");
+    assert_eq!(s, "[ 1, 2, 3, 4 ][ 1, 2, 3 ][ nil ][  ]");
 }
 
 #[test]

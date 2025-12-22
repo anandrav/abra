@@ -186,7 +186,7 @@ implement ToString for string {
 	fn str(s) = s
 }
 implement ToString for void {
-	fn str(s) = "()"
+	fn str(s) = "nil"
 }
 implement ToString for int {
 	fn str(n) = int_to_string(n)

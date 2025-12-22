@@ -375,7 +375,7 @@ impl Translator {
             mono.update(&func_ty, overload_ty);
         }
 
-        let label = st.func_map.get(&desc).unwrap();
+        let label = st.func_map.get(desc).unwrap();
         self.emit(st, Line::Label(label.clone()));
 
         let (arg_ids, captures, locals) =
@@ -729,7 +729,7 @@ impl Translator {
                     | ExprKind::FuncAp(..)
                     | ExprKind::AnonymousFunction(..) => {
                         self.translate_expr(func, offset_table, mono, st);
-                        self.translate_lambda_ap(st, offset_table, mono, func.node());
+                        self.translate_lambda_ap(st, mono, func.node());
                     }
                 };
             }
@@ -813,6 +813,11 @@ impl Translator {
             ExprKind::Array(exprs) => {
                 for expr in exprs {
                     self.translate_expr(expr, offset_table, mono, st);
+                }
+                if let Some(expr) = exprs.first()
+                    && self.get_ty(mono, expr.node()).unwrap() == SolvedType::Void
+                {
+                    self.emit(st, Instr::PushNil(exprs.len() as u16));
                 }
                 self.emit(st, Instr::ConstructArray(exprs.len() as u16));
             }
@@ -1001,13 +1006,7 @@ impl Translator {
         }
     }
 
-    fn translate_lambda_ap(
-        &self,
-        st: &mut TranslatorState,
-        offset_table: &OffsetTable,
-        mono: &MonomorphEnv,
-        node: AstNode,
-    ) {
+    fn translate_lambda_ap(&self, st: &mut TranslatorState, mono: &MonomorphEnv, node: AstNode) {
         let Some(SolvedType::Function(args, _)) = self.statics.solution_of_node(node.clone())
         else {
             unreachable!()
@@ -1104,7 +1103,7 @@ impl Translator {
                 // assume it's a function object
                 let idx = offset_table.get(&node.id()).unwrap();
                 self.emit(st, Instr::LoadOffset(*idx));
-                self.translate_lambda_ap(st, offset_table, mono, node.clone());
+                self.translate_lambda_ap(st, mono, node.clone());
             }
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];

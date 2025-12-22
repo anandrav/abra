@@ -16,11 +16,11 @@ fn test_ffi() {
         stdout_str,
         r#"35
 false
-()
+nil
 mystring
 23
 true
-()
+nil
 another
 yet another
 (true, 2, 3)
