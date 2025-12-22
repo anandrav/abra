@@ -41,6 +41,7 @@ struct FuncDesc {
 enum FuncKind {
     NamedFunc(Rc<FuncDef>),
     AnonymousFunc(Rc<Expr>),
+    BuiltinWrapper(BuiltinOperation, AstNode),
 }
 
 pub(crate) struct Translator {
@@ -331,54 +332,23 @@ impl Translator {
                         // println!("func_name = {}", f.name.v);
                     }
 
-                    let (func_ty, args, body) = match &desc.kind {
-                        FuncKind::NamedFunc(f) => (
-                            self.statics.solution_of_node(f.name.node()).unwrap(),
-                            &f.args,
-                            &f.body,
-                        ),
+                    match &desc.kind {
+                        FuncKind::NamedFunc(f) => {
+                            let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+                            self.translate_func_body_helper(st, &desc, func_ty, &f.args, &f.body);
+                        }
                         FuncKind::AnonymousFunc(e) => {
                             let ExprKind::AnonymousFunction(args, _, body) = &*e.kind else {
                                 unreachable!()
                             };
-                            (self.statics.solution_of_node(e.node()).unwrap(), args, body)
+
+                            let func_ty = self.statics.solution_of_node(e.node()).unwrap();
+                            self.translate_func_body_helper(st, &desc, func_ty, args, body);
+                        }
+                        FuncKind::BuiltinWrapper(b, func_node) => {
+                            self.emit_builtin(st, &mono, *b, func_node.clone());
                         }
                     };
-
-                    let mono = MonomorphEnv::empty();
-                    if let Some(overload_ty) = &desc.overload_ty {
-                        mono.update(&func_ty, overload_ty);
-                    }
-
-                    let label = st.func_map.get(&desc).unwrap();
-                    self.emit(st, Line::Label(label.clone()));
-
-                    let (arg_ids, captures, locals) =
-                        self.calculate_args_captures_locals(&desc.overload_ty, args, body, &mono);
-                    self.emit(st, Instr::PushNil(locals.len() as u16));
-                    let mut offset_table = OffsetTable::default();
-                    for (index, arg_id) in arg_ids.iter().enumerate() {
-                        offset_table.entry(*arg_id).or_insert(-(index as i16) - 1);
-                    }
-                    for (i, capture) in captures.iter().enumerate() {
-                        offset_table.entry(*capture).or_insert(i as i16);
-                    }
-                    for (i, local) in locals.iter().enumerate() {
-                        offset_table
-                            .entry(*local)
-                            .or_insert((i + captures.len()) as i16);
-                    }
-                    let nargs = arg_ids.len();
-                    st.return_stack.push(nargs as u32);
-                    self.translate_expr(body, &offset_table, &mono, st);
-                    st.return_stack.pop();
-
-                    let SolvedType::Function(_, out_ty) = func_ty else { unreachable!() };
-                    if *out_ty == SolvedType::Void {
-                        self.emit(st, Instr::ReturnVoid);
-                    } else {
-                        self.emit(st, Instr::Return(nargs as u32));
-                    }
                 }
             }
         }
@@ -388,6 +358,50 @@ impl Translator {
         st.lines = optimize(st.lines);
 
         st
+    }
+
+    fn translate_func_body_helper(
+        &self,
+        st: &mut TranslatorState,
+        desc: &FuncDesc,
+        func_ty: SolvedType,
+        args: &[ArgMaybeAnnotated],
+        body: &Rc<Expr>,
+    ) {
+        let mono = MonomorphEnv::empty();
+        if let Some(overload_ty) = &desc.overload_ty {
+            mono.update(&func_ty, overload_ty);
+        }
+
+        let label = st.func_map.get(&desc).unwrap();
+        self.emit(st, Line::Label(label.clone()));
+
+        let (arg_ids, captures, locals) =
+            self.calculate_args_captures_locals(&desc.overload_ty, args, body, &mono);
+        self.emit(st, Instr::PushNil(locals.len() as u16));
+        let mut offset_table = OffsetTable::default();
+        for (index, arg_id) in arg_ids.iter().enumerate() {
+            offset_table.entry(*arg_id).or_insert(-(index as i16) - 1);
+        }
+        for (i, capture) in captures.iter().enumerate() {
+            offset_table.entry(*capture).or_insert(i as i16);
+        }
+        for (i, local) in locals.iter().enumerate() {
+            offset_table
+                .entry(*local)
+                .or_insert((i + captures.len()) as i16);
+        }
+        let nargs = arg_ids.len();
+        st.return_stack.push(nargs as u32);
+        self.translate_expr(body, &offset_table, &mono, st);
+        st.return_stack.pop();
+
+        let SolvedType::Function(_, out_ty) = func_ty else { unreachable!() };
+        if *out_ty == SolvedType::Void {
+            self.emit(st, Instr::ReturnVoid);
+        } else {
+            self.emit(st, Instr::Return(nargs as u32));
+        }
     }
 
     fn translate_expr(
@@ -851,7 +865,7 @@ impl Translator {
                     overload_ty: overload_ty.clone(),
                 };
 
-                let label = self.get_func_label(st, desc, &overload_ty, &func_name);
+                let label = self.get_func_label(st, desc, &func_name);
 
                 let (_, captures, _locals) =
                     self.calculate_args_captures_locals(&overload_ty, args, body, mono);
@@ -916,8 +930,13 @@ impl Translator {
                 }
             }
             Declaration::Builtin(b) => {
-                // TODO: need wrappers for all builtin operations
-                unimplemented!()
+                let desc = FuncDesc {
+                    kind: FuncKind::BuiltinWrapper(*b, ast_node),
+                    overload_ty: None, // TODO: need an overload ty, it could be overloaded... Array push and Pop
+                };
+                let label = self.get_func_label(st, desc, &b.name());
+                self.emit(st, Instr::PushAddr(label.clone()));
+                self.emit(st, Instr::MakeClosure(0));
             }
 
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
@@ -938,7 +957,7 @@ impl Translator {
                     overload_ty: overload_ty.clone(),
                 };
 
-                let label = self.get_func_label(st, desc, &overload_ty, func_name);
+                let label = self.get_func_label(st, desc, func_name);
                 self.emit(st, Instr::PushAddr(label.clone()));
                 self.emit(st, Instr::MakeClosure(0));
             }
@@ -1183,143 +1202,153 @@ impl Translator {
             Declaration::Enum { .. } => {
                 panic!("can't call enum name as ctor");
             }
-            Declaration::Builtin(b) => match b {
-                BuiltinOperation::AddInt => {
-                    self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::SubtractInt => {
-                    self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::MultiplyInt => {
-                    self.emit(st, Instr::MulInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::DivideInt => {
-                    self.emit(st, Instr::DivInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::PowerInt => {
-                    self.emit(st, Instr::PowInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::Modulo => {
-                    self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::SqrtInt => {
-                    self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::AddFloat => {
-                    self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::SubtractFloat => {
-                    self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::MultiplyFloat => {
-                    self.emit(st, Instr::MulFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::DivideFloat => {
-                    self.emit(st, Instr::DivFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::PowerFloat => {
-                    self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::SqrtFloat => {
-                    self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::LessThanInt => {
-                    self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::LessThanOrEqualInt => {
-                    self.emit(st, Instr::LessThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::GreaterThanInt => {
-                    self.emit(st, Instr::GreaterThanInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::GreaterThanOrEqualInt => {
-                    self.emit(
-                        st,
-                        Instr::GreaterThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top),
-                    );
-                }
-                BuiltinOperation::EqualInt => {
-                    self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::LessThanFloat => {
-                    self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::LessThanOrEqualFloat => {
-                    self.emit(
-                        st,
-                        Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
-                    );
-                }
-                BuiltinOperation::GreaterThanFloat => {
-                    self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::GreaterThanOrEqualFloat => {
-                    self.emit(
-                        st,
-                        Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
-                    );
-                }
-                BuiltinOperation::EqualFloat => {
-                    self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::EqualString => {
-                    self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::IntToFloat => {
-                    self.emit(st, Instr::IntToFloat(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::FloatToInt => {
-                    self.emit(st, Instr::FloatToInt(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::IntToString => {
-                    self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::FloatToString => {
-                    self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::ConcatStrings => {
-                    self.emit(st, Instr::ConcatStrings(Reg::Top, Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::ArrayPush => {
-                    // TODO: code duplication, see inlining of array.push()
-                    let Some(SolvedType::Function(args, _)) =
-                        self.statics.solution_of_node(func_node.clone())
-                    else {
-                        unreachable!()
-                    };
-                    // second arg is element being pushed
-                    let arg_ty = args[1].subst(mono);
-                    if arg_ty == SolvedType::Void {
-                        self.emit(st, Instr::PushNil(1));
-                    }
-                    self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::ArrayLength => {
-                    self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top));
-                }
-                BuiltinOperation::ArrayPop => {
-                    // TODO: code duplication, see inlining of array.pop()
-                    self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
-                    let Some(SolvedType::Function(_, ret)) =
-                        self.statics.solution_of_node(func_node.clone())
-                    else {
-                        unreachable!()
-                    };
-                    let ret_ty = ret.subst(mono);
-                    if ret_ty == SolvedType::Void {
-                        self.emit(st, Instr::Pop);
-                    }
-                }
-                BuiltinOperation::Panic => {
-                    self.emit(st, Instr::Panic);
-                }
-            },
+            Declaration::Builtin(b) => self.emit_builtin(st, mono, *b, func_node),
             Declaration::InterfaceOutputType { .. }
             | Declaration::InterfaceDef(_)
             | Declaration::Array
             | Declaration::Polytype(_)
             | Declaration::BuiltinType(_) => {
                 unreachable!()
+            }
+        }
+    }
+
+    fn emit_builtin(
+        &self,
+        st: &mut TranslatorState,
+        mono: &MonomorphEnv,
+        b: BuiltinOperation,
+        func_node: AstNode,
+    ) {
+        match b {
+            BuiltinOperation::AddInt => {
+                self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::SubtractInt => {
+                self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::MultiplyInt => {
+                self.emit(st, Instr::MulInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::DivideInt => {
+                self.emit(st, Instr::DivInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::PowerInt => {
+                self.emit(st, Instr::PowInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::Modulo => {
+                self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::SqrtInt => {
+                self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::AddFloat => {
+                self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::SubtractFloat => {
+                self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::MultiplyFloat => {
+                self.emit(st, Instr::MulFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::DivideFloat => {
+                self.emit(st, Instr::DivFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::PowerFloat => {
+                self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::SqrtFloat => {
+                self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::LessThanInt => {
+                self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::LessThanOrEqualInt => {
+                self.emit(st, Instr::LessThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::GreaterThanInt => {
+                self.emit(st, Instr::GreaterThanInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::GreaterThanOrEqualInt => {
+                self.emit(
+                    st,
+                    Instr::GreaterThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top),
+                );
+            }
+            BuiltinOperation::EqualInt => {
+                self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::LessThanFloat => {
+                self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::LessThanOrEqualFloat => {
+                self.emit(
+                    st,
+                    Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
+                );
+            }
+            BuiltinOperation::GreaterThanFloat => {
+                self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::GreaterThanOrEqualFloat => {
+                self.emit(
+                    st,
+                    Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
+                );
+            }
+            BuiltinOperation::EqualFloat => {
+                self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::EqualString => {
+                self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::IntToFloat => {
+                self.emit(st, Instr::IntToFloat(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::FloatToInt => {
+                self.emit(st, Instr::FloatToInt(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::IntToString => {
+                self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::FloatToString => {
+                self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::ConcatStrings => {
+                self.emit(st, Instr::ConcatStrings(Reg::Top, Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::ArrayPush => {
+                // TODO: code duplication, see inlining of array.push()
+                let Some(SolvedType::Function(args, _)) =
+                    self.statics.solution_of_node(func_node.clone())
+                else {
+                    unreachable!()
+                };
+                // second arg is element being pushed
+                let arg_ty = args[1].subst(mono);
+                if arg_ty == SolvedType::Void {
+                    self.emit(st, Instr::PushNil(1));
+                }
+                self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::ArrayLength => {
+                self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top));
+            }
+            BuiltinOperation::ArrayPop => {
+                // TODO: code duplication, see inlining of array.pop()
+                self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
+                let Some(SolvedType::Function(_, ret)) =
+                    self.statics.solution_of_node(func_node.clone())
+                else {
+                    unreachable!()
+                };
+                let ret_ty = ret.subst(mono);
+                if ret_ty == SolvedType::Void {
+                    self.emit(st, Instr::Pop);
+                }
+            }
+            BuiltinOperation::Panic => {
+                self.emit(st, Instr::Panic);
             }
         }
     }
@@ -1736,7 +1765,7 @@ impl Translator {
             kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),
         };
-        let label = self.get_func_label(st, desc, &overload_ty, func_name);
+        let label = self.get_func_label(st, desc, func_name);
         let is_func = |ty: &Option<SolvedType>, arg: SolvedType, out: SolvedType| {
             *ty == Some(SolvedType::Function(vec![arg], out.into()))
         };
@@ -1809,15 +1838,14 @@ impl Translator {
         &self,
         st: &mut TranslatorState,
         desc: FuncDesc,
-        overload_ty: &Option<Type>,
         func_name: &String,
     ) -> Label {
         let entry = st.func_map.entry(desc.clone());
         match entry {
             std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
             std::collections::hash_map::Entry::Vacant(v) => {
-                st.funcs_to_generate.push(desc);
-                let label = match overload_ty {
+                st.funcs_to_generate.push(desc.clone());
+                let label = match &desc.overload_ty {
                     None => func_name.clone(),
                     Some(overload_ty) => {
                         // println!("overload_ty {}, name {}", overload_ty, func_name);
