@@ -1572,6 +1572,21 @@ f(123) .. arr.str()
 }
 
 #[test]
+fn lambda_in_block() {
+    let src = r#"
+{ x -> x + 2 }(3)
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 5);
+}
+
+#[test]
 fn interface_method_fully_qualified() {
     let src = r#"
 let blah = 12345

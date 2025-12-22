@@ -674,12 +674,23 @@ impl Translator {
                 for arg in args {
                     self.translate_expr(arg, offset_table, mono, st);
                 }
-                let decl = match &*func.kind {
-                    ExprKind::Variable(_) => &self.statics.resolution_map[&func.id],
-                    ExprKind::MemberAccess(_prefix, ident) => {
-                        &self.statics.resolution_map[&ident.id]
+                match &*func.kind {
+                    ExprKind::Variable(_) => {
+                        let decl = &self.statics.resolution_map[&func.id];
+                        self.translate_func_ap(decl, func.node(), offset_table, mono, st);
                     }
-                    ExprKind::MemberAccessLeadingDot(..) => unimplemented!(),
+                    ExprKind::MemberAccess(_prefix, ident) => {
+                        let decl = &self.statics.resolution_map[&ident.id];
+                        self.translate_func_ap(decl, func.node(), offset_table, mono, st);
+                    }
+                    ExprKind::MemberAccessLeadingDot(fname) => {
+                        for arg in args {
+                            self.translate_expr(arg, offset_table, mono, st);
+                        }
+
+                        let decl = &self.statics.resolution_map[&fname.id];
+                        self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
+                    }
 
                     ExprKind::Nil
                     | ExprKind::Int(_)
@@ -687,22 +698,24 @@ impl Translator {
                     | ExprKind::Bool(_)
                     | ExprKind::Str(_)
                     | ExprKind::Array(_)
-                    | ExprKind::BinOp(..)
+                    | ExprKind::Tuple(..) => {
+                        unreachable!("lhs of FuncAp can't possibly be a function")
+                    }
+
+                    ExprKind::BinOp(..)
                     | ExprKind::Unop(..)
-                    | ExprKind::Tuple(..) => panic!("lhs of FuncAp not a function"),
-
-                    // TODO: shouldn't these all just be treated like a function object?
-                    ExprKind::MemberFuncAp(..) => unimplemented!(),
-                    ExprKind::Unwrap(..) => unimplemented!(),
-                    ExprKind::IfElse(_expr, _expr1, _expr2) => unimplemented!(),
-                    ExprKind::Match(_expr, _match_armss) => unimplemented!(),
-                    ExprKind::Block(_stmts) => unimplemented!(),
-                    ExprKind::IndexAccess(_expr, _expr1) => unimplemented!(),
-                    ExprKind::FuncAp(_expr, _exprs) => unimplemented!(),
-                    ExprKind::AnonymousFunction(_items, _, _expr) => unimplemented!(),
+                    | ExprKind::MemberFuncAp(..)
+                    | ExprKind::Unwrap(..)
+                    | ExprKind::IfElse(..)
+                    | ExprKind::Match(..)
+                    | ExprKind::Block(..)
+                    | ExprKind::IndexAccess(..)
+                    | ExprKind::FuncAp(..)
+                    | ExprKind::AnonymousFunction(..) => {
+                        self.translate_expr(func, offset_table, mono, st);
+                        self.translate_lambda_ap(st, offset_table, mono, func.node());
+                    }
                 };
-
-                self.translate_func_ap(decl, func.node(), offset_table, mono, st);
             }
             ExprKind::Block(statements) => {
                 for (i, statement) in statements.iter().enumerate() {
@@ -960,6 +973,25 @@ impl Translator {
         }
     }
 
+    fn translate_lambda_ap(
+        &self,
+        st: &mut TranslatorState,
+        offset_table: &OffsetTable,
+        mono: &MonomorphEnv,
+        node: AstNode,
+    ) {
+        let Some(SolvedType::Function(args, _)) = self.statics.solution_of_node(node.clone())
+        else {
+            unreachable!()
+        };
+        let nargs = args
+            .iter()
+            .map(|arg| arg.subst(mono))
+            .filter(|arg| *arg != SolvedType::Void)
+            .count();
+        self.emit(st, Instr::CallFuncObj(nargs as u32));
+    }
+
     // used for free functions and member functions
     fn translate_func_ap_helper(
         &self,
@@ -1041,20 +1073,10 @@ impl Translator {
     ) {
         match decl {
             Declaration::Var(node) => {
-                let Some(SolvedType::Function(args, _)) =
-                    self.statics.solution_of_node(node.clone())
-                else {
-                    unreachable!()
-                };
                 // assume it's a function object
                 let idx = offset_table.get(&node.id()).unwrap();
                 self.emit(st, Instr::LoadOffset(*idx));
-                let nargs = args
-                    .iter()
-                    .map(|arg| arg.subst(mono))
-                    .filter(|arg| *arg != SolvedType::Void)
-                    .count();
-                self.emit(st, Instr::CallFuncObj(nargs as u32));
+                self.translate_lambda_ap(st, offset_table, mono, node.clone());
             }
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
