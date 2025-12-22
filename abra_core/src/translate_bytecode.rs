@@ -425,10 +425,24 @@ impl Translator {
 
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
                 | Declaration::MemberFunction(f) => {
-                    // TODO: what if the function is overloaded?
-                    unimplemented!();
-                    let name = &self.statics.fully_qualified_names[&f.name.id];
-                    self.emit(st, Instr::PushAddr(name.clone()));
+                    let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+                    println!("(translator) type of `{}` is {}", f.name.v, func_ty);
+                    // self.statics.solution_of_node(expr.node()).unwrap();
+                    let overload_ty = if !func_ty.is_overloaded() {
+                        None
+                    } else {
+                        let substituted_ty = self.get_ty(mono, expr.node()).unwrap();
+                        Some(substituted_ty)
+                    };
+
+                    let func_name = &self.statics.fully_qualified_names[&f.name.id];
+                    let desc = FuncDesc {
+                        kind: FuncKind::NamedFunc(f.clone()),
+                        overload_ty: overload_ty.clone(),
+                    };
+
+                    let label = self.get_func_label(st, desc, &overload_ty, &func_name);
+                    self.emit(st, Instr::PushAddr(label.clone()));
                     self.emit(st, Instr::MakeClosure(0));
                 }
 
@@ -929,21 +943,13 @@ impl Translator {
         if !func_ty.is_overloaded() {
             self.handle_func_call(st, mono, None, f_fully_qualified_name, f);
         } else {
-            let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
-            // println!(
-            //     "({f_fully_qualified_name}) specific_func_ty: {}",
-            //     specific_func_ty
-            // );
-            let substituted_ty = specific_func_ty.subst(mono);
-            // println!(
-            //     "({f_fully_qualified_name}) substituted_ty: {}",
-            //     substituted_ty
-            // );
-            // println!(
-            //     "({f_fully_qualified_name}) mono: {:?}",
-            //     mono
-            // );
-            self.handle_func_call(st, mono, Some(substituted_ty), f_fully_qualified_name, f);
+            let func_instance_ty = self.get_ty(mono, func_node).unwrap();
+            println!(
+                "({f_fully_qualified_name}) func_instance_ty: {}",
+                func_instance_ty
+            );
+            println!("({f_fully_qualified_name}) mono: {:?}", mono);
+            self.handle_func_call(st, mono, Some(func_instance_ty), f_fully_qualified_name, f);
         }
     }
 
@@ -1669,6 +1675,7 @@ impl Translator {
         func_def: &Rc<FuncDef>,
     ) {
         if let Some(overload_ty) = &overload_ty {
+            println!("overload_ty is {}", overload_ty);
             assert!(overload_ty.monotype().is_some());
         }
         let desc = FuncDesc {

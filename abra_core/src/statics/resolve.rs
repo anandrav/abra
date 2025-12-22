@@ -717,6 +717,7 @@ fn resolve_symbol(
     if let Some(decl) = symbol_table.lookup_declaration(symbol) {
         ctx.resolution_map.insert(node.id(), decl.clone());
     } else {
+        println!("could not resolve {}", symbol);
         ctx.errors.push(Error::UnresolvedIdentifier { node });
     }
 }
@@ -827,7 +828,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: field.node() });
             }
-            Declaration::BuiltinType(_) | Declaration::Array => {
+            Declaration::BuiltinType(_) => {
                 // TODO: calling member functions on types like doing `array.len(my_array)` or `int.str(23)`
                 todo!()
             }
@@ -846,6 +847,17 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                     }
                 }
                 if !found {
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: field.node() });
+                }
+            }
+            Declaration::Array => {
+                if let Some(def) = ctx
+                    .member_functions
+                    .get(&(TypeKey::TyApp(Nominal::Array), field.v.clone()))
+                {
+                    ctx.resolution_map.insert(field.id, def.clone());
+                } else {
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }

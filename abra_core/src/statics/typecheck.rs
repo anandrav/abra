@@ -2091,7 +2091,12 @@ fn generate_constraints_expr(
                         Some(tyvar)
                     }
                     Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => {
-                        Some(TypeVar::from_node(ctx, func_def.name.node()))
+                        let fnode = func_def.name.node();
+                        let func_ty = TypeVar::from_node(ctx, fnode.clone());
+                        println!("ty of func `{}` is {}", func_def.name.v, func_ty);
+                        let inst = func_ty.instantiate(ctx, polyvar_scope, expr.node());
+                        println!("instantiated `{}` is {}", func_def.name.v, inst);
+                        Some(inst)
                     }
                     Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
                         Some(TypeVar::from_node(ctx, f.name.node()))
