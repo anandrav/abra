@@ -151,7 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         None => {
             let home_dir = home::home_dir().expect("Can't get home directory.");
-            home_dir.join(".abra/modules")
+            home_dir.join(".abra/abra/modules")
         }
     };
 

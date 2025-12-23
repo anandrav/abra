@@ -14,6 +14,7 @@ use crate::ast::{
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use crate::statics::typecheck::{Nominal, TypeKey};
+use cargo_metadata::MetadataCommand;
 use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::HashMap;
@@ -187,10 +188,13 @@ fn gather_declarations_item(
                     let func_name = func_decl.name.v.clone();
 
                     let mut path = _file.path.clone();
+                    // println!("first path is {}", path.to_str().unwrap());
                     let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+                    // TODO: what does this do is it necessary?
                     for _ in 0..elems.len() - 1 {
                         path = path.parent().unwrap().to_owned();
                     }
+                    // panic!("path = {}", path.to_str().unwrap());
                     let mut package_name = path
                         .iter()
                         .next_back()
@@ -210,12 +214,30 @@ fn gather_declarations_item(
                         package_name,
                         std::env::consts::DLL_SUFFIX
                     );
-                    let libname = ctx.file_provider.shared_objects_dir().join(filename);
+
+                    let manifest_path = path
+                        .parent()
+                        .unwrap()
+                        .join(&package_name)
+                        .join("rust_project")
+                        .join("Cargo.toml");
+                    let metadata = MetadataCommand::new()
+                        .manifest_path(manifest_path)
+                        .exec()
+                        .expect("Failed to run cargo metadata"); // TODO: don't call .expect(). Report a nice error if it fails
+
+                    #[cfg(debug_assertions)]
+                    let profile = "debug";
+                    #[cfg(not(debug_assertions))]
+                    let profile = "release";
+
+                    // TODO: ensure file at libname actually exists (because runtime will fail to load). If not, report compile-time error.
+                    let libname = metadata.target_directory.join(profile).join(filename);
 
                     let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
 
                     // add symbol to statics ctx
-                    let lib_id = ctx.dylibs.insert(libname.clone());
+                    let lib_id = ctx.dylibs.insert(libname.clone().into());
                     ctx.dylib_to_funcs
                         .entry(lib_id)
                         .or_default()
@@ -226,7 +248,7 @@ fn gather_declarations_item(
                         func_name,
                         Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                             decl: func_decl.clone(),
-                            libname,
+                            libname: libname.into(),
                             symbol,
                         }),
                     );

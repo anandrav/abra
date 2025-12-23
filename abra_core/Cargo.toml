@@ -15,6 +15,7 @@ path = "src/lib.rs"
 ffi = ["libloading"]
 
 [dependencies]
+cargo_metadata = "0.23.1" # TODO: make optional dependency, only needed when ffi is enabled
 codespan-reporting = "0.13.1"
 disjoint-sets = "0.4.2" # TODO: implement your own disjoint sets
 heck = "0.5.0"
