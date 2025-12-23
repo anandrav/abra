@@ -4,7 +4,8 @@
 
 use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_constants};
 use crate::ast::{
-    ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind,
+    ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDecl, FuncDef, InterfaceDef,
+    ItemKind,
 };
 use crate::ast::{FileAst, NodeId};
 use crate::builtin::BuiltinOperation;
@@ -21,6 +22,7 @@ use crate::{
     statics::StaticsContext,
 };
 use std::mem;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use utils::hash::HashMap;
@@ -42,6 +44,11 @@ enum FuncKind {
     NamedFunc(Rc<FuncDef>),
     AnonymousFunc(Rc<Expr>),
     BuiltinWrapper(BuiltinOperation, AstNode),
+    ForeignFunctionWrapper {
+        func_decl: Rc<FuncDecl>,
+        libname: PathBuf,
+        symbol: String,
+    },
 }
 
 pub(crate) struct Translator {
@@ -349,6 +356,16 @@ impl Translator {
                             let label = st.func_map.get(&desc).unwrap();
                             self.emit(st, Line::Label(label.clone()));
                             self.emit_builtin(st, &mono, *b, func_node.clone(), true);
+                        }
+                        FuncKind::ForeignFunctionWrapper {
+                            func_decl,
+                            libname,
+                            symbol,
+                        } => {
+                            // TODO this is duplicated 4x
+                            let label = st.func_map.get(&desc).unwrap();
+                            self.emit(st, Line::Label(label.clone()));
+                            self.emit_foreign(st, func_decl, libname, symbol, true);
                         }
                     };
                 }
@@ -983,7 +1000,23 @@ impl Translator {
 
             // TODO: need wrappers for all host functions and foreign functions. Should be a single instruction
             Declaration::FreeFunction(FuncResolutionKind::Host(_)) => unimplemented!(),
-            Declaration::FreeFunction(FuncResolutionKind::_Foreign { .. }) => unimplemented!(),
+            Declaration::FreeFunction(FuncResolutionKind::_Foreign {
+                decl: func_decl,
+                libname,
+                symbol,
+            }) => {
+                let desc = FuncDesc {
+                    kind: FuncKind::ForeignFunctionWrapper {
+                        func_decl: func_decl.clone(),
+                        libname: libname.clone(),
+                        symbol: symbol.clone(),
+                    },
+                    overload_ty: None,
+                };
+                let label = self.get_func_label(st, desc, &func_decl.name.v);
+                self.emit(st, Instr::PushAddr(label.clone()));
+                self.emit(st, Instr::MakeClosure(0));
+            }
             Declaration::Struct(_)
             | Declaration::Enum { .. }
             | Declaration::Array
@@ -1114,29 +1147,11 @@ impl Translator {
                 self.emit(st, Instr::HostFunc(idx));
             }
             Declaration::FreeFunction(FuncResolutionKind::_Foreign {
-                decl: _decl,
+                decl: func_decl,
                 libname,
                 symbol,
             }) => {
-                // by this point we should know the name of the .so file that this external function should be located in
-
-                // calling an external function just means
-                // (1) loading the .so file (preferably do this when the VM starts up)
-                // (2) locate the external function in this .so file by its symbol (preferably do this when VM starts up)
-                // (3) invoke the function, which should have signature fn(&mut Vm) -> ()
-
-                // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
-                // it just needs to contain an idx into an array of foreign functions
-
-                let lib_id = self.statics.dylibs.get_id(libname);
-
-                let mut offset = 0;
-                for i in 0..lib_id {
-                    offset += self.statics.dylib_to_funcs[&i].len();
-                }
-
-                let func_id = offset + self.statics.dylib_to_funcs[&lib_id].get_id(symbol) as usize;
-                self.emit(st, Instr::CallExtern(func_id as u32));
+                self.emit_foreign(st, func_decl, libname, symbol, false);
             }
             Declaration::InterfaceMethod {
                 iface: iface_def,
@@ -1408,6 +1423,51 @@ impl Translator {
                 self.emit(st, Instr::Panic);
             }
         }
+        if for_function_body {
+            if nargs == 0 {
+                self.emit(st, Instr::ReturnVoid);
+            } else {
+                self.emit(st, Instr::Return(nargs as u32));
+            }
+        }
+    }
+
+    fn emit_foreign(
+        &self,
+        st: &mut TranslatorState,
+        func_decl: &Rc<FuncDecl>,
+        libname: &PathBuf,
+        symbol: &String,
+        for_function_body: bool,
+    ) {
+        let args = self.calculate_args(&None, &func_decl.args, &MonomorphEnv::empty());
+        let nargs = args.len();
+        if for_function_body {
+            for i in (0..nargs).rev() {
+                self.emit(st, Instr::LoadOffset(-(i as i16) - 1));
+            }
+        }
+        // by this point we should know the name of the .so file that this external function should be located in
+
+        // calling an external function just means
+        // (1) loading the .so file (preferably do this when the VM starts up)
+        // (2) locate the external function in this .so file by its symbol (preferably do this when VM starts up)
+        // (3) invoke the function, which should have signature fn(&mut Vm) -> ()
+
+        // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
+        // it just needs to contain an idx into an array of foreign functions
+
+        let lib_id = self.statics.dylibs.get_id(libname);
+
+        let mut offset = 0;
+        for i in 0..lib_id {
+            offset += self.statics.dylib_to_funcs[&i].len();
+        }
+
+        let func_id = offset + self.statics.dylib_to_funcs[&lib_id].get_id(symbol) as usize;
+        self.emit(st, Instr::CallExtern(func_id as u32));
+
+        // TODO: small amount of code duplication
         if for_function_body {
             if nargs == 0 {
                 self.emit(st, Instr::ReturnVoid);
@@ -2141,6 +2201,21 @@ impl Translator {
         let mut locals = HashSet::default();
         self.collect_locals_expr(body, &mut locals, mono);
         let mut locals_and_args = locals.clone();
+        let arg_ids = self.calculate_args(overload_ty, args, mono);
+
+        locals_and_args.extend(arg_ids.clone());
+        let mut captures = locals_and_args.clone();
+        self.collect_captures_expr(body, &mut captures, mono);
+        let captures: HashSet<_> = captures.difference(&locals_and_args).cloned().collect();
+        (arg_ids, captures, locals)
+    }
+
+    fn calculate_args(
+        &self,
+        overload_ty: &Option<SolvedType>,
+        args: &[ArgMaybeAnnotated],
+        mono: &MonomorphEnv,
+    ) -> Vec<NodeId> {
         let mut arg_ids = Vec::default();
         match overload_ty {
             Some(overload_ty) => {
@@ -2162,11 +2237,7 @@ impl Translator {
             }
         }
 
-        locals_and_args.extend(arg_ids.clone());
-        let mut captures = locals_and_args.clone();
-        self.collect_captures_expr(body, &mut captures, mono);
-        let captures: HashSet<_> = captures.difference(&locals_and_args).cloned().collect();
-        (arg_ids, captures, locals)
+        arg_ids
     }
 
     fn collect_captures_expr(

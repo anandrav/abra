@@ -26,6 +26,7 @@ yet another
 (true, 2, 3)
 some
 [ 1, 2, 3, 4, 5, 6 ]
+true
 "#
     );
 }
