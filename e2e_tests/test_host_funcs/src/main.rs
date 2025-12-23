@@ -33,6 +33,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let top = vm.top();
     assert_eq!(top.get_int(&vm), 28);
 
+    // prevent warning
+    let _ = Color::Red;
+
     Ok(())
 }
 
