@@ -527,9 +527,7 @@ impl Translator {
                         &func_ty,
                     );
                 };
-                // TODO: this should all be wrapped up in a helper function to avoid forgetting to subst with mono
-                let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
-                let arg1_ty = arg1_ty.subst(mono);
+                let arg1_ty = self.get_ty(mono, left.node()).unwrap();
                 // inline primitive operations instead of performing a function call
                 match op {
                     BinaryOperator::Add => match arg1_ty {
@@ -2277,6 +2275,7 @@ impl Translator {
     ) {
         match &*expr.kind {
             ExprKind::Variable(_) => {
+                // TODO: why Some(ty) ? All nodes should have a type, even if that type is Type or Module or something.
                 if let Some(ty) = self.get_ty(mono, expr.node())
                     && ty != SolvedType::Void
                 {
