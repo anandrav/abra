@@ -188,13 +188,6 @@ fn gather_declarations_item(
                     let func_name = func_decl.name.v.clone();
 
                     let mut path = _file.path.clone();
-                    // println!("first path is {}", path.to_str().unwrap());
-                    let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
-                    // TODO: what does this do is it necessary?
-                    for _ in 0..elems.len() - 1 {
-                        path = path.parent().unwrap().to_owned();
-                    }
-                    // panic!("path = {}", path.to_str().unwrap());
                     let mut package_name = path
                         .iter()
                         .next_back()
@@ -238,6 +231,7 @@ fn gather_declarations_item(
                         }
                     };
 
+                    let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
                     let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
 
                     // add symbol to statics ctx
