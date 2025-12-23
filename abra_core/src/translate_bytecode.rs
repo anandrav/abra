@@ -46,6 +46,7 @@ impl FuncDesc {
             FuncKind::AnonymousFunc(_) => "<lambda>".to_string(),
             FuncKind::BuiltinWrapper(b, _) => b.name(),
             FuncKind::ForeignFunctionWrapper { func_decl, .. } => func_decl.name.v.clone(),
+            FuncKind::HostFunctionWrapper(f) => f.name.v.clone(),
         }
     }
 }
@@ -60,6 +61,7 @@ enum FuncKind {
         libname: PathBuf,
         symbol: String,
     },
+    HostFunctionWrapper(Rc<FuncDecl>),
 }
 
 pub(crate) struct Translator {
@@ -371,6 +373,9 @@ impl Translator {
                             symbol,
                         } => {
                             self.emit_foreign(st, func_decl, libname, symbol, true);
+                        }
+                        FuncKind::HostFunctionWrapper(f) => {
+                            self.emit_host(st, f, true);
                         }
                     };
                 }
@@ -999,9 +1004,15 @@ impl Translator {
                 // TODO: this should be disallowed. Cannot be done dynamically at this time.
                 unimplemented!()
             }
-
-            // TODO: need wrappers for all host functions and foreign functions. Should be a single instruction
-            Declaration::FreeFunction(FuncResolutionKind::Host(_)) => unimplemented!(),
+            Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
+                let desc = FuncDesc {
+                    kind: FuncKind::HostFunctionWrapper(f.clone()),
+                    overload_ty: None,
+                };
+                let label = self.get_func_label(st, desc, &f.name.v);
+                self.emit(st, Instr::PushAddr(label.clone()));
+                self.emit(st, Instr::MakeClosure(0));
+            }
             Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                 decl: func_decl,
                 libname,
@@ -1470,6 +1481,35 @@ impl Translator {
         self.emit(st, Instr::CallExtern(func_id as u32));
 
         // TODO: small amount of code duplication
+        if for_function_body {
+            if nargs == 0 {
+                self.emit(st, Instr::ReturnVoid);
+            } else {
+                self.emit(st, Instr::Return(nargs as u32));
+            }
+        }
+    }
+
+    // TODO: HERE
+    fn emit_host(
+        &self,
+        st: &mut TranslatorState,
+        func_decl: &Rc<FuncDecl>,
+        for_function_body: bool,
+    ) {
+        // TODO code duplication
+        let args = self.calculate_args(&None, &func_decl.args, &MonomorphEnv::empty());
+        let nargs = args.len();
+        if for_function_body {
+            for i in (0..nargs).rev() {
+                self.emit(st, Instr::LoadOffset(-(i as i16) - 1));
+            }
+        }
+
+        let idx = self.statics.host_funcs.get_id(func_decl) as u16;
+        self.emit(st, Instr::HostFunc(idx));
+
+        // TODO: code duplication
         if for_function_body {
             if nargs == 0 {
                 self.emit(st, Instr::ReturnVoid);

@@ -1,4 +1,7 @@
 use util
 
 let (x, y) = bar(2, 3)
-x + y
+let b = bar
+let (u, v) = b(4, 5)
+
+x + y + u + v

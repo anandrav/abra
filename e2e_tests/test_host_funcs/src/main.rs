@@ -23,6 +23,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let status = vm.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
+    handle_host_func(&mut vm, host_func_args);
+    vm.run();
+    let status = vm.status();
+    let VmStatus::PendingHostFunc(i) = status else { panic!() };
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
+    handle_host_func(&mut vm, host_func_args);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 28);
+
+    Ok(())
+}
+
+fn handle_host_func(vm: &mut Vm, host_func_args: HostFunctionArgs) {
     // TODO: flesh this out a bit more.
     // test single argument, multiple argument, no arguments
     // test void return value, single return value, tuple return value
@@ -44,13 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             panic!()
         }
         HostFunctionArgs::Bar(n1, n2) => {
-            HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(&mut vm);
+            HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(vm);
         }
     }
-    let _ = Color::Red;
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
-
-    Ok(())
 }
