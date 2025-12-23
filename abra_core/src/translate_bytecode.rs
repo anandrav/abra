@@ -39,6 +39,17 @@ struct FuncDesc {
     overload_ty: Option<SolvedType>,
 }
 
+impl FuncDesc {
+    fn unqualified_name(&self) -> String {
+        match &self.kind {
+            FuncKind::NamedFunc(f) => f.name.v.clone(),
+            FuncKind::AnonymousFunc(_) => "<lambda>".to_string(),
+            FuncKind::BuiltinWrapper(b, _) => b.name(),
+            FuncKind::ForeignFunctionWrapper { func_decl, .. } => func_decl.name.v.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum FuncKind {
     NamedFunc(Rc<FuncDef>),
@@ -334,11 +345,10 @@ impl Translator {
                 let mut iteration = Vec::new();
                 mem::swap(&mut (iteration), &mut st.funcs_to_generate);
                 for desc in iteration {
-                    if let FuncKind::NamedFunc(f) = &desc.kind {
-                        self.update_curr_function(st, &f.name.v);
-                        // println!("func_name = {}", f.name.v);
-                    }
+                    self.update_curr_function(st, &desc.unqualified_name());
 
+                    let label = st.func_map.get(&desc).unwrap();
+                    self.emit(st, Line::Label(label.clone()));
                     match &desc.kind {
                         FuncKind::NamedFunc(f) => {
                             let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
@@ -353,8 +363,6 @@ impl Translator {
                             self.translate_func_body_helper(st, &desc, func_ty, args, body);
                         }
                         FuncKind::BuiltinWrapper(b, func_node) => {
-                            let label = st.func_map.get(&desc).unwrap();
-                            self.emit(st, Line::Label(label.clone()));
                             self.emit_builtin(st, &mono, *b, func_node.clone(), true);
                         }
                         FuncKind::ForeignFunctionWrapper {
@@ -362,9 +370,6 @@ impl Translator {
                             libname,
                             symbol,
                         } => {
-                            // TODO this is duplicated 4x
-                            let label = st.func_map.get(&desc).unwrap();
-                            self.emit(st, Line::Label(label.clone()));
                             self.emit_foreign(st, func_decl, libname, symbol, true);
                         }
                     };
@@ -391,9 +396,6 @@ impl Translator {
         if let Some(overload_ty) = &desc.overload_ty {
             mono.update(&func_ty, overload_ty);
         }
-
-        let label = st.func_map.get(desc).unwrap();
-        self.emit(st, Line::Label(label.clone()));
 
         let (arg_ids, captures, locals) =
             self.calculate_args_captures_locals(&desc.overload_ty, args, body, &mono);
