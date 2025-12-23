@@ -255,7 +255,7 @@ impl Declaration {
             | Declaration::Var(_)
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. } => None,
-            Declaration::InterfaceOutputType { .. } => unimplemented!(),
+            Declaration::InterfaceOutputType { iface: _, ty } => Some(TypeKey::InterfaceOutput(ty)),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
             Declaration::Struct(struct_def) => Some(TypeKey::TyApp(Nominal::Struct(struct_def))),
             Declaration::Array => Some(TypeKey::TyApp(Nominal::Array)),

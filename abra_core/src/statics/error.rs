@@ -380,7 +380,7 @@ fn add_detail_for_decl(
         | Declaration::Struct(..)
         | Declaration::Polytype(..)
         | Declaration::Var(..) => {}
-        Declaration::InterfaceOutputType { .. } => unimplemented!(),
+        Declaration::InterfaceOutputType { .. } => unreachable!(), // TODO: this is sloppy
         Declaration::Builtin(builtin) => notes.push(format!(
             "`{}` is a builtin operation and cannot be re-declared",
             builtin.name()
@@ -391,6 +391,7 @@ fn add_detail_for_decl(
     };
 }
 
+// TODO this is sloppy
 fn add_detail_for_decl_node(
     labels: &mut Vec<Label<u32>>,
     decl: &Declaration,
@@ -419,7 +420,7 @@ fn add_detail_for_decl_node(
         },
 
         Declaration::Var(ast_node) => ast_node.clone(),
-        Declaration::InterfaceOutputType { .. } => unimplemented!(),
+        Declaration::InterfaceOutputType { iface: _, ty } => ty.name.node(),
         Declaration::Builtin(_) | Declaration::BuiltinType(_) | Declaration::Array => return false,
     };
     let (file, range) = node.get_file_and_range();
