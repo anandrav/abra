@@ -15,7 +15,6 @@ use crate::ast::{
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
-use std::path::PathBuf;
 use std::rc::Rc;
 use utils::hash::HashMap;
 
@@ -251,7 +250,7 @@ fn gather_declarations_item(
                         Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                             decl: func_decl.clone(),
                             libname: libname
-                                .unwrap_or(PathBuf::from("LIBNAME_COULD_NOT_BE_LOADED")),
+                                .unwrap_or(std::path::PathBuf::from("LIBNAME_COULD_NOT_BE_LOADED")),
                             symbol,
                         }),
                     );

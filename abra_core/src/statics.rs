@@ -279,6 +279,7 @@ pub(crate) enum Error {
     UnresolvedIdentifier {
         node: AstNode,
     },
+    #[cfg(feature = "ffi")]
     CantLocateDylib {
         node: AstNode,
         msg: String,
