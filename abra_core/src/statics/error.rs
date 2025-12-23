@@ -61,6 +61,11 @@ impl Error {
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
                 labels.push(Label::secondary(file, range))
             }
+            Error::CantLocateDylib { node, msg } => {
+                let (file, range) = node.get_file_and_range();
+                diagnostic = diagnostic.with_message(msg);
+                labels.push(Label::secondary(file, range))
+            }
             Error::UnresolvedMemberFunction {
                 receiver_node,
                 memfn_node,

@@ -3,3 +3,7 @@ let args = get_args()
 for arg in args {
   println(arg)
 }
+
+if args.is_empty() {
+  println("no args given")
+}

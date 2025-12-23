@@ -15,6 +15,7 @@ use crate::ast::{
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::rc::Rc;
 use utils::hash::HashMap;
 
@@ -52,9 +53,9 @@ fn gather_declarations_item(
     namespace: &mut Namespace,
     mut qualifiers: Vec<String>,
     _file: &Rc<FileAst>,
-    stmt: &Rc<Item>,
+    item: &Rc<Item>,
 ) {
-    match &*stmt.kind {
+    match &*item.kind {
         ItemKind::Stmt(..) => {}
         ItemKind::InterfaceDef(iface) => {
             namespace.add_declaration(
@@ -162,7 +163,7 @@ fn gather_declarations_item(
                 // TODO: consider relaxing this constraint
                 ctx.errors.push(Error::Generic {
                     msg: "function declaration cannot be #host and #foreign".to_string(),
-                    node: stmt.node(),
+                    node: item.node(),
                 });
                 return;
             }
@@ -221,38 +222,50 @@ fn gather_declarations_item(
                             break;
                         }
                     }
-                    let target_directory = target_directory.unwrap(); // TODO: don't unwrap here, emit an error if target directory can't be located
 
                     #[cfg(debug_assertions)]
                     let profile = "debug";
                     #[cfg(not(debug_assertions))]
                     let profile = "release";
 
-                    // TODO: ensure file at libname actually exists (because runtime will fail to load). If not, report compile-time error.
-                    let libname = target_directory.join(profile).join(filename);
+                    let libname = match target_directory {
+                        Some(target_directory) => {
+                            Some(target_directory.join(profile).join(filename))
+                        }
+                        None => {
+                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate target directory for `{}`. Was the native module compiled?", _file.path.display()) });
+                            None
+                        }
+                    };
 
                     let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
 
                     // add symbol to statics ctx
-                    let lib_id = ctx.dylibs.insert(libname.clone());
-                    ctx.dylib_to_funcs
-                        .entry(lib_id)
-                        .or_default()
-                        .insert(symbol.clone());
+                    if let Some(libname) = &libname {
+                        if !libname.exists() {
+                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate dynamic library `{}`. Was the native module compiled?", libname.display()) });
+                        }
+                        let lib_id = ctx.dylibs.insert(libname.clone());
+                        ctx.dylib_to_funcs
+                            .entry(lib_id)
+                            .or_default()
+                            .insert(symbol.clone());
+                    }
 
                     namespace.add_declaration(
                         ctx,
                         func_name,
                         Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                             decl: func_decl.clone(),
-                            libname,
+                            libname: libname
+                                .unwrap_or(PathBuf::from("LIBNAME_COULD_NOT_BE_LOADED")),
                             symbol,
                         }),
                     );
                 }
                 #[cfg(not(feature = "ffi"))]
                 {
-                    ctx.errors.push(Error::FfiNotEnabled(stmt.node()));
+                    ctx.errors.push(Error::FfiNotEnabled(item.node()));
                 }
             }
         }
@@ -736,7 +749,6 @@ fn resolve_symbol(
     if let Some(decl) = symbol_table.lookup_declaration(symbol) {
         ctx.resolution_map.insert(node.id(), decl.clone());
     } else {
-        println!("could not resolve {}", symbol);
         ctx.errors.push(Error::UnresolvedIdentifier { node });
     }
 }

@@ -279,6 +279,10 @@ pub(crate) enum Error {
     UnresolvedIdentifier {
         node: AstNode,
     },
+    CantLocateDylib {
+        node: AstNode,
+        msg: String,
+    },
     UnresolvedMemberFunction {
         receiver_node: AstNode,
         memfn_node: AstNode,
