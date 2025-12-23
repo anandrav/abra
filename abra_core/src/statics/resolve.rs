@@ -14,7 +14,6 @@ use crate::ast::{
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use crate::statics::typecheck::{Nominal, TypeKey};
-use cargo_metadata::MetadataCommand;
 use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::HashMap;
@@ -215,16 +214,14 @@ fn gather_declarations_item(
                         std::env::consts::DLL_SUFFIX
                     );
 
-                    let manifest_path = path
-                        .parent()
-                        .unwrap()
-                        .join(&package_name)
-                        .join("rust_project")
-                        .join("Cargo.toml");
-                    let metadata = MetadataCommand::new()
-                        .manifest_path(manifest_path)
-                        .exec()
-                        .expect("Failed to run cargo metadata"); // TODO: don't call .expect(). Report a nice error if it fails
+                    let mut target_directory = None;
+                    while path.pop() {
+                        if path.join("target").is_dir() && path.join("Cargo.toml").is_file() {
+                            target_directory = Some(path.join("target"));
+                            break;
+                        }
+                    }
+                    let target_directory = target_directory.unwrap(); // TODO: don't unwrap here, emit an error if target directory can't be located
 
                     #[cfg(debug_assertions)]
                     let profile = "debug";
@@ -232,12 +229,12 @@ fn gather_declarations_item(
                     let profile = "release";
 
                     // TODO: ensure file at libname actually exists (because runtime will fail to load). If not, report compile-time error.
-                    let libname = metadata.target_directory.join(profile).join(filename);
+                    let libname = target_directory.join(profile).join(filename);
 
                     let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
 
                     // add symbol to statics ctx
-                    let lib_id = ctx.dylibs.insert(libname.clone().into());
+                    let lib_id = ctx.dylibs.insert(libname.clone());
                     ctx.dylib_to_funcs
                         .entry(lib_id)
                         .or_default()
@@ -248,7 +245,7 @@ fn gather_declarations_item(
                         func_name,
                         Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                             decl: func_decl.clone(),
-                            libname: libname.into(),
+                            libname,
                             symbol,
                         }),
                     );
