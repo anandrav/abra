@@ -1249,6 +1249,24 @@ impl Translator {
         }
     }
 
+    fn wrapper_header(&self, st: &mut TranslatorState, nargs: usize, for_function_body: bool) {
+        if for_function_body {
+            for i in (0..nargs as i16).rev() {
+                self.emit(st, Instr::LoadOffset(-i - 1));
+            }
+        }
+    }
+
+    fn wrapper_footer(&self, st: &mut TranslatorState, nargs: usize, for_function_body: bool) {
+        if for_function_body {
+            if nargs == 0 {
+                self.emit(st, Instr::ReturnVoid);
+            } else {
+                self.emit(st, Instr::Return(nargs as u32));
+            }
+        }
+    }
+
     fn emit_builtin(
         &self,
         st: &mut TranslatorState,
@@ -1301,11 +1319,7 @@ impl Translator {
             BuiltinOperation::ArrayPop => 1,
             BuiltinOperation::Panic => 1,
         };
-        if for_function_body {
-            for i in (0..nargs).rev() {
-                self.emit(st, Instr::LoadOffset(-i - 1));
-            }
-        }
+        self.wrapper_header(st, nargs, for_function_body);
         match b {
             BuiltinOperation::AddInt => {
                 self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
@@ -1436,13 +1450,7 @@ impl Translator {
                 self.emit(st, Instr::Panic);
             }
         }
-        if for_function_body {
-            if nargs == 0 {
-                self.emit(st, Instr::ReturnVoid);
-            } else {
-                self.emit(st, Instr::Return(nargs as u32));
-            }
-        }
+        self.wrapper_footer(st, nargs, for_function_body);
     }
 
     fn emit_foreign(
@@ -1455,11 +1463,7 @@ impl Translator {
     ) {
         let args = self.calculate_args(&None, &func_decl.args, &MonomorphEnv::empty());
         let nargs = args.len();
-        if for_function_body {
-            for i in (0..nargs).rev() {
-                self.emit(st, Instr::LoadOffset(-(i as i16) - 1));
-            }
-        }
+        self.wrapper_header(st, nargs, for_function_body);
         // by this point we should know the name of the .so file that this external function should be located in
 
         // calling an external function just means
@@ -1480,14 +1484,7 @@ impl Translator {
         let func_id = offset + self.statics.dylib_to_funcs[&lib_id].get_id(symbol) as usize;
         self.emit(st, Instr::CallExtern(func_id as u32));
 
-        // TODO: small amount of code duplication
-        if for_function_body {
-            if nargs == 0 {
-                self.emit(st, Instr::ReturnVoid);
-            } else {
-                self.emit(st, Instr::Return(nargs as u32));
-            }
-        }
+        self.wrapper_footer(st, nargs, for_function_body);
     }
 
     // TODO: HERE
@@ -1500,23 +1497,12 @@ impl Translator {
         // TODO code duplication
         let args = self.calculate_args(&None, &func_decl.args, &MonomorphEnv::empty());
         let nargs = args.len();
-        if for_function_body {
-            for i in (0..nargs).rev() {
-                self.emit(st, Instr::LoadOffset(-(i as i16) - 1));
-            }
-        }
+        self.wrapper_header(st, nargs, for_function_body);
 
         let idx = self.statics.host_funcs.get_id(func_decl) as u16;
         self.emit(st, Instr::HostFunc(idx));
 
-        // TODO: code duplication
-        if for_function_body {
-            if nargs == 0 {
-                self.emit(st, Instr::ReturnVoid);
-            } else {
-                self.emit(st, Instr::Return(nargs as u32));
-            }
-        }
+        self.wrapper_footer(st, nargs, for_function_body);
     }
 
     // emit items for checking if a pattern matches the TOS, replacing it with a boolean
