@@ -1487,14 +1487,12 @@ impl Translator {
         self.wrapper_footer(st, nargs, for_function_body);
     }
 
-    // TODO: HERE
     fn emit_host(
         &self,
         st: &mut TranslatorState,
         func_decl: &Rc<FuncDecl>,
         for_function_body: bool,
     ) {
-        // TODO code duplication
         let args = self.calculate_args(&None, &func_decl.args, &MonomorphEnv::empty());
         let nargs = args.len();
         self.wrapper_header(st, nargs, for_function_body);
@@ -1939,41 +1937,44 @@ impl Translator {
                 false
             }
         };
-        match (func_name.as_str(), overload_ty) {
-            // TODO: overload_ty doesn't need to be part of match scrutiny
+        match func_name.as_str() {
             // inline basic/fundamental operations instead of performing function call
-            ("array.push", ty) => {
+            "array.push" => {
                 // arrays of void use dummy values
-                if second_arg_is_void(&ty) {
+                if second_arg_is_void(&overload_ty) {
                     self.emit(st, Instr::PushNil(1));
                 }
                 self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top))
             }
-            ("array.len", _) => self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top)),
-            ("array.pop", ty) => {
+            "array.len" => self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top)),
+            "array.pop" => {
                 self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
                 // arrays of void use dummy values
-                if ret_is_void(&ty) {
+                if ret_is_void(&overload_ty) {
                     self.emit(st, Instr::Pop);
                 }
             }
-            ("prelude.ToString.str", ty)
-                if is_func(&ty, SolvedType::String, SolvedType::String) =>
+            "prelude.ToString.str"
+                if is_func(&overload_ty, SolvedType::String, SolvedType::String) =>
             { /* noop */ }
-            ("prelude.ToString.str", ty) if is_func(&ty, SolvedType::Int, SolvedType::String) => {
+            "prelude.ToString.str"
+                if is_func(&overload_ty, SolvedType::Int, SolvedType::String) =>
+            {
                 self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
             }
-            ("prelude.ToString.str", ty) if is_func(&ty, SolvedType::Float, SolvedType::String) => {
+            "prelude.ToString.str"
+                if is_func(&overload_ty, SolvedType::Float, SolvedType::String) =>
+            {
                 self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
             }
-            ("prelude.Clone.clone", ty)
-                if is_ident_func(&ty, SolvedType::Int)
-                    || is_ident_func(&ty, SolvedType::Float)
-                    || is_ident_func(&ty, SolvedType::Bool)
-                    || is_ident_func(&ty, SolvedType::Void)
-                    || is_ident_func(&ty, SolvedType::String) =>
+            "prelude.Clone.clone"
+                if is_ident_func(&overload_ty, SolvedType::Int)
+                    || is_ident_func(&overload_ty, SolvedType::Float)
+                    || is_ident_func(&overload_ty, SolvedType::Bool)
+                    || is_ident_func(&overload_ty, SolvedType::Void)
+                    || is_ident_func(&overload_ty, SolvedType::String) =>
             { /* noop */ }
-            (_, overload_ty) => {
+            _ => {
                 let (args, _, _) = self.calculate_args_captures_locals(
                     &overload_ty,
                     &func_def.args,
