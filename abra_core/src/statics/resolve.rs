@@ -160,7 +160,6 @@ fn gather_declarations_item(
             let foreign = func_decl.is_foreign();
             let host = func_decl.is_host();
             if foreign && host {
-                // TODO: consider relaxing this constraint
                 ctx.errors.push(Error::Generic {
                     msg: "function declaration cannot be #host and #foreign".to_string(),
                     node: item.node(),
