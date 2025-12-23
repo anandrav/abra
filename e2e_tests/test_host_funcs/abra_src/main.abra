@@ -1,6 +1,8 @@
 use util
 
 let (x, y) = bar(2, 3)
+
+// store host function in variable/use as lambda
 let b = bar
 let (u, v) = b(4, 5)
 

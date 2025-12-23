@@ -34,6 +34,6 @@ match o {
 let a = pass_array([ 1, 2, 3, 4, 5, 6 ])
 println(a)
 
-// test ffi function as lambda
+// store foreign function in variable/use as lambda
 let pb = pass_bool
 println(pb(true))
