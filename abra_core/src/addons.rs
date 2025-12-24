@@ -331,7 +331,7 @@ pub mod ffi {{
 fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
         match &*item.kind {
-            ItemKind::TypeDef(tydef) => match &**tydef {
+            ItemKind::TypeDef(tydef) => match tydef {
                 TypeDefKind::Struct(s) => {
                     swrite!(
                         output,

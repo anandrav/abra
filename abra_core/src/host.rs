@@ -227,7 +227,7 @@ pub enum HostFunctionRet {
 fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
         if let ItemKind::TypeDef(tydef) = &*item.kind {
-            match &**tydef {
+            match tydef {
                 TypeDefKind::Struct(s) => {
                     swrite!(
                         output,

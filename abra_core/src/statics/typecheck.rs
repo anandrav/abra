@@ -1560,7 +1560,7 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
                 }
             }
         }
-        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
+        ItemKind::TypeDef(typdefkind) => match typdefkind {
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
         },
         ItemKind::FuncDef(f) => {

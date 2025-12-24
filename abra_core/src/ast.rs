@@ -195,6 +195,8 @@ pub(crate) struct EnumDef {
     pub(crate) ty_args: Vec<Rc<Polytype>>,
     pub(crate) variants: Vec<Rc<Variant>>,
     pub(crate) id: NodeId,
+
+    pub(crate) attributes: Vec<Attribute>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -202,8 +204,9 @@ pub(crate) struct StructDef {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty_args: Vec<Rc<Polytype>>,
     pub(crate) fields: Vec<Rc<StructField>>,
-
     pub(crate) id: NodeId,
+
+    pub(crate) attributes: Vec<Attribute>,
 }
 
 impl std::hash::Hash for StructDef {
@@ -322,7 +325,7 @@ impl Item {
 pub(crate) enum ItemKind {
     FuncDecl(Rc<FuncDecl>),
     FuncDef(Rc<FuncDef>),
-    TypeDef(Rc<TypeDefKind>), // TODO: doesn't need to be an Rc<TypeDefKind>. Just use TypeDefKind. TODO: add attributes. Maybe make TypeDef struct. Rc<TypeDef>
+    TypeDef(TypeDefKind),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceImpl(Rc<InterfaceImpl>),
     Extension(Rc<Extension>),

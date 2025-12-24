@@ -104,7 +104,7 @@ fn gather_declarations_item(
             // defer gathering declarations of member functions until declarations are gathered for type definitions
             // (the type being extended must be resolved before proceeding)
         }
-        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
+        ItemKind::TypeDef(typdefkind) => match typdefkind {
             // TypeDefKind::Alias(_ident, _) => {
             //     // At this stage, since we're just gathering declarations,
             //     // actually resolving the alias to the final result will have to be done later.
@@ -626,7 +626,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             }
         }
         ItemKind::Import(..) => {}
-        ItemKind::TypeDef(tydef) => match &**tydef {
+        ItemKind::TypeDef(tydef) => match tydef {
             TypeDefKind::Enum(enum_def) => {
                 let symbol_table = symbol_table.new_scope();
                 for ty_arg in &enum_def.ty_args {

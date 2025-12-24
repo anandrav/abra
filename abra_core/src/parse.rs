@@ -324,7 +324,7 @@ impl Parser {
                 self.expect_token(TokenTag::Eq);
                 if self.current_token().tag() == TokenTag::OpenBrace {
                     // struct
-                    let struct_def = self.parse_struct_def(name, args)?;
+                    let struct_def = self.parse_struct_def(name, args, attributes)?;
                     Item {
                         kind: ItemKind::TypeDef(TypeDefKind::Struct(struct_def).into()).into(),
                         loc: self.location(lo),
@@ -332,7 +332,7 @@ impl Parser {
                     }
                 } else {
                     // enum
-                    let enum_def = self.parse_enum_def(name, args)?;
+                    let enum_def = self.parse_enum_def(name, args, attributes)?;
                     Item {
                         kind: ItemKind::TypeDef(TypeDefKind::Enum(enum_def).into()).into(),
                         loc: self.location(lo),
@@ -508,6 +508,7 @@ impl Parser {
         &mut self,
         name: Rc<Identifier>,
         ty_args: Vec<Rc<Polytype>>,
+        attributes: Vec<Attribute>,
     ) -> Result<Rc<StructDef>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
         let mut fields: Vec<Rc<StructField>> = vec![];
@@ -526,6 +527,7 @@ impl Parser {
             ty_args,
             fields,
             id: NodeId::new(),
+            attributes,
         }))
     }
 
@@ -547,6 +549,7 @@ impl Parser {
         &mut self,
         name: Rc<Identifier>,
         ty_args: Vec<Rc<Polytype>>,
+        attributes: Vec<Attribute>,
     ) -> Result<Rc<EnumDef>, Box<Error>> {
         let mut variants: Vec<Rc<Variant>> = vec![];
         loop {
@@ -567,6 +570,7 @@ impl Parser {
             ty_args,
             variants,
             id: NodeId::new(),
+            attributes,
         }))
     }
 
