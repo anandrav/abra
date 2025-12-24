@@ -2698,9 +2698,6 @@ fn generate_constraints_expr(
             } else if let Some(Declaration::InterfaceDef(iface)) =
                 ctx.resolution_map.get(&accessed.id).cloned()
             {
-                // TODO: it is a hack to say that `ToString` in `ToString.str(x)` has type void
-                // constrain(ctx, &node_ty, &TypeVar::make_void(Reason::Node(expr.node())));
-
                 let mut found = false;
                 for (i, method) in iface.methods.iter().enumerate() {
                     if method.name.v == member_ident.v {
@@ -2724,29 +2721,7 @@ fn generate_constraints_expr(
                         node: member_ident.node(),
                     })
                 }
-            }
-            // TODO: and do this stuff
-            /*
-
-                            if !resolved && let PotentialType::Nominal(_, nominal, ty_args) = &inner && let Some(Declaration::MemberFunction(memfn)) = ctx
-                .member_functions
-                .get(&(TypeKey::TyApp(nominal.clone()), member_ident.v.clone()))
-            {
-                let memfn_ty = TypeVar::from_node(ctx, memfn.name.node());
-                let mut substitution = Substitution::default();
-                let tydef_args = nominal.ty_args();
-                for (arg, value) in tydef_args.iter().zip(ty_args.iter()) {
-                    substitution.insert(
-                        arg.clone(),
-                        value.clone(),
-                    );
-                }
-                let memfn_ty = memfn_ty.subst(&substitution);
-                constrain(ctx, &node_ty, &memfn_ty);
-                resolved = true;
-            }
-             */
-            else {
+            } else {
                 // struct field access
                 generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, accessed);
                 let ty_accessed = TypeVar::from_node(ctx, accessed.node());
