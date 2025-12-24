@@ -38,10 +38,11 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
                 // println!("is OK");
                 // dbg!(&item);
 
+                // TODO: code duplication
                 // flush errors
-                // let mut scratch = vec![];
-                // mem::swap(&mut scratch, &mut parser.errors);
-                // ctx.errors.extend(scratch);
+                // let errs = std::mem::take(&mut parser.errors);
+                // ctx.errors.extend(errs);
+                // parser.errors.clear();
 
                 items.push(item);
                 // clean = true
@@ -52,10 +53,13 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
 
                 // flush errors
                 let errs = std::mem::take(&mut parser.errors);
-                ctx.errors.extend(errs);
-                parser.errors.clear();
+                if !parser.error_found {
+                    // only report errors for this file once.
+                    parser.error_found = true;
+                    ctx.errors.extend(errs);
 
-                ctx.errors.push(*e);
+                    ctx.errors.push(*e);
+                }
                 // clean = false;
                 // }
                 // if parser.index == before {
@@ -89,6 +93,7 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
 struct Parser {
     index: usize,
     errors: Vec<Error>,
+    error_found: bool,
 
     tokens: Vec<Token>,
     file_id: FileId,
@@ -99,6 +104,7 @@ impl Parser {
     fn new(tokens: Vec<Token>, file_id: FileId, file_len: usize) -> Self {
         Parser {
             index: 0,
+            error_found: false,
             tokens,
             file_id,
             file_len,
@@ -1156,7 +1162,7 @@ impl Parser {
             }
             _ => {
                 return Err(Error::UnexpectedToken(
-                    "expression term".into(),
+                    "expression".into(),
                     current.kind.discriminant().to_string(),
                     self.current_token_location(),
                 )
