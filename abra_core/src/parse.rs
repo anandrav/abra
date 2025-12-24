@@ -265,6 +265,15 @@ impl Parser {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
+            TokenKind::Pound => {
+                self.consume_token();
+                let name = self.expect_ident()?;
+                attributes.push(Attribute {
+                    name,
+                    _args: vec![], // TODO: parse attribute args
+                });
+                return self.parse_item_with_attributes(attributes);
+            }
             TokenKind::Use => {
                 self.consume_token();
                 let ident = self.expect_ident()?;
@@ -305,15 +314,6 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::Pound => {
-                self.consume_token();
-                let name = self.expect_ident()?;
-                attributes.push(Attribute {
-                    name,
-                    _args: vec![], // TODO: parse attribute args
-                });
-                return self.parse_item_with_attributes(attributes);
-            }
             TokenKind::Type => {
                 self.consume_token();
                 let name = self.expect_ident()?;
@@ -326,7 +326,7 @@ impl Parser {
                     // struct
                     let struct_def = self.parse_struct_def(name, args, attributes)?;
                     Item {
-                        kind: ItemKind::TypeDef(TypeDefKind::Struct(struct_def).into()).into(),
+                        kind: ItemKind::TypeDef(TypeDefKind::Struct(struct_def)).into(),
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
@@ -334,7 +334,7 @@ impl Parser {
                     // enum
                     let enum_def = self.parse_enum_def(name, args, attributes)?;
                     Item {
-                        kind: ItemKind::TypeDef(TypeDefKind::Enum(enum_def).into()).into(),
+                        kind: ItemKind::TypeDef(TypeDefKind::Enum(enum_def)).into(),
                         loc: self.location(lo),
                         id: NodeId::new(),
                     }
@@ -373,7 +373,11 @@ impl Parser {
                 self.expect_token(TokenTag::OpenBrace);
                 let mut methods = vec![];
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
-                    methods.push(self.parse_func_def(vec![])?); // TODO: attributes?
+                    let mut attributes = vec![];
+                    while self.current_token().tag() == TokenTag::Pound {
+                        attributes.push(self.parse_attribute()?);
+                    }
+                    methods.push(self.parse_func_def(attributes)?);
                     if self.current_token().tag() == TokenTag::Newline {
                         self.consume_token();
                     } else {
@@ -401,7 +405,11 @@ impl Parser {
                 self.expect_token(TokenTag::OpenBrace);
                 let mut methods = vec![];
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
-                    methods.push(self.parse_func_def(vec![])?); // TODO: attributes?
+                    let mut attributes = vec![];
+                    while self.current_token().tag() == TokenTag::Pound {
+                        attributes.push(self.parse_attribute()?);
+                    }
+                    methods.push(self.parse_func_def(attributes)?);
                     if self.current_token().tag() == TokenTag::Newline {
                         self.consume_token();
                     } else {
@@ -431,6 +439,15 @@ impl Parser {
                 }
             }
         }))
+    }
+
+    fn parse_attribute(&mut self) -> Result<Attribute, Box<Error>> {
+        self.consume_token();
+        let name = self.expect_ident()?;
+        Ok(Attribute {
+            name,
+            _args: vec![], // TODO: parse attribute args
+        })
     }
 
     fn parse_type_args(&mut self) -> Result<Vec<Rc<Polytype>>, Box<Error>> {
