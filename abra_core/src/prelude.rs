@@ -422,41 +422,39 @@ extend array<T Equal> {
 extend array<T Ord> {
     fn sort(self) -> void {
         // TODO: switch to a stable sorting algorithm
-        quick_sort_impl(self, 0, self.len()-1)
+        self.quick_sort_impl(0, self.len()-1)
     }
-}
 
-// TODO: hide these helper functions, ideally scope them to the array.sort function. Allow defining functions inside functions (solely for scoping purposes, not lambda environment capture). Or just allow #private functions
-
-fn swap(arr: array<T Ord>, i, j) {
-  let temp = arr[i]
-  arr[i] = arr[j]
-  arr[j] = temp
-}
-
-fn partition(arr: array<T Ord>, low, high) {
-  let pivot = arr[high]
-  var i = low - 1
-  var j = low
-
-  while j < high {
-    if arr[j] <= pivot {
-      i = i + 1
-      swap(arr, i, j)
+    fn swap(self, i, j) {
+      let temp = self[i]
+      self[i] = self[j]
+      self[j] = temp
     }
-    j = j + 1
-  }
-  swap(arr, i + 1, high)
-  i + 1
-}
 
-fn quick_sort_impl(arr: array<T Ord>, low, high) {
-  if low < high {
-    let pi = partition(arr, low, high)
+    fn partition(self, low, high) {
+      let pivot = self[high]
+      var i = low - 1
+      var j = low
 
-    quick_sort_impl(arr, low, pi - 1)
-    quick_sort_impl(arr, pi + 1, high)
-  }
+      while j < high {
+        if self[j] <= pivot {
+          i = i + 1
+          self.swap(i, j)
+        }
+        j = j + 1
+      }
+      self.swap(i + 1, high)
+      i + 1
+    }
+
+    fn quick_sort_impl(self, low, high) {
+      if low < high {
+        let pi = self.partition(low, high)
+
+        self.quick_sort_impl(low, pi - 1)
+        self.quick_sort_impl(pi + 1, high)
+      }
+    }
 }
 
 "#;
