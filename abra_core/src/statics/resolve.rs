@@ -183,6 +183,8 @@ fn gather_declarations_item(
             if foreign {
                 #[cfg(feature = "ffi")]
                 {
+                    use std::path::PathBuf;
+
                     let func_name = func_decl.name.v.clone();
 
                     let mut path = _file.path.clone();
@@ -250,7 +252,7 @@ fn gather_declarations_item(
                         Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                             decl: func_decl.clone(),
                             libname: libname
-                                .unwrap_or(std::path::PathBuf::from("LIBNAME_COULD_NOT_BE_LOADED")),
+                                .unwrap_or(PathBuf::from("LIBNAME_COULD_NOT_BE_LOADED")),
                             symbol,
                         }),
                     );
@@ -856,8 +858,9 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
             | Declaration::Polytype(_)
             | Declaration::Builtin(_) => {
                 // TODO: need more descriptive error message
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node: field.node() });
+                panic!();
+                // ctx.errors
+                //     .push(Error::UnresolvedIdentifier { node: field.node() });
             }
             Declaration::BuiltinType(_) => {
                 // TODO: calling member functions on types like doing `array.len(my_array)` or `int.str(23)`

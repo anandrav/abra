@@ -2151,6 +2151,8 @@ fn generate_constraints_expr(
                             Reason::Node(expr.node()),
                         ))
                     }
+                    // TODO: this is strange to do. Just report unreachable!() instead of saying UnresolvedIdentifier? Is this code reachable?
+                    // TODO: UnresolvedIdentifier isn't a good enough error message
                     Declaration::InterfaceDef(..)
                     | Declaration::InterfaceOutputType { .. }
                     | Declaration::BuiltinType(_)
@@ -2689,6 +2691,35 @@ fn generate_constraints_expr(
                     let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
                     constrain(ctx, &node_ty, &member_ident_ty);
                 } else {
+                    ctx.errors.push(Error::UnresolvedIdentifier {
+                        node: member_ident.node(),
+                    })
+                }
+            } else if let Some(Declaration::InterfaceDef(iface)) =
+                ctx.resolution_map.get(&accessed.id).cloned()
+            {
+                // TODO: it is a hack to say that `ToString` in `ToString.str(x)` has type void
+                // constrain(ctx, &node_ty, &TypeVar::make_void(Reason::Node(expr.node())));
+
+                let mut found = false;
+                for (i, method) in iface.methods.iter().enumerate() {
+                    if method.name.v == member_ident.v {
+                        found = true;
+                        ctx.resolution_map.insert(
+                            member_ident.id,
+                            Declaration::InterfaceMethod {
+                                iface: iface.clone(),
+                                method: i,
+                            },
+                        );
+                        let method_ty = TypeVar::from_node(ctx, method.name.node());
+                        let method_ty = method_ty.instantiate(ctx, polyvar_scope, expr.node());
+                        constrain(ctx, &node_ty, &method_ty);
+                        let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
+                        constrain(ctx, &node_ty, &member_ident_ty);
+                    }
+                }
+                if !found {
                     ctx.errors.push(Error::UnresolvedIdentifier {
                         node: member_ident.node(),
                     })

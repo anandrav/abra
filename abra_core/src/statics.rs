@@ -210,10 +210,10 @@ pub(crate) enum Declaration {
 }
 
 impl Declaration {
-    fn nominal(self) -> Option<Nominal> {
+    fn nominal(&self) -> Option<Nominal> {
         Some(match self {
-            Self::Enum(e) => Nominal::Enum(e),
-            Self::Struct(s) => Nominal::Struct(s),
+            Self::Enum(e) => Nominal::Enum(e.clone()),
+            Self::Struct(s) => Nominal::Struct(s.clone()),
             Self::Array => Nominal::Array,
             _ => return None,
         })

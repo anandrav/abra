@@ -808,17 +808,12 @@ impl Translator {
                             tag: *variant as u16,
                         },
                     );
-                } else if let Some(Declaration::MemberFunction(..)) =
-                    &self.statics.resolution_map.get(&field_name.id)
+                } else if let Some(
+                    decl @ (Declaration::MemberFunction(..) | Declaration::InterfaceMethod { .. }),
+                ) = &self.statics.resolution_map.get(&field_name.id)
                 {
                     // member function
-                    self.translate_declaration(
-                        &self.statics.resolution_map[&field_name.id],
-                        field_name.node(),
-                        offset_table,
-                        mono,
-                        st,
-                    );
+                    self.translate_declaration(decl, field_name.node(), offset_table, mono, st);
                 } else {
                     let expr_ty = self
                         .statics
@@ -998,9 +993,43 @@ impl Translator {
                 self.emit(st, Instr::MakeClosure(0));
             }
 
-            Declaration::InterfaceMethod { .. } => {
-                // TODO: this should be disallowed. Cannot be done dynamically at this time.
-                unimplemented!()
+            Declaration::InterfaceMethod { iface, method } => {
+                let overload_ty = self.get_ty(mono, ast_node).unwrap();
+
+                // BEFORE
+
+                let method = &iface.methods[*method].name;
+                // TODO this logic is duplicated elsewhere and also looks really inefficient
+                let impl_list = &self.statics.interface_impls[iface];
+                for imp in impl_list {
+                    for func_def in &imp.methods {
+                        if func_def.name.v == *method.v {
+                            let unifvar = self
+                                .statics
+                                .unifvars
+                                .get(&TypeProv::Node(func_def.name.node()))
+                                .unwrap();
+                            let interface_impl_ty = unifvar.solution().unwrap();
+
+                            if overload_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
+                                // println!("here we go");
+                                let func_name = &self.statics.fully_qualified_names[&method.id];
+                                let desc = FuncDesc {
+                                    kind: FuncKind::NamedFunc(func_def.clone()),
+                                    overload_ty: Some(overload_ty.clone()),
+                                };
+
+                                let label = self.get_func_label(st, desc, func_name);
+                                self.emit(st, Instr::PushAddr(label.clone()));
+                                self.emit(st, Instr::MakeClosure(0));
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // END
+                panic!();
             }
             Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
                 let desc = FuncDesc {
@@ -2417,6 +2446,7 @@ fn idx_of_field(
     accessed: &Rc<Expr>,
     field_name: &str,
 ) -> u16 {
+    // _print_node(statics, accessed.node());
     let accessed_ty = statics.solution_of_node(accessed.node()).unwrap();
 
     match accessed_ty {

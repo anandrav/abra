@@ -1563,6 +1563,26 @@ f(123) .. arr.str()
 }
 
 #[test]
+fn iface_method_lambda() {
+    let src = r#"
+let f = ToString.str
+
+let s = f(123)
+s
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    let s = top.view_string(&vm);
+    assert_eq!(s, "123");
+}
+
+#[test]
 fn builtin_operations_lambda1() {
     let src = r#"
 let f = subtract_int
