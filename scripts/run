@@ -7,5 +7,5 @@ export RUSTFLAGS="-A warnings"
 # Build everything in the project, including native modules
 cargo build --quiet
 # Run debug build of abra cli
-cargo run --quiet --bin  abra -- --standard-modules modules --dynamic-libraries target/debug "$@"
+cargo run --quiet --bin  abra -- --standard-modules modules "$@"
 

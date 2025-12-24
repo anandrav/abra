@@ -14,7 +14,7 @@ mod host_funcs;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("abra_src");
-    let file_provider = OsFileProvider::new(abra_src_dir, PathBuf::new(), vec![], PathBuf::new()); // TODO: passing dummies here is strange
+    let file_provider = OsFileProvider::new(abra_src_dir, PathBuf::new(), vec![]); // TODO: passing dummies here is strange
 
     let program = abra_core::compile_bytecode("main.abra", file_provider)?;
 

@@ -14,7 +14,6 @@ use host_funcs::*;
 struct Args {
     file: String,
     modules: Option<String>,
-    dynamic_libraries: Option<String>,
     import_dir: Option<String>,
     assembly: bool,
     abra_program_args: Vec<String>,
@@ -26,7 +25,6 @@ impl Args {
 
         let mut file = None;
         let mut modules = None;
-        let mut dynamic_libraries = None;
         let mut import_dir = None;
         let mut assembly = false;
         let mut abra_program_args = Vec::new();
@@ -36,9 +34,6 @@ impl Args {
             match arg {
                 Long("standard-modules") => {
                     modules = Some(parser.value()?.parse()?);
-                }
-                Long("dynamic-libraries") => {
-                    dynamic_libraries = Some(parser.value()?.parse()?);
                 }
                 Short('i') | Long("import-dir") => {
                     import_dir = Some(parser.value()?.parse()?);
@@ -70,7 +65,6 @@ impl Args {
         Ok(Args {
             file,
             modules,
-            dynamic_libraries,
             import_dir,
             assembly,
             abra_program_args,
@@ -101,7 +95,6 @@ fn print_help() {
 
 {title}{bold}Options:{reset}
     {cyan}--standard-modules <DIRECTORY>{reset}     Override the default standard modules directory
-    {cyan}--dynamic-libraries <DIRECTORY>{reset}    Override the default dynamic libraries directory
     {cyan}-a, --assembly{reset}                     Print the assembly for the Abra program
     {cyan}-h, --help{reset}                         Print help"
     );
@@ -155,17 +148,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let dynamic_libraries_dir: PathBuf = match args.dynamic_libraries {
-        Some(dynamic_libraries_dir) => {
-            let current_dir = std::env::current_dir().expect("Can't get current directory.");
-            current_dir.join(dynamic_libraries_dir)
-        }
-        None => {
-            let home_dir = home::home_dir().expect("Can't get home directory.");
-            home_dir.join(".abra/shared_objects")
-        }
-    };
-
     let mut import_dirs = vec![];
     if let Some(import_dir) = args.import_dir {
         import_dirs.push(PathBuf::from(import_dir));
@@ -178,12 +160,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap()
             .join(main_file_path.parent().unwrap())
     };
-    let file_provider = OsFileProvider::new(
-        main_file_dir.into(),
-        standard_modules_dir,
-        import_dirs,
-        dynamic_libraries_dir,
-    );
+    let file_provider =
+        OsFileProvider::new(main_file_dir.into(), standard_modules_dir, import_dirs);
 
     let main_file_name = main_file_path.file_name().unwrap().to_str().unwrap();
 

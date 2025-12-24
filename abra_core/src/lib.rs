@@ -222,9 +222,6 @@ pub trait FileProvider {
     /// Given a path, return the contents of the file as a String,
     /// or an error if the file cannot be found.
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
-
-    #[cfg(feature = "ffi")]
-    fn shared_objects_dir(&self) -> &PathBuf;
 }
 
 #[derive(Default, Debug)]
@@ -232,8 +229,6 @@ pub struct OsFileProvider {
     main_file_dir: PathBuf,
     standard_modules_dir: PathBuf,
     import_dirs: Vec<PathBuf>,
-    #[cfg(feature = "ffi")]
-    dynamic_libraries_dir: PathBuf,
 }
 
 impl OsFileProvider {
@@ -241,14 +236,11 @@ impl OsFileProvider {
         main_file_dir: PathBuf,
         standard_modules_dir: PathBuf,
         import_dirs: Vec<PathBuf>,
-        _shared_objects_dir: PathBuf,
     ) -> Box<Self> {
         Box::new(Self {
             main_file_dir,
             standard_modules_dir,
             import_dirs,
-            #[cfg(feature = "ffi")]
-            dynamic_libraries_dir: _shared_objects_dir,
         })
     }
 }
@@ -288,11 +280,6 @@ impl FileProvider for OsFileProvider {
             path.display()
         ))))
     }
-
-    #[cfg(feature = "ffi")]
-    fn shared_objects_dir(&self) -> &PathBuf {
-        &self.dynamic_libraries_dir
-    }
 }
 
 #[derive(Default, Debug)]
@@ -331,10 +318,5 @@ impl FileProvider for MockFileProvider {
                 path.display()
             )))),
         }
-    }
-
-    #[cfg(feature = "ffi")]
-    fn shared_objects_dir(&self) -> &PathBuf {
-        &self._shared_objects_dir
     }
 }

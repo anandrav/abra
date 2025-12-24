@@ -7,7 +7,9 @@ use utils::command;
 #[test]
 fn test_ffi() {
     command!("cargo build --package abra_module_test_ffi").unwrap();
-    let output = command!("cargo run --package abra_cli --bin abra -- --standard-modules modules --dynamic-libraries ../target/debug ffi.abra").unwrap();
+    let output =
+        command!("cargo run --package abra_cli --bin abra -- --standard-modules modules ffi.abra")
+            .unwrap();
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
     println!("{stdout_str}");
