@@ -322,7 +322,7 @@ impl Item {
 pub(crate) enum ItemKind {
     FuncDecl(Rc<FuncDecl>),
     FuncDef(Rc<FuncDef>),
-    TypeDef(Rc<TypeDefKind>), // TODO: doesn't need to be an Rc<TypeDefKind>. Just use TypeDefKind
+    TypeDef(Rc<TypeDefKind>), // TODO: doesn't need to be an Rc<TypeDefKind>. Just use TypeDefKind. TODO: add attributes. Maybe make TypeDef struct. Rc<TypeDef>
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceImpl(Rc<InterfaceImpl>),
     Extension(Rc<Extension>),
@@ -375,6 +375,8 @@ pub(crate) struct FuncDef {
     pub(crate) args: Vec<ArgMaybeAnnotated>,
     pub(crate) ret_type: Option<Rc<Type>>,
     pub(crate) body: Rc<Expr>,
+
+    pub(crate) attributes: Vec<Attribute>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -417,6 +419,8 @@ pub(crate) struct InterfaceDef {
     pub(crate) name: Rc<Identifier>,
     pub(crate) methods: Vec<Rc<FuncDecl>>,
     pub(crate) output_types: Vec<Rc<InterfaceOutputType>>,
+
+    pub(crate) attributes: Vec<Attribute>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

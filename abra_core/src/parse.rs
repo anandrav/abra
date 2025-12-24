@@ -341,7 +341,7 @@ impl Parser {
                 }
             }
             TokenKind::Interface => {
-                let iface_def = self.parse_iface_def()?;
+                let iface_def = self.parse_iface_def(attributes)?;
                 Item {
                     kind: ItemKind::InterfaceDef(iface_def).into(),
                     loc: self.location(lo),
@@ -357,7 +357,7 @@ impl Parser {
                         id: NodeId::new(),
                     }
                 } else {
-                    let func_def = self.parse_func_def()?;
+                    let func_def = self.parse_func_def(attributes)?;
                     Item {
                         kind: ItemKind::FuncDef(func_def).into(),
                         loc: self.location(lo),
@@ -373,7 +373,7 @@ impl Parser {
                 self.expect_token(TokenTag::OpenBrace);
                 let mut methods = vec![];
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
-                    methods.push(self.parse_func_def()?);
+                    methods.push(self.parse_func_def(vec![])?); // TODO: attributes?
                     if self.current_token().tag() == TokenTag::Newline {
                         self.consume_token();
                     } else {
@@ -401,7 +401,7 @@ impl Parser {
                 self.expect_token(TokenTag::OpenBrace);
                 let mut methods = vec![];
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
-                    methods.push(self.parse_func_def()?);
+                    methods.push(self.parse_func_def(vec![])?); // TODO: attributes?
                     if self.current_token().tag() == TokenTag::Newline {
                         self.consume_token();
                     } else {
@@ -476,7 +476,10 @@ impl Parser {
         Ok(Rc::new(Interface { name, arguments }))
     }
 
-    fn parse_iface_def(&mut self) -> Result<Rc<InterfaceDef>, Box<Error>> {
+    fn parse_iface_def(
+        &mut self,
+        attributes: Vec<Attribute>,
+    ) -> Result<Rc<InterfaceDef>, Box<Error>> {
         self.expect_token(TokenTag::Interface);
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenBrace);
@@ -497,6 +500,7 @@ impl Parser {
             name,
             methods,
             output_types,
+            attributes,
         }))
     }
 
@@ -627,7 +631,7 @@ impl Parser {
         }))
     }
 
-    fn parse_func_def(&mut self) -> Result<Rc<FuncDef>, Box<Error>> {
+    fn parse_func_def(&mut self, attributes: Vec<Attribute>) -> Result<Rc<FuncDef>, Box<Error>> {
         self.skip_newlines();
         self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
@@ -656,6 +660,7 @@ impl Parser {
                 args,
                 ret_type,
                 body,
+                attributes,
             }))
         } else {
             let block_start = self.index;
@@ -671,6 +676,7 @@ impl Parser {
                 args,
                 ret_type,
                 body: block_expr,
+                attributes,
             }))
         }
     }
