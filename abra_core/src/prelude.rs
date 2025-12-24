@@ -51,7 +51,7 @@ implement Equal for int {
     fn equal(a, b) = equal_int(a, b)
 }
 implement Equal for float {
-    fn equal(a, b) = false
+    fn equal(a, b) = equal_float(a, b)
 }
 implement Equal for bool {
     fn equal(a, b) {
