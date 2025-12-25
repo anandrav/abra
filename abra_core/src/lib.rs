@@ -40,13 +40,6 @@ pub fn abra_hello_world() {
     println!("Hello, world!");
 }
 
-pub fn source_files_single(src: &str) -> Vec<FileData> {
-    vec![
-        FileData::new_simple("test.abra".into(), src.to_owned()),
-        FileData::new_simple("prelude.abra".into(), PRELUDE.to_owned()),
-    ]
-}
-
 pub fn compile_bytecode(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
