@@ -394,6 +394,18 @@ extend array<T> {
         array_pop(self)
     }
 
+    fn swap(self, i, j) {
+      let temp = self[i]
+      self[i] = self[j]
+      self[j] = temp
+    }
+
+    fn remove(self, index: int) -> void {
+        self.swap(index, self.len()-1)
+        self.pop()
+        nil
+    }
+
     fn bounds(self) -> range {
         range(0, self.len())
     }
@@ -421,12 +433,6 @@ extend array<T Ord> {
     fn sort(self) -> void {
         // TODO: switch to a stable sorting algorithm
         self.quick_sort_impl(0, self.len()-1)
-    }
-
-    fn swap(self, i, j) {
-      let temp = self[i]
-      self[i] = self[j]
-      self[j] = temp
     }
 
     fn partition(self, low, high) {
