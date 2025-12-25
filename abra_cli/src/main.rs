@@ -116,23 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut source_files = Vec::new();
 
-    let contents = match std::fs::read_to_string(&args.file) {
-        Ok(c) => c,
-        Err(err) => {
-            eprintln!("Could not open file '{}': {}", args.file, err);
-            exit(1);
-        }
-    };
-
     let main_file_path: PathBuf = args.file.clone().into();
-    // TODO: using this API sucks
-    let mut nominal_path = main_file_path.clone();
-    nominal_path.set_extension("");
-    source_files.push(FileData::new(
-        nominal_path.clone(),
-        main_file_path.clone(),
-        contents,
-    ));
 
     source_files.push(FileData::new(
         "prelude".into(),
