@@ -216,7 +216,7 @@ pub enum HostFunctionRet {
     // TODO: this only adds from the root effects file. Need to add all types in the tree of files
     // Also, the types need to be namespaced or scoped properly if they're in child files
     add_items_from_ast(&file_asts[0], output);
-    for file_ast in &file_asts[1..] {
+    for _file_ast in &file_asts[1..] {
         // println!("path = {}", file_ast.absolute_path.display());
         // println!("name = {}", file_ast.package_name.display());
         // let mut output = String::new();
@@ -227,7 +227,7 @@ pub enum HostFunctionRet {
         // std::fs::create_dir_all(parent).unwrap();
         // std::fs::write(destination, output).unwrap();
     }
-    // panic!();
+    // panic!(); // TODO LAST HERE
 
     std::fs::write(destination, output).unwrap();
 

@@ -239,7 +239,7 @@ impl Parser {
 
             let joined = segments.join("/");
             Ok(Rc::new(Identifier {
-                v: joined.into(),
+                v: joined,
                 loc: Location {
                     file_id: self.file_id,
                     lo: current.span.lo,
