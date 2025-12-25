@@ -1177,6 +1177,40 @@ foo(2, 2)
 }
 
 #[test]
+fn import_from_sub_sub_dir() {
+    let util = r#"
+fn foo(a: int, b) {
+  a + b
+}
+"#;
+    let main = r#"
+use more/even_more/util
+
+fn bar(x: T) -> T {
+  x
+}
+
+foo(2, 2)
+"#;
+    let mut files: HashMap<PathBuf, String> = HashMap::default();
+    files.insert("main.abra".into(), main.into());
+    files.insert(
+        PathBuf::from("more").join("even_more").join("util.abra"),
+        util.into(),
+    );
+    let file_provider = MockFileProvider::new(files);
+
+    let program = compile_bytecode("main.abra", file_provider);
+    if let Err(e) = program {
+        panic!("{}", e);
+    }
+    let mut vm = Vm::new(program.unwrap());
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 4);
+}
+
+#[test]
 fn import_single() {
     let util = r#"
 fn foo(a: int, b) {
