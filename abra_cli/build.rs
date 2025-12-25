@@ -9,7 +9,7 @@ use abra_core::OsFileProvider;
 fn main() -> Result<(), Box<dyn Error>> {
     let this_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 
-    let file_provider = OsFileProvider::new(this_dir.clone(), PathBuf::new(), vec![]); // TODO: passing dummies here is strange
+    let file_provider = OsFileProvider::new(this_dir.clone(), PathBuf::new(), vec![]); // TODO: passing dummies here is strange. Need an alternative to new() that just takes the directory.
 
     let destination = this_dir.join("src").join("host_funcs.rs");
 

@@ -4,6 +4,7 @@ fn foo(a: int, b: string) -> int
 #host
 fn bar(a: int, b: int) -> (int, int)
 
+#host
 type Color =
     | Red
     | Blue
