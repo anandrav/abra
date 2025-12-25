@@ -1,4 +1,4 @@
-use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
+use crate::ast::{FileAst, ImportList, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::foreign_bindings::{name_of_ty, run_formatter};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
@@ -439,12 +439,35 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                 }
             }
             ItemKind::Import(ident, import_list) => {
+                let module_name = &ident.v.replace("/", "::");
+                match import_list {
+                    Some(ImportList::Inclusion(includes)) => {
+                        swrite!(output, "use {}::{{", module_name);
+                        for (i, include) in includes.iter().enumerate() {
+                            if i != 0 {
+                                swrite!(output, ", ");
+                            }
+                            swrite!(output, "{}", include.v);
+                        }
+                        swrite!(output, "}};\n");
+                    }
+                    Some(ImportList::Exclusion(..)) => unimplemented!(), // TODO!
+                    None => {
+                        // glob import
+                        // swrite!(output, "use {}::*;\n", module_name); // TODO: re-enable
+                    }
+                }
                 /* TODO last here. emit things like
                     pub mod util_helper  }
                     use util_helper      }    <--- not sure if this is ideal, play it by ear
                     pub mod more_stuff   }
                     use more_stuff::*    }
                 */
+
+                // TODO: for the mod declarations, just create a tree of modules ahead of time. Then when writing the output per file, just add a `pub mod` for all its direct descendants
+
+                // TODO: for the use statements, mirror the structure of the Abra import. If import_list = None, do a glob import. If it's an inclusion list, include using {}
+                // TODO: if it's an exception list..... that has to be converted to an inclusion list, which sucks :/ but it must be done.
                 // output.push_str(format!(""))
             }
             _ => {}
