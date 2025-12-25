@@ -1,3 +1,4 @@
+#foreign
 type KeyCode =
     | Left
     | Right

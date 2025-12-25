@@ -16,6 +16,7 @@
 
 #foreign fn pass_array(a: array<int>) -> array<int>
 
+#foreign
 type MyStruct = {
     i: int
     b: bool
@@ -23,6 +24,7 @@ type MyStruct = {
     s: string
 }
 
+#foreign
 type MyEnum =
     | Int(int)
     | Bool(bool)

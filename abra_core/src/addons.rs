@@ -332,7 +332,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
         match &*item.kind {
             ItemKind::TypeDef(tydef) => match tydef {
-                TypeDefKind::Struct(s) => {
+                TypeDefKind::Struct(s) if s.attributes.iter().any(|a| a.is_foreign()) => {
                     swrite!(
                         output,
                         r#"pub struct {} {{
@@ -427,7 +427,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
                     output.push('}');
                 }
-                TypeDefKind::Enum(e) => {
+                TypeDefKind::Enum(e) if e.attributes.iter().any(|a| a.is_foreign()) => {
                     swrite!(
                         output,
                         r#"pub enum {} {{
@@ -520,6 +520,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
                     output.push('}');
                 }
+                _ => {}
             },
             ItemKind::FuncDecl(f) if f.is_foreign() => {
                 output.push_str(
