@@ -1,0 +1,38 @@
+use random
+
+fn print_arr_excerpt(arr) {
+  print("[")
+  for i in 3 {
+    print(arr[i])
+    if not(i == 2) {
+      print(", ") 
+    } 
+  }
+  print(" ..., ")
+  for i in 3 {
+    print(arr[arr.len()-3+i])
+    if not(i == 2) {
+      print(", ")
+    } 
+  } 
+  println("]")
+}
+
+fn main() {
+  let size = 100000
+  let arr = []
+  
+  var i = 0
+  while i < size {
+    arr.push(random_int(0, 100000))
+    i = i + 1
+  }
+  
+  println("Generated array with size=" .. size .. ":")
+  print_arr_excerpt(arr) 
+  arr.sort()
+  println("Sorted:")
+  print_arr_excerpt(arr)
+}
+
+main()

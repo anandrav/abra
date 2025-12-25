@@ -431,33 +431,88 @@ extend array<T Equal> {
 
 extend array<T Ord> {
     fn sort(self) -> void {
-        // TODO: switch to a stable sorting algorithm
-        self.quick_sort_impl(0, self.len()-1)
-    }
+        let n = self.len()
+        let RUN = 32
 
-    fn partition(self, low, high) {
-      let pivot = self[high]
-      var i = low - 1
-      var j = low
-
-      while j < high {
-        if self[j] <= pivot {
-          i = i + 1
-          self.swap(i, j)
+        var i = 0
+        while i < n {
+            let end = if i + RUN - 1 < n - 1 { i + RUN - 1 } else { n - 1 }
+            self.insertion_sort(i, end)
+            i = i + RUN
         }
-        j = j + 1
-      }
-      self.swap(i + 1, high)
-      i + 1
+
+        let temp = []
+        var size = RUN
+
+        while size < n {
+            var left = 0
+            while left < n {
+                let mid = left + size - 1
+                let right = if left + 2 * size - 1 < n - 1 {
+                    left + 2 * size - 1
+                } else {
+                    n - 1
+                }
+
+                if mid < right {
+                    self.merge(left, mid, right, temp)
+                }
+
+                left = left + 2 * size
+            }
+            size = size * 2
+        }
     }
 
-    fn quick_sort_impl(self, low, high) {
-      if low < high {
-        let pi = self.partition(low, high)
+    fn insertion_sort(self, left, right) {
+        var i = left + 1
+        while i <= right {
+            let key = self[i]
+            var j = i - 1
 
-        self.quick_sort_impl(low, pi - 1)
-        self.quick_sort_impl(pi + 1, high)
-      }
+            while j >= left and self[j] > key {
+                self[j + 1] = self[j]
+                j = j - 1
+            }
+            self[j + 1] = key
+            i = i + 1
+        }
+    }
+
+    fn merge(self, left: int, mid: int, right: int, temp: array<T>) {
+        let n1 = mid - left + 1
+        var i = 0
+        while i < n1 {
+            temp.push(self[left + i])
+            i = i + 1
+        }
+
+        var i_curr = 0
+        var j = mid + 1
+        var k = left
+
+        while i_curr < n1 and j <= right {
+            if temp[i_curr] <= self[j] {
+                self[k] = temp[i_curr]
+                i_curr = i_curr + 1
+            } else {
+                self[k] = self[j]
+                j = j + 1
+            }
+            k = k + 1
+        }
+
+        while i_curr < n1 {
+            self[k] = temp[i_curr]
+            i_curr = i_curr + 1
+            k = k + 1
+        }
+
+        var cleanup = 0
+        while cleanup < n1 {
+            temp.pop()
+            cleanup = cleanup + 1
+        }
     }
 }
 
