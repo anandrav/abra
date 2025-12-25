@@ -118,8 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let main_file_path: PathBuf = args.file.clone().into();
 
-    source_files.push(FileData::new(
-        "prelude".into(),
+    source_files.push(FileData::new_simple(
         "prelude.abra".into(),
         abra_core::prelude::PRELUDE.to_string(),
     ));

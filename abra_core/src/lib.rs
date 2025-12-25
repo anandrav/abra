@@ -42,8 +42,8 @@ pub fn abra_hello_world() {
 
 pub fn source_files_single(src: &str) -> Vec<FileData> {
     vec![
-        FileData::new("test".into(), "test.abra".into(), src.to_owned()),
-        FileData::new("prelude".into(), "prelude.abra".into(), PRELUDE.to_owned()),
+        FileData::new_simple("test.abra".into(), src.to_owned()),
+        FileData::new_simple("prelude.abra".into(), PRELUDE.to_owned()),
     ]
 }
 
@@ -157,8 +157,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
 
     // prelude
     {
-        let prelude_file_data =
-            FileData::new("prelude".into(), "prelude.abra".into(), PRELUDE.into());
+        let prelude_file_data = FileData::new_simple("prelude.abra".into(), PRELUDE.into());
         visited.insert(prelude_file_data.absolute_path.clone());
         let id = ctx.file_db.add(prelude_file_data);
         stack.push_back(id);
@@ -311,14 +310,21 @@ impl MockFileProvider {
 }
 
 impl FileProvider for MockFileProvider {
-    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
-        let mut package_name = path.to_owned();
+    fn search_for_file(
+        &self,
+        relative_path: &Path,
+    ) -> Result<FileData, Box<dyn std::error::Error>> {
+        let mut package_name = relative_path.to_owned();
         package_name.set_extension("");
-        match self.path_to_file.get(path) {
-            Some(contents) => Ok(FileData::new(package_name, path.into(), contents.into())),
+        match self.path_to_file.get(relative_path) {
+            Some(contents) => Ok(FileData::new(
+                package_name,
+                relative_path.into(),
+                contents.into(),
+            )),
             None => Err(Box::new(MyError(format!(
                 "Could not find desired file: {}",
-                path.display()
+                relative_path.display()
             )))),
         }
     }

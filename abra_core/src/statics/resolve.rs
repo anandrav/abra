@@ -402,7 +402,6 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
     }
     // always include the prelude (unless this file is the prelude)
     if file.package_name.to_str().unwrap() != "prelude" {
-        dbg!(&ctx.root_namespace.namespaces.keys());
         effective_namespace.add_other(
             ctx,
             &ctx.root_namespace

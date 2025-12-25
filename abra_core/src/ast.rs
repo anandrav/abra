@@ -54,6 +54,18 @@ impl FileData {
         }
     }
 
+    pub fn new_simple(path: PathBuf, source: String) -> FileData {
+        let absolute_path = path.clone();
+        let mut package_name = path;
+        package_name.set_extension("");
+        FileData {
+            package_name,
+            absolute_path,
+            line_starts: line_starts(source.as_ref()).collect(),
+            source,
+        }
+    }
+
     pub fn name(&self) -> &str {
         self.absolute_path.file_name().unwrap().to_str().unwrap()
     }
