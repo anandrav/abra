@@ -86,7 +86,7 @@ pub mod ffi {
         }
         pub mod exec {
             use crate::os::exec;
-            use abra_core::addons::*;
+            use abra_core::foreign_bindings::*;
             #[allow(unused)]
             use abra_core::vm::AbraInt;
             use std::ffi::c_void;
@@ -104,7 +104,7 @@ pub mod ffi {
         }
         pub mod env {
             use crate::os::env;
-            use abra_core::addons::*;
+            use abra_core::foreign_bindings::*;
             #[allow(unused)]
             use abra_core::vm::AbraInt;
             use std::ffi::c_void;

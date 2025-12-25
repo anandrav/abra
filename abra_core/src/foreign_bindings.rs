@@ -664,7 +664,7 @@ fn find_abra_files(
                 output.push_str(&format!(
                     r#" pub mod {no_extension} {{
                         use crate::{crate_import};
-                        use abra_core::addons::*;
+                        use abra_core::foreign_bindings::*;
                         #[allow(unused)]
                         use abra_core::vm::AbraInt;
                         use std::ffi::c_void;
