@@ -217,8 +217,8 @@ pub enum HostFunctionRet {
     // Also, the types need to be namespaced or scoped properly if they're in child files
     add_items_from_ast(&file_asts[0], output);
     for file_ast in &file_asts[1..] {
-        println!("path = {}", file_ast.path.display());
-        println!("name = {}", file_ast.name);
+        // println!("path = {}", file_ast.absolute_path.display());
+        // println!("name = {}", file_ast.package_name.display());
         // let mut output = String::new();
         // add_items_from_ast(file_ast, &mut output);
         // let destination = &file_ast.path;

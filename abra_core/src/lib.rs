@@ -42,12 +42,8 @@ pub fn abra_hello_world() {
 
 pub fn source_files_single(src: &str) -> Vec<FileData> {
     vec![
-        FileData::new("test.abra".into(), "test.abra".into(), src.to_owned()),
-        FileData::new(
-            "prelude.abra".into(),
-            "prelude.abra".into(),
-            PRELUDE.to_owned(),
-        ),
+        FileData::new("test".into(), "test.abra".into(), src.to_owned()),
+        FileData::new("prelude".into(), "prelude.abra".into(), PRELUDE.to_owned()),
     ]
 }
 
@@ -154,7 +150,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     // main file
     for root in roots {
         let main_file_data = ctx.file_provider.search_for_file(Path::new(root)).unwrap(); // TODO: don't unwrap. Figure out how to return better errors
-        visited.insert(main_file_data.full_path.clone());
+        visited.insert(main_file_data.absolute_path.clone());
         let id = ctx.file_db.add(main_file_data);
         stack.push_back(id);
     }
@@ -162,8 +158,8 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
     // prelude
     {
         let prelude_file_data =
-            FileData::new("prelude.abra".into(), "prelude.abra".into(), PRELUDE.into());
-        visited.insert(prelude_file_data.full_path.clone());
+            FileData::new("prelude".into(), "prelude.abra".into(), PRELUDE.into());
+        visited.insert(prelude_file_data.absolute_path.clone());
         let id = ctx.file_db.add(prelude_file_data);
         stack.push_back(id);
     }
@@ -247,11 +243,13 @@ impl OsFileProvider {
 
 impl FileProvider for OsFileProvider {
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
+        let mut nominal_path = path.to_owned();
+        nominal_path.set_extension("");
         // look in dir of main file
         {
             let desired = self.main_file_dir.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
+                return Ok(FileData::new(nominal_path, desired.clone(), contents));
             }
         }
 
@@ -261,7 +259,7 @@ impl FileProvider for OsFileProvider {
         for dir in &self.import_dirs {
             let desired = dir.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
+                return Ok(FileData::new(nominal_path, desired.clone(), contents));
             }
         }
 
@@ -271,7 +269,7 @@ impl FileProvider for OsFileProvider {
         {
             let desired = self.standard_modules_dir.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
+                return Ok(FileData::new(nominal_path, desired.clone(), contents));
             }
         }
 
@@ -311,8 +309,10 @@ impl MockFileProvider {
 
 impl FileProvider for MockFileProvider {
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
+        let mut nominal_path = path.to_owned();
+        nominal_path.set_extension("");
         match self.path_to_file.get(path) {
-            Some(contents) => Ok(FileData::new(path.into(), path.into(), contents.into())),
+            Some(contents) => Ok(FileData::new(nominal_path, path.into(), contents.into())),
             None => Err(Box::new(MyError(format!(
                 "Could not find desired file: {}",
                 path.display()

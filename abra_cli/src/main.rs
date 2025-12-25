@@ -125,14 +125,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let main_file_path: PathBuf = args.file.clone().into();
+    // TODO: using this API sucks
+    let mut nominal_path = main_file_path.clone();
+    nominal_path.set_extension("");
     source_files.push(FileData::new(
-        main_file_path.clone(),
+        nominal_path.clone(),
         main_file_path.clone(),
         contents,
     ));
 
     source_files.push(FileData::new(
-        "prelude.abra".into(),
+        "prelude".into(),
         "prelude.abra".into(),
         abra_core::prelude::PRELUDE.to_string(),
     ));

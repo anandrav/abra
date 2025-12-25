@@ -1,4 +1,4 @@
 #host
-type Blah {
+type Blah = {
     n: int
 }

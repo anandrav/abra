@@ -20,7 +20,7 @@ use utils::hash::HashMap;
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
-        let name = file.name.clone();
+        let name = file.package_name_str.clone();
         let namespace = gather_declarations_file(ctx, file);
         ctx.root_namespace.namespaces.insert(name, namespace.into());
     }
@@ -29,7 +29,7 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<Fil
 fn gather_declarations_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> Namespace {
     let mut namespace = Namespace::default();
 
-    let qualifiers = vec![file.name.clone()];
+    let qualifiers = vec![file.package_name_str.clone()];
     for item in file.items.iter() {
         gather_declarations_item(ctx, &mut namespace, qualifiers.clone(), file, item);
     }
@@ -51,7 +51,7 @@ fn gather_declarations_item(
     ctx: &mut StaticsContext,
     namespace: &mut Namespace,
     mut qualifiers: Vec<String>,
-    _file: &Rc<FileAst>,
+    file_ast: &Rc<FileAst>,
     item: &Rc<Item>,
 ) {
     match &*item.kind {
@@ -187,7 +187,7 @@ fn gather_declarations_item(
 
                     let func_name = func_decl.name.v.clone();
 
-                    let mut path = _file.path.clone();
+                    let mut path = file_ast.absolute_path.clone();
                     let mut package_name = path
                         .iter()
                         .next_back()
@@ -226,12 +226,18 @@ fn gather_declarations_item(
                             Some(target_directory.join(profile).join(filename))
                         }
                         None => {
-                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate target directory for `{}`. Was the native module compiled?", _file.path.display()) });
+                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate target directory for `{}`. Was the native module compiled?", file_ast.absolute_path.display()) });
                             None
                         }
                     };
 
-                    let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+                    // TODO: code duplication
+                    // TODO: kinda sloppy and unnecessary
+                    let elems: Vec<_> = file_ast
+                        .package_name
+                        .iter()
+                        .map(|c| c.to_str().unwrap())
+                        .collect();
                     let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
 
                     // add symbol to statics ctx
@@ -395,7 +401,8 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
             .insert(builtin.name(), Declaration::Builtin(*builtin));
     }
     // always include the prelude (unless this file is the prelude)
-    if file.name != "prelude" {
+    if file.package_name.to_str().unwrap() != "prelude" {
+        dbg!(&ctx.root_namespace.namespaces.keys());
         effective_namespace.add_other(
             ctx,
             &ctx.root_namespace
@@ -411,7 +418,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
         ctx,
         &ctx.root_namespace
             .namespaces
-            .get(&file.name)
+            .get(&file.package_name_str)
             .cloned()
             .unwrap(),
     );

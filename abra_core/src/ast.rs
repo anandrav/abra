@@ -33,8 +33,8 @@ impl Identifier {
 
 #[derive(Debug, Clone)]
 pub struct FileData {
-    pub nominal_path: PathBuf,
-    pub full_path: PathBuf,
+    pub package_name: PathBuf,
+    pub absolute_path: PathBuf,
     pub source: String,
     /// The starting byte indices in the source code.
     line_starts: Vec<usize>,
@@ -47,15 +47,15 @@ pub fn line_starts(source: &str) -> impl '_ + Iterator<Item = usize> {
 impl FileData {
     pub fn new(nominal_path: PathBuf, full_path: PathBuf, source: String) -> FileData {
         FileData {
-            nominal_path,
-            full_path,
+            package_name: nominal_path,
+            absolute_path: full_path,
             line_starts: line_starts(source.as_ref()).collect(),
             source,
         }
     }
 
     pub fn name(&self) -> &str {
-        self.full_path.file_name().unwrap().to_str().unwrap()
+        self.absolute_path.file_name().unwrap().to_str().unwrap()
     }
 
     /// Return the starting byte index of the line with the specified line index.
@@ -169,8 +169,12 @@ pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<Type>>);
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct FileAst {
     pub(crate) items: Vec<Rc<Item>>,
-    pub(crate) name: String,
-    pub(crate) path: PathBuf,
+    /// name of the Abra package this file represents
+    pub(crate) package_name: PathBuf,
+    /// package name as a String
+    pub(crate) package_name_str: String,
+    /// absolute path of the file this AST was parsed from
+    pub(crate) absolute_path: PathBuf,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,

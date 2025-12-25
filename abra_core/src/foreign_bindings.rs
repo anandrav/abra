@@ -250,11 +250,7 @@ pub fn generate_bindings_for_crate() {
     // handle toplevel .abra file
     {
         let source = read_to_string(&toplevel_abra_file).unwrap();
-        let file_data = FileData::new(
-            format!("{package_name}.abra").into(),
-            toplevel_abra_file,
-            source,
-        );
+        let file_data = FileData::new(package_name.clone().into(), toplevel_abra_file, source);
         let file_id = ctx.file_db.add(file_data);
 
         let ast = parse::parse_file(&mut ctx, file_id);
@@ -528,7 +524,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                               /// `vm` must be non-null and valid.
                               "#,
                 );
-                let elems: Vec<_> = ast.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+                // TODO: kinda sloppy and unnecessary
+                let elems: Vec<_> = ast
+                    .package_name
+                    .iter()
+                    .map(|c| c.to_str().unwrap())
+                    .collect();
                 let package_name = elems.last().unwrap().to_string();
                 let symbol = make_foreign_func_name(&f.name.v, &elems);
 
@@ -676,7 +677,7 @@ fn find_abra_files(
                 for prefix in prefixes.iter() {
                     nominal_path = nominal_path.join(prefix);
                 }
-                nominal_path = nominal_path.join(format!("{no_extension}.abra"));
+                nominal_path = nominal_path.join(no_extension);
                 let file_data = FileData::new(nominal_path, path.clone(), source);
                 let file_id = ctx.file_db.add(file_data);
                 // let file_data = ctx.file_db.get(file_id).unwrap();

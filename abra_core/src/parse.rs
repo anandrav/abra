@@ -74,13 +74,13 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     ctx.errors.extend(parser.errors);
 
     let file_data = ctx.file_db.get(file_id).unwrap();
+    // panic!("nominal_path = {}", file_data.nominal_path.display());
     Rc::new(FileAst {
         items,
         // remove the .abra suffix from filename
-        name: file_data.nominal_path.to_str().unwrap()
-            [..file_data.nominal_path.to_str().unwrap().len() - 5]
-            .to_string(),
-        path: file_data.full_path.clone(),
+        package_name: file_data.package_name.clone(),
+        package_name_str: file_data.package_name.to_str().unwrap().to_string(),
+        absolute_path: file_data.absolute_path.clone(),
         loc: Location {
             file_id,
             lo: 0,

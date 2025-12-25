@@ -1,7 +1,7 @@
 // TODO these tests really need to be more thorough. test more kinds of types, including void in enums and structs.
 
 use util_helper
-// use more_stuff/derp TODO
+use more_stuff/derp
 
 #host
 fn foo(a: int, b: string) -> int
