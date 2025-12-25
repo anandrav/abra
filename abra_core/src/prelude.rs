@@ -148,8 +148,6 @@ implement Ord for (T1 Ord, T2 Ord) {
     }
 }
 
-// TODO implement Ord for void, string and tuples... do it at the bottom of the prelude
-
 interface Clone {
     fn clone(x: Self) -> Self
 }
@@ -192,7 +190,7 @@ implement ToString for int {
 	fn str(n) = int_to_string(n)
 }
 implement ToString for bool {
-	fn str(b) = if b  { "true" } else  { "false" } // TODO: would be nice to write if b "true" else "false"
+	fn str(b) = if b "true" else "false"
 }
 implement ToString for float {
     fn str(f) = float_to_string(f)
