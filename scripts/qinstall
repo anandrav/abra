@@ -1,32 +1,3 @@
 #!/bin/bash
-set -euo pipefail
 
-# Set global RUSTFLAGS to suppress warnings
-export RUSTFLAGS="-Awarnings"
-
-printf "Initializing Git submodules... "
-git submodule update --init --recursive
-printf "Done\n"
-
-printf "Installing Abra CLI to Cargo bin... "
-cargo build --quiet
-cargo install --debug --bin abra --path abra_cli --quiet || {
-  printf "Failed!\n"
-  echo "Failed to install Abra CLI. Please check your Rust installation." >&2
-  exit 1
-}
-printf "Done\n"
-
-printf "Installing Abra modules... "
-rm -rf "$HOME/.abra/modules"
-mkdir -p "$HOME/.abra"
-cp -R modules "$HOME/.abra/modules"
-mkdir -p "$HOME/.abra/shared_objects"
-find target/debug -maxdepth 1 -type f \( -name "*.so" -o -name "*.dylib" -o -name "*.dll" \) -exec cp {} "$HOME/.abra/shared_objects" \;
-printf "Done\n"
-
-printf "\nSetup complete! Abra is ready to use."
-echo " To get started:"
-echo "- Run \`abra --help\` to see available options."
-echo "- Create a new Abra program and run it with \`abra <filename>.abra\`."
-
+./scripts/install --quick

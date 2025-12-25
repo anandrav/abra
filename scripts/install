@@ -4,29 +4,47 @@ set -euo pipefail
 # Set global RUSTFLAGS to suppress warnings
 export RUSTFLAGS="-Awarnings"
 
+QUICK=false
+
+CARGO_BUILD_PROFILE="--release"
+CARGO_INSTALL_PROFILE=""
+CARGO_BUILD_SUBDIR="release"
+# Check for --dev flag
+for arg in "$@"; do
+  if [[ "$arg" == "--quick" ]]; then
+    QUICK=true
+    CARGO_BUILD_PROFILE=""
+    CARGO_INSTALL_PROFILE="--debug"
+    CARGO_BUILD_SUBDIR="debug"
+  fi
+done
+
 printf "Initializing Git submodules... "
 git submodule update --init --recursive
 printf "Done\n"
 
-CURRENT_COMMIT=$(git rev-parse HEAD)
 printf "Installing Abra CLI to Cargo bin... "
+cargo build $CARGO_BUILD_PROFILE
+cargo install $CARGO_INSTALL_PROFILE --bin abra --path abra_cli || {
+  printf "Failed!\n"
+  echo "Failed to install Abra CLI. Please check your Rust installation." >&2
+  exit 1
+}
+printf "Done\n"
+
 printf "Installing Abra modules... "
 if [ -d $HOME/.abra/abra ]; then
     mv "$HOME/.abra/abra" $HOME/.abra/abra_to_delete
     rm -rf $HOME/.abra/abra_to_delete &
 fi
-cp -R . $HOME/.abra/abra
-pushd $HOME/.abra/abra
-git checkout $CURRENT_COMMIT
-cargo build --release
-cargo install --bin abra --path abra_cli || {
-  printf "Failed!\n"
-  echo "Failed to install Abra CLI. Please check your Rust installation." >&2
-  exit 1
-}
-popd
+mkdir -p $HOME/.abra/abra
+cp ./Cargo.toml $HOME/.abra/abra/Cargo.toml
+cp -R ./modules $HOME/.abra/abra/
+mkdir -p $HOME/.abra/abra/target/$CARGO_BUILD_SUBDIR
+cp -R ./target/$CARGO_BUILD_SUBDIR/lib* $HOME/.abra/abra/target/$CARGO_BUILD_SUBDIR
 printf "Done\n"
 
+install_vim_syntax_highlighting() {
 VIM_DIR="$HOME/.vim"
 if [ -d "$VIM_DIR" ]; then
   printf "Installing Vim syntax highlighting... "
@@ -38,6 +56,7 @@ if [ -d "$VIM_DIR" ]; then
 else
   echo "Vim configuration directory not found. Skipping Vim syntax highlighting installation."
 fi
+}
 
 install_abra_vscode_extension() {
   if ! command -v code &> /dev/null; then
@@ -86,7 +105,10 @@ install_abra_vscode_extension() {
   popd > /dev/null
 }
 
-install_abra_vscode_extension
+if [ $QUICK = false ]; then
+    install_vim_syntax_highlighting
+    install_abra_vscode_extension
+fi
 
 printf "\nSetup complete! Abra is ready to use."
 echo " To get started:"
