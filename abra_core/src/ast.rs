@@ -45,10 +45,10 @@ pub fn line_starts(source: &str) -> impl '_ + Iterator<Item = usize> {
 }
 
 impl FileData {
-    pub fn new(nominal_path: PathBuf, full_path: PathBuf, source: String) -> FileData {
+    pub fn new(package_name: PathBuf, absolute_path: PathBuf, source: String) -> FileData {
         FileData {
-            package_name: nominal_path,
-            absolute_path: full_path,
+            package_name,
+            absolute_path,
             line_starts: line_starts(source.as_ref()).collect(),
             source,
         }

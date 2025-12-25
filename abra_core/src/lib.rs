@@ -242,14 +242,17 @@ impl OsFileProvider {
 }
 
 impl FileProvider for OsFileProvider {
-    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
-        let mut nominal_path = path.to_owned();
-        nominal_path.set_extension("");
+    fn search_for_file(
+        &self,
+        relative_path: &Path,
+    ) -> Result<FileData, Box<dyn std::error::Error>> {
+        let mut package_name = relative_path.to_owned();
+        package_name.set_extension("");
         // look in dir of main file
         {
-            let desired = self.main_file_dir.join(path);
-            if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(nominal_path, desired.clone(), contents));
+            let absolute_path = self.main_file_dir.join(relative_path);
+            if let Ok(contents) = std::fs::read_to_string(&absolute_path) {
+                return Ok(FileData::new(package_name, absolute_path.clone(), contents));
             }
         }
 
@@ -257,9 +260,9 @@ impl FileProvider for OsFileProvider {
         // TODO: let mut found = false; if already_found { report_shadowing_error }
         // look in modules
         for dir in &self.import_dirs {
-            let desired = dir.join(path);
+            let desired = dir.join(relative_path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(nominal_path, desired.clone(), contents));
+                return Ok(FileData::new(package_name, desired.clone(), contents));
             }
         }
 
@@ -267,15 +270,15 @@ impl FileProvider for OsFileProvider {
         // TODO: let mut found = false; if already_found { report_shadowing_error }
         // look in modules
         {
-            let desired = self.standard_modules_dir.join(path);
+            let desired = self.standard_modules_dir.join(relative_path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(nominal_path, desired.clone(), contents));
+                return Ok(FileData::new(package_name, desired.clone(), contents));
             }
         }
 
         Err(Box::new(MyError(format!(
             "Could not find desired file: {}",
-            path.display()
+            relative_path.display()
         ))))
     }
 }
@@ -309,10 +312,10 @@ impl MockFileProvider {
 
 impl FileProvider for MockFileProvider {
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
-        let mut nominal_path = path.to_owned();
-        nominal_path.set_extension("");
+        let mut package_name = path.to_owned();
+        package_name.set_extension("");
         match self.path_to_file.get(path) {
-            Some(contents) => Ok(FileData::new(nominal_path, path.into(), contents.into())),
+            Some(contents) => Ok(FileData::new(package_name, path.into(), contents.into())),
             None => Err(Box::new(MyError(format!(
                 "Could not find desired file: {}",
                 path.display()
