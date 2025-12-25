@@ -223,20 +223,17 @@ impl Parser {
             let mut segments = vec![];
             segments.push(v);
 
-            let mut current = self.current_token();
-            while current.tag() == TokenTag::Slash {
+            while self.current_token().tag() == TokenTag::Slash {
                 self.consume_token();
-                current = self.current_token();
-                let TokenKind::Ident(v) = current.kind else {
+                let TokenKind::Ident(v) = self.current_token().kind else {
                     return Err(Error::UnexpectedToken(
                         "path identifier".into(),
-                        current.kind.discriminant().to_string(),
+                        self.current_token().kind.discriminant().to_string(),
                         self.current_token_location(),
                     )
                     .into());
                 };
                 self.consume_token();
-                current = self.current_token();
                 segments.push(v.clone());
             }
 
