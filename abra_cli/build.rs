@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let file_provider = OsFileProvider::new(this_dir.clone(), PathBuf::new(), vec![]); // TODO: passing dummies here is strange. Need an alternative to new() that just takes the directory.
 
-    let destination = this_dir.join("src").join("host_funcs.rs");
+    let destination = this_dir.join("src");
 
     if let Err(s) =
         abra_core::generate_host_function_enum("host_funcs.abra", file_provider, &destination)
