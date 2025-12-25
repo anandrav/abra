@@ -8,8 +8,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::exit;
 
-mod host_funcs;
-use host_funcs::*;
+mod generated;
+use generated::host_funcs::*;
 
 struct Args {
     file: String,

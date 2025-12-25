@@ -3,6 +3,7 @@ use crate::foreign_bindings::{name_of_ty, run_formatter};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
+use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 use utils::swrite;
@@ -215,6 +216,15 @@ pub enum HostFunctionRet {
 
     // TODO: this only adds from the root effects file. Need to add all types in the tree of files
     // Also, the types need to be namespaced or scoped properly if they're in child files
+    let destination = destination.join("generated");
+    if fs::exists(&destination).unwrap() {
+        fs::remove_dir_all(&destination).unwrap();
+    }
+    fs::create_dir(&destination).unwrap();
+    {
+        let destination = destination.join("mod.rs");
+        fs::write(&destination, "pub mod host_funcs;").unwrap(); // don't unwrap here or elsewhere
+    }
     add_items_from_ast(&file_asts[0], output);
     for file_ast in &file_asts[1..] {
         if file_ast.package_name_str == "prelude" {
@@ -229,13 +239,13 @@ pub enum HostFunctionRet {
         add_items_from_ast(file_ast, &mut output);
         // // TODO: remove the unwraps
         let parent = destination.parent().unwrap();
-        std::fs::create_dir_all(parent).unwrap();
-        std::fs::write(destination, output).unwrap();
+        fs::create_dir_all(parent).unwrap();
+        fs::write(destination, output).unwrap();
     }
     // panic!(); // TODO LAST HERE
 
     let destination = destination.join("host_funcs.rs");
-    std::fs::write(&destination, output).unwrap();
+    fs::write(&destination, output).unwrap();
 
     run_formatter(destination.to_str().unwrap());
 

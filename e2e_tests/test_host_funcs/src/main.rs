@@ -8,9 +8,8 @@ use abra_core::{
     OsFileProvider,
     vm::{Vm, VmStatus},
 };
-use host_funcs::*;
-
-mod host_funcs;
+mod generated;
+use generated::host_funcs::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("abra_src");

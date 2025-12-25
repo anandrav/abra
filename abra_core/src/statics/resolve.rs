@@ -51,7 +51,7 @@ fn gather_declarations_item(
     ctx: &mut StaticsContext,
     namespace: &mut Namespace,
     mut qualifiers: Vec<String>,
-    file_ast: &Rc<FileAst>,
+    _file_ast: &Rc<FileAst>,
     item: &Rc<Item>,
 ) {
     match &*item.kind {
@@ -187,7 +187,7 @@ fn gather_declarations_item(
 
                     let func_name = func_decl.name.v.clone();
 
-                    let mut path = file_ast.absolute_path.clone();
+                    let mut path = _file_ast.absolute_path.clone();
                     let mut package_name = path
                         .iter()
                         .next_back()
@@ -226,14 +226,14 @@ fn gather_declarations_item(
                             Some(target_directory.join(profile).join(filename))
                         }
                         None => {
-                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate target directory for `{}`. Was the native module compiled?", file_ast.absolute_path.display()) });
+                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate target directory for `{}`. Was the native module compiled?", _file_ast.absolute_path.display()) });
                             None
                         }
                     };
 
                     // TODO: code duplication
                     // TODO: kinda sloppy and unnecessary
-                    let elems: Vec<_> = file_ast
+                    let elems: Vec<_> = _file_ast
                         .package_name
                         .iter()
                         .map(|c| c.to_str().unwrap())
