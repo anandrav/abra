@@ -244,10 +244,13 @@ pub enum HostFunctionRet {
     }
     // panic!(); // TODO LAST HERE
 
-    let destination = destination.join("host_funcs.rs");
-    fs::write(&destination, output).unwrap();
+    {
+        let destination = destination.join("host_funcs.rs");
+        fs::write(&destination, output).unwrap();
+    }
 
-    run_formatter(destination.to_str().unwrap());
+    let destination = destination.join("mod.rs");
+    run_formatter(destination.to_str().unwrap(), false);
 
     Ok(())
 }

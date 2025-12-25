@@ -276,19 +276,17 @@ pub fn generate_bindings_for_crate() {
 
     std::fs::write(&output_path, output).unwrap();
 
-    run_formatter("src/lib.rs");
+    run_formatter("src/lib.rs", true);
 }
 
-pub fn run_formatter(output_path: &str) {
-    let status = std::process::Command::new("rustfmt")
-        .arg("+nightly")
-        .arg("--unstable-features")
-        .arg("--skip-children")
-        .arg(output_path)
-        // .arg("--emit")
-        // .arg("stdout")
-        // .arg(output_path)
-        .status();
+pub fn run_formatter(output_path: &str, skip_children: bool) {
+    let mut cmd = std::process::Command::new("rustfmt");
+    cmd.arg("+nightly");
+    if skip_children {
+        cmd.arg("--unstable-features").arg("--skip-children");
+    }
+    cmd.arg(output_path);
+    let status = cmd.status();
     match status {
         Ok(status) => {
             if !status.success() {
