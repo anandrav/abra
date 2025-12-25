@@ -1,5 +1,5 @@
-use crate::addons::{name_of_ty, run_formatter};
 use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
+use crate::foreign_bindings::{name_of_ty, run_formatter};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};

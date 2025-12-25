@@ -5,14 +5,14 @@
 use super::{
     Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
 };
-#[cfg(feature = "ffi")]
-use crate::addons::make_foreign_func_name;
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportList,
     InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type,
     TypeDefKind, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
+#[cfg(feature = "ffi")]
+use crate::foreign_bindings::make_foreign_func_name;
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;

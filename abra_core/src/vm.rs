@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #[cfg(feature = "ffi")]
-use crate::addons::ABRA_VM_FUNCS;
+use crate::foreign_bindings::ABRA_VM_FUNCS;
 #[cfg(feature = "ffi")]
-use crate::addons::AbraVmFunctions;
+use crate::foreign_bindings::AbraVmFunctions;
 use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 #[cfg(feature = "ffi")]

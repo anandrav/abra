@@ -3,5 +3,5 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 fn main() {
-    abra_core::addons::generate_bindings_for_crate();
+    abra_core::foreign_bindings::generate_bindings_for_crate();
 }
