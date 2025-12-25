@@ -55,7 +55,6 @@ pub fn compile_and_dump_assembly(
 
     let mut ctx = StaticsContext::new(file_provider);
     let file_asts = get_files(&mut ctx, &roots);
-    // TODO: this should be parse_then_analyze()
     statics::analyze(&mut ctx, &file_asts)?;
 
     let translator = Translator::new(ctx, file_asts);
