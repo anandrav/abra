@@ -216,6 +216,50 @@ impl Parser {
         }
     }
 
+    fn expect_path_ident(&mut self) -> Result<Rc<Identifier>, Box<Error>> {
+        let current = self.current_token();
+        self.index += 1;
+        if let TokenKind::Ident(v) = current.kind {
+            let mut segments = vec![];
+            segments.push(v);
+
+            let mut current = self.current_token();
+            while current.tag() == TokenTag::Slash {
+                self.consume_token();
+                current = self.current_token();
+                let TokenKind::Ident(v) = current.kind else {
+                    return Err(Error::UnexpectedToken(
+                        "path identifier".into(),
+                        current.kind.discriminant().to_string(),
+                        self.current_token_location(),
+                    )
+                    .into());
+                };
+                self.consume_token();
+                current = self.current_token();
+                segments.push(v.clone());
+            }
+
+            let joined = segments.join("/");
+            Ok(Rc::new(Identifier {
+                v: joined.into(),
+                loc: Location {
+                    file_id: self.file_id,
+                    lo: current.span.lo,
+                    hi: current.span.hi,
+                },
+                id: NodeId::new(),
+            }))
+        } else {
+            Err(Error::UnexpectedToken(
+                "path identifier".into(),
+                current.kind.discriminant().to_string(),
+                self.current_token_location(),
+            )
+            .into())
+        }
+    }
+
     fn expect_poly_ident(&mut self) -> Result<Rc<Identifier>, Box<Error>> {
         let current = self.current_token();
         self.index += 1;
@@ -276,7 +320,7 @@ impl Parser {
             }
             TokenKind::Use => {
                 self.consume_token();
-                let ident = self.expect_ident()?;
+                let ident = self.expect_path_ident()?;
                 let mut import_list: Option<ImportList> = None;
                 if self.current_token().tag() == TokenTag::Except
                     || self.current_token().tag() == TokenTag::Dot

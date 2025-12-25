@@ -1,9 +1,15 @@
+// TODO these tests really need to be more thorough. test more kinds of types, including void in enums and structs.
+
+use util_helper
+// use more_stuff/derp TODO
+
 #host
 fn foo(a: int, b: string) -> int
 
 #host
 fn bar(a: int, b: int) -> (int, int)
 
+// TODO: actually use this type. Pass it back and forth
 #host
 type Color =
     | Red
