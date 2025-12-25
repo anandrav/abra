@@ -320,7 +320,7 @@ mod {package_name};
 pub mod ffi {{
     pub mod {package_name} {{
     use crate::{package_name};
-    use abra_core::addons::*;
+    use abra_core::foreign_bindings::*;
     #[allow(unused)]
     use abra_core::vm::AbraInt;
     use std::ffi::c_void;

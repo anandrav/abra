@@ -4,7 +4,7 @@ mod strings;
 pub mod ffi {
     pub mod strings {
         use crate::strings;
-        use abra_core::addons::*;
+        use abra_core::foreign_bindings::*;
         #[allow(unused)]
         use abra_core::vm::AbraInt;
         use std::ffi::c_void;

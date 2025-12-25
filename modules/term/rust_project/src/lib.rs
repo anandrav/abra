@@ -4,7 +4,7 @@ mod term;
 pub mod ffi {
     pub mod term {
         use crate::term;
-        use abra_core::addons::*;
+        use abra_core::foreign_bindings::*;
         #[allow(unused)]
         use abra_core::vm::AbraInt;
         use std::ffi::c_void;
