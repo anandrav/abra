@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::process::exit;
 
 mod generated;
-use generated::host_funcs::*;
+use generated::*;
 
 struct Args {
     file: String,
