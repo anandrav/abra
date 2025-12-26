@@ -1,6 +1,6 @@
 use crate::ast::{FileAst, ImportList, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::foreign_bindings::{name_of_ty, run_formatter};
-use crate::statics::{Declaration, StaticsContext};
+use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::fs;
@@ -18,18 +18,11 @@ pub fn generate_host_function_enum(
     let file_asts = get_files(&mut ctx, &[main_host_func_file_name]);
     statics::analyze(&mut ctx, &file_asts)?;
 
-    // TODO: this only adds from the root effects file. Need to add all types in the tree of files
-    // Also, the types need to be namespaced or scoped properly if they're in child files
     let destination = destination.join("generated");
     if fs::exists(&destination).unwrap() {
         fs::remove_dir_all(&destination).unwrap();
     }
     fs::create_dir(&destination).unwrap();
-
-    // TODO: populate child modules
-    // let mut path_to_ast = HashMap::default();
-
-    // let mut child_modules = HashMap::default();
 
     let mut root_namespace = Namespace::new();
 
@@ -45,70 +38,12 @@ pub fn generate_host_function_enum(
         };
 
         root_namespace.add(&path, file_ast.clone());
-        // add_to_child_modules(file_ast, &mut child_modules, main_host_func_file_name);
-        // path_to_ast.insert(file_ast.package_name_str.clone(), file_ast.clone());
     }
 
     generate_file_per_namespace(&root_namespace, &destination, true, &mut ctx);
 
-    // panic!();
-    //
-    // add_items_from_ast(&file_asts[0], output, &child_modules, main_host_func_file_name);
-    // for (parent, children) in child_modules.iter() {
-    //     for child in children {
-    //         println!("add_items_from_ast()");
-    //         println!("parent=`{}`, child=`{}`", parent, child);
-    //
-    //         if child == "prelude" {
-    //             continue;
-    //         }
-    //
-    //         let path = parent.to_owned() + "/" + child;
-    //
-    //         let lookup = if child == main_host_func_file_name { "" } else { &path };
-    //
-    //         if let Some(children) = child_modules.get(lookup) {
-    //             for child in children {
-    //                 swrite!(output, "pub mod {};\n", child);
-    //             }
-    //         }
-    //
-    //         let path = parent.to_owned() + "/" + child;
-    //         if let Some(file_ast) = path_to_ast.get(&path) {
-    //             add_items_from_ast(file_ast, output, &child_modules, main_host_func_file_name);
-    //         } else {
-    //             swrite!(output, "")
-    //         }
-    //     }
-    // }
-
-    // add_items_from_ast(&file_asts[0], output, &child_modules, main_host_func_file_name);
-    // for file_ast in &file_asts[1..] {
-    //     if file_ast.package_name_str == "prelude" {
-    //         continue;
-    //     }
-    //     println!("path = {}", file_ast.absolute_path.display());
-    //     println!("name = {}", file_ast.package_name.display());
-    //     let mut destination = destination.join(&file_ast.package_name);
-    //     destination.set_extension("rs");
-    //     println!("output path = {}", destination.display());
-    //     let mut output = String::new();
-    //     add_items_from_ast(file_ast, &mut output, &child_modules, main_host_func_file_name);
-    //     // // TODO: remove the unwraps
-    //     let parent = destination.parent().unwrap();
-    //     fs::create_dir_all(parent).unwrap();
-    //     fs::write(destination, output).unwrap();
-    // }
-    // panic!(); // TODO LAST HERE
-
-    // {
-    //     let destination = destination.join("mod.rs");
-    //     fs::write(&destination, output).unwrap();
-    // }
-
     let destination = destination.join("mod.rs");
     run_formatter(destination.to_str().unwrap(), false);
-    // panic!();
 
     Ok(())
 }
@@ -319,7 +254,6 @@ fn generate_file_per_namespace(
     root: bool,
     ctx: &StaticsContext,
 ) {
-    // println!("generating file for destination = {}", destination.display());
     let mut output = String::new();
     emit_header(&mut output);
 
@@ -342,11 +276,6 @@ fn generate_file_per_namespace(
         destination.with_added_extension("rs")
     };
 
-    // let file = destination.join("mod.rs");
-    // let mut destination = destination.join(&file_ast.package_name);
-    // destination.set_extension("rs");
-    // println!("output path = {}", file.display());
-    // // // TODO: remove the unwraps
     let parent = destination.parent().unwrap();
     fs::create_dir_all(parent).unwrap();
     fs::write(destination, output).unwrap();
@@ -381,18 +310,6 @@ impl Namespace {
         }
     }
 }
-
-// fn add_to_child_modules(file_ast: &Rc<FileAst>, child_modules: &mut HashMap<String, Vec<String>>, main_host_func_file_name: &str) {
-//     let package_name = &file_ast.package_name;
-//     let child = package_name.file_name().unwrap().to_str().unwrap().to_owned(); // TODO: this rigamarole is really annoying....
-//     if child == "prelude" || child == main_host_func_file_name {
-//         return;
-//     }
-//     let parent = package_name.parent().unwrap().to_str().unwrap().to_owned(); // TODO: this rigamarole is really annoying....
-//     println!("parent=`{}, child={}`", parent, child);
-//
-//     child_modules.entry(parent).or_default().push(child);
-// }
 
 fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
@@ -592,18 +509,6 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         swrite!(output, "use crate::{}::*;\n", module_name);
                     }
                 }
-                /* TODO last here. emit things like
-                    pub mod util_helper  }
-                    use util_helper      }    <--- not sure if this is ideal, play it by ear
-                    pub mod more_stuff   }
-                    use more_stuff::*    }
-                */
-
-                // TODO: for the mod declarations, just create a tree of modules ahead of time. Then when writing the output per file, just add a `pub mod` for all its direct descendants
-
-                // TODO: for the use statements, mirror the structure of the Abra import. If import_list = None, do a glob import. If it's an inclusion list, include using {}
-                // TODO: if it's an exception list..... that has to be converted to an inclusion list, which sucks :/ but it must be done.
-                // output.push_str(format!(""))
             }
             _ => {}
         }
