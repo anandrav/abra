@@ -476,7 +476,7 @@ extend array<T> {
             let key = self[i]
             var j = i - 1
 
-            while j >= left and not less_than_or_equal(self[j], key) { // COMPARISON HAPPENS HERE
+            while j >= left and not less_than_or_equal(self[j], key) {
                 self[j + 1] = self[j]
                 j = j - 1
             }
@@ -498,7 +498,7 @@ extend array<T> {
         var k = left
 
         while i_curr < n1 and j <= right {
-            if less_than_or_equal(temp[i_curr], self[j]) { // COMPARISON HAPPENS HERE
+            if less_than_or_equal(temp[i_curr], self[j]) {
                 self[k] = temp[i_curr]
                 i_curr = i_curr + 1
             } else {
