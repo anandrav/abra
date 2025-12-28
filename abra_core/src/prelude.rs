@@ -431,13 +431,19 @@ extend array<T Equal> {
 
 extend array<T Ord> {
     fn sort(self) -> void {
+        self.sort_by((a: T, b: T) -> a <= b)
+    }
+}
+
+extend array<T> {
+    fn sort_by(self, less_than_or_equal: (T, T) -> bool) -> void {
         let n = self.len()
         let RUN = 32
 
         var i = 0
         while i < n {
             let end = if i + RUN - 1 < n - 1 { i + RUN - 1 } else { n - 1 }
-            self.insertion_sort(i, end)
+            self.insertion_sort_by(i, end, less_than_or_equal)
             i = i + RUN
         }
 
@@ -455,7 +461,7 @@ extend array<T Ord> {
                 }
 
                 if mid < right {
-                    self.merge(left, mid, right, temp)
+                    self.merge_by(left, mid, right, temp, less_than_or_equal)
                 }
 
                 left = left + 2 * size
@@ -464,13 +470,13 @@ extend array<T Ord> {
         }
     }
 
-    fn insertion_sort(self, left, right) {
+    fn insertion_sort_by(self, left, right, less_than_or_equal: (T, T) -> bool) {
         var i = left + 1
         while i <= right {
             let key = self[i]
             var j = i - 1
 
-            while j >= left and self[j] > key {
+            while j >= left and not less_than_or_equal(self[j], key) { // COMPARISON HAPPENS HERE
                 self[j + 1] = self[j]
                 j = j - 1
             }
@@ -479,7 +485,7 @@ extend array<T Ord> {
         }
     }
 
-    fn merge(self, left: int, mid: int, right: int, temp: array<T>) {
+    fn merge_by(self, left: int, mid: int, right: int, temp: array<T>, less_than_or_equal: (T, T) -> bool) {
         let n1 = mid - left + 1
         var i = 0
         while i < n1 {
@@ -492,7 +498,7 @@ extend array<T Ord> {
         var k = left
 
         while i_curr < n1 and j <= right {
-            if temp[i_curr] <= self[j] {
+            if less_than_or_equal(temp[i_curr], self[j]) { // COMPARISON HAPPENS HERE
                 self[k] = temp[i_curr]
                 i_curr = i_curr + 1
             } else {
