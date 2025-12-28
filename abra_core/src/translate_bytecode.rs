@@ -1121,7 +1121,7 @@ impl Translator {
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
         iface_def: &Rc<InterfaceDef>,
-        method: u16,
+        method_index: u16,
         func_ty: &SolvedType,
     ) {
         // let func_name = &iface_def.methods[method as usize].name.v;
@@ -1130,7 +1130,7 @@ impl Translator {
         //     "({func_name}) iface func ty substituted: {}",
         //     substituted_ty
         // );
-        let method = &iface_def.methods[method as usize].name;
+        let method = &iface_def.methods[method_index as usize].name;
         let impl_list = &self.statics.interface_impls[iface_def];
 
         for imp in impl_list {
@@ -1154,12 +1154,15 @@ impl Translator {
                             f,
                         );
                         return;
+                    } else {
+                        // println!("{} doesn't fit {}", substituted_ty, interface_impl_ty);
                     }
                 }
             }
         }
         unreachable!(
-            "interface method call could not be translated. There is a bug with the typechecker"
+            "interface method call could not be translated. There is a bug with the typechecker. interface = {}. method = {}",
+            iface_def.name.v, iface_def.methods[method_index as usize].name.v
         )
     }
 

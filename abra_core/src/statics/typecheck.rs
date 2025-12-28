@@ -1462,7 +1462,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
 
         let repr = tyvar.0.find().with_data(|d| d.id);
         if visited_tyvars.contains(&repr) {
-            // continue; // TODO: add this back soon!
+            continue;
         }
         visited_tyvars.insert(repr);
 
@@ -1474,24 +1474,58 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
         } else if tyvar.is_underdetermined() {
             ctx.errors
                 .push(Error::UnconstrainedUnifvar { node: id.clone() });
-        } else if let Some(ty) = tyvar.solution() {
-            tyvar.0.with_data(|d| {
-                for (constraint, nodes) in &d.iface_constraints {
-                    let iface = &constraint.iface; // TODO: the args of the iface constraint must be used too
-                    if !ty.implements_iface(ctx, iface) {
-                        ctx.errors.push(Error::InterfaceNotImplemented {
-                            ty: ty.clone(),
-                            iface: iface.clone(),
-                            node: nodes.first().unwrap().clone(),
-                        });
-                    }
-                }
-            });
-        } else {
+        } else if tyvar.solution().is_none() {
             ctx.errors.push(Error::PartiallyUnsolvedType {
                 node: id.clone(),
                 tyvar: tyvar.clone(),
             });
+        }
+
+        check_iface_constraints(ctx, tyvar);
+    }
+}
+
+pub(crate) fn check_iface_constraints(ctx: &mut StaticsContext, tyvar: &TypeVar) {
+    if let Some(solved_ty) = tyvar.solution() {
+        tyvar.0.with_data(|d| {
+            for (constraint, nodes) in &d.iface_constraints {
+                let iface = &constraint.iface; // TODO: the args of the iface constraint must be used too
+                if !solved_ty.implements_iface(ctx, iface) {
+                    ctx.errors.push(Error::InterfaceNotImplemented {
+                        ty: solved_ty.clone(),
+                        iface: iface.clone(),
+                        node: nodes.first().unwrap().clone(),
+                    });
+                }
+            }
+        });
+
+        let single = tyvar.single().unwrap();
+        match single {
+            PotentialType::Bool(..)
+            | PotentialType::Int(..)
+            | PotentialType::Float(..)
+            | PotentialType::String(..)
+            | PotentialType::Never(..)
+            | PotentialType::Void(..)
+            | PotentialType::InterfaceOutput(..)
+            | PotentialType::Poly(..) => {}
+            PotentialType::Function(_, args, out) => {
+                for arg in args.iter() {
+                    check_iface_constraints(ctx, arg);
+                }
+                check_iface_constraints(ctx, &out);
+            }
+            PotentialType::Tuple(_, elems) => {
+                for elem in elems.iter() {
+                    check_iface_constraints(ctx, elem);
+                }
+            }
+            PotentialType::Nominal(_, _, args) => {
+                for arg in args.iter() {
+                    check_iface_constraints(ctx, arg);
+                }
+            }
         }
     }
 }
@@ -2562,9 +2596,13 @@ fn generate_constraints_expr(
                                         //     );
                                         // }
                                         // let ty_field = ty_field.subst(&substitution);
+                                        // println!("{}:", func.name.v);
+                                        // println!("memfn_ty: {}", memfn_ty);
                                         let memfn_ty =
                                             memfn_ty.instantiate(ctx, polyvar_scope, fname.node());
+                                        // println!("memfn_ty instantiated: {}", memfn_ty);
                                         constrain(ctx, &memfn_node_ty, &memfn_ty);
+                                        // println!("memfn_node_ty: {}", memfn_node_ty);
                                     }
                                     Declaration::InterfaceMethod {
                                         iface: iface_def,
@@ -2595,6 +2633,8 @@ fn generate_constraints_expr(
                                     expr.node(),
                                     node_ty.clone(),
                                 );
+                                let receiver_ty = TypeVar::from_node(ctx, receiver_expr.node());
+                                // println!("ty of receiver: {}\n", receiver_ty);
                             } else {
                                 // failed to resolve member function
                                 ctx.errors.push(Error::UnresolvedMemberFunction {
@@ -2677,15 +2717,6 @@ fn generate_constraints_expr(
                     ctx.resolution_map
                         .insert(member_ident.id, Declaration::MemberFunction(memfn.clone()));
                     let memfn_ty = TypeVar::from_node(ctx, memfn.name.node());
-                    // let mut substitution = Substitution::default();
-                    // let tydef_args = nominal.ty_args();
-                    // for (arg, value) in tydef_args.iter().zip(ty_args.iter()) {
-                    //     substitution.insert(
-                    //         arg.clone(),
-                    //         value.clone(),
-                    //     );
-                    // }
-                    // let memfn_ty = memfn_ty.subst(&substitution);
                     let memfn_ty = memfn_ty.instantiate(ctx, polyvar_scope, expr.node());
                     constrain(ctx, &node_ty, &memfn_ty);
                     let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
