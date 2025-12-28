@@ -973,8 +973,6 @@ impl Translator {
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))
             | Declaration::MemberFunction(f) => {
                 let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-                // println!("(translator) type of `{}` is {}", f.name.v, func_ty);
-                // self.statics.solution_of_node(expr.node()).unwrap();
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
                 } else {
@@ -1012,7 +1010,6 @@ impl Translator {
                             let interface_impl_ty = unifvar.solution().unwrap();
 
                             if overload_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
-                                // println!("here we go");
                                 let func_name = &self.statics.fully_qualified_names[&method.id];
                                 let desc = FuncDesc {
                                     kind: FuncKind::NamedFunc(func_def.clone()),
@@ -1106,11 +1103,6 @@ impl Translator {
             self.handle_func_call(st, mono, None, f_fully_qualified_name, f);
         } else {
             let func_instance_ty = self.get_ty(mono, func_node).unwrap();
-            // println!(
-            //     "({f_fully_qualified_name}) func_instance_ty: {}",
-            //     func_instance_ty
-            // );
-            // println!("({f_fully_qualified_name}) mono: {:?}", mono);
             self.handle_func_call(st, mono, Some(func_instance_ty), f_fully_qualified_name, f);
         }
     }
@@ -1124,12 +1116,7 @@ impl Translator {
         method_index: u16,
         func_ty: &SolvedType,
     ) {
-        // let func_name = &iface_def.methods[method as usize].name.v;
         let substituted_ty = func_ty.subst(mono);
-        // println!(
-        //     "({func_name}) iface func ty substituted: {}",
-        //     substituted_ty
-        // );
         let method = &iface_def.methods[method_index as usize].name;
         let impl_list = &self.statics.interface_impls[iface_def];
 
@@ -1145,7 +1132,6 @@ impl Translator {
 
                     if substituted_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
                         let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
-                        // println!("here we go");
                         self.handle_func_call(
                             st,
                             mono,
@@ -1154,8 +1140,6 @@ impl Translator {
                             f,
                         );
                         return;
-                    } else {
-                        // println!("{} doesn't fit {}", substituted_ty, interface_impl_ty);
                     }
                 }
             }
@@ -1200,9 +1184,7 @@ impl Translator {
                 iface: iface_def,
                 method,
             } => {
-                // let func_name = &iface_def.methods[*method].name.v;
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
-                // println!("({func_name}) iface func_ty: {}", func_ty);
                 self.translate_iface_method_ap_helper(
                     st,
                     mono,
@@ -1881,8 +1863,6 @@ impl Translator {
                     unreachable!()
                 };
                 let fn_make_iterator_ty = &self.statics.for_loop_make_iterator_types[&stmt.id];
-                // println!("iterable_ty: {}", iterable_ty);
-                // println!("fn_make_iterator_ty: {}", fn_make_iterator_ty);
                 self.translate_iface_method_ap_helper(
                     st,
                     mono,
@@ -1938,7 +1918,6 @@ impl Translator {
         func_def: &Rc<FuncDef>,
     ) {
         if let Some(overload_ty) = &overload_ty {
-            // println!("overload_ty is {}", overload_ty);
             assert!(overload_ty.monotype().is_some());
         }
         let desc = FuncDesc {
@@ -2031,7 +2010,6 @@ impl Translator {
                 let label = match &desc.overload_ty {
                     None => func_name.clone(),
                     Some(overload_ty) => {
-                        // println!("overload_ty {}, name {}", overload_ty, func_name);
                         let monoty = overload_ty.monotype().unwrap();
                         let mut label_hint = format!("{func_name}__{monoty}");
                         label_hint.retain(|c| !c.is_whitespace());

@@ -1638,21 +1638,6 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                 if let Some(interface_method) =
                     iface_def.methods.iter().find(|m| m.name.v == method_name)
                 {
-                    // let interface_method_ty = interface_method.ty.to_typevar(ctx);
-                    // let actual = TypeVar::from_node(ctx, interface_method.node());
-                    // constrain(ctx, &interface_method_ty, &actual);
-
-                    // let mut substitution: Substitution = HashMap::default();
-                    // if let Some(poly_decl) = interface_method_ty.get_interface_self_type() {
-                    //     substitution.insert(poly_decl, impl_ty.clone());
-                    // }
-
-                    // let expected = interface_method_ty.subst(&substitution);
-                    // let expected = expected.instantiate_iface_output_types(
-                    //     ctx,
-                    //     interface_method.node(),
-                    //     iface_impl,
-                    // );
                     generate_constraints_func_decl(
                         ctx,
                         interface_method.name.node(),
@@ -2145,9 +2130,7 @@ fn generate_constraints_expr(
                     Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => {
                         let fnode = func_def.name.node();
                         let func_ty = TypeVar::from_node(ctx, fnode.clone());
-                        // println!("ty of func `{}` is {}", func_def.name.v, func_ty);
                         let inst = func_ty.instantiate(ctx, polyvar_scope, expr.node());
-                        // println!("instantiated `{}` is {}", func_def.name.v, inst);
                         Some(inst)
                     }
                     Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
@@ -2584,25 +2567,9 @@ fn generate_constraints_expr(
                                 match memfn_decl {
                                     Declaration::MemberFunction(func) => {
                                         let memfn_ty = TypeVar::from_node(ctx, func.name.node());
-                                        /* TODO: definitely need to do something like this:
-                                           (will probably need struct_def/enum_def of member function to get the ty_args)
-                                           (not every polytype should be instantiated. some of them are known and shouldn't just be _)
-                                        */
-                                        // let mut substitution = Substitution::default();
-                                        // for (arg, value) in struct_def.ty_args.iter().zip(ty_args.iter()) {
-                                        //     substitution.insert(
-                                        //         PolytypeDeclaration::Ordinary(arg.clone()),
-                                        //         value.clone(),
-                                        //     );
-                                        // }
-                                        // let ty_field = ty_field.subst(&substitution);
-                                        // println!("{}:", func.name.v);
-                                        // println!("memfn_ty: {}", memfn_ty);
                                         let memfn_ty =
                                             memfn_ty.instantiate(ctx, polyvar_scope, fname.node());
-                                        // println!("memfn_ty instantiated: {}", memfn_ty);
                                         constrain(ctx, &memfn_node_ty, &memfn_ty);
-                                        // println!("memfn_node_ty: {}", memfn_node_ty);
                                     }
                                     Declaration::InterfaceMethod {
                                         iface: iface_def,
@@ -2633,8 +2600,6 @@ fn generate_constraints_expr(
                                     expr.node(),
                                     node_ty.clone(),
                                 );
-                                let receiver_ty = TypeVar::from_node(ctx, receiver_expr.node());
-                                // println!("ty of receiver: {}\n", receiver_ty);
                             } else {
                                 // failed to resolve member function
                                 ctx.errors.push(Error::UnresolvedMemberFunction {
@@ -2787,14 +2752,11 @@ fn generate_constraints_expr(
                                 2. enum constructor with data (yes)
                                 3. enum constructor without data (might as well)
                             */
-                            // println!("ty of self: {}", ty_accessed);
-                            // println!("ty_field: {}", ty_field);
                             let mut substitution = Substitution::default();
                             for (arg, value) in nominal.ty_args().iter().zip(ty_args.iter()) {
                                 substitution.insert(arg.clone(), value.clone());
                             }
                             let ty_field = ty_field.subst(&substitution);
-                            // println!("ty_field after: {}", ty_field);
                             constrain(ctx, &node_ty, &ty_field);
                             resolved = true;
                         }
