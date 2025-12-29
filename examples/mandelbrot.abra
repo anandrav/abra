@@ -1,5 +1,5 @@
 use term
-use time
+use core/time
 
 type View = {
   center_re: float

@@ -84,7 +84,7 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
         loc: Location {
             file_id,
             lo: 0,
-            hi: file_data.source.len() - 1,
+            hi: file_data.source.len(),
         },
         id: NodeId::new(),
     })

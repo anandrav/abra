@@ -3,10 +3,13 @@
 mod test_ffi;
 pub mod ffi {
     pub mod test_ffi {
+        #[allow(unused)]
         use crate::test_ffi;
+        #[allow(unused)]
         use abra_core::foreign_bindings::*;
         #[allow(unused)]
         use abra_core::vm::AbraInt;
+        #[allow(unused)]
         use std::ffi::c_void;
         /// # Safety
         /// `vm` must be non-null and valid.

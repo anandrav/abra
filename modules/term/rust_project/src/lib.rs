@@ -3,10 +3,13 @@
 mod term;
 pub mod ffi {
     pub mod term {
+        #[allow(unused)]
         use crate::term;
+        #[allow(unused)]
         use abra_core::foreign_bindings::*;
         #[allow(unused)]
         use abra_core::vm::AbraInt;
+        #[allow(unused)]
         use std::ffi::c_void;
         pub enum KeyCode {
             Left,

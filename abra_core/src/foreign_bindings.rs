@@ -249,7 +249,7 @@ pub fn generate_bindings_for_crate() {
 
     // handle toplevel .abra file
     {
-        let source = read_to_string(&toplevel_abra_file).unwrap();
+        let source = read_to_string(&toplevel_abra_file).unwrap(); // TODO: remove unwrap here and other places. Report errors properly
         let file_data = FileData::new(package_name.clone().into(), toplevel_abra_file, source);
         let file_id = ctx.file_db.add(file_data);
 
@@ -313,10 +313,13 @@ fn write_header(output: &mut String, package_name: &str) {
 mod {package_name};
 pub mod ffi {{
     pub mod {package_name} {{
+    #[allow(unused)]
     use crate::{package_name};
+    #[allow(unused)]
     use abra_core::foreign_bindings::*;
     #[allow(unused)]
     use abra_core::vm::AbraInt;
+    #[allow(unused)]
     use std::ffi::c_void;
     "#
     )
@@ -662,10 +665,13 @@ fn find_abra_files(
 
                 output.push_str(&format!(
                     r#" pub mod {no_extension} {{
+                        #[allow(unused)]
                         use crate::{crate_import};
+                        #[allow(unused)]
                         use abra_core::foreign_bindings::*;
                         #[allow(unused)]
                         use abra_core::vm::AbraInt;
+                        #[allow(unused)]
                         use std::ffi::c_void;
                         "#
                 ));

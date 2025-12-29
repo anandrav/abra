@@ -1,6 +1,6 @@
 use term
-use time
-use random
+use core/time
+use core/random
 
 type World = {
   cells: array<int>

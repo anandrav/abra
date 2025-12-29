@@ -187,14 +187,9 @@ fn gather_declarations_item(
 
                     let func_name = func_decl.name.v.clone();
 
-                    let mut path = _file_ast.absolute_path.clone();
-                    let mut package_name = path
-                        .iter()
-                        .next_back()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string();
+                    let path = _file_ast.package_name.clone();
+                    let mut package_name =
+                        path.iter().next().unwrap().to_str().unwrap().to_string();
                     if package_name.ends_with(".abra") {
                         package_name =
                             package_name[..package_name.len() - ".abra".len()].to_string();
@@ -209,6 +204,7 @@ fn gather_declarations_item(
                     );
 
                     let mut target_directory = None;
+                    let mut path = _file_ast.absolute_path.clone();
                     while path.pop() {
                         if path.join("target").is_dir() && path.join("Cargo.toml").is_file() {
                             target_directory = Some(path.join("target"));

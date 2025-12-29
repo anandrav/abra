@@ -1,6 +1,6 @@
 use term
-use time
-use random
+use core/time
+use core/random
 
 fn main() {
   let (term_w, term_h) = get_size()!

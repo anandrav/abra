@@ -3,10 +3,13 @@
 mod os;
 pub mod ffi {
     pub mod os {
+        #[allow(unused)]
         use crate::os;
+        #[allow(unused)]
         use abra_core::foreign_bindings::*;
         #[allow(unused)]
         use abra_core::vm::AbraInt;
+        #[allow(unused)]
         use std::ffi::c_void;
         /// # Safety
         /// `vm` must be non-null and valid.
@@ -85,10 +88,13 @@ pub mod ffi {
             }
         }
         pub mod exec {
+            #[allow(unused)]
             use crate::os::exec;
+            #[allow(unused)]
             use abra_core::foreign_bindings::*;
             #[allow(unused)]
             use abra_core::vm::AbraInt;
+            #[allow(unused)]
             use std::ffi::c_void;
             /// # Safety
             /// `vm` must be non-null and valid.
@@ -103,10 +109,13 @@ pub mod ffi {
             }
         }
         pub mod env {
+            #[allow(unused)]
             use crate::os::env;
+            #[allow(unused)]
             use abra_core::foreign_bindings::*;
             #[allow(unused)]
             use abra_core::vm::AbraInt;
+            #[allow(unused)]
             use std::ffi::c_void;
             /// # Safety
             /// `vm` must be non-null and valid.
