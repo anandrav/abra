@@ -678,9 +678,13 @@ impl Translator {
                         let specific_func_ty =
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
-                        let substituted_ty = specific_func_ty.subst(mono);
-
-                        self.handle_func_call(st, mono, Some(substituted_ty), func_name, &func_def);
+                        self.handle_func_call(
+                            st,
+                            mono,
+                            Some(specific_func_ty),
+                            func_name,
+                            &func_def,
+                        );
                     }
                     BinaryOperator::Or => unreachable!(),
                     BinaryOperator::And => unreachable!(),
