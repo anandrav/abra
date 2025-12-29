@@ -23,7 +23,6 @@ mod resolve;
 pub(crate) mod typecheck;
 use codespan_reporting::diagnostic::Diagnostic;
 use codespan_reporting::term;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pat_exhaustiveness::{DeconstructedPat, check_pattern_exhaustiveness_and_usefulness};
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
@@ -239,6 +238,25 @@ pub(crate) enum PolytypeDeclaration {
     BuiltinOperation(BuiltinOperation, String), // `T` in `fn array_push(arr: array<T>) -> void` if that was actually in the source
 }
 
+impl Display for PolytypeDeclaration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            PolytypeDeclaration::InterfaceSelf(_) => {
+                write!(f, "Self from iface")
+            }
+            PolytypeDeclaration::Ordinary(polyty) => {
+                write!(f, "{}[{}]", polyty.name.v, polyty.name.id)
+            }
+            PolytypeDeclaration::ArrayArg => {
+                write!(f, "T from array")
+            }
+            PolytypeDeclaration::BuiltinOperation(_, _) => {
+                write!(f, "builtin's poly")
+            }
+        }
+    }
+}
+
 // TODO: this is weird
 // AstType is used because TypeVar has internal mutability and can't be stored in a hashmap
 // SolvedType is used so that Display knows how to display the argument.
@@ -392,6 +410,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
 use crate::parse::Span;
 use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
+use utils::dlog;
 
 impl AstNode {
     fn get_file_and_range(&self) -> (FileId, Range<usize>) {
@@ -401,12 +420,14 @@ impl AstNode {
 }
 
 pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
-    let (file, range) = node.get_file_and_range();
+    if cfg!(debug_assertions) {
+        let (file, range) = node.get_file_and_range();
 
-    let diagnostic = Diagnostic::note().with_labels(vec![CsLabel::secondary(file, range)]);
+        let diagnostic = Diagnostic::note().with_labels(vec![CsLabel::secondary(file, range)]);
 
-    let writer = StandardStream::stderr(ColorChoice::Always);
-    let config = codespan_reporting::term::Config::default();
+        let config = codespan_reporting::term::Config::default();
 
-    term::emit_to_io_write(&mut writer.lock(), &config, &ctx.file_db, &diagnostic).unwrap();
+        let s = term::emit_into_string(&config, &ctx.file_db, &diagnostic).unwrap();
+        dlog!("{}", s);
+    }
 }

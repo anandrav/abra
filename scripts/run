@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+export DEBUG_LOG=1
 export RUSTFLAGS="-A warnings"
 
 # Build everything in the project, including native modules

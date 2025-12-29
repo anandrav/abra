@@ -14,7 +14,7 @@ use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
+use crate::statics::{_print_node, Declaration, PolytypeDeclaration, TypeProv};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
@@ -25,6 +25,7 @@ use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use utils::dlog;
 use utils::hash::HashMap;
 use utils::hash::HashSet;
 use utils::id_set::IdSet;
@@ -350,6 +351,7 @@ impl Translator {
                     self.update_curr_function(st, &desc.unqualified_name());
 
                     let label = st.func_map.get(&desc).unwrap();
+                    dlog!("translating func: {}", label);
                     self.emit(st, Line::Label(label.clone()));
                     match &desc.kind {
                         FuncKind::NamedFunc(f) => {
@@ -400,6 +402,12 @@ impl Translator {
         let mono = MonomorphEnv::empty();
         if let Some(overload_ty) = &desc.overload_ty {
             mono.update(&func_ty, overload_ty);
+            dlog!(
+                "updating mono with func_ty: {}, overload_ty: {}",
+                func_ty,
+                overload_ty
+            );
+            dlog!("mono: {}", mono);
         }
 
         let (arg_ids, captures, locals) =
@@ -474,6 +482,14 @@ impl Translator {
                 self.emit(st, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
+                _print_node(&self.statics, expr.node());
+                let ty = self.get_ty(mono, expr.node()).unwrap();
+                dlog!("type of expr: {}", ty);
+                let ty_left = self.get_ty(mono, left.node()).unwrap();
+                dlog!("type of left: {}", ty_left);
+                let ty_right = self.get_ty(mono, right.node()).unwrap();
+                dlog!("type of right: {}", ty_right);
+
                 self.translate_expr(left, offset_table, mono, st);
                 match op {
                     BinaryOperator::Or => {
@@ -514,9 +530,9 @@ impl Translator {
                     else {
                         unreachable!()
                     };
-                    let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
-                    let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
-                    let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                    let arg1_ty = self.get_ty(mono, left.node()).unwrap();
+                    let arg2_ty = self.get_ty(mono, right.node()).unwrap();
+                    let out_ty = self.get_ty(mono, expr.node()).unwrap();
                     let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
                     self.translate_iface_method_ap_helper(
@@ -657,7 +673,7 @@ impl Translator {
                         };
                         let func_name = &self.statics.fully_qualified_names[&func_def.name.id];
 
-                        let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
+                        let arg2_ty = self.statics.solution_of_node(right.node()).unwrap(); // TODO: just use get_ty() because it's less bug-prone. Try to use it everywhere
                         let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
                         let specific_func_ty =
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
@@ -698,6 +714,9 @@ impl Translator {
                 }
             }
             ExprKind::MemberFuncAp(expr, fname, args) => {
+                _print_node(&self.statics, fname.node());
+                let ty = self.get_ty(mono, fname.node()).unwrap();
+                dlog!("type of member func: {}", ty);
                 if let Some(expr) = expr {
                     self.translate_expr(expr, offset_table, mono, st);
                 }
@@ -1130,6 +1149,7 @@ impl Translator {
                         .unwrap();
                     let interface_impl_ty = unifvar.solution().unwrap();
 
+                    // println!("substituted_ty: {}, interface_impl_ty: {}", substituted_ty, interface_impl_ty);
                     if substituted_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
                         let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
                         self.handle_func_call(
