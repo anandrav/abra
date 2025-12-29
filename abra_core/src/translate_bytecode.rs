@@ -673,8 +673,8 @@ impl Translator {
                         };
                         let func_name = &self.statics.fully_qualified_names[&func_def.name.id];
 
-                        let arg2_ty = self.statics.solution_of_node(right.node()).unwrap(); // TODO: just use get_ty() because it's less bug-prone. Try to use it everywhere
-                        let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                        let arg2_ty = self.get_ty(mono, right.node()).unwrap(); // TODO: just use get_ty() because it's less bug-prone. Try to use it everywhere
+                        let out_ty = self.get_ty(mono, expr.node()).unwrap();
                         let specific_func_ty =
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
@@ -690,7 +690,7 @@ impl Translator {
                 }
             }
             ExprKind::Unop(op, right) => {
-                let arg1_ty = self.statics.solution_of_node(right.node()).unwrap();
+                let arg1_ty = self.get_ty(mono, right.node()).unwrap();
                 // inline primitive operations instead of performing a function call
                 match op {
                     PrefixOp::Minus => match arg1_ty {
@@ -792,11 +792,7 @@ impl Translator {
                 let mut nargs = 0;
                 for expr in exprs {
                     // TODO: duplicated logic
-                    let expr_ty = self
-                        .statics
-                        .solution_of_node(expr.node())
-                        .unwrap()
-                        .subst(mono);
+                    let expr_ty = self.get_ty(mono, expr.node()).unwrap();
                     if expr_ty != SolvedType::Void {
                         nargs += 1;
                     }
@@ -834,11 +830,7 @@ impl Translator {
                     // member function
                     self.translate_declaration(decl, field_name.node(), offset_table, mono, st);
                 } else {
-                    let expr_ty = self
-                        .statics
-                        .solution_of_node(expr.node())
-                        .unwrap()
-                        .subst(mono);
+                    let expr_ty = self.get_ty(mono, expr.node()).unwrap();
                     if expr_ty != SolvedType::Void {
                         self.translate_expr(accessed, offset_table, mono, st);
                         let idx = idx_of_field(&self.statics, mono, accessed, &field_name.v);
@@ -863,7 +855,7 @@ impl Translator {
                 self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
             }
             ExprKind::Match(expr, arms) => {
-                let ty = self.statics.solution_of_node(expr.node()).unwrap();
+                let ty = self.get_ty(mono, expr.node()).unwrap();
 
                 self.translate_expr(expr, offset_table, mono, st);
                 let end_label = make_label("endmatch");
@@ -965,8 +957,7 @@ impl Translator {
                 );
             }
             Declaration::Var(node) => {
-                let expr_ty = self.statics.solution_of_node(ast_node).unwrap();
-                let expr_ty = expr_ty.subst(mono);
+                let expr_ty = self.get_ty(mono, ast_node).unwrap();
                 if expr_ty != SolvedType::Void {
                     let idx = offset_table.get(&node.id()).unwrap();
                     self.emit(st, Instr::LoadOffset(*idx));
@@ -1096,15 +1087,10 @@ impl Translator {
     }
 
     fn translate_lambda_ap(&self, st: &mut TranslatorState, mono: &MonomorphEnv, node: AstNode) {
-        let Some(SolvedType::Function(args, _)) = self.statics.solution_of_node(node.clone())
-        else {
+        let Some(SolvedType::Function(args, _)) = self.get_ty(mono, node.clone()) else {
             unreachable!()
         };
-        let nargs = args
-            .iter()
-            .map(|arg| arg.subst(mono))
-            .filter(|arg| *arg != SolvedType::Void)
-            .count();
+        let nargs = args.iter().filter(|arg| **arg != SolvedType::Void).count();
         self.emit(st, Instr::CallFuncObj(nargs as u32));
     }
 
@@ -1468,13 +1454,11 @@ impl Translator {
             BuiltinOperation::ArrayPop => {
                 // TODO: code duplication, see inlining of array.pop()
                 self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
-                let Some(SolvedType::Function(_, ret)) =
-                    self.statics.solution_of_node(func_node.clone())
+                let SolvedType::Function(_, ret_ty) = self.get_ty(mono, func_node.clone()).unwrap()
                 else {
                     unreachable!()
                 };
-                let ret_ty = ret.subst(mono);
-                if ret_ty == SolvedType::Void {
+                if *ret_ty == SolvedType::Void {
                     self.emit(st, Instr::Pop);
                 }
             }
@@ -1606,7 +1590,7 @@ impl Translator {
                         self.emit(st, Instr::Jump(end_label.clone()));
                     };
                     if let Some(inner) = inner {
-                        let inner_ty = self.statics.solution_of_node(inner.node()).unwrap();
+                        let inner_ty = self.get_ty(mono, inner.node()).unwrap();
                         if inner_ty != SolvedType::Void {
                             self.translate_pat_comparison(&inner_ty, inner, st, mono);
                             self.emit(st, Instr::Jump(end_label.clone()));
@@ -1698,11 +1682,7 @@ impl Translator {
                 self.handle_pat_binding(&pat.0, offset_table, st, mono);
             }
             StmtKind::Assign(expr1, assign_op, rvalue) => {
-                let rvalue_ty = self
-                    .statics
-                    .solution_of_node(rvalue.node())
-                    .unwrap()
-                    .subst(mono);
+                let rvalue_ty = self.get_ty(mono, rvalue.node()).unwrap();
                 match assign_op {
                     AssignOperator::Equal => {
                         if rvalue_ty != SolvedType::Void {
@@ -1805,31 +1785,7 @@ impl Translator {
                 }
             }
             StmtKind::Expr(expr) => {
-                // let ret_ty = match &*expr.kind {
-                //     ExprKind::FuncAp(func_expr, _) => {
-                //         // _print_node(&self.statics, func_expr.node());
-                //         Some(self.statics.solution_of_node(expr.node()).unwrap())
-                //     }
-                //     ExprKind::MemberFuncAp(_, func_ident, _) => {
-                //         // self.statics.resolution_map[func_ident]
-                //         Some(self.statics.solution_of_node(expr.node()).unwrap())
-                //     }
-                //     _ => None,
-                // };
-                // let ret_ty = match func_ty {
-                //     Some(func_ty) => {
-                //         let SolvedType::Function(_, ret_ty) = func_ty else { unreachable!() };
-                //         Some(*ret_ty)
-                //     }
-                //     None => None
-                // };
-                // let void_func_call = ret_ty == Some(SolvedType::Void);
-                // _print_node(&self.statics, expr.node());
-                let expr_ty = self
-                    .statics
-                    .solution_of_node(expr.node())
-                    .unwrap()
-                    .subst(mono);
+                let expr_ty = self.get_ty(mono, expr.node()).unwrap();
                 let yields_value = expr_ty != SolvedType::Void && expr_ty != SolvedType::Never;
                 self.translate_expr(expr, offset_table, mono, st);
                 if !is_last_in_block_expression && yields_value {
@@ -1846,7 +1802,7 @@ impl Translator {
             }
             StmtKind::Return(expr) => {
                 self.translate_expr(expr, offset_table, mono, st);
-                let ret_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                let ret_ty = self.get_ty(mono, expr.node()).unwrap();
                 if ret_ty == SolvedType::Void {
                     self.emit(st, Instr::ReturnVoid);
                 } else {
@@ -2051,8 +2007,7 @@ impl Translator {
     ) {
         match &*pat.kind {
             PatKind::Binding(_) => {
-                let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
-                let pat_ty = pat_ty.subst(mono);
+                let pat_ty = self.get_ty(mono, pat.node()).unwrap();
 
                 if pat_ty != SolvedType::Void {
                     let idx = locals.get(&pat.id).unwrap();
@@ -2070,8 +2025,7 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 };
                 if let Some(inner) = inner {
-                    let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
-                    let pat_ty = pat_ty.subst(mono);
+                    let pat_ty = self.get_ty(mono, pat.node()).unwrap();
 
                     if pat_ty != SolvedType::Void {
                         // unpack tag and associated data
@@ -2286,7 +2240,6 @@ impl Translator {
             None => {
                 for (i, arg) in args.iter().enumerate().rev() {
                     let arg_ty = self.get_ty(mono, arg.0.node()).unwrap();
-                    // let arg_ty = ctx.solution_of_node(arg.0.node()).unwrap();
                     if arg_ty != SolvedType::Void {
                         arg_ids.push(args[i].0.id)
                     }
@@ -2448,7 +2401,7 @@ fn idx_of_field(
     field_name: &str,
 ) -> u16 {
     // _print_node(statics, accessed.node());
-    let accessed_ty = statics.solution_of_node(accessed.node()).unwrap();
+    let accessed_ty = statics.solution_of_node(accessed.node()).unwrap(); // TODO: last here
 
     match accessed_ty {
         Type::Nominal(Nominal::Struct(struct_def), _) => {
