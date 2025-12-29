@@ -177,6 +177,102 @@ pub mod ffi {
                 }
             }
         }
+        pub mod list {
+            #[allow(unused)]
+            use crate::core::list;
+            #[allow(unused)]
+            use abra_core::foreign_bindings::*;
+            #[allow(unused)]
+            use abra_core::vm::AbraInt;
+            #[allow(unused)]
+            use std::ffi::c_void;
+        }
+        pub mod fs {
+            #[allow(unused)]
+            use crate::core::fs;
+            #[allow(unused)]
+            use abra_core::foreign_bindings::*;
+            #[allow(unused)]
+            use abra_core::vm::AbraInt;
+            #[allow(unused)]
+            use std::ffi::c_void;
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$fs$fread")]
+            pub unsafe extern "C" fn fread(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let path = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let ret: Option<String> = fs::fread(path);
+                    ret.to_vm_unsafe(_vm, _vm_funcs);
+                }
+            }
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$fs$fwrite")]
+            pub unsafe extern "C" fn fwrite(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let contents = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let path = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    fs::fwrite(path, contents);
+                }
+            }
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$fs$fexists")]
+            pub unsafe extern "C" fn fexists(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let path = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let ret: bool = fs::fexists(path);
+                    ret.to_vm_unsafe(_vm, _vm_funcs);
+                }
+            }
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$fs$fremove")]
+            pub unsafe extern "C" fn fremove(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let path = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    fs::fremove(path);
+                }
+            }
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$fs$frename")]
+            pub unsafe extern "C" fn frename(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let new_path = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let old_path = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    fs::frename(old_path, new_path);
+                }
+            }
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$fs$fcopy")]
+            pub unsafe extern "C" fn fcopy(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let dest = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let src = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    fs::fcopy(src, dest);
+                }
+            }
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$fs$fappend")]
+            pub unsafe extern "C" fn fappend(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let contents = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let path = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    fs::fappend(path, contents);
+                }
+            }
+        }
         pub mod time {
             #[allow(unused)]
             use crate::core::time;
@@ -204,6 +300,27 @@ pub mod ffi {
                     let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
                     let seconds = <f64>::from_vm_unsafe(_vm, _vm_funcs);
                     time::sleep(seconds);
+                }
+            }
+        }
+        pub mod exec {
+            #[allow(unused)]
+            use crate::core::exec;
+            #[allow(unused)]
+            use abra_core::foreign_bindings::*;
+            #[allow(unused)]
+            use abra_core::vm::AbraInt;
+            #[allow(unused)]
+            use std::ffi::c_void;
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$exec$command")]
+            pub unsafe extern "C" fn command(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let ret: AbraInt = exec::command(s);
+                    ret.to_vm_unsafe(_vm, _vm_funcs);
                 }
             }
         }
@@ -253,6 +370,27 @@ pub mod ffi {
                     let max = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
                     let min = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
                     let ret: AbraInt = random::random_int(min, max);
+                    ret.to_vm_unsafe(_vm, _vm_funcs);
+                }
+            }
+        }
+        pub mod env {
+            #[allow(unused)]
+            use crate::core::env;
+            #[allow(unused)]
+            use abra_core::foreign_bindings::*;
+            #[allow(unused)]
+            use abra_core::vm::AbraInt;
+            #[allow(unused)]
+            use std::ffi::c_void;
+            /// # Safety
+            /// `vm` must be non-null and valid.
+            #[unsafe(export_name = "abra_ffi$core$env$get_var")]
+            pub unsafe extern "C" fn get_var(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+                unsafe {
+                    let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                    let key = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                    let ret: String = env::get_var(key);
                     ret.to_vm_unsafe(_vm, _vm_funcs);
                 }
             }

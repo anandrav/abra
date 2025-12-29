@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub mod env;
-pub mod exec;
-
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 
