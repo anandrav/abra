@@ -436,6 +436,11 @@ extend array<T Ord> {
 }
 
 extend array<T> {
+    // TODO: typechecker breaks on this, fix it
+    fn sort_by_key(self, key: T -> U Ord) -> void {
+        self.sort_by((a: T, b: T) -> key(a) <= key(b))
+    }
+
     fn sort_by(self, less_than_or_equal: (T, T) -> bool) -> void {
         let n = self.len()
         let RUN = 32
