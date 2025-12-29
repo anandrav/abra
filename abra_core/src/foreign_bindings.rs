@@ -248,8 +248,7 @@ pub fn generate_bindings_for_crate() {
     let mut ctx = StaticsContext::new(file_provider);
 
     // handle toplevel .abra file
-    {
-        let source = read_to_string(&toplevel_abra_file).unwrap(); // TODO: remove unwrap here and other places. Report errors properly
+    if let Ok(source) = read_to_string(&toplevel_abra_file) {
         let file_data = FileData::new(package_name.clone().into(), toplevel_abra_file, source);
         let file_id = ctx.file_db.add(file_data);
 
