@@ -833,7 +833,7 @@ impl Translator {
                     let expr_ty = self.get_ty(mono, expr.node()).unwrap();
                     if expr_ty != SolvedType::Void {
                         self.translate_expr(accessed, offset_table, mono, st);
-                        let idx = idx_of_field(&self.statics, mono, accessed, &field_name.v);
+                        let idx = self.idx_of_field(&self.statics, mono, accessed, &field_name.v);
                         self.emit(st, Instr::GetField(idx, Reg::Top));
                     }
                 }
@@ -1704,8 +1704,12 @@ impl Translator {
                                     // for instance, Person.fullname = (p: Person) -> "hello world". Should not be allowed.
                                     self.translate_expr(rvalue, offset_table, mono, st);
                                     self.translate_expr(accessed, offset_table, mono, st);
-                                    let idx =
-                                        idx_of_field(&self.statics, mono, accessed, &field_name.v);
+                                    let idx = self.idx_of_field(
+                                        &self.statics,
+                                        mono,
+                                        accessed,
+                                        &field_name.v,
+                                    );
                                     self.emit(st, Instr::SetField(idx, Reg::Top));
                                 }
                                 // array assignment
@@ -1753,7 +1757,7 @@ impl Translator {
                                 // load struct.field
                                 self.translate_expr(accessed, offset_table, mono, st);
                                 let idx =
-                                    idx_of_field(&self.statics, mono, accessed, &field_name.v);
+                                    self.idx_of_field(&self.statics, mono, accessed, &field_name.v);
                                 self.emit(st, Instr::GetField(idx, Reg::Top));
                                 // add number
                                 self.translate_expr(rvalue, offset_table, mono, st);
@@ -1761,7 +1765,7 @@ impl Translator {
                                 // store in struct.field
                                 self.translate_expr(accessed, offset_table, mono, st);
                                 let idx =
-                                    idx_of_field(&self.statics, mono, accessed, &field_name.v);
+                                    self.idx_of_field(&self.statics, mono, accessed, &field_name.v);
                                 self.emit(st, Instr::SetField(idx, Reg::Top));
                             }
                             // array assignment
@@ -2381,6 +2385,37 @@ impl Translator {
             }
         }
     }
+
+    // TODO: this is O(N)
+    // TODO: just precompute for all structs then lookup in table
+    fn idx_of_field(
+        &self,
+        statics: &StaticsContext,
+        mono: &MonomorphEnv,
+        accessed: &Rc<Expr>,
+        field_name: &str,
+    ) -> u16 {
+        // _print_node(statics, accessed.node());
+        let accessed_ty = self.get_ty(mono, accessed.node()).unwrap();
+
+        match accessed_ty {
+            Type::Nominal(Nominal::Struct(struct_def), _) => {
+                let mut index = 0;
+                // TODO duplicated logic
+                for field in &*struct_def.fields {
+                    if field.name.v == field_name {
+                        return index as u16;
+                    }
+                    let field_ty = field.ty.to_solved_type(statics).unwrap();
+                    if field_ty != SolvedType::Void {
+                        index += 1;
+                    }
+                }
+                panic!("could not find field")
+            }
+            _ => panic!("not a udt"),
+        }
+    }
 }
 
 fn make_label(hint: &str) -> Label {
@@ -2390,36 +2425,6 @@ fn make_label(hint: &str) -> Label {
     static ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
     let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
     format!("{hint}__#{id:X}")
-}
-
-// TODO: this is O(N)
-// TODO: just precompute for all structs then lookup in table
-fn idx_of_field(
-    statics: &StaticsContext,
-    mono: &MonomorphEnv,
-    accessed: &Rc<Expr>,
-    field_name: &str,
-) -> u16 {
-    // _print_node(statics, accessed.node());
-    let accessed_ty = statics.solution_of_node(accessed.node()).unwrap(); // TODO: last here
-
-    match accessed_ty {
-        Type::Nominal(Nominal::Struct(struct_def), _) => {
-            let mut index = 0;
-            // TODO duplicated logic
-            for field in &*struct_def.fields {
-                if field.name.v == field_name {
-                    return index as u16;
-                }
-                let field_ty = field.ty.to_solved_type(statics).unwrap().subst(mono);
-                if field_ty != SolvedType::Void {
-                    index += 1;
-                }
-            }
-            panic!("could not find field")
-        }
-        _ => panic!("not a udt"),
-    }
 }
 
 impl MonomorphEnv {
