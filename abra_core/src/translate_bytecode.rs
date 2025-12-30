@@ -732,6 +732,9 @@ impl Translator {
                 self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
             }
             ExprKind::FuncAp(func, args) => {
+                _print_node(&self.statics, func.node());
+                let func_ty = self.get_ty(mono, func.node()).unwrap();
+                println!("ty of func is {}", func_ty);
                 for arg in args {
                     self.translate_expr(arg, offset_table, mono, st);
                 }
