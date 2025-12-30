@@ -25,10 +25,10 @@ use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use utils::dlog;
 use utils::hash::HashMap;
 use utils::hash::HashSet;
 use utils::id_set::IdSet;
+use utils::{dlog, swrite};
 
 type OffsetTable = HashMap<NodeId, i16>;
 type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
@@ -57,7 +57,8 @@ enum FuncKind {
     NamedFunc(Rc<FuncDef>),
     AnonymousFunc {
         lambda: Rc<Expr>,
-        capture_types: Vec<SolvedType>,
+        capture_types: Vec<SolvedType>, // TODO: don't store this in here, just calculate it using the `lambda` field. (and should be memoizing calculation of captures)
+        capture_types_concrete: Vec<SolvedType>,
     },
     BuiltinWrapper(BuiltinOperation, AstNode),
     ForeignFunctionWrapper {
@@ -359,11 +360,19 @@ impl Translator {
                     match &desc.kind {
                         FuncKind::NamedFunc(f) => {
                             let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-                            self.translate_func_body_helper(st, &desc, func_ty, &f.args, &f.body);
+                            self.translate_func_body_helper(
+                                st,
+                                MonomorphEnv::empty(),
+                                &desc,
+                                func_ty,
+                                &f.args,
+                                &f.body,
+                            );
                         }
                         FuncKind::AnonymousFunc {
                             lambda: e,
                             capture_types,
+                            capture_types_concrete,
                         } => {
                             // TODO: use capture_types here.
                             let ExprKind::AnonymousFunction(args, _, body) = &*e.kind else {
@@ -371,7 +380,22 @@ impl Translator {
                             };
 
                             let func_ty = self.statics.solution_of_node(e.node()).unwrap();
-                            self.translate_func_body_helper(st, &desc, func_ty, args, body);
+                            let mono_for_lambda = MonomorphEnv::empty();
+                            if capture_types.iter().any(|ty| ty.is_overloaded()) {
+                                for (overloaded_ty, ty_concrete) in
+                                    capture_types.iter().zip(capture_types_concrete.iter())
+                                {
+                                    mono_for_lambda.update(overloaded_ty, ty_concrete);
+                                }
+                            }
+                            self.translate_func_body_helper(
+                                st,
+                                mono_for_lambda,
+                                &desc,
+                                func_ty,
+                                args,
+                                body,
+                            );
                         }
                         FuncKind::BuiltinWrapper(b, func_node) => {
                             self.emit_builtin(st, &mono, *b, func_node.clone(), true);
@@ -401,12 +425,12 @@ impl Translator {
     fn translate_func_body_helper(
         &self,
         st: &mut TranslatorState,
+        mono: MonomorphEnv,
         desc: &FuncDesc,
         func_ty: SolvedType,
         args: &[ArgMaybeAnnotated],
         body: &Rc<Expr>,
     ) {
-        let mono = MonomorphEnv::empty();
         if let Some(overload_ty) = &desc.overload_ty {
             mono.update(&func_ty, overload_ty);
             dlog!(
@@ -919,6 +943,11 @@ impl Translator {
                     kind: FuncKind::AnonymousFunc {
                         lambda: expr.clone(),
                         capture_types: captures
+                            .iter()
+                            .cloned()
+                            .map(|capture| self.statics.solution_of_node(capture).unwrap())
+                            .collect(),
+                        capture_types_concrete: captures
                             .iter()
                             .cloned()
                             .map(|capture| self.get_ty(mono, capture).unwrap())
@@ -2015,6 +2044,21 @@ impl Translator {
                     Some(overload_ty) => {
                         let monoty = overload_ty.monotype().unwrap();
                         let mut label_hint = format!("{func_name}__{monoty}");
+                        if let FuncKind::AnonymousFunc {
+                            capture_types_concrete,
+                            ..
+                        } = desc.kind
+                            && !capture_types_concrete.is_empty()
+                        {
+                            let label_hint = &mut label_hint;
+                            swrite!(label_hint, "__");
+                            for (i, ty) in capture_types_concrete.into_iter().enumerate() {
+                                if i != 0 {
+                                    swrite!(label_hint, "_");
+                                }
+                                swrite!(label_hint, "{ty}");
+                            }
+                        }
                         label_hint.retain(|c| !c.is_whitespace());
                         make_label(&label_hint)
                     }
