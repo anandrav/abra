@@ -328,7 +328,7 @@ impl Translator {
                 self.emit(st, Instr::PushNil(locals.len() as u16));
                 let mut offset_table = OffsetTable::default();
                 for (offset, node_id) in locals.iter().enumerate() {
-                    offset_table.entry(*node_id).or_insert(offset as i16);
+                    offset_table.entry(node_id.id()).or_insert(offset as i16);
                 }
 
                 let statements = file
@@ -422,14 +422,16 @@ impl Translator {
         self.emit(st, Instr::PushNil(locals.len() as u16));
         let mut offset_table = OffsetTable::default();
         for (index, arg_id) in arg_ids.iter().enumerate() {
-            offset_table.entry(*arg_id).or_insert(-(index as i16) - 1);
+            offset_table
+                .entry(arg_id.id())
+                .or_insert(-(index as i16) - 1);
         }
         for (i, capture) in captures.iter().enumerate() {
-            offset_table.entry(*capture).or_insert(i as i16);
+            offset_table.entry(capture.id()).or_insert(i as i16);
         }
         for (i, local) in locals.iter().enumerate() {
             offset_table
-                .entry(*local)
+                .entry(local.id())
                 .or_insert((i + captures.len()) as i16);
         }
         let nargs = arg_ids.len();
@@ -924,7 +926,7 @@ impl Translator {
 
                 self.emit(st, Instr::PushAddr(label.clone()));
                 for capture in &captures {
-                    let offs = offset_table.get(capture).unwrap();
+                    let offs = offset_table.get(&capture.id()).unwrap();
                     self.emit(st, Instr::LoadOffset(*offs));
                 }
 
@@ -2074,7 +2076,7 @@ impl Translator {
         }
     }
 
-    fn collect_locals_expr(&self, expr: &Expr, locals: &mut HashSet<NodeId>, mono: &MonomorphEnv) {
+    fn collect_locals_expr(&self, expr: &Expr, locals: &mut HashSet<AstNode>, mono: &MonomorphEnv) {
         match &*expr.kind {
             ExprKind::Block(statements) => {
                 for statement in statements {
@@ -2149,7 +2151,7 @@ impl Translator {
     fn collect_locals_stmt(
         &self,
         statement: &Rc<Stmt>,
-        locals: &mut HashSet<NodeId>,
+        locals: &mut HashSet<AstNode>,
         mono: &MonomorphEnv,
     ) {
         self.collect_locals_stmts(std::slice::from_ref(statement), locals, mono);
@@ -2158,7 +2160,7 @@ impl Translator {
     fn collect_locals_stmts(
         &self,
         statements: &[Rc<Stmt>],
-        locals: &mut HashSet<NodeId>,
+        locals: &mut HashSet<AstNode>,
         mono: &MonomorphEnv,
     ) {
         for statement in statements {
@@ -2194,12 +2196,17 @@ impl Translator {
         }
     }
 
-    fn collect_locals_pat(&self, pat: &Rc<Pat>, locals: &mut HashSet<NodeId>, mono: &MonomorphEnv) {
+    fn collect_locals_pat(
+        &self,
+        pat: &Rc<Pat>,
+        locals: &mut HashSet<AstNode>,
+        mono: &MonomorphEnv,
+    ) {
         match &*pat.kind {
             PatKind::Binding(_) => {
                 let ty = self.get_ty(mono, pat.node()).unwrap();
                 if ty != SolvedType::Void {
-                    locals.insert(pat.id);
+                    locals.insert(pat.node());
                 }
             }
             PatKind::Tuple(pats) => {
@@ -2227,7 +2234,7 @@ impl Translator {
         args: &[ArgMaybeAnnotated],
         body: &Rc<Expr>,
         mono: &MonomorphEnv,
-    ) -> (Vec<NodeId>, HashSet<NodeId>, HashSet<NodeId>) {
+    ) -> (Vec<AstNode>, HashSet<AstNode>, HashSet<AstNode>) {
         // TODO: this could be more performant. Lots of clones and a set difference()
         // TODO: use index map instead of HashSet?
         let mut locals = HashSet::default();
@@ -2247,14 +2254,14 @@ impl Translator {
         overload_ty: &Option<SolvedType>,
         args: &[ArgMaybeAnnotated],
         mono: &MonomorphEnv,
-    ) -> Vec<NodeId> {
+    ) -> Vec<AstNode> {
         let mut arg_ids = Vec::default();
         match overload_ty {
             Some(overload_ty) => {
                 let SolvedType::Function(arg_tys, _) = overload_ty else { unreachable!() };
                 for (i, arg_ty) in arg_tys.iter().enumerate().rev() {
                     if *arg_ty != SolvedType::Void {
-                        arg_ids.push(args[i].0.id);
+                        arg_ids.push(args[i].0.node());
                     }
                 }
             }
@@ -2262,7 +2269,7 @@ impl Translator {
                 for (i, arg) in args.iter().enumerate().rev() {
                     let arg_ty = self.get_ty(mono, arg.0.node()).unwrap();
                     if arg_ty != SolvedType::Void {
-                        arg_ids.push(args[i].0.id)
+                        arg_ids.push(args[i].0.node())
                     }
                 }
             }
@@ -2274,7 +2281,7 @@ impl Translator {
     fn collect_captures_expr(
         &self,
         expr: &Rc<Expr>,
-        captures: &mut HashSet<NodeId>,
+        captures: &mut HashSet<AstNode>,
         mono: &MonomorphEnv,
     ) {
         match &*expr.kind {
@@ -2285,7 +2292,7 @@ impl Translator {
                 {
                     let decl = &self.statics.resolution_map[&expr.id];
                     if let Declaration::Var(node) = decl {
-                        captures.insert(node.id());
+                        captures.insert(node.clone());
                     }
                 }
             }
@@ -2360,7 +2367,7 @@ impl Translator {
     fn collect_captures_stmt(
         &self,
         statement: &Rc<Stmt>,
-        locals: &mut HashSet<NodeId>,
+        locals: &mut HashSet<AstNode>,
         mono: &MonomorphEnv,
     ) {
         self.collect_captures_stmts(std::slice::from_ref(statement), locals, mono);
@@ -2369,7 +2376,7 @@ impl Translator {
     fn collect_captures_stmts(
         &self,
         statements: &[Rc<Stmt>],
-        locals: &mut HashSet<NodeId>,
+        locals: &mut HashSet<AstNode>,
         mono: &MonomorphEnv,
     ) {
         for statement in statements {
