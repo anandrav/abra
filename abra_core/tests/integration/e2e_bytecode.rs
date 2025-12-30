@@ -912,6 +912,36 @@ ToString.str(nums)
 }
 
 #[test]
+fn monomorphize_lambda_with_captures() {
+    let src = r#"
+type Person = {
+  name: string
+  age: int
+}
+
+implement ToString for Person {
+  fn str(self) {
+    "Person(" .. "name=" .. self.name .. ", age=" .. self.age .. ")"
+  }
+}
+
+let arr = [ Person("Anand", 26), Person("Ashwin", 24), Person("Raghav", 21), Person("Vishwa", 21) ]
+
+arr.sort_by_key( (p: Person) -> { p.age } )
+
+arr[0].age
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 21);
+}
+
+#[test]
 fn local_in_while_scope() {
     let src = r#"
     var x = 5
