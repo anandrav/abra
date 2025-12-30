@@ -680,7 +680,7 @@ impl Translator {
                         };
                         let func_name = &self.statics.fully_qualified_names[&func_def.name.id];
 
-                        let arg2_ty = self.get_ty(mono, right.node()).unwrap(); // TODO: just use get_ty() because it's less bug-prone. Try to use it everywhere
+                        let arg2_ty = self.get_ty(mono, right.node()).unwrap();
                         let out_ty = self.get_ty(mono, expr.node()).unwrap();
                         let specific_func_ty =
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
@@ -909,6 +909,10 @@ impl Translator {
                 };
 
                 let func_name = "lambda".to_string();
+
+                let (_, captures, _locals) =
+                    self.calculate_args_captures_locals(&overload_ty, args, body, mono);
+
                 let desc = FuncDesc {
                     kind: FuncKind::AnonymousFunc {
                         lambda: expr.clone(),
@@ -916,11 +920,7 @@ impl Translator {
                     }, // TODO: initialize capture types
                     overload_ty: overload_ty.clone(),
                 };
-
                 let label = self.get_func_label(st, desc, &func_name);
-
-                let (_, captures, _locals) =
-                    self.calculate_args_captures_locals(&overload_ty, args, body, mono);
 
                 self.emit(st, Instr::PushAddr(label.clone()));
                 for capture in &captures {
