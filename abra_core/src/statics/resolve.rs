@@ -6,7 +6,7 @@ use super::{
     Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
 };
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportList,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportKind,
     InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type,
     TypeDefKind, TypeKind,
 };
@@ -427,13 +427,14 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
             };
             let import_list = import_list.clone();
             let pred: Box<dyn Fn(&String) -> bool> = match import_list {
-                None => Box::new(|_s: &String| true),
-                Some(ImportList::Inclusion(list)) => {
+                ImportKind::Glob => Box::new(|_s: &String| true),
+                ImportKind::Inclusion(list) => {
                     Box::new(move |s: &String| list.iter().any(|ident| ident.v == *s))
                 }
-                Some(ImportList::Exclusion(list)) => {
+                ImportKind::Exclusion(list) => {
                     Box::new(move |s: &String| !list.iter().any(|ident| ident.v == *s))
                 }
+                ImportKind::Rename(..) => todo!(),
             };
 
             effective_namespace.add_other_pred(ctx, &import_src, pred);

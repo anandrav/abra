@@ -318,7 +318,7 @@ impl Parser {
             TokenKind::Use => {
                 self.consume_token();
                 let ident = self.expect_path_ident()?;
-                let mut import_list: Option<ImportList> = None;
+                let mut import_kind: ImportKind = ImportKind::Glob;
                 if self.current_token().tag() == TokenTag::Except
                     || self.current_token().tag() == TokenTag::Dot
                 {
@@ -344,13 +344,17 @@ impl Parser {
                     }
 
                     if exclusion {
-                        import_list = Some(ImportList::Exclusion(list))
+                        import_kind = ImportKind::Exclusion(list);
                     } else {
-                        import_list = Some(ImportList::Inclusion(list))
+                        import_kind = ImportKind::Inclusion(list);
                     }
+                } else if self.current_token().tag() == TokenTag::As {
+                    self.consume_token();
+                    let ident = self.expect_ident()?;
+                    import_kind = ImportKind::Rename(ident);
                 }
                 Item {
-                    kind: ItemKind::Import(ident, import_list).into(),
+                    kind: ItemKind::Import(ident, import_kind).into(),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

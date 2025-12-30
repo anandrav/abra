@@ -1,4 +1,4 @@
-use crate::ast::{FileAst, ImportList, ItemKind, Type, TypeDefKind, TypeKind};
+use crate::ast::{FileAst, ImportKind, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::foreign_bindings::{name_of_ty, run_formatter};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
@@ -492,10 +492,10 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     _ => {}
                 }
             }
-            ItemKind::Import(ident, import_list) => {
+            ItemKind::Import(ident, import_kind) => {
                 let module_name = &ident.v.replace("/", "::");
-                match import_list {
-                    Some(ImportList::Inclusion(includes)) => {
+                match import_kind {
+                    ImportKind::Inclusion(includes) => {
                         swrite!(
                             output,
                             "#[allow(unused_imports)]\npub use crate::{}::{{",
@@ -509,8 +509,9 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         }
                         swrite!(output, "}};\n");
                     }
-                    Some(ImportList::Exclusion(..)) => unimplemented!(), // TODO: calculate inclusion list. Right now it would just be set difference. May change in the future with re-exports
-                    None => {
+                    ImportKind::Exclusion(..) => unimplemented!(), // TODO: calculate inclusion list. Right now it would just be set difference. May change in the future with re-exports
+                    ImportKind::Rename(..) => unimplemented!(),
+                    ImportKind::Glob => {
                         // glob import
                         swrite!(
                             output,

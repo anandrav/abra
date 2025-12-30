@@ -102,6 +102,7 @@ pub(crate) enum TokenKind {
     Impl, // TODO: re-evaluate having both of these keywords
     Extend,
     Use,
+    As,
     Except,
     Fn,
     Match,
@@ -176,6 +177,7 @@ impl TokenKind {
             | TokenKind::Impl
             | TokenKind::Extend
             | TokenKind::Use
+            | TokenKind::As
             | TokenKind::Except
             | TokenKind::Fn
             | TokenKind::Match

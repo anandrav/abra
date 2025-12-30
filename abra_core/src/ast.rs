@@ -345,12 +345,14 @@ pub(crate) enum ItemKind {
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceImpl(Rc<InterfaceImpl>),
     Extension(Rc<Extension>),
-    Import(Rc<Identifier>, Option<ImportList>),
+    Import(Rc<Identifier>, ImportKind),
     Stmt(Rc<Stmt>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) enum ImportList {
+pub(crate) enum ImportKind {
+    Glob,
+    Rename(Rc<Identifier>),
     Inclusion(Vec<Rc<Identifier>>),
     Exclusion(Vec<Rc<Identifier>>),
 }
