@@ -44,7 +44,7 @@ impl FuncDesc {
     fn unqualified_name(&self) -> String {
         match &self.kind {
             FuncKind::NamedFunc(f) => f.name.v.clone(),
-            FuncKind::AnonymousFunc(_) => "<lambda>".to_string(),
+            FuncKind::AnonymousFunc { .. } => "<lambda>".to_string(),
             FuncKind::BuiltinWrapper(b, _) => b.name(),
             FuncKind::ForeignFunctionWrapper { func_decl, .. } => func_decl.name.v.clone(),
             FuncKind::HostFunctionWrapper(f) => f.name.v.clone(),
@@ -55,7 +55,10 @@ impl FuncDesc {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum FuncKind {
     NamedFunc(Rc<FuncDef>),
-    AnonymousFunc(Rc<Expr>),
+    AnonymousFunc {
+        lambda: Rc<Expr>,
+        capture_types: Vec<SolvedType>,
+    },
     BuiltinWrapper(BuiltinOperation, AstNode),
     ForeignFunctionWrapper {
         func_decl: Rc<FuncDecl>,
@@ -358,7 +361,11 @@ impl Translator {
                             let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
                             self.translate_func_body_helper(st, &desc, func_ty, &f.args, &f.body);
                         }
-                        FuncKind::AnonymousFunc(e) => {
+                        FuncKind::AnonymousFunc {
+                            lambda: e,
+                            capture_types: _,
+                        } => {
+                            // TODO: use capture_types here.
                             let ExprKind::AnonymousFunction(args, _, body) = &*e.kind else {
                                 unreachable!()
                             };
@@ -734,7 +741,7 @@ impl Translator {
             ExprKind::FuncAp(func, args) => {
                 _print_node(&self.statics, func.node());
                 let func_ty = self.get_ty(mono, func.node()).unwrap();
-                println!("ty of func is {}", func_ty);
+                dlog!("ty of func is {}", func_ty);
                 for arg in args {
                     self.translate_expr(arg, offset_table, mono, st);
                 }
@@ -903,7 +910,10 @@ impl Translator {
 
                 let func_name = "lambda".to_string();
                 let desc = FuncDesc {
-                    kind: FuncKind::AnonymousFunc(expr.clone()),
+                    kind: FuncKind::AnonymousFunc {
+                        lambda: expr.clone(),
+                        capture_types: vec![],
+                    }, // TODO: initialize capture types
                     overload_ty: overload_ty.clone(),
                 };
 
