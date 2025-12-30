@@ -363,7 +363,7 @@ impl Translator {
                         }
                         FuncKind::AnonymousFunc {
                             lambda: e,
-                            capture_types: _,
+                            capture_types,
                         } => {
                             // TODO: use capture_types here.
                             let ExprKind::AnonymousFunction(args, _, body) = &*e.kind else {
@@ -918,7 +918,11 @@ impl Translator {
                 let desc = FuncDesc {
                     kind: FuncKind::AnonymousFunc {
                         lambda: expr.clone(),
-                        capture_types: vec![],
+                        capture_types: captures
+                            .iter()
+                            .cloned()
+                            .map(|capture| self.get_ty(mono, capture).unwrap())
+                            .collect(),
                     }, // TODO: initialize capture types
                     overload_ty: overload_ty.clone(),
                 };
