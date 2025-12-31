@@ -461,7 +461,9 @@ pub enum Instr {
     Sine(u16, u16),
     Cosine(u16, u16),
     Tangent(u16, u16),
+    Log(u16, u16),
     Log2(u16, u16),
+    Log10(u16, u16),
 
     // Logical
     Not(u16, u16),
@@ -1238,9 +1240,17 @@ impl Vm {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.tan());
             }
+            Instr::Log(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.ln());
+            }
             Instr::Log2(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.log2());
+            }
+            Instr::Log10(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.log10());
             }
             Instr::Not(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_bool(self);

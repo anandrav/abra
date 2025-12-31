@@ -35,7 +35,9 @@ pub enum IntrinsicOperation {
     Sine,
     Cosine,
     Tangent,
+    Log,
     Log2,
+    Log10,
 
     LessThanInt,
     LessThanOrEqualInt,
@@ -112,7 +114,9 @@ impl IntrinsicOperation {
             | IntrinsicOperation::Sine
             | IntrinsicOperation::Cosine
             | IntrinsicOperation::Tangent
-            | IntrinsicOperation::Log2 => TypeVar::make_func(
+            | IntrinsicOperation::Log
+            | IntrinsicOperation::Log2
+            | IntrinsicOperation::Log10 => TypeVar::make_func(
                 vec![TypeVar::make_float(reason.clone())],
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
