@@ -1320,16 +1320,15 @@ impl Translator {
             IntrinsicOperation::DivideInt => 2,
             IntrinsicOperation::PowerInt => 2,
             IntrinsicOperation::Modulo => 2,
-            IntrinsicOperation::SqrtInt => 1,
             IntrinsicOperation::AddFloat => 2,
             IntrinsicOperation::SubtractFloat => 2,
             IntrinsicOperation::MultiplyFloat => 2,
             IntrinsicOperation::DivideFloat => 2,
             IntrinsicOperation::PowerFloat => 2,
-            IntrinsicOperation::SqrtFloat => 1,
-            IntrinsicOperation::Sine => 1,
-            IntrinsicOperation::Cosine => 1,
-            IntrinsicOperation::Tangent => 1,
+            IntrinsicOperation::Sqrt => 1,
+            IntrinsicOperation::Sin => 1,
+            IntrinsicOperation::Cos => 1,
+            IntrinsicOperation::Tan => 1,
             IntrinsicOperation::Log => 1,
             IntrinsicOperation::Log2 => 1,
             IntrinsicOperation::Log10 => 1,
@@ -1383,9 +1382,6 @@ impl Translator {
             IntrinsicOperation::Modulo => {
                 self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::SqrtInt => {
-                self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
-            }
             IntrinsicOperation::AddFloat => {
                 self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
             }
@@ -1401,16 +1397,16 @@ impl Translator {
             IntrinsicOperation::PowerFloat => {
                 self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::SqrtFloat => {
+            IntrinsicOperation::Sqrt => {
                 self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::Sine => {
+            IntrinsicOperation::Sin => {
                 self.emit(st, Instr::Sine(Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::Cosine => {
+            IntrinsicOperation::Cos => {
                 self.emit(st, Instr::Cosine(Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::Tangent => {
+            IntrinsicOperation::Tan => {
                 self.emit(st, Instr::Tangent(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::Log => {

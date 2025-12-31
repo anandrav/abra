@@ -694,7 +694,7 @@ arr[arr.len()-2] + arr[arr.len()-1]
 fn sqrt_float() {
     let src = r#"
 let f = 4.0
-let g = sqrt_float(f)
+let g = sqrt(f)
 g
 "#;
     let program = unwrap_or_panic(compile_bytecode(

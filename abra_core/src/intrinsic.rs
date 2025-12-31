@@ -22,7 +22,6 @@ pub enum IntrinsicOperation {
     MultiplyInt,
     DivideInt,
     PowerInt,
-    SqrtInt,
     Modulo,
 
     AddFloat,
@@ -30,11 +29,11 @@ pub enum IntrinsicOperation {
     MultiplyFloat,
     DivideFloat,
     PowerFloat,
-    SqrtFloat,
 
-    Sine,
-    Cosine,
-    Tangent,
+    Sqrt,
+    Sin,
+    Cos,
+    Tan,
     Log,
     Log2,
     Log10,
@@ -92,11 +91,6 @@ impl IntrinsicOperation {
                 TypeVar::make_int(reason.clone()),
                 reason.clone(),
             ),
-            IntrinsicOperation::SqrtInt => TypeVar::make_func(
-                vec![TypeVar::make_int(reason.clone())],
-                TypeVar::make_int(reason.clone()),
-                reason.clone(),
-            ),
 
             IntrinsicOperation::AddFloat
             | IntrinsicOperation::SubtractFloat
@@ -110,10 +104,10 @@ impl IntrinsicOperation {
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
             ),
-            IntrinsicOperation::SqrtFloat
-            | IntrinsicOperation::Sine
-            | IntrinsicOperation::Cosine
-            | IntrinsicOperation::Tangent
+            IntrinsicOperation::Sqrt
+            | IntrinsicOperation::Sin
+            | IntrinsicOperation::Cos
+            | IntrinsicOperation::Tan
             | IntrinsicOperation::Log
             | IntrinsicOperation::Log2
             | IntrinsicOperation::Log10 => TypeVar::make_func(
