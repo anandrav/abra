@@ -516,7 +516,6 @@ pub(crate) enum ExprKind {
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
     Unop(PrefixOp, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
-    MemberFuncAp(Option<Rc<Expr>>, Rc<Identifier>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
     MemberAccess(Rc<Expr>, Rc<Identifier>),
     MemberAccessLeadingDot(Rc<Identifier>),

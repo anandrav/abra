@@ -735,23 +735,23 @@ impl Translator {
                     }
                 }
             }
-            ExprKind::MemberFuncAp(expr, fname, args) => {
-                if let Some(expr) = expr {
-                    self.translate_expr(expr, offset_table, mono, st);
-                }
-                for arg in args {
-                    self.translate_expr(arg, offset_table, mono, st);
-                }
-
-                let decl = &self.statics.resolution_map[&fname.id];
-                self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
-            }
+            // ExprKind::MemberFuncAp(expr, fname, args) => {
+            //     if let Some(expr) = expr {
+            //         self.translate_expr(expr, offset_table, mono, st);
+            //     }
+            //     for arg in args {
+            //         self.translate_expr(arg, offset_table, mono, st);
+            //     }
+            //
+            //     let decl = &self.statics.resolution_map[&fname.id];
+            //     self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
+            // }
             ExprKind::FuncAp(func, args) => {
-                for arg in args {
-                    self.translate_expr(arg, offset_table, mono, st);
-                }
                 match &*func.kind {
                     ExprKind::Variable(_) => {
+                        for arg in args {
+                            self.translate_expr(arg, offset_table, mono, st);
+                        }
                         let decl = &self.statics.resolution_map[&func.id];
                         self.translate_func_ap(decl, func.node(), offset_table, mono, st);
                     }
@@ -785,7 +785,7 @@ impl Translator {
 
                     ExprKind::BinOp(..)
                     | ExprKind::Unop(..)
-                    | ExprKind::MemberFuncAp(..)
+                    // | ExprKind::MemberFuncAp(..)
                     | ExprKind::Unwrap(..)
                     | ExprKind::IfElse(..)
                     | ExprKind::Match(..)
@@ -793,6 +793,9 @@ impl Translator {
                     | ExprKind::IndexAccess(..)
                     | ExprKind::FuncAp(..)
                     | ExprKind::AnonymousFunction(..) => {
+                        for arg in args {
+                            self.translate_expr(arg, offset_table, mono, st);
+                        }
                         self.translate_expr(func, offset_table, mono, st);
                         self.translate_lambda_ap(st, mono, func.node());
                     }
@@ -2155,20 +2158,26 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.collect_locals_expr(expr, locals, mono);
             }
-            ExprKind::FuncAp(func, args) => {
-                self.collect_locals_expr(func, locals, mono);
-                for arg in args {
-                    self.collect_locals_expr(arg, locals, mono);
+            ExprKind::FuncAp(func, args) => match &*func.kind {
+                ExprKind::MemberAccess(receiver_expr, _) => {
+                    self.collect_locals_expr(receiver_expr, locals, mono);
+                    for arg in args {
+                        self.collect_locals_expr(arg, locals, mono);
+                    }
                 }
-            }
-            ExprKind::MemberFuncAp(expr, _, args) => {
-                if let Some(expr) = expr {
-                    self.collect_locals_expr(expr, locals, mono);
+                ExprKind::MemberAccessLeadingDot(_) => {
+                    for arg in args {
+                        self.collect_locals_expr(arg, locals, mono);
+                    }
                 }
-                for arg in args {
-                    self.collect_locals_expr(arg, locals, mono);
+                _ => {
+                    self.collect_locals_expr(func, locals, mono);
+                    for arg in args {
+                        self.collect_locals_expr(arg, locals, mono);
+                    }
                 }
-            }
+            },
+
             ExprKind::AnonymousFunction(..)
             | ExprKind::MemberAccessLeadingDot(..)
             | ExprKind::Variable(..)
@@ -2372,20 +2381,33 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.collect_captures_expr(expr, captures, mono);
             }
-            ExprKind::FuncAp(func, args) => {
-                self.collect_captures_expr(func, captures, mono);
-                for arg in args {
-                    self.collect_captures_expr(arg, captures, mono);
+            ExprKind::FuncAp(func, args) => match &*func.kind {
+                ExprKind::MemberAccess(receiver_expr, _) => {
+                    self.collect_captures_expr(receiver_expr, captures, mono);
+                    for arg in args {
+                        self.collect_captures_expr(arg, captures, mono);
+                    }
                 }
-            }
-            ExprKind::MemberFuncAp(expr, _, args) => {
-                if let Some(expr) = expr {
-                    self.collect_captures_expr(expr, captures, mono);
+                ExprKind::MemberAccessLeadingDot(_) => {
+                    for arg in args {
+                        self.collect_captures_expr(arg, captures, mono);
+                    }
                 }
-                for arg in args {
-                    self.collect_captures_expr(arg, captures, mono);
+                _ => {
+                    self.collect_captures_expr(func, captures, mono);
+                    for arg in args {
+                        self.collect_captures_expr(arg, captures, mono);
+                    }
                 }
-            }
+            },
+            // ExprKind::MemberFuncAp(expr, _, args) => {
+            //     if let Some(expr) = expr {
+            //         self.collect_captures_expr(expr, captures, mono);
+            //     }
+            //     for arg in args {
+            //         self.collect_captures_expr(arg, captures, mono);
+            //     }
+            // }
             ExprKind::AnonymousFunction(..)
             | ExprKind::MemberAccessLeadingDot(..)
             | ExprKind::Nil
