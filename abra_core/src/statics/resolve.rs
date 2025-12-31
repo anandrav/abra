@@ -531,7 +531,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
             let symbol_table = symbol_table.new_scope();
-            resolve_names_func_helper(ctx, &symbol_table, &f.args, &f.body, &f.ret_type);
+            resolve_names_func_helper_decl_only(ctx, &symbol_table, &f.args, &f.ret_type);
         }
         ItemKind::FuncDecl(f) => {
             let symbol_table = symbol_table.new_scope();
@@ -693,8 +693,11 @@ fn try_add_member_function(
 
 fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt: &Rc<Item>) {
     match &*stmt.kind {
-        ItemKind::FuncDef(..)
-        | ItemKind::FuncDecl { .. }
+        ItemKind::FuncDef(f) => {
+            let symbol_table = symbol_table.new_scope();
+            resolve_names_func_helper(ctx, &symbol_table, &f.args, &f.body, &f.ret_type);
+        }
+        ItemKind::FuncDecl { .. }
         | ItemKind::InterfaceDef(..)
         | ItemKind::InterfaceImpl(..)
         | ItemKind::Extension(..)
@@ -902,6 +905,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 {
                     ctx.resolution_map.insert(field.id, def.clone());
                 } else {
+                    panic!();
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }
@@ -955,6 +959,24 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 // struct's definition
             }
         }
+    }
+}
+
+fn resolve_names_func_helper_decl_only(
+    ctx: &mut StaticsContext,
+    symbol_table: &SymbolTable,
+    args: &[ArgMaybeAnnotated],
+    ret_type: &Option<Rc<Type>>,
+) {
+    for arg in args {
+        resolve_names_fn_arg(symbol_table, &arg.0);
+        if let Some(ty_annot) = &arg.1 {
+            resolve_names_typ(ctx, symbol_table, ty_annot, true);
+        }
+    }
+
+    if let Some(ty_annot) = ret_type {
+        resolve_names_typ(ctx, symbol_table, ty_annot, true);
     }
 }
 

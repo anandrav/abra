@@ -84,11 +84,8 @@ fn main() {
 }
 
 fn init_fire(w: int, h: int) -> array<int> {
-   var arr = []
    let total = w * h
-   for i in total {
-      arr.push(0)
-   }
+   let arr = array.repeat(0, total)
    arr
 }
 
