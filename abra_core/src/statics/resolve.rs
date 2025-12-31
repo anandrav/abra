@@ -358,14 +358,18 @@ impl SymbolTable {
 }
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
-    for file in file_asts {
+    let mut symbol_tables = vec![];
+    for (i, file) in file_asts.iter().enumerate() {
         let symbol_table = resolve_imports_file(ctx, file);
+        symbol_tables.push(symbol_table);
 
         for item in file.items.iter() {
-            resolve_names_item_decl(ctx, &symbol_table, item);
+            resolve_names_item_decl(ctx, &symbol_tables[i], item);
         }
+    }
+    for (i, file) in file_asts.iter().enumerate() {
         for item in file.items.iter() {
-            resolve_names_item_stmt(ctx, &symbol_table, item);
+            resolve_names_item_stmt(ctx, &symbol_tables[i], item);
         }
     }
 
@@ -822,17 +826,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         }
         ExprKind::MemberAccess(expr, field) => {
             resolve_names_expr(ctx, symbol_table, expr);
-            // TODO simplify
-            if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned()
-                && let Some(nominal) = decl.nominal()
-            {
-                // TODO: why exclude array here??
-                if matches!(nominal, Nominal::Enum(..) | Nominal::Struct(..)) {
-                    resolve_names_member_helper(ctx, expr, field);
-                }
-            } else {
-                resolve_names_member_helper(ctx, expr, field);
-            }
+            resolve_names_member_helper(ctx, expr, field);
         }
         ExprKind::MemberAccessLeadingDot(_ident) => {
             // do nothing
