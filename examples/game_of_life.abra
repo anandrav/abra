@@ -90,7 +90,7 @@ fn init_world(w: int, h: int) -> World {
   var cells = []
   let total = w * h
   
-  for i in total {
+  for _ in total {
     // 20% chance to start alive
     if random_int(0, 100) < 20 {
       cells.push(1)
@@ -105,7 +105,7 @@ fn init_world(w: int, h: int) -> World {
 fn clear_world(w: int, h: int) -> World {
   var cells = []
   let total = w * h
-  for i in total {
+  for _ in total {
     cells.push(0)
   }
   World(cells, w, h, 0, true)

@@ -99,7 +99,7 @@ fn main() {
 
 fn init_streams(w: int, h: int) -> array<Stream> {
   var arr = []
-  for i in w {
+  for _ in w {
     // Initialize with random negative positions so they "rain" in naturally
     // Spread them out so they don't all come down as a flat wall
     let start_y = random_int(0, h) * -1
