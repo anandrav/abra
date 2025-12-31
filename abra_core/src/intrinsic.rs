@@ -40,7 +40,7 @@ pub enum IntrinsicOperation {
     Log,
     Log2,
     Log10,
-
+    // TODO: maybe need atan2, exp aka e^x ?, is_nan(), is_inf(), is_neg_inf(),
     LessThanInt,
     LessThanOrEqualInt,
     GreaterThanInt,
