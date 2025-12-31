@@ -8,8 +8,8 @@ use crate::ast::{
     ItemKind,
 };
 use crate::ast::{FileAst, NodeId};
-use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
+use crate::intrinsic::IntrinsicOperation;
 use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
@@ -45,7 +45,7 @@ impl FuncDesc {
         match &self.kind {
             FuncKind::NamedFunc(f) => f.name.v.clone(),
             FuncKind::AnonymousFunc { .. } => "<lambda>".to_string(),
-            FuncKind::BuiltinWrapper(b, _) => b.name(),
+            FuncKind::IntrinsicWrapper(b, _) => b.name(),
             FuncKind::ForeignFunctionWrapper { func_decl, .. } => func_decl.name.v.clone(),
             FuncKind::HostFunctionWrapper(f) => f.name.v.clone(),
         }
@@ -60,7 +60,7 @@ enum FuncKind {
         capture_types: Vec<SolvedType>, // TODO: don't store this in here, just calculate it using the `lambda` field. (and should be memoizing calculation of captures)
         capture_types_concrete: Vec<SolvedType>,
     },
-    BuiltinWrapper(BuiltinOperation, AstNode),
+    IntrinsicWrapper(IntrinsicOperation, AstNode),
     ForeignFunctionWrapper {
         func_decl: Rc<FuncDecl>,
         libname: PathBuf,
@@ -396,8 +396,8 @@ impl Translator {
                                 body,
                             );
                         }
-                        FuncKind::BuiltinWrapper(b, func_node) => {
-                            self.emit_builtin(st, &mono, *b, func_node.clone(), true);
+                        FuncKind::IntrinsicWrapper(b, func_node) => {
+                            self.emit_intrinsic(st, &mono, *b, func_node.clone(), true);
                         }
                         FuncKind::ForeignFunctionWrapper {
                             func_decl,
@@ -994,7 +994,7 @@ impl Translator {
                     self.emit(st, Instr::LoadOffset(*idx));
                 }
             }
-            Declaration::Builtin(b) => {
+            Declaration::Intrinsic(b) => {
                 let func_ty = b.type_signature().solution().unwrap();
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
@@ -1003,7 +1003,7 @@ impl Translator {
                     Some(substituted_ty)
                 };
                 let desc = FuncDesc {
-                    kind: FuncKind::BuiltinWrapper(*b, ast_node),
+                    kind: FuncKind::IntrinsicWrapper(*b, ast_node),
                     overload_ty,
                 };
                 let label = self.get_func_label(st, desc, &b.name());
@@ -1285,7 +1285,7 @@ impl Translator {
                     },
                 );
             }
-            Declaration::Builtin(b) => self.emit_builtin(st, mono, *b, func_node, false),
+            Declaration::Intrinsic(b) => self.emit_intrinsic(st, mono, *b, func_node, false),
             Declaration::InterfaceOutputType { .. }
             | Declaration::InterfaceDef(_)
             | Declaration::Array
@@ -1316,45 +1316,45 @@ impl Translator {
         }
     }
 
-    fn emit_builtin(
+    fn emit_intrinsic(
         &self,
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
-        b: BuiltinOperation,
+        b: IntrinsicOperation,
         func_node: AstNode,
-        for_function_body: bool, // if emitting builtin for a function body, load arguments and return value
+        for_function_body: bool, // if emitting intrinsic for a function body, load arguments and return value
     ) {
         let nargs = match b {
-            BuiltinOperation::AddInt => 2,
-            BuiltinOperation::SubtractInt => 2,
-            BuiltinOperation::MultiplyInt => 2,
-            BuiltinOperation::DivideInt => 2,
-            BuiltinOperation::PowerInt => 2,
-            BuiltinOperation::Modulo => 2,
-            BuiltinOperation::SqrtInt => 1,
-            BuiltinOperation::AddFloat => 2,
-            BuiltinOperation::SubtractFloat => 2,
-            BuiltinOperation::MultiplyFloat => 2,
-            BuiltinOperation::DivideFloat => 2,
-            BuiltinOperation::PowerFloat => 2,
-            BuiltinOperation::SqrtFloat => 1,
-            BuiltinOperation::LessThanInt => 2,
-            BuiltinOperation::LessThanOrEqualInt => 2,
-            BuiltinOperation::GreaterThanInt => 2,
-            BuiltinOperation::GreaterThanOrEqualInt => 2,
-            BuiltinOperation::EqualInt => 2,
-            BuiltinOperation::LessThanFloat => 2,
-            BuiltinOperation::LessThanOrEqualFloat => 2,
-            BuiltinOperation::GreaterThanFloat => 2,
-            BuiltinOperation::GreaterThanOrEqualFloat => 2,
-            BuiltinOperation::EqualFloat => 2,
-            BuiltinOperation::EqualString => 2,
-            BuiltinOperation::IntToFloat => 1,
-            BuiltinOperation::FloatToInt => 1,
-            BuiltinOperation::IntToString => 1,
-            BuiltinOperation::FloatToString => 1,
-            BuiltinOperation::ConcatStrings => 2,
-            BuiltinOperation::ArrayPush => {
+            IntrinsicOperation::AddInt => 2,
+            IntrinsicOperation::SubtractInt => 2,
+            IntrinsicOperation::MultiplyInt => 2,
+            IntrinsicOperation::DivideInt => 2,
+            IntrinsicOperation::PowerInt => 2,
+            IntrinsicOperation::Modulo => 2,
+            IntrinsicOperation::SqrtInt => 1,
+            IntrinsicOperation::AddFloat => 2,
+            IntrinsicOperation::SubtractFloat => 2,
+            IntrinsicOperation::MultiplyFloat => 2,
+            IntrinsicOperation::DivideFloat => 2,
+            IntrinsicOperation::PowerFloat => 2,
+            IntrinsicOperation::SqrtFloat => 1,
+            IntrinsicOperation::LessThanInt => 2,
+            IntrinsicOperation::LessThanOrEqualInt => 2,
+            IntrinsicOperation::GreaterThanInt => 2,
+            IntrinsicOperation::GreaterThanOrEqualInt => 2,
+            IntrinsicOperation::EqualInt => 2,
+            IntrinsicOperation::LessThanFloat => 2,
+            IntrinsicOperation::LessThanOrEqualFloat => 2,
+            IntrinsicOperation::GreaterThanFloat => 2,
+            IntrinsicOperation::GreaterThanOrEqualFloat => 2,
+            IntrinsicOperation::EqualFloat => 2,
+            IntrinsicOperation::EqualString => 2,
+            IntrinsicOperation::IntToFloat => 1,
+            IntrinsicOperation::FloatToInt => 1,
+            IntrinsicOperation::IntToString => 1,
+            IntrinsicOperation::FloatToString => 1,
+            IntrinsicOperation::ConcatStrings => 2,
+            IntrinsicOperation::ArrayPush => {
                 // TODO: code duplication, see inlining of array.push()
                 let Some(SolvedType::Function(args, _)) = self.get_ty(mono, func_node.clone())
                 else {
@@ -1364,109 +1364,109 @@ impl Translator {
                 let arg_ty = &args[1];
                 if *arg_ty == SolvedType::Void { 1 } else { 2 }
             }
-            BuiltinOperation::ArrayLength => 1,
-            BuiltinOperation::ArrayPop => 1,
-            BuiltinOperation::Panic => 1,
+            IntrinsicOperation::ArrayLength => 1,
+            IntrinsicOperation::ArrayPop => 1,
+            IntrinsicOperation::Panic => 1,
         };
         self.wrapper_header(st, nargs, for_function_body);
         match b {
-            BuiltinOperation::AddInt => {
+            IntrinsicOperation::AddInt => {
                 self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::SubtractInt => {
+            IntrinsicOperation::SubtractInt => {
                 self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::MultiplyInt => {
+            IntrinsicOperation::MultiplyInt => {
                 self.emit(st, Instr::MulInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::DivideInt => {
+            IntrinsicOperation::DivideInt => {
                 self.emit(st, Instr::DivInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::PowerInt => {
+            IntrinsicOperation::PowerInt => {
                 self.emit(st, Instr::PowInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::Modulo => {
+            IntrinsicOperation::Modulo => {
                 self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::SqrtInt => {
+            IntrinsicOperation::SqrtInt => {
                 self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::AddFloat => {
+            IntrinsicOperation::AddFloat => {
                 self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::SubtractFloat => {
+            IntrinsicOperation::SubtractFloat => {
                 self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::MultiplyFloat => {
+            IntrinsicOperation::MultiplyFloat => {
                 self.emit(st, Instr::MulFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::DivideFloat => {
+            IntrinsicOperation::DivideFloat => {
                 self.emit(st, Instr::DivFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::PowerFloat => {
+            IntrinsicOperation::PowerFloat => {
                 self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::SqrtFloat => {
+            IntrinsicOperation::SqrtFloat => {
                 self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::LessThanInt => {
+            IntrinsicOperation::LessThanInt => {
                 self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::LessThanOrEqualInt => {
+            IntrinsicOperation::LessThanOrEqualInt => {
                 self.emit(st, Instr::LessThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::GreaterThanInt => {
+            IntrinsicOperation::GreaterThanInt => {
                 self.emit(st, Instr::GreaterThanInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::GreaterThanOrEqualInt => {
+            IntrinsicOperation::GreaterThanOrEqualInt => {
                 self.emit(
                     st,
                     Instr::GreaterThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top),
                 );
             }
-            BuiltinOperation::EqualInt => {
+            IntrinsicOperation::EqualInt => {
                 self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::LessThanFloat => {
+            IntrinsicOperation::LessThanFloat => {
                 self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::LessThanOrEqualFloat => {
+            IntrinsicOperation::LessThanOrEqualFloat => {
                 self.emit(
                     st,
                     Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                 );
             }
-            BuiltinOperation::GreaterThanFloat => {
+            IntrinsicOperation::GreaterThanFloat => {
                 self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::GreaterThanOrEqualFloat => {
+            IntrinsicOperation::GreaterThanOrEqualFloat => {
                 self.emit(
                     st,
                     Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                 );
             }
-            BuiltinOperation::EqualFloat => {
+            IntrinsicOperation::EqualFloat => {
                 self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::EqualString => {
+            IntrinsicOperation::EqualString => {
                 self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::IntToFloat => {
+            IntrinsicOperation::IntToFloat => {
                 self.emit(st, Instr::IntToFloat(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::FloatToInt => {
+            IntrinsicOperation::FloatToInt => {
                 self.emit(st, Instr::FloatToInt(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::IntToString => {
+            IntrinsicOperation::IntToString => {
                 self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::FloatToString => {
+            IntrinsicOperation::FloatToString => {
                 self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::ConcatStrings => {
+            IntrinsicOperation::ConcatStrings => {
                 self.emit(st, Instr::ConcatStrings(Reg::Top, Reg::Top, Reg::Top));
             }
-            BuiltinOperation::ArrayPush => {
+            IntrinsicOperation::ArrayPush => {
                 // TODO: code duplication, see inlining of array.push()
                 let Some(SolvedType::Function(args, _)) = self.get_ty(mono, func_node.clone())
                 else {
@@ -1479,10 +1479,10 @@ impl Translator {
                 }
                 self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::ArrayLength => {
+            IntrinsicOperation::ArrayLength => {
                 self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top));
             }
-            BuiltinOperation::ArrayPop => {
+            IntrinsicOperation::ArrayPop => {
                 // TODO: code duplication, see inlining of array.pop()
                 self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
                 let SolvedType::Function(_, ret_ty) = self.get_ty(mono, func_node.clone()).unwrap()
@@ -1493,7 +1493,7 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
-            BuiltinOperation::Panic => {
+            IntrinsicOperation::Panic => {
                 self.emit(st, Instr::Panic);
             }
         }

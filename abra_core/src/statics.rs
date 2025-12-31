@@ -7,7 +7,7 @@ use crate::ast::{
     InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype, StructDef, Type as AstType,
     TypeKind,
 };
-use crate::builtin::{BuiltinOperation, BuiltinType};
+use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::{ErrorSummary, FileProvider};
 use resolve::{resolve, scan_declarations};
 use std::fmt::{self, Display, Formatter};
@@ -203,7 +203,7 @@ pub(crate) enum Declaration {
         e: Rc<EnumDef>,
         variant: usize,
     },
-    Builtin(BuiltinOperation),
+    Intrinsic(IntrinsicOperation),
     Var(AstNode),
     Polytype(PolytypeDeclaration),
     Namespace(Rc<Namespace>),
@@ -233,10 +233,10 @@ pub(crate) enum FuncResolutionKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum PolytypeDeclaration {
-    InterfaceSelf(Rc<InterfaceDef>),            // `Self`
-    Ordinary(Rc<Polytype>),                     // `T` in `struct Car<T>` in source code
+    InterfaceSelf(Rc<InterfaceDef>),                // `Self`
+    Ordinary(Rc<Polytype>),                         // `T` in `struct Car<T>` in source code
     ArrayArg, // `T` in `struct array<T> = ` if that was actually in the source
-    BuiltinOperation(BuiltinOperation, String), // `T` in `fn array_push(arr: array<T>) -> void` if that was actually in the source
+    IntrinsicOperation(IntrinsicOperation, String), // `T` in `fn array_push(arr: array<T>) -> void` if that was actually in the source
 }
 
 impl Display for PolytypeDeclaration {
@@ -251,8 +251,8 @@ impl Display for PolytypeDeclaration {
             PolytypeDeclaration::ArrayArg => {
                 write!(f, "T from array")
             }
-            PolytypeDeclaration::BuiltinOperation(_, _) => {
-                write!(f, "builtin's poly")
+            PolytypeDeclaration::IntrinsicOperation(_, _) => {
+                write!(f, "intrinsic's poly")
             }
         }
     }
@@ -270,7 +270,7 @@ impl Declaration {
             | Declaration::InterfaceDef(_)
             | Declaration::InterfaceMethod { .. }
             | Declaration::MemberFunction { .. }
-            | Declaration::Builtin(_)
+            | Declaration::Intrinsic(_)
             | Declaration::Var(_)
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. }

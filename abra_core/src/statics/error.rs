@@ -321,8 +321,8 @@ fn handle_reason(
     notes: &mut Vec<String>,
 ) {
     match reason {
-        Reason::Builtin(builtin) => {
-            notes.push(format!("the builtin function `{}`", builtin.name()));
+        Reason::Intrinsic(intrinsic) => {
+            notes.push(format!("the intrinsic function `{}`", intrinsic.name()));
         }
         Reason::Node(node) => {
             let (file, range) = node.get_file_and_range();
@@ -387,9 +387,9 @@ fn add_detail_for_decl(
         | Declaration::Polytype(..)
         | Declaration::Var(..) => {}
         Declaration::InterfaceOutputType { .. } => unreachable!(), // TODO: this is sloppy
-        Declaration::Builtin(builtin) => notes.push(format!(
-            "`{}` is a builtin operation and cannot be re-declared",
-            builtin.name()
+        Declaration::Intrinsic(intrinsic) => notes.push(format!(
+            "`{}` is an intrinsic operation and cannot be re-declared",
+            intrinsic.name()
         )),
         Declaration::Array | Declaration::BuiltinType(_) => {
             notes.push("cannot redeclare a builtin type".to_string())
@@ -421,7 +421,7 @@ fn add_detail_for_decl_node(
         Declaration::Struct(struct_def) => struct_def.name.node(),
         Declaration::Polytype(polytype_decl) => match polytype_decl {
             PolytypeDeclaration::Ordinary(polyty) => polyty.name.node(),
-            PolytypeDeclaration::BuiltinOperation(..) => return false,
+            PolytypeDeclaration::IntrinsicOperation(..) => return false,
             PolytypeDeclaration::ArrayArg => return false,
             PolytypeDeclaration::InterfaceSelf(iface_def) => iface_def.name.node(), // TODO: this will not result in a good error message
         },
@@ -429,7 +429,9 @@ fn add_detail_for_decl_node(
 
         Declaration::Var(ast_node) => ast_node.clone(),
         Declaration::InterfaceOutputType { iface: _, ty } => ty.name.node(),
-        Declaration::Builtin(_) | Declaration::BuiltinType(_) | Declaration::Array => return false,
+        Declaration::Intrinsic(_) | Declaration::BuiltinType(_) | Declaration::Array => {
+            return false;
+        }
     };
     let (file, range) = node.get_file_and_range();
     labels.push(Label::secondary(file, range).with_message(message));

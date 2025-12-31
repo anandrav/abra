@@ -10,9 +10,9 @@ use crate::ast::{
     InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type,
     TypeDefKind, TypeKind,
 };
-use crate::builtin::{BuiltinOperation, BuiltinType};
 #[cfg(feature = "ffi")]
 use crate::foreign_bindings::make_foreign_func_name;
+use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -390,11 +390,11 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
     effective_namespace
         .declarations
         .insert("array".to_string(), Declaration::Array);
-    // builtin operations
-    for builtin in BuiltinOperation::enumerate().iter() {
+    // intrinsic operations
+    for intrinsic in IntrinsicOperation::enumerate().iter() {
         effective_namespace
             .declarations
-            .insert(builtin.name(), Declaration::Builtin(*builtin));
+            .insert(intrinsic.name(), Declaration::Intrinsic(*intrinsic));
     }
     // always include the prelude (unless this file is the prelude)
     if file.package_name.to_str().unwrap() != "prelude" {
@@ -871,7 +871,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
             | Declaration::InterfaceOutputType { .. }
             | Declaration::EnumVariant { .. }
             | Declaration::Polytype(_)
-            | Declaration::Builtin(_) => {
+            | Declaration::Intrinsic(_) => {
                 // TODO: need more descriptive error message
                 panic!();
                 // ctx.errors
@@ -1217,7 +1217,7 @@ fn fqn_of_id(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::Array => Some("array".into()),
         Declaration::BuiltinType(builtin_type) => Some(builtin_type.name().to_string()),
         Declaration::Polytype(_) => None,
-        Declaration::Builtin(_) => None,
+        Declaration::Intrinsic(_) => None,
         Declaration::Var(_) => None,
         Declaration::Namespace(_) => None,
     }

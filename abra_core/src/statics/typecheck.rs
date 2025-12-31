@@ -11,8 +11,8 @@ use crate::ast::{
     TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
-use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
+use crate::intrinsic::IntrinsicOperation;
 use crate::parse::PrefixOp;
 use disjoint_sets::UnionFindNode;
 use std::borrow::Borrow;
@@ -344,11 +344,11 @@ impl SolvedType {
             Self::Poly(polyty) => match polyty {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
                 PolytypeDeclaration::ArrayArg => true,
-                PolytypeDeclaration::BuiltinOperation(op, _) => matches!(
+                PolytypeDeclaration::IntrinsicOperation(op, _) => matches!(
                     op,
-                    BuiltinOperation::ArrayPush
-                        | BuiltinOperation::ArrayPop
-                        | BuiltinOperation::ArrayLength
+                    IntrinsicOperation::ArrayPush
+                        | IntrinsicOperation::ArrayPop
+                        | IntrinsicOperation::ArrayLength
                 ),
                 PolytypeDeclaration::Ordinary(_p) => true, // !p.interfaces.is_empty(),
             },
@@ -456,7 +456,7 @@ pub(crate) enum Reason {
 
     Annotation(AstNode),
     Literal(AstNode),
-    Builtin(BuiltinOperation), // a builtin function or constant, which doesn't exist in the AST
+    Intrinsic(IntrinsicOperation), // an intrinsic function, which doesn't exist in the AST
     PrefixOp(AstNode),
     BinopLeft(AstNode),
     BinopRight(AstNode),
@@ -1051,7 +1051,7 @@ impl PolytypeDeclaration {
                 vec![InterfaceConstraint::new(iface.clone(), vec![])]
             }
             PolytypeDeclaration::ArrayArg => vec![],
-            PolytypeDeclaration::BuiltinOperation(_, _) => vec![],
+            PolytypeDeclaration::IntrinsicOperation(_, _) => vec![],
             PolytypeDeclaration::Ordinary(polyty) => interfaces_helper(ctx, &polyty.interfaces),
         }
     }
@@ -2139,8 +2139,8 @@ fn generate_constraints_expr(
                     Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => {
                         Some(TypeVar::from_node(ctx, decl.name.node()))
                     }
-                    Declaration::Builtin(builtin) => {
-                        let ty_signature = builtin.type_signature();
+                    Declaration::Intrinsic(intrinsic) => {
+                        let ty_signature = intrinsic.type_signature();
                         let ty_signature =
                             ty_signature.instantiate(ctx, polyvar_scope, expr.node());
                         Some(ty_signature)
@@ -3421,7 +3421,7 @@ impl Display for PotentialType {
                         }
                     }
                     PolytypeDeclaration::ArrayArg => write!(f, "T")?,
-                    PolytypeDeclaration::BuiltinOperation(_, name) => write!(f, "{}", name)?,
+                    PolytypeDeclaration::IntrinsicOperation(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => write!(f, "Self")?,
                 }
 
@@ -3496,7 +3496,7 @@ impl Display for SolvedType {
                         }
                     }
                     PolytypeDeclaration::ArrayArg => write!(f, "T")?,
-                    PolytypeDeclaration::BuiltinOperation(_, name) => write!(f, "{}", name)?,
+                    PolytypeDeclaration::IntrinsicOperation(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => {
                         write!(f, "Self")?;
                     }
