@@ -34,6 +34,9 @@ pub enum IntrinsicOperation {
     Sin,
     Cos,
     Tan,
+    Asin,
+    Acos,
+    Atan,
     Log,
     Log2,
     Log10,
@@ -108,6 +111,9 @@ impl IntrinsicOperation {
             | IntrinsicOperation::Sin
             | IntrinsicOperation::Cos
             | IntrinsicOperation::Tan
+            | IntrinsicOperation::Asin
+            | IntrinsicOperation::Acos
+            | IntrinsicOperation::Atan
             | IntrinsicOperation::Log
             | IntrinsicOperation::Log2
             | IntrinsicOperation::Log10 => TypeVar::make_func(

@@ -1329,6 +1329,9 @@ impl Translator {
             IntrinsicOperation::Sin => 1,
             IntrinsicOperation::Cos => 1,
             IntrinsicOperation::Tan => 1,
+            IntrinsicOperation::Asin => 1,
+            IntrinsicOperation::Acos => 1,
+            IntrinsicOperation::Atan => 1,
             IntrinsicOperation::Log => 1,
             IntrinsicOperation::Log2 => 1,
             IntrinsicOperation::Log10 => 1,
@@ -1401,13 +1404,22 @@ impl Translator {
                 self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::Sin => {
-                self.emit(st, Instr::Sine(Reg::Top, Reg::Top));
+                self.emit(st, Instr::Sin(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::Cos => {
-                self.emit(st, Instr::Cosine(Reg::Top, Reg::Top));
+                self.emit(st, Instr::Cos(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::Tan => {
-                self.emit(st, Instr::Tangent(Reg::Top, Reg::Top));
+                self.emit(st, Instr::Tan(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Asin => {
+                self.emit(st, Instr::Asin(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Acos => {
+                self.emit(st, Instr::Acos(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Atan => {
+                self.emit(st, Instr::Atan(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::Log => {
                 self.emit(st, Instr::Log(Reg::Top, Reg::Top));

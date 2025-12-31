@@ -458,9 +458,12 @@ pub enum Instr {
     PowerFloatImm(u16, u16, u16),
 
     SquareRoot(u16, u16),
-    Sine(u16, u16),
-    Cosine(u16, u16),
-    Tangent(u16, u16),
+    Sin(u16, u16),
+    Cos(u16, u16),
+    Tan(u16, u16),
+    Asin(u16, u16),
+    Acos(u16, u16),
+    Atan(u16, u16),
     Log(u16, u16),
     Log2(u16, u16),
     Log10(u16, u16),
@@ -1228,17 +1231,29 @@ impl Vm {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.sqrt());
             }
-            Instr::Sine(dest, reg) => {
+            Instr::Sin(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.sin());
             }
-            Instr::Cosine(dest, reg) => {
+            Instr::Cos(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.cos());
             }
-            Instr::Tangent(dest, reg) => {
+            Instr::Tan(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.tan());
+            }
+            Instr::Asin(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.asin());
+            }
+            Instr::Acos(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.acos());
+            }
+            Instr::Atan(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.atan());
             }
             Instr::Log(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);
