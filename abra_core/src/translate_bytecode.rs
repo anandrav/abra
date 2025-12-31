@@ -1330,6 +1330,7 @@ impl Translator {
             IntrinsicOperation::Sine => 1,
             IntrinsicOperation::Cosine => 1,
             IntrinsicOperation::Tangent => 1,
+            IntrinsicOperation::Log2 => 1,
             IntrinsicOperation::LessThanInt => 2,
             IntrinsicOperation::LessThanOrEqualInt => 2,
             IntrinsicOperation::GreaterThanInt => 2,
@@ -1409,6 +1410,9 @@ impl Translator {
             }
             IntrinsicOperation::Tangent => {
                 self.emit(st, Instr::Tangent(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Log2 => {
+                self.emit(st, Instr::Log2(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::LessThanInt => {
                 self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top));

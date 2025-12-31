@@ -102,6 +102,7 @@ pub enum Instr {
     Sine(Reg, Reg),
     Cosine(Reg, Reg),
     Tangent(Reg, Reg),
+    Log2(Reg, Reg),
 
     // Logical
     Not(Reg, Reg),
@@ -291,6 +292,7 @@ impl Display for Instr {
                 write!(f, "pow_float_imm {dest} {reg1} {imm}")
             }
             Instr::SquareRoot(dest, reg) => write!(f, "square_root {dest} {reg}"),
+            Instr::Log2(dest, reg) => write!(f, "log2 {dest} {reg}"),
             Instr::Sine(dest, reg) => write!(f, "sine {dest} {reg}"),
             Instr::Cosine(dest, reg) => write!(f, "cosine {dest} {reg}"),
             Instr::Tangent(dest, reg) => write!(f, "tangent {dest} {reg}"),
@@ -543,6 +545,7 @@ fn instr_to_vminstr(
         Instr::Sine(dest, reg) => VmInstr::Sine(dest.encode(), reg.encode()),
         Instr::Cosine(dest, reg) => VmInstr::Cosine(dest.encode(), reg.encode()),
         Instr::Tangent(dest, reg) => VmInstr::Tangent(dest.encode(), reg.encode()),
+        Instr::Log2(dest, reg) => VmInstr::Log2(dest.encode(), reg.encode()),
         Instr::Not(dest, reg) => VmInstr::Not(dest.encode(), reg.encode()),
         Instr::LessThanInt(dest, reg1, reg2) => {
             VmInstr::LessThanInt(dest.encode(), reg1.encode(), reg2.encode())
