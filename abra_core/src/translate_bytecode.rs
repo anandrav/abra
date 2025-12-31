@@ -373,7 +373,6 @@ impl Translator {
                             capture_types,
                             capture_types_concrete,
                         } => {
-                            // TODO: use capture_types here.
                             let ExprKind::AnonymousFunction(args, _, body) = &*e.kind else {
                                 unreachable!()
                             };
@@ -413,8 +412,6 @@ impl Translator {
                 }
             }
         }
-
-        // RUN OPTIMIZATIONS HERE
 
         st.lines = optimize(st.lines);
 
@@ -927,7 +924,7 @@ impl Translator {
                             .cloned()
                             .map(|capture| self.get_ty(mono, capture).unwrap())
                             .collect(),
-                    }, // TODO: initialize capture types
+                    },
                     overload_ty: overload_ty.clone(),
                 };
                 let label = self.get_func_label(st, desc, &func_name);
@@ -1031,8 +1028,6 @@ impl Translator {
             Declaration::InterfaceMethod { iface, method } => {
                 let overload_ty = self.get_ty(mono, ast_node).unwrap();
 
-                // BEFORE
-
                 let method = &iface.methods[*method].name;
                 // TODO this logic is duplicated elsewhere and also looks really inefficient
                 let impl_list = &self.statics.interface_impls[iface];
@@ -1062,7 +1057,6 @@ impl Translator {
                     }
                 }
 
-                // END
                 panic!();
             }
             Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
@@ -1726,7 +1720,7 @@ impl Translator {
                                 }
                                 // struct member assignment
                                 ExprKind::MemberAccess(accessed, field_name) => {
-                                    // TODO: if member function is being accessed, that should be disallowed earlier by the compiler
+                                    // TODO: if member function is being assigned to, that should be disallowed earlier by the compiler
                                     // for instance, Person.fullname = (p: Person) -> "hello world". Should not be allowed.
                                     self.translate_expr(rvalue, offset_table, mono, st);
                                     self.translate_expr(accessed, offset_table, mono, st);
@@ -1819,7 +1813,7 @@ impl Translator {
                 let yields_value = expr_ty != SolvedType::Void && expr_ty != SolvedType::Never;
                 self.translate_expr(expr, offset_table, mono, st);
                 if !is_last_in_block_expression && yields_value {
-                    self.emit(st, Instr::Pop); // CULPRIT
+                    self.emit(st, Instr::Pop);
                 }
             }
             StmtKind::Break => {
@@ -2301,7 +2295,7 @@ impl Translator {
     ) {
         match &*expr.kind {
             ExprKind::Variable(_) => {
-                // TODO: why Some(ty) ? All nodes should have a type, even if that type is Type or Module or something.
+                // TODO: why Some(ty) ? All nodes should have a type, even if that type is Type or Namespace or something.
                 if let Some(ty) = self.get_ty(mono, expr.node())
                     && ty != SolvedType::Void
                 {

@@ -858,26 +858,24 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
             | Declaration::Polytype(_)
             | Declaration::Intrinsic(_) => {
                 // TODO: need more descriptive error message
-                panic!();
+                unimplemented!();
                 // ctx.errors
                 //     .push(Error::UnresolvedIdentifier { node: field.node() });
             }
             Declaration::BuiltinType(_) => {
+                // TODO: isn't array a builtin type?
                 // TODO: calling member functions on types like doing `array.len(my_array)` or `int.str(23)`
-                todo!()
+                unimplemented!()
             }
-            Declaration::Namespace(ns) => {
-                match ns.declarations.get(&field.v) {
-                    Some(decl) => {
-                        ctx.resolution_map.insert(field.id, decl.clone());
-                    }
-                    None => {
-                        // TODO: code duplication, you can see it right below for instance
-                        ctx.errors
-                            .push(Error::UnresolvedIdentifier { node: field.node() });
-                    }
+            Declaration::Namespace(ns) => match ns.declarations.get(&field.v) {
+                Some(decl) => {
+                    ctx.resolution_map.insert(field.id, decl.clone());
                 }
-            }
+                None => {
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: field.node() });
+                }
+            },
             Declaration::InterfaceDef(iface_def) => {
                 let mut found = false;
                 for (idx, method) in iface_def.methods.iter().enumerate() {

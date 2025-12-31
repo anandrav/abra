@@ -321,24 +321,6 @@ impl SolvedType {
         }
     }
 
-    // fn key(&self) -> TypeKey {
-    //     match self {
-    //         SolvedType::Poly(poly_decl) => TypeKey::Poly(poly_decl.clone()),
-    //         SolvedType::InterfaceOutput(output_type) => {
-    //             TypeKey::InterfaceOutput(output_type.clone())
-    //         }
-    //         SolvedType::Void => TypeKey::Void,
-    //         SolvedType::Never => TypeKey::Never,
-    //         SolvedType::Int => TypeKey::Int,
-    //         SolvedType::Float => TypeKey::Float,
-    //         SolvedType::Bool => TypeKey::Bool,
-    //         SolvedType::String => TypeKey::String,
-    //         SolvedType::Function(args, _) => TypeKey::Function(args.len() as u8),
-    //         SolvedType::Tuple(elems) => TypeKey::Tuple(elems.len() as u8),
-    //         SolvedType::Nominal(ident, _) => TypeKey::TyApp(ident.clone()),
-    //     }
-    // }
-
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
             Self::Poly(polyty) => match polyty {
@@ -366,31 +348,6 @@ impl SolvedType {
             Self::Nominal(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
         }
     }
-
-    // pub(crate) fn is_overloaded(&self) -> bool {
-    //     match self {
-    //         Self::Poly(polyty) => match polyty {
-    //             PolytypeDeclaration::InterfaceSelf(_) => true,
-    //             PolytypeDeclaration::Builtin(op, _) => match op {
-    //                 BuiltinOperation::ArrayPop | BuiltinOperation::ArrayPush => true,
-    //                 _ => false,
-    //             },
-    //             PolytypeDeclaration::Ordinary(p) => true, // !p.interfaces.is_empty(),
-    //         },
-    //         Self::InterfaceOutput(output_type) => true, // !output_type.interfaces.is_empty(),
-    //         Self::Void => false,
-    //         Self::Never => false,
-    //         Self::Int => false,
-    //         Self::Float => false,
-    //         Self::Bool => false,
-    //         Self::String => false,
-    //         Self::Function(args, out) => {
-    //             args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
-    //         }
-    //         Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded()),
-    //         Self::Nominal(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
-    //     }
-    // }
 }
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
@@ -1231,7 +1188,6 @@ impl AstType {
     }
 }
 
-// TODO: this needs a touch up
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Reasons {
     pub(crate) inner: RefCell<BTreeSet<Reason>>,
@@ -1616,7 +1572,6 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
         if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
             generate_constraints_iface_def(ctx, iface_def);
 
-            // BELOW IS WHAT WAS MOVED
             let impl_ty = iface_impl.typ.to_typevar(ctx);
             if impl_ty.is_instantiated_nominal() {
                 ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
@@ -2177,10 +2132,11 @@ fn generate_constraints_expr(
                     | Declaration::EnumVariant { .. }
                     | Declaration::InterfaceMethod { .. }
                     | Declaration::MemberFunction { .. } => {
-                        // a variable expression should not resolve to the above
-                        ctx.errors
-                            .push(Error::UnresolvedIdentifier { node: expr.node() });
-                        None
+                        unimplemented!();
+                        // // a variable expression should not resolve to the above
+                        // ctx.errors
+                        //     .push(Error::UnresolvedIdentifier { node: expr.node() });
+                        // None
                     }
                     // these are used to access member functions
                     // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
@@ -2357,7 +2313,7 @@ fn generate_constraints_expr(
                 }
             }
         }
-        ExprKind::IfElse(cond, expr1, expr2) => {
+        ExprKind::IfElse(cond, then_stmt, else_stmt) => {
             generate_constraints_expr(
                 ctx,
                 polyvar_scope,
@@ -2368,10 +2324,9 @@ fn generate_constraints_expr(
                 cond,
             );
 
-            // TODO rename expr to stmt
-            generate_constraints_stmt(ctx, polyvar_scope, mode.clone(), expr1);
-            let expr1_ty = TypeVar::from_node(ctx, expr1.node());
-            if let Some(expr2) = expr2 {
+            generate_constraints_stmt(ctx, polyvar_scope, mode.clone(), then_stmt);
+            let expr1_ty = TypeVar::from_node(ctx, then_stmt.node());
+            if let Some(expr2) = else_stmt {
                 generate_constraints_stmt(ctx, polyvar_scope, mode.clone(), expr2);
                 let expr2_ty = TypeVar::from_node(ctx, expr2.node());
                 constrain_because(ctx, &expr1_ty, &expr2_ty, ConstraintReason::IfElseBodies);

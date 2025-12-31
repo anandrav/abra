@@ -1057,7 +1057,6 @@ impl Parser {
                 self.expect_token(TokenTag::OpenBrace);
                 let mut arms: Vec<Rc<MatchArm>> = vec![];
                 self.skip_newlines();
-                // let mut clean = true;
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
                     arms.push(self.parse_match_arm()?);
                     if self.current_token().tag() == TokenTag::Newline {
@@ -1076,9 +1075,9 @@ impl Parser {
             TokenKind::If => {
                 self.expect_token(TokenTag::If);
                 let condition = self.parse_expr()?;
-                let then_block = self.parse_stmt()?; // TODO: not a block technically, rename to then_stmt, else_stmt ?
+                let then_stmt = self.parse_stmt()?;
 
-                let else_block = if self.current_token().tag() == TokenTag::Else {
+                let else_stmt = if self.current_token().tag() == TokenTag::Else {
                     self.consume_token();
                     Some(self.parse_stmt()?)
                 } else {
@@ -1086,7 +1085,7 @@ impl Parser {
                 };
 
                 Expr {
-                    kind: Rc::new(ExprKind::IfElse(condition, then_block, else_block)),
+                    kind: Rc::new(ExprKind::IfElse(condition, then_stmt, else_stmt)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

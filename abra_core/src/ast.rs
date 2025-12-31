@@ -269,7 +269,6 @@ impl std::hash::Hash for StructField {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) enum AstNode {
-    // FileAst(Rc<FileAst>),
     Item(Rc<Item>),
     Stmt(Rc<Stmt>),
     Expr(Rc<Expr>),
@@ -277,7 +276,6 @@ pub(crate) enum AstNode {
     Type(Rc<Type>),
     Identifier(Rc<Identifier>),
     Variant(Rc<Variant>),
-    // FuncDecl(Rc<FuncDecl>),
     MatchArm(Rc<MatchArm>),
 }
 
@@ -296,7 +294,6 @@ impl AstNode {
             AstNode::Pat(pat) => &pat.loc,
             AstNode::Type(typ) => &typ.loc,
             AstNode::Identifier(identifier) => &identifier.loc,
-            // AstNode::FuncDecl(decl) => &decl.loc,
             AstNode::Variant(variant) => &variant.loc,
             AstNode::MatchArm(match_arm) => &match_arm.loc,
         }
@@ -310,7 +307,6 @@ impl AstNode {
             AstNode::Pat(pat) => pat.id,
             AstNode::Type(typ) => typ.id,
             AstNode::Identifier(identifier) => identifier.id,
-            // AstNode::FuncDecl(decl) => decl.id,
             AstNode::Variant(variant) => variant.id,
             AstNode::MatchArm(match_arm) => match_arm.id,
         }
@@ -379,7 +375,7 @@ impl Stmt {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum StmtKind {
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
-    Assign(Rc<Expr>, AssignOperator, Rc<Expr>), // TODO: rename this to Assign since the "set" keyword no longer exists
+    Assign(Rc<Expr>, AssignOperator, Rc<Expr>),
     Expr(Rc<Expr>),
     Continue,
     Break,
