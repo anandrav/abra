@@ -1327,6 +1327,9 @@ impl Translator {
             IntrinsicOperation::DivideFloat => 2,
             IntrinsicOperation::PowerFloat => 2,
             IntrinsicOperation::SqrtFloat => 1,
+            IntrinsicOperation::Sine => 1,
+            IntrinsicOperation::Cosine => 1,
+            IntrinsicOperation::Tangent => 1,
             IntrinsicOperation::LessThanInt => 2,
             IntrinsicOperation::LessThanOrEqualInt => 2,
             IntrinsicOperation::GreaterThanInt => 2,
@@ -1397,6 +1400,15 @@ impl Translator {
             }
             IntrinsicOperation::SqrtFloat => {
                 self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Sine => {
+                self.emit(st, Instr::Sine(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Cosine => {
+                self.emit(st, Instr::Cosine(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Tangent => {
+                self.emit(st, Instr::Tangent(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::LessThanInt => {
                 self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top));

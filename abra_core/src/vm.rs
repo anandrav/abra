@@ -458,6 +458,9 @@ pub enum Instr {
     PowerFloatImm(u16, u16, u16),
 
     SquareRoot(u16, u16),
+    Sine(u16, u16),
+    Cosine(u16, u16),
+    Tangent(u16, u16),
 
     // Logical
     Not(u16, u16),
@@ -1221,6 +1224,18 @@ impl Vm {
             Instr::SquareRoot(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.sqrt());
+            }
+            Instr::Sine(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.sin());
+            }
+            Instr::Cosine(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.cos());
+            }
+            Instr::Tangent(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.tan());
             }
             Instr::Not(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_bool(self);

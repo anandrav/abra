@@ -99,6 +99,9 @@ pub enum Instr {
     PowFloatImm(Reg, Reg, String),
 
     SquareRoot(Reg, Reg),
+    Sine(Reg, Reg),
+    Cosine(Reg, Reg),
+    Tangent(Reg, Reg),
 
     // Logical
     Not(Reg, Reg),
@@ -288,6 +291,9 @@ impl Display for Instr {
                 write!(f, "pow_float_imm {dest} {reg1} {imm}")
             }
             Instr::SquareRoot(dest, reg) => write!(f, "square_root {dest} {reg}"),
+            Instr::Sine(dest, reg) => write!(f, "sine {dest} {reg}"),
+            Instr::Cosine(dest, reg) => write!(f, "cosine {dest} {reg}"),
+            Instr::Tangent(dest, reg) => write!(f, "tangent {dest} {reg}"),
             Instr::Not(dest, reg) => write!(f, "not {dest} {reg}"),
             Instr::LessThanInt(dest, reg1, reg2) => {
                 write!(f, "less_than_int {dest} {reg1} {reg2}")
@@ -534,6 +540,9 @@ fn instr_to_vminstr(
             constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
         Instr::SquareRoot(dest, reg) => VmInstr::SquareRoot(dest.encode(), reg.encode()),
+        Instr::Sine(dest, reg) => VmInstr::Sine(dest.encode(), reg.encode()),
+        Instr::Cosine(dest, reg) => VmInstr::Cosine(dest.encode(), reg.encode()),
+        Instr::Tangent(dest, reg) => VmInstr::Tangent(dest.encode(), reg.encode()),
         Instr::Not(dest, reg) => VmInstr::Not(dest.encode(), reg.encode()),
         Instr::LessThanInt(dest, reg1, reg2) => {
             VmInstr::LessThanInt(dest.encode(), reg1.encode(), reg2.encode())

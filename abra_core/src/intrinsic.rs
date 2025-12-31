@@ -32,6 +32,10 @@ pub enum IntrinsicOperation {
     PowerFloat,
     SqrtFloat,
 
+    Sine,
+    Cosine,
+    Tangent,
+
     LessThanInt,
     LessThanOrEqualInt,
     GreaterThanInt,
@@ -103,7 +107,10 @@ impl IntrinsicOperation {
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
             ),
-            IntrinsicOperation::SqrtFloat => TypeVar::make_func(
+            IntrinsicOperation::SqrtFloat
+            | IntrinsicOperation::Sine
+            | IntrinsicOperation::Cosine
+            | IntrinsicOperation::Tangent => TypeVar::make_func(
                 vec![TypeVar::make_float(reason.clone())],
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
