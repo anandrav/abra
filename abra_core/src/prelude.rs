@@ -414,7 +414,7 @@ extend array<T> {
 extend array<T Clone> {
     fn repeat(x: T, n: int) -> array<T> {
         let ret = []
-        for i in n { // TODO: use _ instead of i
+        for _ in n {
             ret.push(Clone.clone(x))
         }
         ret

@@ -1337,6 +1337,14 @@ impl Parser {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
+            TokenKind::Wildcard => {
+                self.consume_token();
+                Pat {
+                    kind: Rc::new(PatKind::Wildcard),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::Ident(s) => {
                 self.consume_token();
                 Pat {
@@ -1373,7 +1381,7 @@ impl Parser {
             }
             _ => {
                 return Err(Error::UnexpectedToken(
-                    "pattern".into(),
+                    "let pattern".into(),
                     current.kind.discriminant().to_string(),
                     self.current_token_location(),
                 )
