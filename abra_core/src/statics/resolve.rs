@@ -905,7 +905,6 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 {
                     ctx.resolution_map.insert(field.id, def.clone());
                 } else {
-                    panic!();
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }
