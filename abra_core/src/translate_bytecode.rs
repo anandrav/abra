@@ -2146,25 +2146,12 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.collect_locals_expr(expr, locals, mono);
             }
-            ExprKind::FuncAp(func, args) => match &*func.kind {
-                ExprKind::MemberAccess(receiver_expr, _) => {
-                    self.collect_locals_expr(receiver_expr, locals, mono);
-                    for arg in args {
-                        self.collect_locals_expr(arg, locals, mono);
-                    }
+            ExprKind::FuncAp(func, args) => {
+                self.collect_locals_expr(func, locals, mono);
+                for arg in args {
+                    self.collect_locals_expr(arg, locals, mono);
                 }
-                ExprKind::MemberAccessLeadingDot(_) => {
-                    for arg in args {
-                        self.collect_locals_expr(arg, locals, mono);
-                    }
-                }
-                _ => {
-                    self.collect_locals_expr(func, locals, mono);
-                    for arg in args {
-                        self.collect_locals_expr(arg, locals, mono);
-                    }
-                }
-            },
+            }
 
             ExprKind::AnonymousFunction(..)
             | ExprKind::MemberAccessLeadingDot(..)
@@ -2369,25 +2356,12 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.collect_captures_expr(expr, captures, mono);
             }
-            ExprKind::FuncAp(func, args) => match &*func.kind {
-                ExprKind::MemberAccess(receiver_expr, _) => {
-                    self.collect_captures_expr(receiver_expr, captures, mono);
-                    for arg in args {
-                        self.collect_captures_expr(arg, captures, mono);
-                    }
+            ExprKind::FuncAp(func, args) => {
+                self.collect_captures_expr(func, captures, mono);
+                for arg in args {
+                    self.collect_captures_expr(arg, captures, mono);
                 }
-                ExprKind::MemberAccessLeadingDot(_) => {
-                    for arg in args {
-                        self.collect_captures_expr(arg, captures, mono);
-                    }
-                }
-                _ => {
-                    self.collect_captures_expr(func, captures, mono);
-                    for arg in args {
-                        self.collect_captures_expr(arg, captures, mono);
-                    }
-                }
-            },
+            }
             ExprKind::AnonymousFunction(..)
             | ExprKind::MemberAccessLeadingDot(..)
             | ExprKind::Nil
