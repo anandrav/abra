@@ -357,7 +357,7 @@ impl SymbolTable {
     }
 }
 
-pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
+pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &[Rc<FileAst>]) {
     let mut symbol_tables = vec![];
     for (i, file) in file_asts.iter().enumerate() {
         let symbol_table = resolve_imports_file(ctx, file);

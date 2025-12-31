@@ -2696,27 +2696,16 @@ fn generate_constraints_expr(
                 );
                 constrain(ctx, &node_ty, &def_type);
             }
-            // TODO: else if accessed resolves to some nominal type (struct or enum or array) try to resolve member_ident to a member function
-            else if let Some(decl) = ctx.resolution_map.get(&accessed.id).cloned()
-                && let Some(nominal) = decl.nominal()
+            // member function of a type, for instance array.push or Person.fullname
+            else if let Some(Declaration::MemberFunction(memfn)) =
+                ctx.resolution_map.get(&member_ident.id).cloned()
             {
                 // accessing member function of some nominal type
-                if let Some(Declaration::MemberFunction(memfn)) = ctx
-                    .member_functions
-                    .get(&(TypeKey::TyApp(nominal.clone()), member_ident.v.clone()))
-                {
-                    ctx.resolution_map
-                        .insert(member_ident.id, Declaration::MemberFunction(memfn.clone()));
-                    let memfn_ty = TypeVar::from_node(ctx, memfn.name.node());
-                    let memfn_ty = memfn_ty.instantiate(ctx, polyvar_scope, expr.node());
-                    constrain(ctx, &node_ty, &memfn_ty);
-                    let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
-                    constrain(ctx, &node_ty, &member_ident_ty);
-                } else {
-                    ctx.errors.push(Error::UnresolvedIdentifier {
-                        node: member_ident.node(),
-                    })
-                }
+                let memfn_ty = TypeVar::from_node(ctx, memfn.name.node());
+                let memfn_ty = memfn_ty.instantiate(ctx, polyvar_scope, expr.node());
+                constrain(ctx, &node_ty, &memfn_ty);
+                let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
+                constrain(ctx, &node_ty, &member_ident_ty);
             } else if let Some(Declaration::InterfaceDef(iface)) =
                 ctx.resolution_map.get(&accessed.id).cloned()
             {
