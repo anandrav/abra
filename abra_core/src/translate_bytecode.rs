@@ -755,21 +755,22 @@ impl Translator {
                         let decl = &self.statics.resolution_map[&func.id];
                         self.translate_func_ap(decl, func.node(), offset_table, mono, st);
                     }
-                    ExprKind::MemberAccess(_prefix, ident) => {
-                        unreachable!();
-                        // this would be parsed as MemberFuncAp node
-                        // let decl = &self.statics.resolution_map[&ident.id];
-                        // self.translate_func_ap(decl, func.node(), offset_table, mono, st);
+                    ExprKind::MemberAccess(receiver_expr, fname) => {
+                        self.translate_expr(receiver_expr, offset_table, mono, st);
+                        for arg in args {
+                            self.translate_expr(arg, offset_table, mono, st);
+                        }
+
+                        let decl = &self.statics.resolution_map[&fname.id];
+                        self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
                     }
                     ExprKind::MemberAccessLeadingDot(fname) => {
-                        unreachable!();
-                        // this would be parsed as MemberFuncAp node
-                        // for arg in args {
-                        //     self.translate_expr(arg, offset_table, mono, st);
-                        // }
-                        //
-                        // let decl = &self.statics.resolution_map[&fname.id];
-                        // self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
+                        for arg in args {
+                            self.translate_expr(arg, offset_table, mono, st);
+                        }
+
+                        let decl = &self.statics.resolution_map[&fname.id];
+                        self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
                     }
 
                     ExprKind::Nil
