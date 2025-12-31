@@ -854,16 +854,6 @@ impl Parser {
             PostfixOp::MemberAccess => {
                 self.consume_token();
                 let ident = self.expect_ident()?;
-                // if self.current_token().tag() == TokenTag::OpenParen {
-                //     // member func call
-                //     // `my_struct.my_member_func(`
-                //     let args = self.parse_parenthesized_expression_list()?;
-                //     *lhs = Rc::new(Expr {
-                //         kind: ExprKind::MemberFuncAp(Some(lhs.clone()), ident, args).into(),
-                //         loc: self.location(lo),
-                //         id: NodeId::new(),
-                //     })
-                // } else {
                 // member access
                 // `my_struct.my_field`
                 *lhs = Rc::new(Expr {
@@ -871,7 +861,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 })
-                // }
             }
             PostfixOp::IndexAccess => {
                 self.consume_token();
@@ -1205,16 +1194,6 @@ impl Parser {
             TokenKind::Dot => {
                 self.consume_token();
                 let ident = self.expect_ident()?;
-                // if self.current_token().tag() == TokenTag::OpenParen {
-                //     // member func call
-                //     // `.my_enum_variant(`
-                //     let args = self.parse_parenthesized_expression_list()?;
-                //     Expr {
-                //         kind: ExprKind::MemberFuncAp(None, ident, args).into(),
-                //         loc: self.location(lo),
-                //         id: NodeId::new(),
-                //     }
-                // } else {
                 // member access
                 // `.my_enum_variant`
                 Expr {
@@ -1222,7 +1201,6 @@ impl Parser {
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
-                // }
             }
             TokenKind::OpenBrace => {
                 let statements = self.parse_statement_block()?;

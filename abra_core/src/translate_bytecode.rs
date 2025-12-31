@@ -735,17 +735,6 @@ impl Translator {
                     }
                 }
             }
-            // ExprKind::MemberFuncAp(expr, fname, args) => {
-            //     if let Some(expr) = expr {
-            //         self.translate_expr(expr, offset_table, mono, st);
-            //     }
-            //     for arg in args {
-            //         self.translate_expr(arg, offset_table, mono, st);
-            //     }
-            //
-            //     let decl = &self.statics.resolution_map[&fname.id];
-            //     self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
-            // }
             ExprKind::FuncAp(func, args) => {
                 match &*func.kind {
                     ExprKind::Variable(_) => {
@@ -785,7 +774,6 @@ impl Translator {
 
                     ExprKind::BinOp(..)
                     | ExprKind::Unop(..)
-                    // | ExprKind::MemberFuncAp(..)
                     | ExprKind::Unwrap(..)
                     | ExprKind::IfElse(..)
                     | ExprKind::Match(..)
@@ -2400,14 +2388,6 @@ impl Translator {
                     }
                 }
             },
-            // ExprKind::MemberFuncAp(expr, _, args) => {
-            //     if let Some(expr) = expr {
-            //         self.collect_captures_expr(expr, captures, mono);
-            //     }
-            //     for arg in args {
-            //         self.collect_captures_expr(arg, captures, mono);
-            //     }
-            // }
             ExprKind::AnonymousFunction(..)
             | ExprKind::MemberAccessLeadingDot(..)
             | ExprKind::Nil

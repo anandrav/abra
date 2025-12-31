@@ -834,16 +834,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 }
             }
         },
-        // ExprKind::MemberFuncAp(expr, fname, args) => {
-        //     if let Some(expr) = expr {
-        //         resolve_names_expr(ctx, symbol_table, expr);
-        //         resolve_names_member_helper(ctx, expr, fname);
-        //     }
-        //
-        //     for arg in args {
-        //         resolve_names_expr(ctx, symbol_table, arg);
-        //     }
-        // }
         ExprKind::MemberAccess(expr, field) => {
             resolve_names_expr(ctx, symbol_table, expr);
             // TODO simplify
