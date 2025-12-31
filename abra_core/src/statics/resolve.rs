@@ -815,6 +815,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             }
         }
         ExprKind::FuncAp(func, args) => match &*func.kind {
+            // TODO shouldn't need special-case logic here
             ExprKind::MemberAccess(receiver_expr, fname) => {
                 resolve_names_expr(ctx, symbol_table, receiver_expr);
                 resolve_names_member_helper(ctx, receiver_expr, fname);
