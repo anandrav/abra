@@ -510,7 +510,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         swrite!(output, "}};\n");
                     }
                     ImportKind::Exclusion(..) => unimplemented!(), // TODO: calculate inclusion list. Right now it would just be set difference. May change in the future with re-exports
-                    ImportKind::Rename(..) => unimplemented!(),
+                    ImportKind::As(..) => unimplemented!(),
                     ImportKind::Glob => {
                         // glob import
                         swrite!(

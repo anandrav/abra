@@ -181,7 +181,7 @@ impl Display for Namespace {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Declaration {
     FreeFunction(FuncResolutionKind),
     MemberFunction(Rc<FuncDef>),
@@ -206,6 +206,7 @@ pub(crate) enum Declaration {
     Builtin(BuiltinOperation),
     Var(AstNode),
     Polytype(PolytypeDeclaration),
+    Namespace(Rc<Namespace>),
 }
 
 impl Declaration {
@@ -272,7 +273,8 @@ impl Declaration {
             | Declaration::Builtin(_)
             | Declaration::Var(_)
             | Declaration::Polytype(_)
-            | Declaration::EnumVariant { .. } => None,
+            | Declaration::EnumVariant { .. }
+            | Declaration::Namespace(_) => None,
             Declaration::InterfaceOutputType { iface: _, ty } => Some(TypeKey::InterfaceOutput(ty)),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
             Declaration::Struct(struct_def) => Some(TypeKey::TyApp(Nominal::Struct(struct_def))),

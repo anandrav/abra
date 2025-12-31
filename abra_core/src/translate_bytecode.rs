@@ -1119,7 +1119,8 @@ impl Translator {
             Declaration::Struct(_)
             | Declaration::Enum { .. }
             | Declaration::Array
-            | Declaration::InterfaceDef(_) => {
+            | Declaration::InterfaceDef(_)
+            | Declaration::Namespace(_) => {
                 // noop, does not exist at runtime
                 //
                 // Person.fullname(my_person)
@@ -1305,14 +1306,13 @@ impl Translator {
                     },
                 );
             }
-            Declaration::Enum { .. } => {
-                panic!("can't call enum name as ctor");
-            }
             Declaration::Builtin(b) => self.emit_builtin(st, mono, *b, func_node, false),
             Declaration::InterfaceOutputType { .. }
             | Declaration::InterfaceDef(_)
             | Declaration::Array
             | Declaration::Polytype(_)
+            | Declaration::Enum { .. }
+            | Declaration::Namespace(_)
             | Declaration::BuiltinType(_) => {
                 unreachable!()
             }

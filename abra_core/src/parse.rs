@@ -351,7 +351,7 @@ impl Parser {
                 } else if self.current_token().tag() == TokenTag::As {
                     self.consume_token();
                     let ident = self.expect_ident()?;
-                    import_kind = ImportKind::Rename(ident);
+                    import_kind = ImportKind::As(ident);
                 }
                 Item {
                     kind: ItemKind::Import(ident, import_kind).into(),

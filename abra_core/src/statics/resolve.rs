@@ -16,6 +16,7 @@ use crate::foreign_bindings::make_foreign_func_name;
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;
+use utils::dlog;
 use utils::hash::HashMap;
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -322,11 +323,11 @@ impl SymbolTable {
 
     pub(crate) fn from_namespace(namespace: Namespace) -> Self {
         let ret = Self::empty();
-        for (name, declaration) in namespace.declarations {
-            ret.extend_declaration(name, declaration);
-        }
         for (name, namespace) in namespace.namespaces {
             ret.extend_namespace(name, namespace);
+        }
+        for (name, declaration) in namespace.declarations {
+            ret.extend_declaration(name, declaration);
         }
         ret
     }
@@ -379,6 +380,7 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
 }
 
 fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolTable {
+    dlog!("resolving imports for {}", file.package_name_str);
     // Create a namespace containing all symbols available to this file
     // That includes
     // 1. symbols defined in this file
@@ -419,28 +421,43 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
     );
 
     for item in file.items.iter() {
-        if let ItemKind::Import(path, import_list) = &*item.kind {
+        if let ItemKind::Import(path, import_kind) = &*item.kind {
             let Some(import_src) = ctx.root_namespace.namespaces.get(&path.v).cloned() else {
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: item.node() });
                 continue;
             };
-            let import_list = import_list.clone();
-            let pred: Box<dyn Fn(&String) -> bool> = match import_list {
-                ImportKind::Glob => Box::new(|_s: &String| true),
+            let import_list = import_kind.clone();
+            match import_list {
+                ImportKind::Glob => {
+                    effective_namespace.add_other(ctx, &import_src);
+                }
                 ImportKind::Inclusion(list) => {
-                    Box::new(move |s: &String| list.iter().any(|ident| ident.v == *s))
+                    let pred = Box::new(move |s: &String| list.iter().any(|ident| ident.v == *s));
+                    effective_namespace.add_other_pred(ctx, &import_src, pred);
                 }
                 ImportKind::Exclusion(list) => {
-                    Box::new(move |s: &String| !list.iter().any(|ident| ident.v == *s))
+                    let pred = Box::new(move |s: &String| !list.iter().any(|ident| ident.v == *s));
+                    effective_namespace.add_other_pred(ctx, &import_src, pred);
                 }
-                ImportKind::Rename(..) => todo!(),
-            };
+                ImportKind::As(alias) => {
+                    let mut alias_ns = Namespace::new();
+                    alias_ns.add_other(ctx, &import_src);
+                    let alias_ns = Rc::new(alias_ns);
 
-            effective_namespace.add_other_pred(ctx, &import_src, pred);
+                    effective_namespace.add_namespace(alias.v.clone(), alias_ns.clone());
+                    effective_namespace.add_declaration(
+                        ctx,
+                        alias.v.clone(),
+                        Declaration::Namespace(alias_ns),
+                    ); // TODO: this looks wrong
+                    dlog!("added declaration for {}", alias.v);
+                }
+            };
         }
     }
 
+    dlog!("done");
     SymbolTable::from_namespace(effective_namespace)
 }
 
@@ -869,6 +886,18 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 // TODO: calling member functions on types like doing `array.len(my_array)` or `int.str(23)`
                 todo!()
             }
+            Declaration::Namespace(ns) => {
+                match ns.declarations.get(&field.v) {
+                    Some(decl) => {
+                        ctx.resolution_map.insert(field.id, decl.clone());
+                    }
+                    None => {
+                        // TODO: code duplication, you can see it right below for instance
+                        ctx.errors
+                            .push(Error::UnresolvedIdentifier { node: field.node() });
+                    }
+                }
+            }
             Declaration::InterfaceDef(iface_def) => {
                 let mut found = false;
                 for (idx, method) in iface_def.methods.iter().enumerate() {
@@ -1195,5 +1224,6 @@ fn fqn_of_id(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::Polytype(_) => None,
         Declaration::Builtin(_) => None,
         Declaration::Var(_) => None,
+        Declaration::Namespace(_) => None,
     }
 }

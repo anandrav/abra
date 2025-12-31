@@ -2184,7 +2184,7 @@ fn generate_constraints_expr(
                     }
                     // these are used to access member functions
                     // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
-                    Declaration::Enum(_) | Declaration::Array => None,
+                    Declaration::Namespace(_) | Declaration::Enum(_) | Declaration::Array => None,
                 }
                 .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
@@ -2473,6 +2473,7 @@ fn generate_constraints_expr(
                         | Some(Declaration::InterfaceDef(_))
                 );
                 match ctx.resolution_map.get(&fname.id).cloned() {
+                    // TODO: consider removing MemberFuncAp and just using MemberAccess + FuncAp to achieve the same thing.
                     Some(Declaration::EnumVariant {
                         e: enum_def,
                         variant,
@@ -2536,6 +2537,66 @@ fn generate_constraints_expr(
                             fname.node(),
                         );
                         constrain(ctx, &fn_node_ty, &memfn_ty);
+
+                        generate_constraints_expr_funcap_helper(
+                            ctx,
+                            polyvar_scope,
+                            args,
+                            fname.node(),
+                            expr.node(),
+                            node_ty.clone(),
+                        );
+                    }
+                    // TODO: these 3 are super duplicated.
+                    Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func))) => {
+                        // namespaced function
+                        // example: term.enable_raw_mode()
+                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                        let freefun_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
+                            ctx,
+                            polyvar_scope,
+                            fname.node(),
+                        );
+                        constrain(ctx, &fn_node_ty, &freefun_ty);
+
+                        generate_constraints_expr_funcap_helper(
+                            ctx,
+                            polyvar_scope,
+                            args,
+                            fname.node(),
+                            expr.node(),
+                            node_ty.clone(),
+                        );
+                    }
+                    Some(Declaration::FreeFunction(FuncResolutionKind::Host(func))) => {
+                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                        let freefun_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
+                            ctx,
+                            polyvar_scope,
+                            fname.node(),
+                        );
+                        constrain(ctx, &fn_node_ty, &freefun_ty);
+
+                        generate_constraints_expr_funcap_helper(
+                            ctx,
+                            polyvar_scope,
+                            args,
+                            fname.node(),
+                            expr.node(),
+                            node_ty.clone(),
+                        );
+                    }
+                    Some(Declaration::FreeFunction(FuncResolutionKind::_Foreign {
+                        decl: func,
+                        ..
+                    })) => {
+                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                        let freefun_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
+                            ctx,
+                            polyvar_scope,
+                            fname.node(),
+                        );
+                        constrain(ctx, &fn_node_ty, &freefun_ty);
 
                         generate_constraints_expr_funcap_helper(
                             ctx,

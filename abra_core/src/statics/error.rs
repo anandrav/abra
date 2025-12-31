@@ -394,6 +394,7 @@ fn add_detail_for_decl(
         Declaration::Array | Declaration::BuiltinType(_) => {
             notes.push("cannot redeclare a builtin type".to_string())
         }
+        Declaration::Namespace(_) => unimplemented!(),
     };
 }
 
@@ -424,6 +425,7 @@ fn add_detail_for_decl_node(
             PolytypeDeclaration::ArrayArg => return false,
             PolytypeDeclaration::InterfaceSelf(iface_def) => iface_def.name.node(), // TODO: this will not result in a good error message
         },
+        Declaration::Namespace(_) => unimplemented!(),
 
         Declaration::Var(ast_node) => ast_node.clone(),
         Declaration::InterfaceOutputType { iface: _, ty } => ty.name.node(),

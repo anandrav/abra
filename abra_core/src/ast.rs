@@ -352,7 +352,7 @@ pub(crate) enum ItemKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ImportKind {
     Glob,
-    Rename(Rc<Identifier>),
+    As(Rc<Identifier>),
     Inclusion(Vec<Rc<Identifier>>),
     Exclusion(Vec<Rc<Identifier>>),
 }
