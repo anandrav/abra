@@ -411,6 +411,16 @@ extend array<T> {
     }
 }
 
+extend array<T Clone> {
+    fn repeat(x: T, n: int) -> array<T> {
+        let ret = []
+        for i in n { // TODO: use _ instead of i
+            ret.push(Clone.clone(x))
+        }
+        ret
+    }
+}
+
 extend array<T Equal> {
     fn find(self, x: T Equal) -> option<int> {
         for i in self.len() {

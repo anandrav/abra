@@ -1524,30 +1524,14 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
         }
         ItemKind::Extension(ext) => {
             for f in &ext.methods {
-                let err = |ctx: &mut StaticsContext| {
-                    ctx.errors
-                        .push(Error::MemberFunctionMissingFirstSelfArgument {
-                            node: f.name.node(),
-                        });
-                };
-                if let Some((first_arg_identifier, _)) = f.args.first() {
-                    if first_arg_identifier.v == "self" {
-                        let nominal_ty = ext.typ.to_typevar(ctx);
-                        let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
-                        constrain(ctx, &ty_arg, &nominal_ty);
-
-                        generate_constraints_func_decl(
-                            ctx,
-                            f.name.node(),
-                            &f.args,
-                            f.ret_type.as_ref(),
-                        );
-                    } else {
-                        err(ctx);
-                    }
-                } else {
-                    err(ctx);
+                if let Some((first_arg_identifier, _)) = f.args.first()
+                    && first_arg_identifier.v == "self"
+                {
+                    let nominal_ty = ext.typ.to_typevar(ctx);
+                    let ty_first_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+                    constrain(ctx, &ty_first_arg, &nominal_ty);
                 }
+                generate_constraints_func_decl(ctx, f.name.node(), &f.args, f.ret_type.as_ref());
             }
         }
         ItemKind::TypeDef(typdefkind) => match typdefkind {
@@ -1801,12 +1785,12 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: &
         }
         ItemKind::Extension(ext) => {
             for f in &ext.methods {
-                if f.args.first().is_some_and(|p| p.0.v == "self") {
-                    let polyvar_scope = PolyvarScope::empty();
-                    let first_arg_ty = TypeVar::from_node(ctx, f.args.first().unwrap().0.node());
+                let polyvar_scope = PolyvarScope::empty();
+                if let Some(first_arg) = f.args.first() {
+                    let first_arg_ty = TypeVar::from_node(ctx, first_arg.0.node());
                     polyvar_scope.add_polys(&first_arg_ty);
-                    generate_constraints_func_def(ctx, &polyvar_scope, f, f.name.node());
                 }
+                generate_constraints_func_def(ctx, &polyvar_scope, f, f.name.node());
             }
         }
         ItemKind::TypeDef(_) => {}

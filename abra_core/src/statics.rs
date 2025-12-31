@@ -328,9 +328,6 @@ pub(crate) enum Error {
     MustExtendType {
         node: AstNode,
     },
-    MemberFunctionMissingFirstSelfArgument {
-        node: AstNode,
-    },
     UnqualifiedEnumNeedsAnnotation {
         node: AstNode,
     },

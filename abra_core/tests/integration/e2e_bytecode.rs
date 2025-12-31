@@ -1931,6 +1931,23 @@ sum
 }
 
 #[test]
+fn array_repeat_constructor() {
+    let src = r#"
+let arr = array.repeat(true, 3)
+arr.str()
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.view_string(&vm), "[ true, true, true ]")
+}
+
+#[test]
 fn func_with_int_args() {
     let src = r#"
 fn blar(a: int, c: int, e: int) -> int {

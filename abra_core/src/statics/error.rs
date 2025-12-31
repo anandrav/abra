@@ -215,12 +215,6 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
-            Error::MemberFunctionMissingFirstSelfArgument { node } => {
-                diagnostic = diagnostic
-                    .with_message("First argument of member function must be `self`".to_string());
-                let (file, range) = node.get_file_and_range();
-                labels.push(Label::secondary(file, range));
-            }
             Error::UnqualifiedEnumNeedsAnnotation { node } => {
                 diagnostic = diagnostic.with_message(
                     "Can't infer which enum this variant belongs to. Try adding an annotation.",
