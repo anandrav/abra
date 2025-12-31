@@ -14,43 +14,18 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
     let mut items: Vec<Rc<Item>> = vec![];
 
     let tokens = tokenize_file(ctx, file_id);
-    // for (i, token) in tokens.iter().enumerate() {
-    //     print!("{}", token);
-    //     if i < tokens.len() - 1 {
-    //         print!(" ");
-    //     }
-    //
-    // }
-    // println!();
-    // let Some(file_ast) = parse2::parse_or_err(ctx, file_id, file_data) else { continue; };
 
     let file_len = {
         let file_data = ctx.file_db.get(file_id).unwrap();
         file_data.source.len()
     };
     let mut parser = Parser::new(tokens, file_id, file_len);
-    // let mut clean = true;
     while !parser.done() {
-        // println!("iteration index={}", parser.index);
-        // let before = parser.index;
         match parser.parse_item() {
             Ok(item) => {
-                // println!("is OK");
-                // dbg!(&item);
-
-                // TODO: code duplication
-                // flush errors
-                // let errs = std::mem::take(&mut parser.errors);
-                // ctx.errors.extend(errs);
-                // parser.errors.clear();
-
                 items.push(item);
-                // clean = true
             }
             Err(e) => {
-                // if clean {
-                // println!("got an error when parsing item");
-
                 // flush errors
                 let errs = std::mem::take(&mut parser.errors);
                 if !parser.error_found {
@@ -60,21 +35,13 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
 
                     ctx.errors.push(*e);
                 }
-                // clean = false;
-                // }
-                // if parser.index == before {
-                // println!("incrementing index");
                 parser.index += 1;
-                // println!("index={}", parser.index);
-                // }
             }
         }
     }
-    // println!("parser is done");
     ctx.errors.extend(parser.errors);
 
     let file_data = ctx.file_db.get(file_id).unwrap();
-    // panic!("nominal_path = {}", file_data.nominal_path.display());
     Rc::new(FileAst {
         items,
         // remove the .abra suffix from filename
@@ -165,12 +132,6 @@ impl Parser {
         if current.kind.discriminant() == kind {
             self.index += 1;
         } else {
-            // panic!("{:?}", Error::UnexpectedToken(
-            //     self.file_id,
-            //     kind.to_string(),
-            //     current.kind.discriminant().to_string(),
-            //     current.span,
-            // ));
             self.errors.push(Error::UnexpectedToken(
                 kind.to_string(),
                 current.kind.discriminant().to_string(),
@@ -1099,23 +1060,6 @@ impl Parser {
                 // let mut clean = true;
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
                     arms.push(self.parse_match_arm()?);
-                    // let checkpoint = self.index;
-                    // match self.parse_match_arm() {
-                    //     Ok(arm) => {
-                    //         clean = true;
-                    //         arms.push(arm)
-                    //     }
-                    //     Err(e) => {
-                    //         self.errors.push(e);
-                    //         if clean {
-                    //             clean = false;
-                    //             continue;
-                    //         } else {
-                    //             self.index = checkpoint;
-                    //             break;
-                    //         }
-                    //     }
-                    // }
                     if self.current_token().tag() == TokenTag::Newline {
                         self.skip_newlines();
                     } else {

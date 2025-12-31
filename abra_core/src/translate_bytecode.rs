@@ -1163,7 +1163,6 @@ impl Translator {
                         .unwrap();
                     let interface_impl_ty = unifvar.solution().unwrap();
 
-                    // println!("substituted_ty: {}, interface_impl_ty: {}", substituted_ty, interface_impl_ty);
                     if substituted_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
                         let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
                         self.handle_func_call(
