@@ -2464,6 +2464,21 @@ fn generate_constraints_expr(
             );
         }
         ExprKind::MemberFuncAp(receiver_expr, fname, args) => {
+            let helper = |ctx: &mut StaticsContext, node: AstNode| {
+                let func_identifier_node_ty = TypeVar::from_node(ctx, fname.node());
+                let func_instance_ty =
+                    TypeVar::from_node(ctx, node).instantiate(ctx, polyvar_scope, fname.node());
+                constrain(ctx, &func_identifier_node_ty, &func_instance_ty);
+
+                generate_constraints_expr_funcap_helper(
+                    ctx,
+                    polyvar_scope,
+                    args,
+                    fname.node(),
+                    expr.node(),
+                    node_ty.clone(),
+                );
+            };
             if let Some(receiver_expr) = receiver_expr {
                 let receiver_is_namespace = matches!(
                     ctx.resolution_map.get(&receiver_expr.id),
@@ -2530,82 +2545,21 @@ fn generate_constraints_expr(
                         // fully qualified struct/enum method
                         // example: Person.fullname(my_person)
                         //          ^^^^^
-                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                        let memfn_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
-                            ctx,
-                            polyvar_scope,
-                            fname.node(),
-                        );
-                        constrain(ctx, &fn_node_ty, &memfn_ty);
-
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope,
-                            args,
-                            fname.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
+                        helper(ctx, func.name.node());
                     }
-                    // TODO: these 3 are super duplicated.
                     Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func))) => {
                         // namespaced function
                         // example: term.enable_raw_mode()
-                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                        let freefun_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
-                            ctx,
-                            polyvar_scope,
-                            fname.node(),
-                        );
-                        constrain(ctx, &fn_node_ty, &freefun_ty);
-
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope,
-                            args,
-                            fname.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
+                        helper(ctx, func.name.node());
                     }
                     Some(Declaration::FreeFunction(FuncResolutionKind::Host(func))) => {
-                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                        let freefun_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
-                            ctx,
-                            polyvar_scope,
-                            fname.node(),
-                        );
-                        constrain(ctx, &fn_node_ty, &freefun_ty);
-
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope,
-                            args,
-                            fname.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
+                        helper(ctx, func.name.node());
                     }
                     Some(Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                         decl: func,
                         ..
                     })) => {
-                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                        let freefun_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
-                            ctx,
-                            polyvar_scope,
-                            fname.node(),
-                        );
-                        constrain(ctx, &fn_node_ty, &freefun_ty);
-
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope,
-                            args,
-                            fname.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
+                        helper(ctx, func.name.node());
                     }
                     _ => {
                         // potentially a member function call.
