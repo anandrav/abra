@@ -16,7 +16,6 @@ use crate::foreign_bindings::make_foreign_func_name;
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;
-use utils::dlog;
 use utils::hash::HashMap;
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -380,7 +379,6 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
 }
 
 fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolTable {
-    dlog!("resolving imports for {}", file.package_name_str);
     // Create a namespace containing all symbols available to this file
     // That includes
     // 1. symbols defined in this file
@@ -450,14 +448,12 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
                         ctx,
                         alias.v.clone(),
                         Declaration::Namespace(alias_ns),
-                    ); // TODO: this looks wrong
-                    dlog!("added declaration for {}", alias.v);
+                    );
                 }
             };
         }
     }
 
-    dlog!("done");
     SymbolTable::from_namespace(effective_namespace)
 }
 
@@ -614,7 +610,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
-            // TODO: introduce_poly=true doesn't seem right. Shouldn't the polys in the ext typ reoslve to the original type definition's polys?
             resolve_names_typ(ctx, &symbol_table, &ext.typ, true);
 
             let fqn_type = fqn_of_type(ctx, &ext.typ);

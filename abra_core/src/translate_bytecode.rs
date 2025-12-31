@@ -14,7 +14,7 @@ use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::{_print_node, Declaration, PolytypeDeclaration, TypeProv};
+use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
@@ -28,7 +28,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use utils::hash::HashMap;
 use utils::hash::HashSet;
 use utils::id_set::IdSet;
-use utils::{dlog, swrite};
+use utils::swrite;
 
 type OffsetTable = HashMap<NodeId, i16>;
 type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
@@ -355,7 +355,6 @@ impl Translator {
                     self.update_curr_function(st, &desc.unqualified_name());
 
                     let label = st.func_map.get(&desc).unwrap();
-                    dlog!("translating func: {}", label);
                     self.emit(st, Line::Label(label.clone()));
                     match &desc.kind {
                         FuncKind::NamedFunc(f) => {
@@ -433,12 +432,6 @@ impl Translator {
     ) {
         if let Some(overload_ty) = &desc.overload_ty {
             mono.update(&func_ty, overload_ty);
-            dlog!(
-                "updating mono with func_ty: {}, overload_ty: {}",
-                func_ty,
-                overload_ty
-            );
-            dlog!("mono: {}", mono);
         }
 
         let (arg_ids, captures, locals) =
@@ -515,14 +508,6 @@ impl Translator {
                 self.emit(st, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
-                _print_node(&self.statics, expr.node());
-                let ty = self.get_ty(mono, expr.node()).unwrap();
-                dlog!("type of expr: {}", ty);
-                let ty_left = self.get_ty(mono, left.node()).unwrap();
-                dlog!("type of left: {}", ty_left);
-                let ty_right = self.get_ty(mono, right.node()).unwrap();
-                dlog!("type of right: {}", ty_right);
-
                 self.translate_expr(left, offset_table, mono, st);
                 match op {
                     BinaryOperator::Or => {
@@ -751,9 +736,6 @@ impl Translator {
                 }
             }
             ExprKind::MemberFuncAp(expr, fname, args) => {
-                _print_node(&self.statics, fname.node());
-                let ty = self.get_ty(mono, fname.node()).unwrap();
-                dlog!("type of member func: {}", ty);
                 if let Some(expr) = expr {
                     self.translate_expr(expr, offset_table, mono, st);
                 }
@@ -765,9 +747,6 @@ impl Translator {
                 self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
             }
             ExprKind::FuncAp(func, args) => {
-                _print_node(&self.statics, func.node());
-                let func_ty = self.get_ty(mono, func.node()).unwrap();
-                dlog!("ty of func is {}", func_ty);
                 for arg in args {
                     self.translate_expr(arg, offset_table, mono, st);
                 }
@@ -2467,7 +2446,6 @@ impl Translator {
         accessed: &Rc<Expr>,
         field_name: &str,
     ) -> u16 {
-        // _print_node(statics, accessed.node());
         let accessed_ty = self.get_ty(mono, accessed.node()).unwrap();
 
         match accessed_ty {
