@@ -422,6 +422,15 @@ impl Instr {
                 | Instr::Floor(_, Reg::Top)
                 | Instr::Round(_, Reg::Top)
                 | Instr::SquareRoot(_, Reg::Top)
+                | Instr::Sin(_, Reg::Top)
+                | Instr::Cos(_, Reg::Top)
+                | Instr::Tan(_, Reg::Top)
+                | Instr::Asin(_, Reg::Top)
+                | Instr::Acos(_, Reg::Top)
+                | Instr::Atan(_, Reg::Top)
+                | Instr::Log(_, Reg::Top)
+                | Instr::Log2(_, Reg::Top)
+                | Instr::Log10(_, Reg::Top)
                 | Instr::LessThanInt(_, _, Reg::Top)
                 | Instr::LessThanOrEqualInt(_, _, Reg::Top)
                 | Instr::GreaterThanInt(_, _, Reg::Top)
@@ -523,6 +532,15 @@ impl Instr {
                 | Instr::Floor(Reg::Top, _)
                 | Instr::Round(Reg::Top, _)
                 | Instr::SquareRoot(Reg::Top, _)
+                | Instr::Sin(Reg::Top, _)
+                | Instr::Cos(Reg::Top, _)
+                | Instr::Tan(Reg::Top, _)
+                | Instr::Asin(Reg::Top, _)
+                | Instr::Acos(Reg::Top, _)
+                | Instr::Atan(Reg::Top, _)
+                | Instr::Log(Reg::Top, _)
+                | Instr::Log2(Reg::Top, _)
+                | Instr::Log10(Reg::Top, _)
                 | Instr::LessThanInt(Reg::Top, _, _)
                 | Instr::LessThanIntImm(Reg::Top, _, _)
                 | Instr::LessThanOrEqualInt(Reg::Top, _, _)
@@ -638,6 +656,15 @@ impl Instr {
             Instr::Floor(dest, _) => Instr::Floor(dest, r2),
             Instr::Round(dest, _) => Instr::Round(dest, r2),
             Instr::SquareRoot(dest, _) => Instr::SquareRoot(dest, r2),
+            Instr::Sin(dest, _) => Instr::Sin(dest, r2),
+            Instr::Cos(dest, _) => Instr::Cos(dest, r2),
+            Instr::Tan(dest, _) => Instr::Tan(dest, r2),
+            Instr::Asin(dest, _) => Instr::Asin(dest, r2),
+            Instr::Acos(dest, _) => Instr::Acos(dest, r2),
+            Instr::Atan(dest, _) => Instr::Atan(dest, r2),
+            Instr::Log(dest, _) => Instr::Log(dest, r2),
+            Instr::Log2(dest, _) => Instr::Log2(dest, r2),
+            Instr::Log10(dest, _) => Instr::Log10(dest, r2),
 
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanOrEqualInt(dest, r1, _) => Instr::LessThanOrEqualInt(dest, r1, r2),
@@ -702,6 +729,15 @@ impl Instr {
             Instr::Floor(_, r2) => Instr::Floor(dest, r2),
             Instr::Round(_, r2) => Instr::Round(dest, r2),
             Instr::SquareRoot(_, r2) => Instr::SquareRoot(dest, r2),
+            Instr::Sin(_, r2) => Instr::Sin(dest, r2),
+            Instr::Cos(_, r2) => Instr::Cos(dest, r2),
+            Instr::Tan(_, r2) => Instr::Tan(dest, r2),
+            Instr::Asin(_, r2) => Instr::Asin(dest, r2),
+            Instr::Acos(_, r2) => Instr::Acos(dest, r2),
+            Instr::Atan(_, r2) => Instr::Atan(dest, r2),
+            Instr::Log(_, r2) => Instr::Log(dest, r2),
+            Instr::Log2(_, r2) => Instr::Log2(dest, r2),
+            Instr::Log10(_, r2) => Instr::Log10(dest, r2),
 
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
