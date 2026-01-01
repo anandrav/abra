@@ -586,7 +586,19 @@ impl CallData {
 // - vtable index
 const _: [(); 16] = [(); size_of::<Value>()];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Value(u64, /*is_pointer*/ bool);
+pub struct Value(u64, /*is_pointer*/ bool); // TODO: use value tag instead of bool and add asserts get_int, get_float, get_bool, get_object_header, get_struct etc.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueTag {
+    Int,
+    Float,
+    Bool,
+    Struct,
+    Array,
+    Variant,
+    String,
+    Addr,
+}
 
 impl Value {
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {
