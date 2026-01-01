@@ -30,6 +30,9 @@ pub enum IntrinsicOperation {
     DivideFloat,
     PowerFloat,
 
+    Ceil,
+    Floor,
+    Round,
     Sqrt,
     Sin,
     Cos,
@@ -107,7 +110,10 @@ impl IntrinsicOperation {
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
             ),
-            IntrinsicOperation::Sqrt
+            IntrinsicOperation::Ceil
+            | IntrinsicOperation::Floor
+            | IntrinsicOperation::Round
+            | IntrinsicOperation::Sqrt
             | IntrinsicOperation::Sin
             | IntrinsicOperation::Cos
             | IntrinsicOperation::Tan

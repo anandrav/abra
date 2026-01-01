@@ -418,6 +418,9 @@ impl Instr {
                 | Instr::MulFloat(_, _, Reg::Top)
                 | Instr::DivFloat(_, _, Reg::Top)
                 | Instr::PowFloat(_, _, Reg::Top)
+                | Instr::Ceil(_, Reg::Top)
+                | Instr::Floor(_, Reg::Top)
+                | Instr::Round(_, Reg::Top)
                 | Instr::SquareRoot(_, Reg::Top)
                 | Instr::LessThanInt(_, _, Reg::Top)
                 | Instr::LessThanOrEqualInt(_, _, Reg::Top)
@@ -516,6 +519,9 @@ impl Instr {
                 | Instr::DivFloatImm(Reg::Top, _, _)
                 | Instr::PowFloat(Reg::Top, _, _)
                 | Instr::PowFloatImm(Reg::Top, _, _)
+                | Instr::Ceil(Reg::Top, _)
+                | Instr::Floor(Reg::Top, _)
+                | Instr::Round(Reg::Top, _)
                 | Instr::SquareRoot(Reg::Top, _)
                 | Instr::LessThanInt(Reg::Top, _, _)
                 | Instr::LessThanIntImm(Reg::Top, _, _)
@@ -628,6 +634,9 @@ impl Instr {
             Instr::MulFloat(dest, r1, _) => Instr::MulFloat(dest, r1, r2),
             Instr::DivFloat(dest, r1, _) => Instr::DivFloat(dest, r1, r2),
             Instr::PowFloat(dest, r1, _) => Instr::PowFloat(dest, r1, r2),
+            Instr::Ceil(dest, _) => Instr::Ceil(dest, r2),
+            Instr::Floor(dest, _) => Instr::Floor(dest, r2),
+            Instr::Round(dest, _) => Instr::Round(dest, r2),
             Instr::SquareRoot(dest, _) => Instr::SquareRoot(dest, r2),
 
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
@@ -689,6 +698,9 @@ impl Instr {
             Instr::DivFloatImm(_, r1, r2) => Instr::DivFloatImm(dest, r1, r2),
             Instr::PowFloat(_, r1, r2) => Instr::PowFloat(dest, r1, r2),
             Instr::PowFloatImm(_, r1, r2) => Instr::PowFloatImm(dest, r1, r2),
+            Instr::Ceil(_, r2) => Instr::Ceil(dest, r2),
+            Instr::Floor(_, r2) => Instr::Floor(dest, r2),
+            Instr::Round(_, r2) => Instr::Round(dest, r2),
             Instr::SquareRoot(_, r2) => Instr::SquareRoot(dest, r2),
 
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),

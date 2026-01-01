@@ -457,6 +457,9 @@ pub enum Instr {
     PowerFloat(u16, u16, u16),
     PowerFloatImm(u16, u16, u16),
 
+    Ceil(u16, u16),
+    Floor(u16, u16),
+    Round(u16, u16),
     SquareRoot(u16, u16),
     Sin(u16, u16),
     Cos(u16, u16),
@@ -1226,6 +1229,18 @@ impl Vm {
             Instr::PowerFloatImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.powf(self.float_constants[imm as usize]));
+            }
+            Instr::Ceil(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.ceil());
+            }
+            Instr::Floor(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.floor());
+            }
+            Instr::Round(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.round());
             }
             Instr::SquareRoot(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);

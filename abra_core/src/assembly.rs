@@ -98,6 +98,9 @@ pub enum Instr {
     PowFloat(Reg, Reg, Reg),
     PowFloatImm(Reg, Reg, String),
 
+    Ceil(Reg, Reg),
+    Floor(Reg, Reg),
+    Round(Reg, Reg),
     SquareRoot(Reg, Reg),
     Sin(Reg, Reg),
     Cos(Reg, Reg),
@@ -296,6 +299,9 @@ impl Display for Instr {
             Instr::PowFloatImm(dest, reg1, imm) => {
                 write!(f, "pow_float_imm {dest} {reg1} {imm}")
             }
+            Instr::Ceil(dest, reg) => write!(f, "ceil {dest} {reg}"),
+            Instr::Floor(dest, reg) => write!(f, "floor {dest} {reg}"),
+            Instr::Round(dest, reg) => write!(f, "round {dest} {reg}"),
             Instr::SquareRoot(dest, reg) => write!(f, "square_root {dest} {reg}"),
             Instr::Log(dest, reg) => write!(f, "log {dest} {reg}"),
             Instr::Log2(dest, reg) => write!(f, "log2 {dest} {reg}"),
@@ -551,6 +557,9 @@ fn instr_to_vminstr(
             reg1.encode(),
             constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
+        Instr::Ceil(dest, reg) => VmInstr::Ceil(dest.encode(), reg.encode()),
+        Instr::Floor(dest, reg) => VmInstr::Floor(dest.encode(), reg.encode()),
+        Instr::Round(dest, reg) => VmInstr::Round(dest.encode(), reg.encode()),
         Instr::SquareRoot(dest, reg) => VmInstr::SquareRoot(dest.encode(), reg.encode()),
         Instr::Sin(dest, reg) => VmInstr::Sin(dest.encode(), reg.encode()),
         Instr::Cos(dest, reg) => VmInstr::Cos(dest.encode(), reg.encode()),
