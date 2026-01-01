@@ -1325,6 +1325,7 @@ impl Translator {
             IntrinsicOperation::MultiplyFloat => 2,
             IntrinsicOperation::DivideFloat => 2,
             IntrinsicOperation::PowerFloat => 2,
+            IntrinsicOperation::Atan2 => 2,
             IntrinsicOperation::Ceil => 1,
             IntrinsicOperation::Floor => 1,
             IntrinsicOperation::Round => 1,
@@ -1402,6 +1403,9 @@ impl Translator {
             }
             IntrinsicOperation::PowerFloat => {
                 self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::Atan2 => {
+                self.emit(st, Instr::Atan2(Reg::Top, Reg::Top, Reg::Top));
             }
             IntrinsicOperation::Ceil => {
                 self.emit(st, Instr::Ceil(Reg::Top, Reg::Top));

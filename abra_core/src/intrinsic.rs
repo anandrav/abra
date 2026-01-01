@@ -43,6 +43,9 @@ pub enum IntrinsicOperation {
     Log,
     Log2,
     Log10,
+
+    Atan2,
+
     // TODO: maybe need atan2, exp aka e^x ?, is_nan(), is_inf(), is_neg_inf(),
     LessThanInt,
     LessThanOrEqualInt,
@@ -102,7 +105,8 @@ impl IntrinsicOperation {
             | IntrinsicOperation::SubtractFloat
             | IntrinsicOperation::MultiplyFloat
             | IntrinsicOperation::DivideFloat
-            | IntrinsicOperation::PowerFloat => TypeVar::make_func(
+            | IntrinsicOperation::PowerFloat
+            | IntrinsicOperation::Atan2 => TypeVar::make_func(
                 vec![
                     TypeVar::make_float(reason.clone()),
                     TypeVar::make_float(reason.clone()),

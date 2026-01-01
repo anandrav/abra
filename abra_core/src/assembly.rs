@@ -97,6 +97,7 @@ pub enum Instr {
     DivFloatImm(Reg, Reg, String),
     PowFloat(Reg, Reg, Reg),
     PowFloatImm(Reg, Reg, String),
+    Atan2(Reg, Reg, Reg),
 
     Ceil(Reg, Reg),
     Floor(Reg, Reg),
@@ -298,6 +299,9 @@ impl Display for Instr {
             }
             Instr::PowFloatImm(dest, reg1, imm) => {
                 write!(f, "pow_float_imm {dest} {reg1} {imm}")
+            }
+            Instr::Atan2(dest, reg1, reg2) => {
+                write!(f, "atan2 {dest} {reg1} {reg2}")
             }
             Instr::Ceil(dest, reg) => write!(f, "ceil {dest} {reg}"),
             Instr::Floor(dest, reg) => write!(f, "floor {dest} {reg}"),
@@ -557,6 +561,9 @@ fn instr_to_vminstr(
             reg1.encode(),
             constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
+        Instr::Atan2(dest, reg1, reg2) => {
+            VmInstr::Atan2(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::Ceil(dest, reg) => VmInstr::Ceil(dest.encode(), reg.encode()),
         Instr::Floor(dest, reg) => VmInstr::Floor(dest.encode(), reg.encode()),
         Instr::Round(dest, reg) => VmInstr::Round(dest.encode(), reg.encode()),

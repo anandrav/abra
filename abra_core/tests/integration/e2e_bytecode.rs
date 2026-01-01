@@ -80,6 +80,21 @@ g
 }
 
 #[test]
+fn trig() {
+    let src = r#"
+atan2(-1.0, -1.0)
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_float(&vm), -2.3561944901923449);
+}
+
+#[test]
 fn comparison_operators() {
     let src = r#"
 let a = 2 < 3

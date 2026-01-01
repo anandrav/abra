@@ -456,6 +456,7 @@ pub enum Instr {
     DivFloatImm(u16, u16, u16),
     PowerFloat(u16, u16, u16),
     PowerFloatImm(u16, u16, u16),
+    Atan2(u16, u16, u16),
 
     Ceil(u16, u16),
     Floor(u16, u16),
@@ -1229,6 +1230,11 @@ impl Vm {
             Instr::PowerFloatImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.powf(self.float_constants[imm as usize]));
+            }
+            Instr::Atan2(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a.atan2(b));
             }
             Instr::Ceil(dest, reg) => {
                 let a = self.load_offset_or_top(reg).get_float(self);

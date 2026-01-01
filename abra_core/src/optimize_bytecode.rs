@@ -418,6 +418,7 @@ impl Instr {
                 | Instr::MulFloat(_, _, Reg::Top)
                 | Instr::DivFloat(_, _, Reg::Top)
                 | Instr::PowFloat(_, _, Reg::Top)
+                | Instr::Atan2(_, _, Reg::Top)
                 | Instr::Ceil(_, Reg::Top)
                 | Instr::Floor(_, Reg::Top)
                 | Instr::Round(_, Reg::Top)
@@ -479,7 +480,8 @@ impl Instr {
                 | Instr::DivFloat(_, Reg::Top, Reg::Offset(_))
                 | Instr::DivFloatImm(_, Reg::Top, _)
                 | Instr::PowFloat(_, Reg::Top, Reg::Offset(_))
-                | Instr::PowFloat(_, Reg::Top, _)
+                | Instr::PowFloatImm(_, Reg::Top, _)
+                | Instr::Atan2(_, Reg::Top, Reg::Offset(_))
                 | Instr::LessThanInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::LessThanIntImm(_, Reg::Top, _)
                 | Instr::LessThanOrEqualInt(_, Reg::Top, Reg::Offset(_))
@@ -528,6 +530,7 @@ impl Instr {
                 | Instr::DivFloatImm(Reg::Top, _, _)
                 | Instr::PowFloat(Reg::Top, _, _)
                 | Instr::PowFloatImm(Reg::Top, _, _)
+                | Instr::Atan2(Reg::Top, _, _)
                 | Instr::Ceil(Reg::Top, _)
                 | Instr::Floor(Reg::Top, _)
                 | Instr::Round(Reg::Top, _)
@@ -596,6 +599,7 @@ impl Instr {
             Instr::DivFloatImm(dest, _, r2) => Instr::DivFloatImm(dest, r1, r2),
             Instr::PowFloat(dest, _, r2) => Instr::PowFloat(dest, r1, r2),
             Instr::PowFloatImm(dest, _, r2) => Instr::PowFloatImm(dest, r1, r2),
+            Instr::Atan2(dest, _, r2) => Instr::Atan2(dest, r1, r2),
 
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
@@ -652,6 +656,7 @@ impl Instr {
             Instr::MulFloat(dest, r1, _) => Instr::MulFloat(dest, r1, r2),
             Instr::DivFloat(dest, r1, _) => Instr::DivFloat(dest, r1, r2),
             Instr::PowFloat(dest, r1, _) => Instr::PowFloat(dest, r1, r2),
+            Instr::Atan2(dest, r1, _) => Instr::Atan2(dest, r1, r2),
             Instr::Ceil(dest, _) => Instr::Ceil(dest, r2),
             Instr::Floor(dest, _) => Instr::Floor(dest, r2),
             Instr::Round(dest, _) => Instr::Round(dest, r2),
@@ -725,6 +730,7 @@ impl Instr {
             Instr::DivFloatImm(_, r1, r2) => Instr::DivFloatImm(dest, r1, r2),
             Instr::PowFloat(_, r1, r2) => Instr::PowFloat(dest, r1, r2),
             Instr::PowFloatImm(_, r1, r2) => Instr::PowFloatImm(dest, r1, r2),
+            Instr::Atan2(_, r1, r2) => Instr::Atan2(dest, r1, r2),
             Instr::Ceil(_, r2) => Instr::Ceil(dest, r2),
             Instr::Floor(_, r2) => Instr::Floor(dest, r2),
             Instr::Round(_, r2) => Instr::Round(dest, r2),
