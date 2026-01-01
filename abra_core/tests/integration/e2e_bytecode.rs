@@ -1947,9 +1947,9 @@ sum
 }
 
 #[test]
-fn array_repeat_constructor() {
+fn array_filled_constructor() {
     let src = r#"
-let arr = array.repeat(true, 3)
+let arr = array.filled(true, 3)
 arr.str()
 
 "#;

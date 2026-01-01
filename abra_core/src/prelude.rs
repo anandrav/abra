@@ -412,7 +412,7 @@ extend array<T> {
 }
 
 extend array<T Clone> {
-    fn repeat(x: T, n: int) -> array<T> {
+    fn filled(x: T, n: int) -> array<T> {
         let ret = []
         for _ in n {
             ret.push(Clone.clone(x))
