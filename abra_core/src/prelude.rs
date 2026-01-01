@@ -406,6 +406,12 @@ extend array<T> {
         nil
     }
 
+    fn clear(self) -> void {
+        while self.len() > 0 {
+            self.pop()
+        }
+    }
+
     fn bounds(self) -> range {
         range(0, self.len())
     }
