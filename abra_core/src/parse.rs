@@ -725,14 +725,14 @@ impl Parser {
 
     fn parse_delimited_list<T>(
         &mut self,
-        delimiter: TokenTag,
+        closing_delimiter: TokenTag,
         separator: TokenTag,
         parse_production: impl Fn(&mut Self) -> Result<T, Box<Error>>,
     ) -> Result<Vec<T>, Box<Error>> {
         let mut productions: Vec<T> = vec![];
         loop {
             self.skip_newlines();
-            if self.current_token().tag() == delimiter {
+            if self.current_token().tag() == closing_delimiter {
                 break;
             }
             productions.push(parse_production(self)?);
@@ -742,7 +742,7 @@ impl Parser {
                 break;
             }
         }
-        self.expect_token(delimiter);
+        self.expect_token(closing_delimiter);
         Ok(productions)
     }
 
@@ -1062,17 +1062,11 @@ impl Parser {
                 self.expect_token(TokenTag::Match);
                 let scrutiny = self.parse_expr()?;
                 self.expect_token(TokenTag::OpenBrace);
-                let mut arms: Vec<Rc<MatchArm>> = vec![];
-                self.skip_newlines();
-                while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
-                    arms.push(self.parse_match_arm()?);
-                    if self.current_token().tag() == TokenTag::Newline {
-                        self.skip_newlines();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseBrace);
+                let arms = self.parse_delimited_list(
+                    TokenTag::CloseBrace,
+                    TokenTag::Newline,
+                    Self::parse_match_arm,
+                )?;
                 Expr {
                     kind: Rc::new(ExprKind::Match(scrutiny, arms)),
                     loc: self.location(lo),
@@ -1099,17 +1093,11 @@ impl Parser {
             }
             TokenKind::OpenBracket => {
                 self.expect_token(TokenTag::OpenBracket);
-                let mut args: Vec<Rc<Expr>> = vec![];
-                while !matches!(self.current_token().tag(), TokenTag::CloseBracket) {
-                    self.skip_newlines();
-                    args.push(self.parse_expr()?);
-                    if self.current_token().tag() == TokenTag::Comma {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseBracket);
+                let args = self.parse_delimited_list(
+                    TokenTag::CloseBracket,
+                    TokenTag::Comma,
+                    Self::parse_expr,
+                )?;
                 Expr {
                     kind: Rc::new(ExprKind::Array(args)),
                     loc: self.location(lo),
