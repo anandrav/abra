@@ -1089,7 +1089,7 @@ impl Translator {
             | Declaration::Enum { .. }
             | Declaration::Array
             | Declaration::InterfaceDef(_)
-            | Declaration::Namespace(_) => {
+            | Declaration::Namespace(_, _) => {
                 // noop, does not exist at runtime
                 //
                 // Person.fullname(my_person)
@@ -1280,7 +1280,7 @@ impl Translator {
             | Declaration::Array
             | Declaration::Polytype(_)
             | Declaration::Enum { .. }
-            | Declaration::Namespace(_)
+            | Declaration::Namespace(_, _)
             | Declaration::BuiltinType(_) => {
                 unreachable!()
             }

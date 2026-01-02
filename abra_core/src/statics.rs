@@ -206,7 +206,7 @@ pub(crate) enum Declaration {
     Intrinsic(IntrinsicOperation),
     Var(AstNode),
     Polytype(PolytypeDeclaration),
-    Namespace(Rc<Namespace>),
+    Namespace(Rc<Namespace>, AstNode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -263,7 +263,7 @@ impl Declaration {
             | Declaration::Var(_)
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. }
-            | Declaration::Namespace(_) => None,
+            | Declaration::Namespace(_, _) => None,
             Declaration::InterfaceOutputType { iface: _, ty } => Some(TypeKey::InterfaceOutput(ty)),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
             Declaration::Struct(struct_def) => Some(TypeKey::TyApp(Nominal::Struct(struct_def))),

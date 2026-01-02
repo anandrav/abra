@@ -451,7 +451,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
                     effective_namespace.add_declaration(
                         ctx,
                         alias.v.clone(),
-                        Declaration::Namespace(alias_ns),
+                        Declaration::Namespace(alias_ns, alias.node()),
                     );
                 }
             };
@@ -887,7 +887,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 // TODO: calling member functions on types like doing `array.len(my_array)` or `int.str(23)`
                 unimplemented!()
             }
-            Declaration::Namespace(ns) => match ns.declarations.get(&field.v) {
+            Declaration::Namespace(ns, _) => match ns.declarations.get(&field.v) {
                 Some(decl) => {
                     ctx.resolution_map.insert(field.id, decl.clone());
                 }
@@ -1244,6 +1244,6 @@ fn fqn_of_id(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::Polytype(_) => None,
         Declaration::Intrinsic(_) => None,
         Declaration::Var(_) => None,
-        Declaration::Namespace(_) => None,
+        Declaration::Namespace(_, _) => None,
     }
 }

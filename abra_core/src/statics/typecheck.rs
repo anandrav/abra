@@ -2144,7 +2144,9 @@ fn generate_constraints_expr(
                     }
                     // these are used to access member functions
                     // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
-                    Declaration::Namespace(_) | Declaration::Enum(_) | Declaration::Array => None,
+                    Declaration::Namespace(_, _) | Declaration::Enum(_) | Declaration::Array => {
+                        None
+                    }
                 }
                 .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
