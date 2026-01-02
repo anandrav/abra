@@ -288,17 +288,11 @@ impl Parser {
                     let mut list: Vec<Rc<Identifier>> = vec![];
                     if self.current_token().tag() == TokenTag::OpenParen {
                         self.expect_token(TokenTag::OpenParen);
-                        while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-                            // TODO: remove this and similar, not necessary w/ tags
-                            self.skip_newlines();
-                            list.push(self.expect_ident()?);
-                            if self.current_token().tag() == TokenTag::Comma {
-                                self.consume_token();
-                            } else {
-                                break;
-                            }
-                        }
-                        self.expect_token(TokenTag::CloseParen);
+                        list.extend(self.parse_delimited_list(
+                            TokenTag::CloseParen,
+                            TokenTag::Comma,
+                            Self::expect_ident,
+                        )?);
                     } else {
                         // single item unparenthesized
                         list.push(self.expect_ident()?);
@@ -377,6 +371,7 @@ impl Parser {
                 self.expect_token(TokenTag::For);
                 let typ = self.parse_type()?;
                 self.expect_token(TokenTag::OpenBrace);
+                // TODO: use parse_delimited_list
                 let mut methods = vec![];
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
                     let mut attributes = vec![];
@@ -410,6 +405,7 @@ impl Parser {
                 let typ = self.parse_type()?;
                 self.expect_token(TokenTag::OpenBrace);
                 let mut methods = vec![];
+                // TODO: use parse_delimited_list
                 while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
                     let mut attributes = vec![];
                     while self.current_token().tag() == TokenTag::Pound {
@@ -459,6 +455,7 @@ impl Parser {
     fn parse_type_args(&mut self) -> Result<Vec<Rc<Polytype>>, Box<Error>> {
         self.expect_token(TokenTag::Lt);
         let mut args: Vec<Rc<Polytype>> = vec![];
+        // TODO: use parse_delimited_list
         while !matches!(self.current_token().tag(), TokenTag::Gt) {
             self.skip_newlines();
             let name = self.expect_poly_ident()?;
@@ -480,6 +477,7 @@ impl Parser {
     fn parse_interface_constraint(&mut self) -> Result<Rc<Interface>, Box<Error>> {
         let name = self.expect_ident()?;
         let mut arguments: Vec<(Rc<Identifier>, Rc<Type>)> = vec![];
+        // TODO: use parse_delimited_list
         if self.current_token().tag() == TokenTag::Lt {
             self.consume_token();
             while !matches!(self.current_token().tag(), TokenTag::Gt) {
@@ -534,17 +532,11 @@ impl Parser {
         attributes: Vec<Attribute>,
     ) -> Result<Rc<StructDef>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
-        let mut fields: Vec<Rc<StructField>> = vec![];
-        while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
-            fields.push(self.parse_struct_field()?);
-            if self.current_token().tag() == TokenTag::Newline {
-                self.consume_token();
-            } else {
-                break;
-            }
-        }
-        self.expect_token(TokenTag::CloseBrace);
-
+        let fields = self.parse_delimited_list(
+            TokenTag::CloseBrace,
+            TokenTag::Newline,
+            Self::parse_struct_field,
+        )?;
         Ok(Rc::new(StructDef {
             name,
             ty_args,
@@ -635,16 +627,8 @@ impl Parser {
         self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenParen);
-        let mut args = vec![];
-        while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-            args.push(self.parse_func_arg()?);
-            if self.current_token().tag() == TokenTag::Comma {
-                self.consume_token();
-            } else {
-                break;
-            }
-        }
-        self.expect_token(TokenTag::CloseParen);
+        let args =
+            self.parse_delimited_list(TokenTag::CloseParen, TokenTag::Comma, Self::parse_func_arg)?;
 
         self.expect_token(TokenTag::RArrow);
 
@@ -663,16 +647,8 @@ impl Parser {
         self.expect_token(TokenTag::Fn);
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::OpenParen);
-        let mut args = vec![];
-        while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-            args.push(self.parse_func_arg()?);
-            if self.current_token().tag() == TokenTag::Comma {
-                self.consume_token();
-            } else {
-                break;
-            }
-        }
-        self.expect_token(TokenTag::CloseParen);
+        let args =
+            self.parse_delimited_list(TokenTag::CloseParen, TokenTag::Comma, Self::parse_func_arg)?;
         let mut ret_type = None;
         if self.current_token().tag() == TokenTag::RArrow {
             self.consume_token();
@@ -718,6 +694,7 @@ impl Parser {
         Ok((name, typ))
     }
 
+    // TODO: is this helper necessary now?
     fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
         self.parse_delimited_list(TokenTag::CloseBrace, TokenTag::Newline, Self::parse_stmt)
@@ -1106,16 +1083,11 @@ impl Parser {
             }
             TokenKind::OpenParen => {
                 self.consume_token();
-                let mut elems: Vec<Rc<Expr>> = vec![];
-                while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-                    elems.push(self.parse_expr()?);
-                    if self.current_token().tag() == TokenTag::Comma {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseParen);
+                let elems = self.parse_delimited_list(
+                    TokenTag::CloseParen,
+                    TokenTag::Comma,
+                    Self::parse_expr,
+                )?;
                 if elems.is_empty() {
                     return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
@@ -1161,18 +1133,7 @@ impl Parser {
 
     fn parse_parenthesized_expression_list(&mut self) -> Result<Vec<Rc<Expr>>, Box<Error>> {
         self.expect_token(TokenTag::OpenParen);
-        let mut args: Vec<Rc<Expr>> = vec![];
-        while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-            self.skip_newlines();
-            args.push(self.parse_expr()?);
-            if self.current_token().tag() == TokenTag::Comma {
-                self.consume_token();
-            } else {
-                break;
-            }
-        }
-        self.expect_token(TokenTag::CloseParen);
-        Ok(args)
+        self.parse_delimited_list(TokenTag::CloseParen, TokenTag::Comma, Self::parse_expr)
     }
 
     fn parse_match_arm(&mut self) -> Result<Rc<MatchArm>, Box<Error>> {
@@ -1271,16 +1232,11 @@ impl Parser {
             }
             TokenKind::OpenParen => {
                 self.consume_token();
-                let mut elems: Vec<Rc<Pat>> = vec![];
-                while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-                    elems.push(self.parse_match_pattern()?);
-                    if self.current_token().tag() == TokenTag::Comma {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseParen);
+                let elems = self.parse_delimited_list(
+                    TokenTag::CloseParen,
+                    TokenTag::Comma,
+                    Self::parse_match_pattern,
+                )?;
                 if elems.is_empty() {
                     return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
@@ -1351,16 +1307,11 @@ impl Parser {
             // TODO: code duplication with parse_match_pattern(). Make a helper function used by both
             TokenKind::OpenParen => {
                 self.consume_token();
-                let mut elems: Vec<Rc<Pat>> = vec![];
-                while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-                    elems.push(self.parse_match_pattern()?);
-                    if self.current_token().tag() == TokenTag::Comma {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseParen);
+                let elems = self.parse_delimited_list(
+                    TokenTag::CloseParen,
+                    TokenTag::Comma,
+                    Self::parse_match_pattern,
+                )?;
                 if elems.is_empty() {
                     return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
@@ -1445,15 +1396,11 @@ impl Parser {
                 let mut args = vec![];
                 if self.current_token().tag() == TokenTag::Lt {
                     self.consume_token();
-                    while !matches!(self.current_token().tag(), TokenTag::Gt) {
-                        args.push(self.parse_type()?);
-                        if self.current_token().tag() == TokenTag::Comma {
-                            self.consume_token();
-                        } else {
-                            break;
-                        }
-                    }
-                    self.expect_token(TokenTag::Gt);
+                    args.extend(self.parse_delimited_list(
+                        TokenTag::Gt,
+                        TokenTag::Comma,
+                        Self::parse_type,
+                    )?);
                 }
                 Type {
                     kind: Rc::new(TypeKind::NamedWithParams(name, args)),
@@ -1484,16 +1431,11 @@ impl Parser {
             }
             TokenKind::OpenParen => {
                 self.consume_token();
-                let mut elems: Vec<Rc<Type>> = vec![];
-                while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-                    elems.push(self.parse_type()?);
-                    if self.current_token().tag() == TokenTag::Comma {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseParen);
+                let elems = self.parse_delimited_list(
+                    TokenTag::CloseParen,
+                    TokenTag::Comma,
+                    Self::parse_type,
+                )?;
                 if elems.is_empty() {
                     return Err(Error::EmptyParentheses(self.location(lo)).into());
                 } else if elems.len() == 1 {
