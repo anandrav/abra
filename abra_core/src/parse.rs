@@ -1445,7 +1445,7 @@ impl Parser {
             let mut args: Vec<Rc<Type>> = vec![];
             match &*typ.kind {
                 TypeKind::Tuple(tys) => {
-                    args = tys.iter().cloned().collect();
+                    args = tys.to_vec();
                 }
                 _ => {
                     args.push(typ);
