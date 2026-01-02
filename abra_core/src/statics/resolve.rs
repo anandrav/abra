@@ -391,9 +391,10 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
     let mut effective_namespace = Namespace::new();
 
     // builtin array type
-    effective_namespace
-        .declarations
-        .insert("array".to_string(), Declaration::Array);
+    effective_namespace.declarations.insert(
+        "array".to_string(),
+        Declaration::BuiltinType(BuiltinType::Array),
+    );
     // intrinsic operations
     for intrinsic in IntrinsicOperation::enumerate().iter() {
         effective_namespace
@@ -888,6 +889,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                     BuiltinType::Void => TypeKey::Void,
                     BuiltinType::String => TypeKey::String,
                     BuiltinType::Tuple(arity) => TypeKey::Tuple(arity),
+                    BuiltinType::Array => TypeKey::TyApp(Nominal::Array),
                 };
                 if let Some((decl, _)) = ctx.member_functions.get(&(type_key, field.v.clone())) {
                     ctx.resolution_map.insert(field.id, decl.clone());
@@ -920,17 +922,6 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                     }
                 }
                 if !found {
-                    ctx.errors
-                        .push(Error::UnresolvedIdentifier { node: field.node() });
-                }
-            }
-            Declaration::Array => {
-                if let Some((decl, _)) = ctx
-                    .member_functions
-                    .get(&(TypeKey::TyApp(Nominal::Array), field.v.clone()))
-                {
-                    ctx.resolution_map.insert(field.id, decl.clone());
-                } else {
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }
@@ -1248,7 +1239,6 @@ fn fqn_of_id(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::Enum(e) => ctx.fully_qualified_names.get(&e.name.id).cloned(),
         Declaration::Struct(s) => ctx.fully_qualified_names.get(&s.name.id).cloned(),
         Declaration::EnumVariant { .. } => None,
-        Declaration::Array => Some("array".into()),
         Declaration::BuiltinType(builtin_type) => Some(builtin_type.name().to_string()),
         Declaration::Polytype(_) => None,
         Declaration::Intrinsic(_) => None,

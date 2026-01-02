@@ -12,7 +12,7 @@ use crate::ast::{
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::environment::Environment;
-use crate::intrinsic::IntrinsicOperation;
+use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::parse::PrefixOp;
 use disjoint_sets::UnionFindNode;
 use std::borrow::Borrow;
@@ -242,6 +242,7 @@ pub(crate) enum SolvedType {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Nominal {
+    // TODO: rename to Parameterized ?
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
     Array,
@@ -1103,7 +1104,9 @@ impl AstType {
 
                 let lookup = ctx.resolution_map.get(&identifier.id)?;
                 match lookup {
-                    Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, sargs)),
+                    Declaration::BuiltinType(BuiltinType::Array) => {
+                        Some(SolvedType::Nominal(Nominal::Array, sargs))
+                    }
                     Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
                         Nominal::Struct(struct_def.clone()),
                         sargs,
@@ -1172,7 +1175,7 @@ impl AstType {
                         Nominal::Struct(struct_def.clone()),
                         params.iter().map(|param| param.to_typevar(ctx)).collect(),
                     ),
-                    Some(Declaration::Array) => TypeVar::make_nominal(
+                    Some(Declaration::BuiltinType(BuiltinType::Array)) => TypeVar::make_nominal(
                         reason,
                         Nominal::Array,
                         params.iter().map(|param| param.to_typevar(ctx)).collect(),
@@ -2082,6 +2085,11 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(decl) = lookup
                 && let Some(typ) = match decl {
+                    // these are used to access member functions
+                    // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
+                    Declaration::Namespace(_, _)
+                    | Declaration::Enum(_)
+                    | Declaration::BuiltinType(BuiltinType::Array) => None,
                     Declaration::Var(node) => {
                         let tyvar = TypeVar::from_node(ctx, node.clone());
                         Some(tyvar)
@@ -2137,11 +2145,6 @@ fn generate_constraints_expr(
                         // // a variable expression should not resolve to the above
                         ctx.errors
                             .push(Error::UnresolvedIdentifier { node: expr.node() });
-                        None
-                    }
-                    // these are used to access member functions
-                    // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
-                    Declaration::Namespace(_, _) | Declaration::Enum(_) | Declaration::Array => {
                         None
                     }
                 }
@@ -2435,7 +2438,7 @@ fn generate_constraints_expr(
                         ctx.resolution_map.get(&receiver_expr.id),
                         Some(Declaration::Struct(_))
                             | Some(Declaration::Enum(_))
-                            | Some(Declaration::Array)
+                            | Some(Declaration::BuiltinType(BuiltinType::Array))
                             | Some(Declaration::InterfaceDef(_))
                     );
                     match ctx.resolution_map.get(&fname.id).cloned() {

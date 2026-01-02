@@ -9,7 +9,7 @@ use crate::ast::{
 };
 use crate::ast::{FileAst, NodeId};
 use crate::environment::Environment;
-use crate::intrinsic::IntrinsicOperation;
+use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
@@ -1087,7 +1087,7 @@ impl Translator {
             }
             Declaration::Struct(_)
             | Declaration::Enum { .. }
-            | Declaration::Array
+            | Declaration::BuiltinType(BuiltinType::Array)
             | Declaration::InterfaceDef(_)
             | Declaration::Namespace(_, _) => {
                 // noop, does not exist at runtime
@@ -1277,7 +1277,6 @@ impl Translator {
             Declaration::Intrinsic(b) => self.emit_intrinsic(st, mono, *b, func_node, false),
             Declaration::InterfaceOutputType { .. }
             | Declaration::InterfaceDef(_)
-            | Declaration::Array
             | Declaration::Polytype(_)
             | Declaration::Enum { .. }
             | Declaration::Namespace(_, _)

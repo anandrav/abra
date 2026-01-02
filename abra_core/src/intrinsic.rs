@@ -288,6 +288,7 @@ pub enum BuiltinType {
     Void,
     String,
     Tuple(u8),
+    Array,
 }
 
 impl BuiltinType {
@@ -299,6 +300,7 @@ impl BuiltinType {
             Self::Void => "void",
             Self::String => "string",
             Self::Tuple(_) => "tuple",
+            Self::Array => "array",
         }
     }
 
@@ -310,6 +312,7 @@ impl BuiltinType {
             Self::Void => TypeKey::Void,
             Self::String => TypeKey::String,
             Self::Tuple(arity) => TypeKey::Tuple(arity),
+            Self::Array => TypeKey::TyApp(Nominal::Array),
         }
     }
 }

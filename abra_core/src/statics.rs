@@ -197,7 +197,6 @@ pub(crate) enum Declaration {
     Enum(Rc<EnumDef>),
     // alternatively, add helper functions to check if it's a data type and to extract the NodeId from the particular declaration
     Struct(Rc<StructDef>),
-    Array,
     BuiltinType(BuiltinType), // TODO: why isn't Array part of BuiltinType
     EnumVariant {
         e: Rc<EnumDef>,
@@ -267,7 +266,6 @@ impl Declaration {
             Declaration::InterfaceOutputType { iface: _, ty } => Some(TypeKey::InterfaceOutput(ty)),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
             Declaration::Struct(struct_def) => Some(TypeKey::TyApp(Nominal::Struct(struct_def))),
-            Declaration::Array => Some(TypeKey::TyApp(Nominal::Array)),
             Declaration::BuiltinType(builtin_type) => Some(builtin_type.to_type_key()),
         }
     }

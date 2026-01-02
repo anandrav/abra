@@ -398,9 +398,7 @@ fn add_detail_for_decl(
             "`{}` is an intrinsic operation and cannot be re-declared",
             intrinsic.name()
         )),
-        Declaration::Array | Declaration::BuiltinType(_) => {
-            notes.push("cannot redeclare a builtin type".to_string())
-        }
+        Declaration::BuiltinType(_) => notes.push("cannot redeclare a builtin type".to_string()),
     };
 }
 
@@ -436,7 +434,7 @@ fn add_detail_for_decl_node(
 
         Declaration::Var(ast_node) => ast_node.clone(),
         Declaration::InterfaceOutputType { iface: _, ty } => ty.name.node(),
-        Declaration::Intrinsic(_) | Declaration::BuiltinType(_) | Declaration::Array => {
+        Declaration::Intrinsic(_) | Declaration::BuiltinType(_) => {
             return false;
         }
     };
