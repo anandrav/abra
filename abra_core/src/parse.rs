@@ -720,9 +720,7 @@ impl Parser {
 
     fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
-        self.parse_delimited_list(TokenTag::CloseBrace, TokenTag::Newline, |self_| {
-            self_.parse_stmt()
-        })
+        self.parse_delimited_list(TokenTag::CloseBrace, TokenTag::Newline, Self::parse_stmt)
     }
 
     fn parse_delimited_list<T>(
@@ -920,9 +918,11 @@ impl Parser {
         let mut args: Vec<ArgMaybeAnnotated> = vec![];
         if current.kind == TokenKind::OpenParen {
             self.expect_token(TokenTag::OpenParen);
-            match self.parse_delimited_list(TokenTag::CloseParen, TokenTag::Comma, |self_| {
-                self_.parse_func_arg()
-            }) {
+            match self.parse_delimited_list(
+                TokenTag::CloseParen,
+                TokenTag::Comma,
+                Self::parse_func_arg,
+            ) {
                 Ok(parsed_args) => args.extend(parsed_args),
                 Err(_) => return Ok(None),
             }
