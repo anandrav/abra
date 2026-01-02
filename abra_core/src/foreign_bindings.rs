@@ -629,6 +629,7 @@ pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
             s.push('>');
             s
         }
+        TypeKind::Wildcard => "WildcardNotSupported".into(),
         TypeKind::Function(..) => "FunctionNotSupported".into(),
         TypeKind::Poly(..) => "PolyNotSupported".into(),
     }

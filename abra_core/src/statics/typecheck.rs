@@ -1100,6 +1100,7 @@ impl AstType {
                     _ => None,
                 }
             }
+            TypeKind::Wildcard => None,
             TypeKind::Void => Some(SolvedType::Void),
             TypeKind::Int => Some(SolvedType::Int),
             TypeKind::Float => Some(SolvedType::Float),
@@ -1127,7 +1128,7 @@ impl AstType {
 }
 
 impl AstType {
-    pub(crate) fn to_typevar(self: &Rc<Self>, ctx: &StaticsContext) -> TypeVar {
+    pub(crate) fn to_typevar(self: &Rc<Self>, ctx: &mut StaticsContext) -> TypeVar {
         let reason = Reason::Annotation(self.node());
         match &*self.kind {
             TypeKind::Poly(polyty) => {
@@ -1184,6 +1185,7 @@ impl AstType {
                 let types = types.iter().map(|t| t.to_typevar(ctx)).collect();
                 TypeVar::make_tuple(types, reason)
             }
+            TypeKind::Wildcard => TypeVar::from_node(ctx, self.node()),
         }
     }
 }

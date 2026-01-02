@@ -1666,7 +1666,7 @@ impl Vm {
             }
             Instr::StringCountBytes(dest, reg) => {
                 let s = self.load_offset_or_top(reg).view_string(self);
-                self.store_offset_or_top(dest, s.as_bytes().len() as AbraInt);
+                self.store_offset_or_top(dest, s.len() as AbraInt);
             }
             Instr::IntToFloat(dest, reg) => {
                 let n = self.load_offset_or_top(reg).get_int(self);

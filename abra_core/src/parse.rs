@@ -1466,6 +1466,14 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
+            TokenKind::Wildcard => {
+                self.consume_token();
+                Type {
+                    kind: Rc::new(TypeKind::Wildcard),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
             TokenKind::PolyIdent(_) => {
                 let name = self.expect_poly_ident()?;
                 let mut interfaces = vec![];

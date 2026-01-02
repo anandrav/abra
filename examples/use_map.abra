@@ -1,6 +1,6 @@
 use core/map
 
-let m: map<int, string> = map.new()
+let m: map<_, string> = map.new()
 m.insert(1, "hello")
 m.insert(2, "world")
 m.insert(1, "h3ll0")

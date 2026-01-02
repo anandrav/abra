@@ -1081,6 +1081,9 @@ fn resolve_names_typ(
         TypeKind::Poly(polyty) => {
             resolve_names_polytyp(ctx, symbol_table, polyty, introduce_poly);
         }
+        TypeKind::Wildcard => {
+            // noop
+        }
         TypeKind::NamedWithParams(identifier, args) => {
             // the Type node and the Identifier node should both resolve to the same thing
             resolve_identifier(ctx, symbol_table, identifier);
@@ -1184,6 +1187,7 @@ fn fqn_of_type(ctx: &mut StaticsContext, ty: &Rc<Type>) -> Option<String> {
         TypeKind::Float => "float".to_string(),
         TypeKind::Bool => "bool".to_string(),
         TypeKind::Str => "string".to_string(),
+        TypeKind::Wildcard => return None,
         TypeKind::Function(_, _) => {
             ctx.errors.push(Error::Generic {
                 msg: "Cannot extend function type".to_string(),

@@ -640,6 +640,7 @@ pub(crate) enum TypeKind {
     Str,
     Function(Vec<Rc<Type>>, Rc<Type>),
     Tuple(Vec<Rc<Type>>),
+    Wildcard,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
