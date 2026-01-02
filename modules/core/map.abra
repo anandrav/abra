@@ -2,21 +2,30 @@ use core/math
 
 type map<K, V> = {
     buckets: array<int>
-    entries: array<map_entry<K, V>>
+
+    // entries struct-of-arrays style
+    entry_keys:     array<K>
+    entry_values:   array<V>
+    entry_hashes:   array<int>
+    entry_nexts:    array<int>
+    entry_occupied: array<bool>
+
     count: int
     free_list: int
 }
 
-type map_entry<K, V> = {
-    key: K
-    value: V
-    hash_code: int
-    next: int
-}
-
 extend map<K, V> {
     fn new() -> map<K, V> {
-        map([], [], 0, -1)
+        map(
+            [], // buckets
+            [], // keys
+            [], // values
+            [], // hashes
+            [], // nexts
+            [], // occupied
+            0,
+            -1
+        )
     }
 }
 
@@ -26,71 +35,75 @@ extend map<K Hash Equal, V> {
     }
 
     fn insert(self, key: K, value: V) -> void {
-        if self.entries.len() >= self.buckets.len() {
+        if self.entry_keys.len() >= self.buckets.len() {
             self.resize()
         }
 
         let hash_code = Hash.hash(key)
         let bucket_idx = hash_code.abs() % self.buckets.len()
 
-        // check for updates; collision chain walk
+        // check for updates; walk the collision chain
         var i = self.buckets[bucket_idx]
         while i != -1 {
-            let entry = self.entries[i]
-            if (entry.hash_code == hash_code) and (entry.key == key) {
-                // found existing key, update value
-                entry.value = value
-                return nil
+            if self.entry_hashes[i] == hash_code {
+                if self.entry_keys[i] == key {
+                    self.entry_values[i] = value
+                    return nil
+                }
             }
-            i = entry.next
+            i = self.entry_nexts[i]
         }
 
-        // get existing or create new entry
+        // either reuse a slot or create a new one
         var target_idx = -1
 
         if self.free_list != -1 {
-            // reuse an entry
+            // grab slot from free list
             target_idx = self.free_list
-            let recycled_entry = self.entries[target_idx]
-            self.free_list = recycled_entry.next // pop from free list
+            self.free_list = self.entry_nexts[target_idx]
 
-            recycled_entry.key = key
-            recycled_entry.value = value
-            recycled_entry.hash_code = hash_code
-            recycled_entry.next = self.buckets[bucket_idx]
+            self.entry_keys[target_idx] = key
+            self.entry_values[target_idx] = value
+            self.entry_hashes[target_idx] = hash_code
+            self.entry_nexts[target_idx] = self.buckets[bucket_idx]
+            self.entry_occupied[target_idx] = true
         } else {
-            // create a new entry
-            target_idx = self.entries.len()
-            let new_entry = map_entry(
-                key,
-                value,
-                hash_code,
-                self.buckets[bucket_idx] // Point to current head of chain
-            )
-            self.entries.push(new_entry)
+            // create new slot
+            target_idx = self.entry_keys.len()
+
+            self.entry_keys.push(key)
+            self.entry_values.push(value)
+            self.entry_hashes.push(hash_code)
+            self.entry_nexts.push(self.buckets[bucket_idx])
+            self.entry_occupied.push(true)
         }
 
-        // update bucket head to point to new entry
+        // link to new slot from buckets array
         self.buckets[bucket_idx] = target_idx
         self.count = self.count + 1
     }
 
     fn get(self, key: K) -> option<V> {
+        if self.buckets.len() == 0 return .none
+
         let hash_code = Hash.hash(key)
         let bucket_idx = hash_code.abs() % self.buckets.len()
 
         var i = self.buckets[bucket_idx]
         while i != -1 {
-            let entry = self.entries[i]
-            if (entry.hash_code == hash_code) and (entry.key == key) {
-                return .some(entry.value)
+            if self.entry_hashes[i] == hash_code {
+                 if self.entry_keys[i] == key {
+                    return .some(self.entry_values[i])
+                }
             }
-            i = entry.next
+            i = self.entry_nexts[i]
         }
         .none
     }
 
     fn remove(self, key: K) -> bool {
+        if self.buckets.len() == 0 return false
+
         let hash_code = Hash.hash(key)
         let bucket_idx = hash_code.abs() % self.buckets.len()
 
@@ -98,51 +111,49 @@ extend map<K Hash Equal, V> {
         var curr = self.buckets[bucket_idx]
 
         while curr != -1 {
-            let entry = self.entries[curr]
+            if self.entry_hashes[curr] == hash_code {
+                if self.entry_keys[curr] == key {
+                    // unlink from bucket chain
+                    if prev == -1 {
+                        self.buckets[bucket_idx] = self.entry_nexts[curr]
+                    } else {
+                        self.entry_nexts[prev] = self.entry_nexts[curr]
+                    }
 
-            if (entry.hash_code == hash_code) and (entry.key == key) {
-                // found it. unlink it
-                if prev == -1 {
-                    // it was the head
-                    self.buckets[bucket_idx] = entry.next
-                } else {
-                    // it was in the middle/end
-                    let prev_entry = self.entries[prev]
-                    prev_entry.next = entry.next
+                    // add to free list
+                    // reuse the 'next' field to point to the next free item
+                    self.entry_nexts[curr] = self.free_list
+                    self.entry_occupied[curr] = false // mark as deleted
+                    self.free_list = curr
+
+                    self.count = self.count - 1
+                    return true
                 }
-
-                // add to free list
-                entry.next = self.free_list
-                self.free_list = curr
-
-                self.count = self.count - 1
-                return true
             }
 
             prev = curr
-            curr = entry.next
+            curr = self.entry_nexts[curr]
         }
         false
     }
 
     fn resize(self) {
         let old_len = self.buckets.len()
-
-        let new_size = if old_len == 0 {
-            4
-        } else {
-            old_len * 2
-        }
+        let new_size = if old_len == 0 { 4 } else { old_len * 2 }
 
         let new_buckets = array.filled(-1, new_size)
         self.buckets = new_buckets
 
         // rehash existing entries
-        for i in self.entries.len() {
-            let entry = self.entries[i]
-            let bucket_idx = entry.hash_code.abs() % new_size
-            entry.next = self.buckets[bucket_idx]
-            self.buckets[bucket_idx] = i
+        for i in self.entry_keys.len() {
+            // only re-add occupied slots
+            if self.entry_occupied[i] {
+                let h = self.entry_hashes[i]
+                let bucket_idx = h.abs() % new_size
+
+                self.entry_nexts[i] = self.buckets[bucket_idx]
+                self.buckets[bucket_idx] = i
+            }
         }
     }
 }
