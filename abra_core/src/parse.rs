@@ -721,12 +721,14 @@ impl Parser {
     fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
         let mut statements: Vec<Rc<Stmt>> = vec![];
-        self.skip_newlines();
-        while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
+        loop {
+            // TODO: this pattern of loop; skip_newlines(); parse_the_thing(); if next token != delimiter should be refactored into a helper function and used everywhere
+            self.skip_newlines();
+            if matches!(self.current_token().tag(), TokenTag::CloseBrace) {
+                break;
+            }
             statements.push(self.parse_stmt()?);
-            if self.current_token().tag() == TokenTag::Newline {
-                self.consume_token();
-            } else {
+            if self.current_token().tag() != TokenTag::Newline {
                 break;
             }
         }
