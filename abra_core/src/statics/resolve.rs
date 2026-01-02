@@ -877,15 +877,24 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
             | Declaration::EnumVariant { .. }
             | Declaration::Polytype(_)
             | Declaration::Intrinsic(_) => {
-                // TODO: need more descriptive error message
-                unimplemented!();
-                // ctx.errors
-                //     .push(Error::UnresolvedIdentifier { node: field.node() });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: field.node() });
             }
-            Declaration::BuiltinType(_) => {
-                // TODO: isn't array a builtin type?
-                // TODO: calling member functions on types like doing `array.len(my_array)` or `int.str(23)`
-                unimplemented!()
+            Declaration::BuiltinType(builtin_type) => {
+                let type_key = match builtin_type {
+                    BuiltinType::Int => TypeKey::Int,
+                    BuiltinType::Bool => TypeKey::Bool,
+                    BuiltinType::Float => TypeKey::Float,
+                    BuiltinType::Void => TypeKey::Void,
+                    BuiltinType::String => TypeKey::String,
+                    BuiltinType::Tuple(arity) => TypeKey::Tuple(arity),
+                };
+                if let Some((decl, _)) = ctx.member_functions.get(&(type_key, field.v.clone())) {
+                    ctx.resolution_map.insert(field.id, decl.clone());
+                } else {
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: field.node() });
+                }
             }
             Declaration::Namespace(ns, _) => match ns.declarations.get(&field.v) {
                 Some(decl) => {

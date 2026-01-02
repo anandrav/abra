@@ -2127,16 +2127,13 @@ fn generate_constraints_expr(
                             Reason::Node(expr.node()),
                         ))
                     }
-                    // TODO: this is strange to do. Just report unreachable!() instead of saying UnresolvedIdentifier? Is this code reachable?
-                    // TODO: UnresolvedIdentifier isn't a good enough error message
                     Declaration::InterfaceDef(..)
                     | Declaration::InterfaceOutputType { .. }
                     | Declaration::BuiltinType(_)
                     | Declaration::Polytype(_)
-                    | Declaration::EnumVariant { .. }
                     | Declaration::InterfaceMethod { .. }
-                    | Declaration::MemberFunction { .. } => {
-                        // unimplemented!();
+                    | Declaration::MemberFunction { .. }
+                    | Declaration::EnumVariant { .. } => {
                         // // a variable expression should not resolve to the above
                         ctx.errors
                             .push(Error::UnresolvedIdentifier { node: expr.node() });
