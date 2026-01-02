@@ -17,12 +17,12 @@ use strum_macros::EnumIter;
     Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter, VariantArray, AsRefStr,
 )]
 pub enum IntrinsicOperation {
+    // num operations
     AddInt,
     SubtractInt,
     MultiplyInt,
     DivideInt,
     PowerInt,
-    Modulo,
 
     AddFloat,
     SubtractFloat,
@@ -30,6 +30,13 @@ pub enum IntrinsicOperation {
     DivideFloat,
     PowerFloat,
 
+    // int operations
+    Modulo,
+    BitXor,
+    WrappingAdd,
+    WrappingMul,
+
+    // float operations
     Ceil,
     Floor,
     Round,
@@ -92,6 +99,9 @@ impl IntrinsicOperation {
             | IntrinsicOperation::MultiplyInt
             | IntrinsicOperation::DivideInt
             | IntrinsicOperation::Modulo
+            | IntrinsicOperation::BitXor
+            | IntrinsicOperation::WrappingAdd
+            | IntrinsicOperation::WrappingMul
             | IntrinsicOperation::PowerInt => TypeVar::make_func(
                 vec![
                     TypeVar::make_int(reason.clone()),

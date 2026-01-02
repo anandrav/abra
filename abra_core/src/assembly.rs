@@ -86,6 +86,9 @@ pub enum Instr {
     PowIntImm(Reg, Reg, AbraInt),
     Modulo(Reg, Reg, Reg),
     ModuloImm(Reg, Reg, AbraInt),
+    BitXor(Reg, Reg, Reg),
+    WrappingAdd(Reg, Reg, Reg),
+    WrappingMul(Reg, Reg, Reg),
 
     AddFloat(Reg, Reg, Reg),
     AddFloatImm(Reg, Reg, String),
@@ -269,6 +272,15 @@ impl Display for Instr {
             }
             Instr::ModuloImm(dest, reg1, imm) => {
                 write!(f, "modulo_imm {dest} {reg1} {imm}")
+            }
+            Instr::BitXor(dest, reg1, reg2) => {
+                write!(f, "bit_xor {dest} {reg1} {reg2}")
+            }
+            Instr::WrappingAdd(dest, reg1, reg2) => {
+                write!(f, "wrapping_add {dest} {reg1} {reg2}")
+            }
+            Instr::WrappingMul(dest, reg1, reg2) => {
+                write!(f, "wrapping_mul {dest} {reg1} {reg2}")
             }
             Instr::AddFloat(dest, reg1, reg2) => {
                 write!(f, "add_float {dest} {reg1} {reg2}")
@@ -521,6 +533,15 @@ fn instr_to_vminstr(
             reg1.encode(),
             constants.int_constants.try_get_id(imm).unwrap() as u16,
         ),
+        Instr::BitXor(dest, reg1, reg2) => {
+            VmInstr::BitXor(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::WrappingAdd(dest, reg1, reg2) => {
+            VmInstr::WrappingAdd(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::WrappingMul(dest, reg1, reg2) => {
+            VmInstr::WrappingMul(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::AddFloat(dest, reg1, reg2) => {
             VmInstr::AddFloat(dest.encode(), reg1.encode(), reg2.encode())
         }

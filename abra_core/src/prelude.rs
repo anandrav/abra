@@ -105,7 +105,7 @@ implement Hash for string {
 }
 
 fn hash_combine(seed: int, value: T Hash) -> int {
-    (seed * 31) + Hash.hash(value) // TODO: using wrapping multiply
+    wrapping_add(wrapping_mul(seed, 31), Hash.hash(value)) // TODO: using wrapping multiply
 }
 
 implement Hash for array<T Hash> {

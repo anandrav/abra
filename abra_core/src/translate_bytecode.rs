@@ -1320,6 +1320,9 @@ impl Translator {
             IntrinsicOperation::DivideInt => 2,
             IntrinsicOperation::PowerInt => 2,
             IntrinsicOperation::Modulo => 2,
+            IntrinsicOperation::BitXor => 2,
+            IntrinsicOperation::WrappingAdd => 2,
+            IntrinsicOperation::WrappingMul => 2,
             IntrinsicOperation::AddFloat => 2,
             IntrinsicOperation::SubtractFloat => 2,
             IntrinsicOperation::MultiplyFloat => 2,
@@ -1388,6 +1391,15 @@ impl Translator {
             }
             IntrinsicOperation::Modulo => {
                 self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::BitXor => {
+                self.emit(st, Instr::BitXor(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::WrappingAdd => {
+                self.emit(st, Instr::WrappingAdd(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::WrappingMul => {
+                self.emit(st, Instr::WrappingMul(Reg::Top, Reg::Top, Reg::Top));
             }
             IntrinsicOperation::AddFloat => {
                 self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));

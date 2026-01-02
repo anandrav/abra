@@ -432,6 +432,9 @@ pub enum Instr {
     PowerIntImm(u16, u16, u16),
     Modulo(u16, u16, u16),
     ModuloImm(u16, u16, u16),
+    BitXor(u16, u16, u16),
+    WrappingAdd(u16, u16, u16),
+    WrappingMul(u16, u16, u16),
 
     AddFloat(u16, u16, u16),
     AddFloatImm(u16, u16, u16),
@@ -1202,6 +1205,24 @@ impl Vm {
                     self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 };
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::BitXor(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                let c = a ^ b;
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::WrappingAdd(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                let c = a.wrapping_add(b);
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::WrappingMul(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                let c = a.wrapping_mul(b);
                 self.store_offset_or_top(dest, c);
             }
             Instr::AddFloat(dest, reg1, reg2) => {
