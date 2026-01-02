@@ -83,6 +83,28 @@ implement Equal for array<T Equal> {
     }
 }
 
+implement Equal for (T1 Equal, T2 Equal) {
+    fn equal(a, b) {
+        let (a1, a2) = a
+        let (b1, b2) = b
+        (a1 == b1) and (a2 == b2)
+    }
+}
+implement Equal for (T1 Equal, T2 Equal, T3 Equal) {
+    fn equal(a, b) {
+        let (a1, a2, a3) = a
+        let (b1, b2, b3) = b
+        (a1 == b1) and (a2 == b2) and (a3 == b3)
+    }
+}
+implement Equal for (T1 Equal, T2 Equal, T3 Equal, T4 Equal) {
+    fn equal(a, b) {
+        let (a1, a2, a3, a4) = a
+        let (b1, b2, b3, b4) = b
+        (a1 == b1) and (a2 == b2) and (a3 == b3) and (a4 == b4)
+    }
+}
+
 interface Hash {
     fn hash(a: Self) -> int
 }
@@ -118,9 +140,38 @@ implement Hash for array<T Hash> {
     }
 }
 
-// TODO implement Hash fro tuples... do it at the bottom of the prelude
+implement Hash for (T1 Hash, T2 Hash) {
+    fn hash(p) {
+        let (a, b) = p
+        var h = 17
+        h = hash_combine(h, a)
+        h = hash_combine(h, b)
+        h
+    }
+}
 
-// TODO implement Equal for tuples... do it at the bottom of the prelude
+implement Hash for (T1 Hash, T2 Hash, T3 Hash) {
+    fn hash(p) {
+        let (a, b, c) = p
+        var h = 17
+        h = hash_combine(h, a)
+        h = hash_combine(h, b)
+        h = hash_combine(h, c)
+        h
+    }
+}
+
+implement Hash for (T1 Hash, T2 Hash, T3 Hash, T4 Hash) {
+    fn hash(p) {
+        let (a, b, c, d) = p
+        var h = 17
+        h = hash_combine(h, a)
+        h = hash_combine(h, b)
+        h = hash_combine(h, c)
+        h = hash_combine(h, d)
+        h
+    }
+}
 
 interface Ord {
     fn less_than(a: Self, b: Self) -> bool
@@ -262,54 +313,6 @@ implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString) {
     fn str(p) {
         let (a, b, c, d) = p
         "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e, f) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e, f, g) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e, f, g, h) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e, f, g, h, i) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e, f, g, h, i, j) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ", " .. ToString.str(j) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString, T11 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e, f, g, h, i, j, k) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ", " .. ToString.str(j) .. ", " .. ToString.str(k) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString, T11 ToString, T12 ToString) {
-    fn str(p) {
-        let (a, b, c, d, e, f, g, h, i, j, k, l) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ", " .. ToString.str(j) .. ", " .. ToString.str(k) .. ", " .. ToString.str(l) .. ")"
     }
 }
 
