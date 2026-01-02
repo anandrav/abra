@@ -1,0 +1,48 @@
+type list<T> = empty | cons(T, list<T>)
+
+/*
+fn range(lo: int, hi: int) {
+    if lo > hi
+        .empty
+    else
+        .cons(lo, range(lo + 1, hi))
+}
+*/
+
+extend list<T> {
+    fn fold(self, f: (U, T) -> U, acc: U) -> U {
+        match self {
+            .empty -> acc
+            .cons(head, tail) -> tail.fold(f, f(acc, head))
+        }
+    }
+
+    fn map(self, f: T -> U) -> list<U> {
+        match self {
+            .empty -> list.empty // TODO: shouldn't need this annotation
+            .cons(head, tail) -> list.cons(f(head), tail.map(f)) // TODO: shouldn't need this annotation
+        }
+    }
+
+    fn for_each(self, f: T -> U) -> void {
+        match self {
+            .empty -> nil
+            .cons (head, tail) -> {
+                f(head)
+                tail.for_each(f)
+            }
+        }
+    }
+
+    fn filter(self, f: T -> bool) -> list<T> {
+        match self {
+            .empty -> list.empty // TODO: shouldn't need this annotation
+            .cons (head, tail) ->
+                if f(head) { .cons(head, tail.filter(f)) } else { tail.filter(f) }
+        }
+    }
+
+    fn reverse(self) -> list<T> {
+        self.fold((acc, head) -> list.cons(head, acc), list.empty) // TODO: shouldn't need this annotation
+    }
+}

@@ -1,0 +1,7 @@
+use core/linked_list
+
+let xs = list.cons(1, .cons(2, .cons(3, .cons(4, .empty))))
+let xs = xs.filter(x -> x % 2 == 0)
+//let xs = xs.map(x -> x - 1) // TODO: this is bugged :(
+let xs = xs.reverse()
+xs.for_each(println)
