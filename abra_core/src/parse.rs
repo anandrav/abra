@@ -720,20 +720,30 @@ impl Parser {
 
     fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
-        let mut statements: Vec<Rc<Stmt>> = vec![];
+        self.parse_delimited_list(TokenTag::CloseBrace, TokenTag::Newline, |self_| {
+            self_.parse_stmt()
+        })
+    }
+
+    fn parse_delimited_list<T>(
+        &mut self,
+        delimiter: TokenTag,
+        separator: TokenTag,
+        parse_production: impl Fn(&mut Self) -> Result<Rc<T>, Box<Error>>,
+    ) -> Result<Vec<Rc<T>>, Box<Error>> {
+        let mut productions: Vec<Rc<T>> = vec![];
         loop {
-            // TODO: this pattern of loop; skip_newlines(); parse_the_thing(); if next token != delimiter should be refactored into a helper function and used everywhere
             self.skip_newlines();
-            if matches!(self.current_token().tag(), TokenTag::CloseBrace) {
+            if self.current_token().tag() == delimiter {
                 break;
             }
-            statements.push(self.parse_stmt()?);
-            if self.current_token().tag() != TokenTag::Newline {
+            productions.push(parse_production(self)?);
+            if self.current_token().tag() != separator {
                 break;
             }
         }
-        self.expect_token(TokenTag::CloseBrace);
-        Ok(statements)
+        self.expect_token(delimiter);
+        Ok(productions)
     }
 
     fn parse_expr(&mut self) -> Result<Rc<Expr>, Box<Error>> {
