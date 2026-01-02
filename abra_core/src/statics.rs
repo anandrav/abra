@@ -130,7 +130,7 @@ impl StaticsContext {
         {
             iface_def.clone()
         } else {
-            unreachable!()
+            unreachable!() // TODO: this is NOT unreachable if prelude fails to parse. The prelude.abra should always parse properly but don't panic if it doesn't...
         }
     }
 }

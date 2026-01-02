@@ -477,24 +477,22 @@ impl Parser {
     fn parse_interface_constraint(&mut self) -> Result<Rc<Interface>, Box<Error>> {
         let name = self.expect_ident()?;
         let mut arguments: Vec<(Rc<Identifier>, Rc<Type>)> = vec![];
-        // TODO: use parse_delimited_list
         if self.current_token().tag() == TokenTag::Lt {
             self.consume_token();
-            while !matches!(self.current_token().tag(), TokenTag::Gt) {
-                self.skip_newlines();
-                let name = self.expect_ident()?;
-                self.expect_token(TokenTag::Eq);
-                let val = self.parse_type()?;
-                arguments.push((name, val));
-                if self.current_token().tag() == TokenTag::Comma {
-                    self.consume_token();
-                } else {
-                    break;
-                }
-            }
-            self.expect_token(TokenTag::Gt);
+            arguments.extend(self.parse_delimited_list(
+                TokenTag::Gt,
+                TokenTag::Comma,
+                Self::parse_interface_constraint_arg,
+            )?);
         }
         Ok(Rc::new(Interface { name, arguments }))
+    }
+
+    fn parse_interface_constraint_arg(&mut self) -> Result<(Rc<Identifier>, Rc<Type>), Box<Error>> {
+        let name = self.expect_ident()?;
+        self.expect_token(TokenTag::Eq);
+        let val = self.parse_type()?;
+        Ok((name, val))
     }
 
     fn parse_iface_def(
