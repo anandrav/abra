@@ -77,6 +77,24 @@ implement Hash for int {
     fn hash(a) = a
 }
 
+implement Hash for void {
+    fn hash(a) = 0
+}
+
+implement Hash for bool {
+    fn hash(a) = if a { 1 } else { 0 }
+}
+
+implement Hash for string {
+    fn hash(a) = panic("string hash unimplemented")
+}
+
+implement Hash for array<T Hash> {
+    fn hash(a) = panic("array hash unimplemented")
+}
+
+// TODO implement Hash fro tuples... do it at the bottom of the prelude
+
 // TODO implement Equal for tuples... do it at the bottom of the prelude
 
 interface Ord {
