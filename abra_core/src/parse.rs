@@ -288,11 +288,11 @@ impl Parser {
                     let mut list: Vec<Rc<Identifier>> = vec![];
                     if self.current_token().tag() == TokenTag::OpenParen {
                         self.expect_token(TokenTag::OpenParen);
-                        list.extend(self.parse_delimited_list(
+                        list = self.parse_delimited_list(
                             TokenTag::CloseParen,
                             TokenTag::Comma,
                             Self::expect_ident,
-                        )?);
+                        )?;
                     } else {
                         // single item unparenthesized
                         list.push(self.expect_ident()?);
@@ -463,11 +463,11 @@ impl Parser {
         let mut arguments: Vec<(Rc<Identifier>, Rc<Type>)> = vec![];
         if self.current_token().tag() == TokenTag::Lt {
             self.consume_token();
-            arguments.extend(self.parse_delimited_list(
+            arguments = self.parse_delimited_list(
                 TokenTag::Gt,
                 TokenTag::Comma,
                 Self::parse_interface_constraint_arg,
-            )?);
+            )?;
         }
         Ok(Rc::new(Interface { name, arguments }))
     }
@@ -882,7 +882,7 @@ impl Parser {
                 TokenTag::Comma,
                 Self::parse_func_arg,
             ) {
-                Ok(parsed_args) => args.extend(parsed_args),
+                Ok(parsed_args) => args = parsed_args,
                 Err(_) => return Ok(None),
             }
         } else if let Ok(arg) = self.parse_func_arg() {
@@ -1378,11 +1378,8 @@ impl Parser {
                 let mut args = vec![];
                 if self.current_token().tag() == TokenTag::Lt {
                     self.consume_token();
-                    args.extend(self.parse_delimited_list(
-                        TokenTag::Gt,
-                        TokenTag::Comma,
-                        Self::parse_type,
-                    )?);
+                    args =
+                        self.parse_delimited_list(TokenTag::Gt, TokenTag::Comma, Self::parse_type)?;
                 }
                 Type {
                     kind: Rc::new(TypeKind::NamedWithParams(name, args)),
@@ -1448,7 +1445,7 @@ impl Parser {
             let mut args: Vec<Rc<Type>> = vec![];
             match &*typ.kind {
                 TypeKind::Tuple(tys) => {
-                    args.extend(tys.iter().cloned());
+                    args = tys.iter().cloned().collect();
                 }
                 _ => {
                     args.push(typ);
