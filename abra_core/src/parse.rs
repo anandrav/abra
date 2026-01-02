@@ -729,16 +729,18 @@ impl Parser {
         &mut self,
         delimiter: TokenTag,
         separator: TokenTag,
-        parse_production: impl Fn(&mut Self) -> Result<Rc<T>, Box<Error>>,
-    ) -> Result<Vec<Rc<T>>, Box<Error>> {
-        let mut productions: Vec<Rc<T>> = vec![];
+        parse_production: impl Fn(&mut Self) -> Result<T, Box<Error>>,
+    ) -> Result<Vec<T>, Box<Error>> {
+        let mut productions: Vec<T> = vec![];
         loop {
             self.skip_newlines();
             if self.current_token().tag() == delimiter {
                 break;
             }
             productions.push(parse_production(self)?);
-            if self.current_token().tag() != separator {
+            if self.current_token().tag() == separator {
+                self.consume_token();
+            } else {
                 break;
             }
         }
@@ -918,19 +920,12 @@ impl Parser {
         let mut args: Vec<ArgMaybeAnnotated> = vec![];
         if current.kind == TokenKind::OpenParen {
             self.expect_token(TokenTag::OpenParen);
-            while !matches!(self.current_token().tag(), TokenTag::CloseParen) {
-                if let Ok(arg) = self.parse_func_arg() {
-                    args.push(arg);
-                } else {
-                    return Ok(None);
-                }
-                if self.current_token().tag() == TokenTag::Comma {
-                    self.consume_token();
-                } else {
-                    break;
-                }
+            match self.parse_delimited_list(TokenTag::CloseParen, TokenTag::Comma, |self_| {
+                self_.parse_func_arg()
+            }) {
+                Ok(parsed_args) => args.extend(parsed_args),
+                Err(_) => return Ok(None),
             }
-            self.expect_token(TokenTag::CloseParen);
         } else if let Ok(arg) = self.parse_func_arg() {
             args.push(arg);
         } else {
