@@ -15,7 +15,7 @@ pub fn generate_host_function_enum(
     destination: &Path,
 ) -> Result<(), ErrorSummary> {
     let mut ctx = StaticsContext::new(file_provider);
-    let file_asts = get_files(&mut ctx, &[main_host_func_file_name]);
+    let file_asts = get_files(&mut ctx, &[main_host_func_file_name])?;
     statics::analyze(&mut ctx, &file_asts)?;
 
     let destination = destination.join("generated");

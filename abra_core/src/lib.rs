@@ -37,7 +37,7 @@ use translate_bytecode::CompiledProgram;
 use translate_bytecode::Translator;
 
 pub fn abra_hello_world() {
-    println!("Hello, world!");
+    println!("hello from abra_core");
 }
 
 pub fn compile_bytecode(
@@ -54,7 +54,7 @@ pub fn compile_and_dump_assembly(
     let roots = vec![main_file_name];
 
     let mut ctx = StaticsContext::new(file_provider);
-    let file_asts = get_files(&mut ctx, &roots);
+    let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
     let translator = Translator::new(ctx, file_asts);
@@ -84,7 +84,7 @@ fn compile_bytecode_(
         roots.push(host);
     }
     let mut ctx = StaticsContext::new(file_provider);
-    let file_asts = get_files(&mut ctx, &roots);
+    let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
     let translator = Translator::new(ctx, file_asts);
@@ -97,9 +97,20 @@ pub struct ErrorSummary {
     more: Option<(FileDatabase, Vec<Error>)>,
 }
 
+use std::io::IsTerminal;
+
+fn c(code: &str) -> &str {
+    let use_color = std::io::stdout().is_terminal();
+
+    if use_color { code } else { "" }
+}
+
 impl ErrorSummary {
     pub fn emit(&self) {
-        eprintln!("{}", self.msg);
+        let red = c("\x1b[38;2;230;100;100m");
+        let bold = c("\x1b[1m");
+        let reset = c("\x1b[0m");
+        eprintln!("{red}{bold}error:{reset} {}", self.msg);
         if let Some((file_db, errors)) = &self.more {
             for error in errors {
                 error.emit(file_db);
@@ -133,7 +144,7 @@ impl Display for ErrorSummary {
 
 impl std::error::Error for ErrorSummary {}
 
-fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
+fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>>, ErrorSummary> {
     let mut file_asts: Vec<Rc<FileAst>> = vec![];
 
     let mut stack: VecDeque<FileId> = VecDeque::new();
@@ -141,7 +152,15 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
 
     // main file
     for root in roots {
-        let main_file_data = ctx.file_provider.search_for_file(Path::new(root)).unwrap(); // TODO: don't unwrap. Figure out how to return better errors
+        let main_file_data = match ctx.file_provider.search_for_file(Path::new(root)) {
+            Err(e) => {
+                return Err(ErrorSummary {
+                    msg: e.to_string(),
+                    more: None,
+                });
+            }
+            Ok(main_file_data) => main_file_data,
+        };
         visited.insert(main_file_data.absolute_path.clone());
         let id = ctx.file_db.add(main_file_data);
         stack.push_back(id);
@@ -163,7 +182,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Vec<Rc<FileAst>> {
         add_imports(ctx, file_ast, &mut stack, &mut visited);
     }
 
-    file_asts
+    Ok(file_asts)
 }
 
 #[derive(Debug)]
@@ -268,7 +287,7 @@ impl FileProvider for OsFileProvider {
         }
 
         Err(Box::new(MyError(format!(
-            "Could not find desired file: {}",
+            "could not find file `{}`",
             relative_path.display()
         ))))
     }
@@ -315,7 +334,7 @@ impl FileProvider for MockFileProvider {
                 contents.into(),
             )),
             None => Err(Box::new(MyError(format!(
-                "Could not find desired file: {}",
+                "could not find file `{}`",
                 relative_path.display()
             )))),
         }
