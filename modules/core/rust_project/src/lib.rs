@@ -293,16 +293,6 @@ pub mod ffi {
                 }
             }
         }
-        pub mod map {
-            #[allow(unused)]
-            use crate::core::map;
-            #[allow(unused)]
-            use abra_core::foreign_bindings::*;
-            #[allow(unused)]
-            use abra_core::vm::AbraInt;
-            #[allow(unused)]
-            use std::ffi::c_void;
-        }
         pub mod exec {
             #[allow(unused)]
             use crate::core::exec;
@@ -323,26 +313,6 @@ pub mod ffi {
                     ret.to_vm_unsafe(_vm, _vm_funcs);
                 }
             }
-        }
-        pub mod math {
-            #[allow(unused)]
-            use crate::core::math;
-            #[allow(unused)]
-            use abra_core::foreign_bindings::*;
-            #[allow(unused)]
-            use abra_core::vm::AbraInt;
-            #[allow(unused)]
-            use std::ffi::c_void;
-        }
-        pub mod linked_list {
-            #[allow(unused)]
-            use crate::core::linked_list;
-            #[allow(unused)]
-            use abra_core::foreign_bindings::*;
-            #[allow(unused)]
-            use abra_core::vm::AbraInt;
-            #[allow(unused)]
-            use std::ffi::c_void;
         }
         pub mod random {
             #[allow(unused)]

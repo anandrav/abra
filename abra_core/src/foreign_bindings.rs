@@ -324,11 +324,13 @@ pub mod ffi {{
     )
 }
 
-fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
+fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
+    let mut num_items = 0;
     for item in ast.items.iter() {
         match &*item.kind {
             ItemKind::TypeDef(tydef) => match tydef {
                 TypeDefKind::Struct(s) if s.attributes.iter().any(|a| a.is_foreign()) => {
+                    num_items += 1;
                     swrite!(
                         output,
                         r#"pub struct {} {{
@@ -424,6 +426,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
                 }
                 TypeDefKind::Enum(e) if e.attributes.iter().any(|a| a.is_foreign()) => {
+                    num_items += 1;
                     swrite!(
                         output,
                         r#"pub enum {} {{
@@ -519,6 +522,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 _ => {}
             },
             ItemKind::FuncDecl(f) if f.is_foreign() => {
+                num_items += 1;
                 output.push_str(
                     r#"/// # Safety
                               /// `vm` must be non-null and valid.
@@ -595,6 +599,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
             _ => {}
         }
     }
+    num_items
 }
 
 pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
@@ -663,19 +668,6 @@ fn find_abra_files(
                 }
                 crate_import.push_str(no_extension);
 
-                output.push_str(&format!(
-                    r#" pub mod {no_extension} {{
-                        #[allow(unused)]
-                        use crate::{crate_import};
-                        #[allow(unused)]
-                        use abra_core::foreign_bindings::*;
-                        #[allow(unused)]
-                        use abra_core::vm::AbraInt;
-                        #[allow(unused)]
-                        use std::ffi::c_void;
-                        "#
-                ));
-
                 let source = read_to_string(&path).unwrap();
                 let mut nominal_path = PathBuf::new();
                 for prefix in prefixes.iter() {
@@ -687,9 +679,33 @@ fn find_abra_files(
                 // let file_data = ctx.file_db.get(file_id).unwrap();
 
                 let ast = parse::parse_file(ctx, file_id);
-                add_items_from_ast(ast, output);
 
-                output.push('}');
+                let mut items_output = String::new();
+                let num_items = add_items_from_ast(ast, &mut items_output);
+
+                if num_items > 0 {
+                    output.push_str(&format!("pub mod {no_extension} {{\n"));
+
+                    output.push_str(&format!(
+                        r#"#[allow(unused)]
+                        use crate::{crate_import};
+                        "#
+                    ));
+
+                    output.push_str(
+                        r#" #[allow(unused)]
+                        use abra_core::foreign_bindings::*;
+                        #[allow(unused)]
+                        use abra_core::vm::AbraInt;
+                        #[allow(unused)]
+                        use std::ffi::c_void;
+                        "#,
+                    );
+
+                    output.push_str(&items_output);
+
+                    output.push('}');
+                }
             }
         }
     }
