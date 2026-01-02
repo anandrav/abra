@@ -18,7 +18,7 @@ use disjoint_sets::UnionFindNode;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
-use std::fmt::{self, Display, Write};
+use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use utils::hash::{HashMap, HashSet};
@@ -380,6 +380,24 @@ pub(crate) enum TypeKey {
     String,
     Function(u8), // u8 represents the number of arguments
     Tuple(u8),    // u8 represents the number of elements
+}
+
+impl Display for TypeKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TypeKey::Poly(decl) => write!(f, "{}", decl),
+            TypeKey::InterfaceOutput(output) => write!(f, "{}", output.name.v),
+            TypeKey::TyApp(nominal) => write!(f, "{}", nominal.name()),
+            TypeKey::Void => write!(f, "void"),
+            TypeKey::Never => write!(f, "never"),
+            TypeKey::Int => write!(f, "int"),
+            TypeKey::Float => write!(f, "float"),
+            TypeKey::Bool => write!(f, "bool"),
+            TypeKey::String => write!(f, "string"),
+            TypeKey::Function(n) => write!(f, "fn(#{} args)", n),
+            TypeKey::Tuple(n) => write!(f, "tuple(#{} elems)", n),
+        }
+    }
 }
 
 // Provenances are used to give the *unique* identity of a skolem (type to be solved) (UnifVar) in the SolutionMap
@@ -2505,7 +2523,7 @@ fn generate_constraints_expr(
                                 TypeVar::from_node(ctx, receiver_expr.node()).single()
                             {
                                 let ty_key = potential_ty.key();
-                                if let Some(memfn_decl) = ctx
+                                if let Some((memfn_decl, _)) = ctx
                                     .member_functions
                                     .get(&(ty_key, fname.v.clone()))
                                     .cloned()

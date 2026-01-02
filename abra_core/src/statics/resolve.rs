@@ -603,7 +603,13 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                                 iface: iface_def.clone(),
                                 method: m,
                             };
-                            try_add_member_function(ctx, type_key.clone(), f, method_decl);
+                            try_add_member_function(
+                                ctx,
+                                type_key.clone(),
+                                f,
+                                method_decl,
+                                f.name.node(),
+                            );
                         }
                     }
                     _ => ctx.errors.push(Error::MustExtendType {
@@ -635,7 +641,13 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                     Some(type_key) => {
                         for f in &ext.methods {
                             let method_decl = Declaration::MemberFunction(f.clone());
-                            try_add_member_function(ctx, type_key.clone(), f, method_decl);
+                            try_add_member_function(
+                                ctx,
+                                type_key.clone(),
+                                f,
+                                method_decl,
+                                f.name.node(),
+                            );
                         }
                     }
                     _ => ctx.errors.push(Error::MustExtendType {
@@ -676,17 +688,22 @@ fn try_add_member_function(
     ty_key: TypeKey,
     f: &Rc<FuncDef>,
     method_decl: Declaration,
+    ast_node: AstNode,
 ) {
-    match ctx.member_functions.entry((ty_key, f.name.v.clone())) {
+    match ctx
+        .member_functions
+        .entry((ty_key.clone(), f.name.v.clone()))
+    {
         std::collections::hash_map::Entry::Occupied(occupied_entry) => {
-            ctx.errors.push(Error::NameClash {
+            ctx.errors.push(Error::MemberFuncNameClash {
                 name: f.name.v.clone(),
-                original: occupied_entry.get().clone(),
-                new: method_decl,
+                ty: ty_key,
+                original: occupied_entry.get().1.clone(),
+                new: ast_node,
             })
         }
         std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-            vacant_entry.insert(method_decl);
+            vacant_entry.insert((method_decl, ast_node));
         }
     }
 }
@@ -899,22 +916,22 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 }
             }
             Declaration::Array => {
-                if let Some(def) = ctx
+                if let Some((decl, _)) = ctx
                     .member_functions
                     .get(&(TypeKey::TyApp(Nominal::Array), field.v.clone()))
                 {
-                    ctx.resolution_map.insert(field.id, def.clone());
+                    ctx.resolution_map.insert(field.id, decl.clone());
                 } else {
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }
             }
             Declaration::Struct(struct_def) => {
-                if let Some(def) = ctx
+                if let Some((decl, _)) = ctx
                     .member_functions
                     .get(&(TypeKey::TyApp(Nominal::Struct(struct_def)), field.v.clone()))
                 {
-                    ctx.resolution_map.insert(field.id, def.clone());
+                    ctx.resolution_map.insert(field.id, decl.clone());
                 } else {
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
@@ -922,11 +939,11 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
             }
             Declaration::Enum(enum_def) => {
                 let mut found = false;
-                if let Some(def) = ctx.member_functions.get(&(
+                if let Some((decl, _)) = ctx.member_functions.get(&(
                     TypeKey::TyApp(Nominal::Enum(enum_def.clone())),
                     field.v.clone(),
                 )) {
-                    ctx.resolution_map.insert(field.id, def.clone());
+                    ctx.resolution_map.insert(field.id, decl.clone());
                     found = true;
                 } else {
                     for (idx, variant) in enum_def.variants.iter().enumerate() {

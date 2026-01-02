@@ -59,7 +59,7 @@ pub(crate) struct StaticsContext {
     // has interface decl already been type analyzed
     pub(crate) interface_def_analyzed: HashSet<Rc<InterfaceDef>>,
     // map from (type declaration, member function name) -> function declaration
-    pub(crate) member_functions: HashMap<(TypeKey, String), Declaration>,
+    pub(crate) member_functions: HashMap<(TypeKey, String), (Declaration, AstNode)>,
 
     // for loop function types. used by translator when desugaring for loop to calls
     // of Iterable.make_iterator() and Iterator.next(), which requires knowing the concrete
@@ -302,6 +302,12 @@ pub(crate) enum Error {
         name: String,
         original: Declaration,
         new: Declaration,
+    },
+    MemberFuncNameClash {
+        name: String,
+        ty: TypeKey,
+        original: AstNode,
+        new: AstNode,
     },
     // typechecking phase
     UnconstrainedUnifvar {

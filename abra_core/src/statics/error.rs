@@ -56,6 +56,19 @@ impl Error {
                 add_detail_for_decl(&mut labels, &mut notes, original, "first declared here");
                 add_detail_for_decl(&mut labels, &mut notes, new, "then declared here");
             }
+            Error::MemberFuncNameClash {
+                name,
+                ty,
+                original,
+                new,
+            } => {
+                diagnostic = diagnostic
+                    .with_message(format!("`{name}` was declared for `{ty}` more than once"));
+                let (file, range) = original.get_file_and_range();
+                labels.push(Label::secondary(file, range).with_message("first declared here"));
+                let (file, range) = new.get_file_and_range();
+                labels.push(Label::secondary(file, range).with_message("then declared here"));
+            }
             Error::UnresolvedIdentifier { node } => {
                 let (file, range) = node.get_file_and_range();
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
@@ -404,8 +417,9 @@ fn add_detail_for_decl_node(
         Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
         Declaration::InterfaceMethod {
-            iface: iface_def, ..
-        } => iface_def.name.node(),
+            iface: iface_def,
+            method,
+        } => iface_def.methods[*method].name.node(),
         Declaration::MemberFunction(func_def) => func_def.name.node(),
         Declaration::Enum(enum_def) => enum_def.name.node(),
         Declaration::EnumVariant {
