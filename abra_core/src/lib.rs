@@ -152,7 +152,7 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>
 
     // main file
     for root in roots {
-        let main_file_data = match ctx.file_provider.search_for_file(Path::new(root)) {
+        let main_file_data = match ctx.file_provider.search_for_file(Path::new(root), true) {
             Err(e) => {
                 return Err(ErrorSummary {
                     msg: e.to_string(),
@@ -209,7 +209,7 @@ fn add_imports(
             if !visited.contains(&path) {
                 visited.insert(path.clone());
 
-                let file_data = ctx.file_provider.search_for_file(&path);
+                let file_data = ctx.file_provider.search_for_file(&path, false);
                 match file_data {
                     Ok(file_data) => {
                         let file_id = ctx.file_db.add(file_data);
@@ -227,7 +227,11 @@ fn add_imports(
 pub trait FileProvider {
     /// Given a path, return the contents of the file as a String,
     /// or an error if the file cannot be found.
-    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
+    fn search_for_file(
+        &self,
+        path: &Path,
+        is_root: bool,
+    ) -> Result<FileData, Box<dyn std::error::Error>>;
 }
 
 #[derive(Default, Debug)]
@@ -255,6 +259,7 @@ impl FileProvider for OsFileProvider {
     fn search_for_file(
         &self,
         relative_path: &Path,
+        is_root: bool,
     ) -> Result<FileData, Box<dyn std::error::Error>> {
         let mut package_name = relative_path.to_owned();
         package_name.set_extension("");
@@ -266,9 +271,17 @@ impl FileProvider for OsFileProvider {
             }
         }
 
+        if is_root {
+            return Err(Box::new(MyError(format!(
+                "could not find main file `{}` in `{}`",
+                relative_path.display(),
+                self.main_file_dir.display()
+            ))));
+        }
+
         // TODO: files in dir of main file shadow those in modules. Emit an error if shadowing is detected when searching for a file
         // TODO: let mut found = false; if already_found { report_shadowing_error }
-        // look in modules
+        // look in import dirs
         for dir in &self.import_dirs {
             let desired = dir.join(relative_path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
@@ -287,7 +300,7 @@ impl FileProvider for OsFileProvider {
         }
 
         Err(Box::new(MyError(format!(
-            "could not find file `{}`",
+            "could not find file `{}` in main directory, any import directory, or standard modules directory",
             relative_path.display()
         ))))
     }
@@ -324,6 +337,7 @@ impl FileProvider for MockFileProvider {
     fn search_for_file(
         &self,
         relative_path: &Path,
+        _is_root: bool,
     ) -> Result<FileData, Box<dyn std::error::Error>> {
         let mut package_name = relative_path.to_owned();
         package_name.set_extension("");

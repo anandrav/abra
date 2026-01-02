@@ -19,11 +19,11 @@ for arg in "$@"; do
   fi
 done
 
-printf "Initializing Git submodules... "
+printf "Initializing Git submodules...\n"
 git submodule update --init --recursive
 printf "Done\n"
 
-printf "Installing Abra CLI to Cargo bin... "
+printf "Installing Abra CLI to Cargo bin...\n"
 cargo build $CARGO_BUILD_PROFILE
 cargo install $CARGO_INSTALL_PROFILE --bin abra --path abra_cli || {
   printf "Failed!\n"
@@ -32,7 +32,7 @@ cargo install $CARGO_INSTALL_PROFILE --bin abra --path abra_cli || {
 }
 printf "Done\n"
 
-printf "Installing Abra modules... "
+printf "Installing Abra modules...\n"
 if [ -d $HOME/.abra/abra ]; then
     mv "$HOME/.abra/abra" $HOME/.abra/abra_to_delete
     rm -rf $HOME/.abra/abra_to_delete &
