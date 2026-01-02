@@ -175,6 +175,8 @@ pub enum Instr {
     ArrayLength(Reg, Reg),
     ArrayPop(Reg, Reg),
     ConcatStrings(Reg, Reg, Reg),
+    StringNthByte(Reg, Reg, Reg),
+    StringCountBytes(Reg, Reg),
     IntToFloat(Reg, Reg),
     FloatToInt(Reg, Reg),
     IntToString(Reg, Reg),
@@ -423,6 +425,12 @@ impl Display for Instr {
             Instr::ArrayPop(dest, reg) => write!(f, "array_pop {dest} {reg}"),
             Instr::ConcatStrings(dest, reg1, reg2) => {
                 write!(f, "concat_strings {dest} {reg1} {reg2}")
+            }
+            Instr::StringNthByte(dest, reg1, reg2) => {
+                write!(f, "string_nth_byte {dest} {reg1} {reg2}")
+            }
+            Instr::StringCountBytes(dest, reg) => {
+                write!(f, "string_count_bytes {dest} {reg}")
             }
             Instr::IntToFloat(dest, reg) => write!(f, "int_to_float {dest} {reg}"),
             Instr::FloatToInt(dest, reg) => write!(f, "float_to_int {dest} {reg}"),
@@ -727,6 +735,12 @@ fn instr_to_vminstr(
         Instr::ArrayPop(dest, reg) => VmInstr::ArrayPop(dest.encode(), reg.encode()),
         Instr::ConcatStrings(dest, reg1, reg2) => {
             VmInstr::ConcatStrings(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::StringNthByte(dest, reg1, reg2) => {
+            VmInstr::StringNthByte(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::StringCountBytes(dest, reg) => {
+            VmInstr::StringCountBytes(dest.encode(), reg.encode())
         }
         Instr::IntToFloat(dest, reg) => VmInstr::IntToFloat(dest.encode(), reg.encode()),
         Instr::FloatToInt(dest, reg) => VmInstr::FloatToInt(dest.encode(), reg.encode()),

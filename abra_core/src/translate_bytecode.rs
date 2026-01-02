@@ -1358,6 +1358,8 @@ impl Translator {
             IntrinsicOperation::IntToString => 1,
             IntrinsicOperation::FloatToString => 1,
             IntrinsicOperation::ConcatStrings => 2,
+            IntrinsicOperation::StringNthByte => 2,
+            IntrinsicOperation::StringCountBytes => 1,
             IntrinsicOperation::ArrayPush => {
                 // TODO: code duplication, see inlining of array.push()
                 let Some(SolvedType::Function(args, _)) = self.get_ty(mono, func_node.clone())
@@ -1514,6 +1516,12 @@ impl Translator {
             }
             IntrinsicOperation::ConcatStrings => {
                 self.emit(st, Instr::ConcatStrings(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::StringNthByte => {
+                self.emit(st, Instr::StringNthByte(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::StringCountBytes => {
+                self.emit(st, Instr::StringCountBytes(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::ArrayPush => {
                 // TODO: code duplication, see inlining of array.push()

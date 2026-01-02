@@ -74,6 +74,8 @@ pub enum IntrinsicOperation {
     FloatToString,
 
     ConcatStrings,
+    StringNthByte,
+    StringCountBytes,
 
     ArrayPush,
     ArrayLength,
@@ -204,6 +206,21 @@ impl IntrinsicOperation {
                     TypeVar::make_string(reason.clone()),
                 ],
                 TypeVar::make_string(reason.clone()),
+                reason.clone(),
+            ),
+
+            IntrinsicOperation::StringNthByte => TypeVar::make_func(
+                vec![
+                    TypeVar::make_string(reason.clone()),
+                    TypeVar::make_int(reason.clone()),
+                ],
+                TypeVar::make_int(reason.clone()),
+                reason.clone(),
+            ),
+
+            IntrinsicOperation::StringCountBytes => TypeVar::make_func(
+                vec![TypeVar::make_string(reason.clone())],
+                TypeVar::make_int(reason.clone()),
                 reason.clone(),
             ),
 

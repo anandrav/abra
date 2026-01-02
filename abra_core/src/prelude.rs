@@ -101,7 +101,19 @@ implement Hash for bool {
 
 // TODO: use fnv-1a, iterate over individual bytes.
 implement Hash for string {
-    fn hash(a) = panic("string hash unimplemented")
+    fn hash(s) {
+        // FNV-1a offset basis
+        var hash = -3750763034362895579
+
+        // FNV-1a 64-bit Prime
+        let prime = 1099511628211
+
+        for i in string_count_bytes(s) {
+            hash = bit_xor(hash, string_nth_byte(s, i))
+            hash = wrapping_mul(hash, prime)
+        }
+        hash
+    }
 }
 
 fn hash_combine(seed: int, value: T Hash) -> int {
@@ -109,7 +121,7 @@ fn hash_combine(seed: int, value: T Hash) -> int {
 }
 
 implement Hash for array<T Hash> {
-    fn hash(a) = {
+    fn hash(a) {
         var h = 17
         for elem in a {
             h = hash_combine(h, elem)

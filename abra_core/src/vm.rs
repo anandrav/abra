@@ -529,6 +529,8 @@ pub enum Instr {
     ArrayLength(u16, u16),
     ArrayPop(u16, u16),
     ConcatStrings(u16, u16, u16),
+    StringNthByte(u16, u16, u16),
+    StringCountBytes(u16, u16),
     IntToFloat(u16, u16),
     FloatToInt(u16, u16),
     IntToString(u16, u16),
@@ -1656,6 +1658,15 @@ impl Vm {
                     self.string_op_index2 += 1;
                     self.pc.0 -= 1;
                 }
+            }
+            Instr::StringNthByte(dest, reg1, reg2) => {
+                let n = self.load_offset_or_top(reg2).get_int(self);
+                let s = self.load_offset_or_top(reg1).view_string(self);
+                self.store_offset_or_top(dest, s.as_bytes()[n as usize] as AbraInt);
+            }
+            Instr::StringCountBytes(dest, reg) => {
+                let s = self.load_offset_or_top(reg).view_string(self);
+                self.store_offset_or_top(dest, s.as_bytes().len() as AbraInt);
             }
             Instr::IntToFloat(dest, reg) => {
                 let n = self.load_offset_or_top(reg).get_int(self);
