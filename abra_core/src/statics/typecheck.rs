@@ -2116,11 +2116,11 @@ fn generate_constraints_expr(
                     | Declaration::EnumVariant { .. }
                     | Declaration::InterfaceMethod { .. }
                     | Declaration::MemberFunction { .. } => {
-                        unimplemented!();
+                        // unimplemented!();
                         // // a variable expression should not resolve to the above
-                        // ctx.errors
-                        //     .push(Error::UnresolvedIdentifier { node: expr.node() });
-                        // None
+                        ctx.errors
+                            .push(Error::UnresolvedIdentifier { node: expr.node() });
+                        None
                     }
                     // these are used to access member functions
                     // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore

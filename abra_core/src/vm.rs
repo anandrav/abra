@@ -1163,10 +1163,7 @@ impl Vm {
                     return false;
                 }
                 let Some(c) = a.checked_div(b) else {
-                    self.error = Some(
-                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
-                            .into(),
-                    );
+                    self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 };
                 self.store_offset_or_top(dest, c);
@@ -1174,10 +1171,7 @@ impl Vm {
             Instr::DivideIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 let Some(c) = a.checked_div(self.int_constants[imm as usize]) else {
-                    self.error = Some(
-                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
-                            .into(),
-                    );
+                    self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 };
                 self.store_offset_or_top(dest, c);
@@ -1208,11 +1202,20 @@ impl Vm {
             Instr::Modulo(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a.rem_euclid(b));
+                let Some(c) = a.checked_rem_euclid(b) else {
+                    self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
+                    return false;
+                };
+                self.store_offset_or_top(dest, c);
             }
             Instr::ModuloImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a.rem_euclid(self.int_constants[imm as usize]));
+                let b = self.int_constants[imm as usize];
+                let Some(c) = a.checked_rem_euclid(b) else {
+                    self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
+                    return false;
+                };
+                self.store_offset_or_top(dest, c);
             }
             Instr::AddFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);

@@ -1,0 +1,15 @@
+use core/map
+
+let m: map<int, string> = map.new()
+m.insert(1, "hello")
+m.insert(2, "world")
+m.insert(1, "h3ll0")
+m.insert(3, "3")
+m.insert(4, "4")
+m.insert(5, "5")
+let s1 = m.get(1)!
+let s2 = m.get(2)!
+let s5 = m.get(5)!
+println(s1)
+println(s2)
+println(s5)

@@ -69,6 +69,14 @@ implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }
 
+interface Hash {
+    fn hash(a: Self) -> int
+}
+
+implement Hash for int {
+    fn hash(a) = a
+}
+
 // TODO implement Equal for tuples... do it at the bottom of the prelude
 
 interface Ord {
