@@ -720,7 +720,7 @@ impl Translator {
                             self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top))
                         }
                         SolvedType::Float => {
-                            self.emit(st, Instr::PushInt(0));
+                            self.emit(st, Instr::PushFloat("0.0".into()));
                             self.translate_expr(right, offset_table, mono, st);
                             self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top))
                         }

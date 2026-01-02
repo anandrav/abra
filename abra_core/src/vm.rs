@@ -586,7 +586,7 @@ impl CallData {
 // - vtable index
 const _: [(); 16] = [(); size_of::<Value>()];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Value(u64, /*is_pointer*/ bool); // TODO: use value tag instead of bool and add asserts get_int, get_float, get_bool, get_object_header, get_struct etc.
+pub struct Value(u64, ValueTag); // TODO: use value tag instead of bool and add asserts get_int, get_float, get_bool, get_object_header, get_struct etc.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueTag {
@@ -600,28 +600,43 @@ pub enum ValueTag {
     Addr,
 }
 
+impl ValueTag {
+    fn is_pointer(&self) -> bool {
+        matches!(
+            self,
+            ValueTag::Struct | ValueTag::Array | ValueTag::Variant | ValueTag::String
+        )
+    }
+}
+
 impl Value {
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {
+        debug_assert_eq!(self.1, ValueTag::Int);
         self.0 as AbraInt
     }
 
     pub fn get_float(&self, _vm: &Vm) -> AbraFloat {
+        debug_assert_eq!(self.1, ValueTag::Float);
         AbraFloat::from_bits(self.0)
     }
 
     pub fn get_bool(&self, _vm: &Vm) -> bool {
+        debug_assert_eq!(self.1, ValueTag::Bool);
         self.0 != 0
     }
 
     unsafe fn get_object_header<'a>(&self) -> &'a mut ObjectHeader {
+        debug_assert!(self.1.is_pointer());
         unsafe { &mut *(self.0 as *mut ObjectHeader) }
     }
 
     fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a StructObject {
+        debug_assert_eq!(self.1, ValueTag::Struct);
         unsafe { &*(self.0 as *const StructObject) }
     }
 
     unsafe fn get_struct_mut<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
+        debug_assert_eq!(self.1, ValueTag::Struct);
         unsafe { &mut *(self.0 as *mut StructObject) }
     }
 
@@ -629,6 +644,7 @@ impl Value {
     where
         Self: Sized,
     {
+        debug_assert_eq!(self.1, ValueTag::Array);
         unsafe { &*(self.0 as *const ArrayObject) }
     }
 
@@ -636,6 +652,7 @@ impl Value {
     where
         Self: Sized,
     {
+        debug_assert_eq!(self.1, ValueTag::Array);
         unsafe { &mut *(self.0 as *mut ArrayObject) }
     }
 
@@ -643,64 +660,67 @@ impl Value {
     where
         Self: Sized,
     {
+        debug_assert_eq!(self.1, ValueTag::Variant);
         unsafe { &mut *(self.0 as *mut EnumObject) }
     }
 
     pub fn view_string<'a>(&self, _vm: &Vm) -> &'a str {
+        debug_assert_eq!(self.1, ValueTag::String);
         let so = unsafe { &*(self.0 as *const StringObject) };
         &so.str
     }
 
     fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
+        debug_assert_eq!(self.1, ValueTag::Addr);
         ProgramCounter(self.0 as u32)
     }
 }
 
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
-        Self(if b { 1 } else { 0 }, false)
+        Self(if b { 1 } else { 0 }, ValueTag::Bool)
     }
 }
 
 impl From<AbraInt> for Value {
     fn from(n: AbraInt) -> Self {
-        Self(n as u64, false)
+        Self(n as u64, ValueTag::Int)
     }
 }
 
 impl From<AbraFloat> for Value {
     fn from(n: AbraFloat) -> Self {
-        Self(AbraFloat::to_bits(n), false)
+        Self(AbraFloat::to_bits(n), ValueTag::Float)
     }
 }
 
 impl From<ProgramCounter> for Value {
     fn from(n: ProgramCounter) -> Self {
-        Self(n.0 as u64, false)
+        Self(n.0 as u64, ValueTag::Addr)
     }
 }
 
 impl From<*mut ArrayObject> for Value {
     fn from(ptr: *mut ArrayObject) -> Self {
-        Self(ptr as u64, true)
+        Self(ptr as u64, ValueTag::Array)
     }
 }
 
 impl From<*mut StructObject> for Value {
     fn from(ptr: *mut StructObject) -> Self {
-        Self(ptr as u64, true)
+        Self(ptr as u64, ValueTag::Struct)
     }
 }
 
 impl From<*mut EnumObject> for Value {
     fn from(ptr: *mut EnumObject) -> Self {
-        Self(ptr as u64, true)
+        Self(ptr as u64, ValueTag::Variant)
     }
 }
 
 impl From<*mut StringObject> for Value {
     fn from(ptr: *mut StringObject) -> Self {
-        Self(ptr as u64, true)
+        Self(ptr as u64, ValueTag::String)
     }
 }
 
@@ -1793,7 +1813,7 @@ impl Vm {
 
     fn mark(v: &Value, gray_stack: &mut Vec<*mut ObjectHeader>, gc_visited: bool) {
         // if v is not a pointer
-        if !v.1 {
+        if !v.1.is_pointer() {
             return;
         }
 
@@ -1856,7 +1876,7 @@ impl Vm {
             return;
         }
         // if child is not a pointer
-        if !child.1 {
+        if !child.1.is_pointer() {
             return;
         }
 
