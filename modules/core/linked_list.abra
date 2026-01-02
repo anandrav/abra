@@ -19,8 +19,8 @@ extend list<T> {
 
     fn map(self, f: T -> U) -> list<U> {
         match self {
-            .empty -> list.empty // TODO: shouldn't need this annotation
-            .cons(head, tail) -> list.cons(f(head), tail.map(f)) // TODO: shouldn't need this annotation
+            .empty -> .empty
+            .cons(head, tail) -> .cons(f(head), tail.map(f))
         }
     }
 
@@ -36,13 +36,13 @@ extend list<T> {
 
     fn filter(self, f: T -> bool) -> list<T> {
         match self {
-            .empty -> list.empty // TODO: shouldn't need this annotation
+            .empty -> .empty
             .cons (head, tail) ->
                 if f(head) { .cons(head, tail.filter(f)) } else { tail.filter(f) }
         }
     }
 
     fn reverse(self) -> list<T> {
-        self.fold((acc, head) -> list.cons(head, acc), list.empty) // TODO: shouldn't need this annotation
+        self.fold((acc, head) -> list.cons(head, acc), .empty)
     }
 }

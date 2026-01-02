@@ -2333,6 +2333,7 @@ fn generate_constraints_expr(
                     Mode::ana_reason(&ty_scrutiny, ConstraintReason::MatchScrutinyAndPattern),
                     &arm.pat,
                 );
+                generate_constraints_stmt(ctx, polyvar_scope, mode.clone(), &arm.stmt);
                 generate_constraints_stmt(ctx, polyvar_scope, Mode::ana(&node_ty), &arm.stmt);
                 if let StmtKind::Expr(..) = &*arm.stmt.kind {
                 } else {
