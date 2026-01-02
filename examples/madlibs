@@ -1,6 +1,6 @@
 #!/usr/bin/env abra
 
-print("Type an adjective and hit `Enter`: ") // TODO: changing this to just print breaks it!
+print("Type an adjective and hit `Enter`: ")
 let adj = readline()
 println("Abra is a " .. adj .. " programming language!")
 

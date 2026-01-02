@@ -57,7 +57,7 @@ impl<T: Hash + Eq> IdSet<T> {
     pub fn new() -> Self {
         Self {
             map: HashMap::default(),
-            current_buf: Vec::with_capacity(0), // TODO: just call Vec::new()
+            current_buf: Vec::new(),
             old_bufs: Vec::new(),
             id_to_ptr: Vec::new(),
         }
