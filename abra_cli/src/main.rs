@@ -142,9 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let main_file_dir = if main_file_path.is_absolute() {
         main_file_path.parent().unwrap()
     } else {
-        &std::env::current_dir()
-            .unwrap()
-            .join(main_file_path.parent().unwrap())
+        &std::env::current_dir()?.join(main_file_path.parent().unwrap())
     };
     let file_provider =
         OsFileProvider::new(main_file_dir.into(), standard_modules_dir, import_dirs);

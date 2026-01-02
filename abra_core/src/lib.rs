@@ -242,6 +242,9 @@ pub struct OsFileProvider {
 }
 
 impl OsFileProvider {
+    pub fn single_dir(main_file_dir: PathBuf) -> Box<Self> {
+        Self::new(main_file_dir, PathBuf::new(), vec![])
+    }
     pub fn new(
         main_file_dir: PathBuf,
         standard_modules_dir: PathBuf,

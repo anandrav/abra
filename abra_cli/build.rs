@@ -7,9 +7,9 @@ use std::{error::Error, path::PathBuf};
 use abra_core::OsFileProvider;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let this_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let this_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
 
-    let file_provider = OsFileProvider::new(this_dir.clone(), PathBuf::new(), vec![]); // TODO: passing dummies here is strange. Need an alternative to new() that just takes the directory.
+    let file_provider = OsFileProvider::single_dir(this_dir.clone());
 
     let destination = this_dir.join("src");
 

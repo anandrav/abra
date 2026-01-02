@@ -12,8 +12,8 @@ mod generated;
 use generated::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("abra_src");
-    let file_provider = OsFileProvider::new(abra_src_dir, PathBuf::new(), vec![]); // TODO: passing dummies here is strange
+    let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join("abra_src");
+    let file_provider = OsFileProvider::single_dir(abra_src_dir);
 
     let program = abra_core::compile_bytecode("main.abra", file_provider)?;
 

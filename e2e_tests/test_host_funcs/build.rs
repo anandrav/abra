@@ -7,10 +7,10 @@ use std::{error::Error, path::PathBuf};
 use abra_core::OsFileProvider;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("abra_src");
-    let file_provider = OsFileProvider::new(abra_src_dir, PathBuf::new(), vec![]); // TODO: passing dummies here is strange
+    let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join("abra_src");
+    let file_provider = OsFileProvider::single_dir(abra_src_dir);
 
-    let this_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let this_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let destination = PathBuf::from(this_dir).join("src");
 
     if let Err(s) = abra_core::generate_host_function_enum("util.abra", file_provider, &destination)
