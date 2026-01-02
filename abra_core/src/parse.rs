@@ -371,21 +371,17 @@ impl Parser {
                 self.expect_token(TokenTag::For);
                 let typ = self.parse_type()?;
                 self.expect_token(TokenTag::OpenBrace);
-                // TODO: use parse_delimited_list
-                let mut methods = vec![];
-                while !matches!(self.current_token().tag(), TokenTag::CloseBrace) {
-                    let mut attributes = vec![];
-                    while self.current_token().tag() == TokenTag::Pound {
-                        attributes.push(self.parse_attribute()?);
-                    }
-                    methods.push(self.parse_func_def(attributes)?);
-                    if self.current_token().tag() == TokenTag::Newline {
-                        self.consume_token();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect_token(TokenTag::CloseBrace);
+                let methods = self.parse_delimited_list(
+                    TokenTag::CloseBrace,
+                    TokenTag::Newline,
+                    |parser: &mut Parser| {
+                        let mut attributes = vec![];
+                        while parser.current_token().tag() == TokenTag::Pound {
+                            attributes.push(parser.parse_attribute()?);
+                        }
+                        parser.parse_func_def(attributes)
+                    },
+                )?;
 
                 let interface_impl = InterfaceImpl {
                     iface,
