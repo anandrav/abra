@@ -69,6 +69,20 @@ implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }
 
+implement Equal for array<T Equal> {
+    fn equal(a, b) {
+        if a.len() != b.len() {
+            return false
+        }
+        for i in a.len() {
+            if a[i] != b[i] {
+                return false
+            }
+        }
+        true
+    }
+}
+
 interface Hash {
     fn hash(a: Self) -> int
 }
@@ -85,12 +99,23 @@ implement Hash for bool {
     fn hash(a) = if a { 1 } else { 0 }
 }
 
+// use fnv-1a, iterate over individual bytes.
 implement Hash for string {
     fn hash(a) = panic("string hash unimplemented")
 }
 
+fn hash_combine(seed: int, value: T Hash) -> int {
+    (seed * 31) + Hash.hash(value) // TODO: using wrapping multiply
+}
+
 implement Hash for array<T Hash> {
-    fn hash(a) = panic("array hash unimplemented")
+    fn hash(a) = {
+        var h = 17
+        for elem in a {
+            h = hash_combine(h, elem)
+        }
+        h
+    }
 }
 
 // TODO implement Hash fro tuples... do it at the bottom of the prelude
