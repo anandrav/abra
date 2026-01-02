@@ -116,8 +116,6 @@ pub enum VmErrorKind {
     DivisionByZero,
 
     // internal errors AKA bugs
-    Underflow,
-    WrongType { expected: ValueKind },
     FfiNotEnabled,
     LibLoadFailure(String),
     SymbolLoadFailure(String),
@@ -395,17 +393,6 @@ impl Vm {
             location: self.pc_to_error_location(self.pc),
             trace: self.make_stack_trace(),
         }
-    }
-
-    fn _fail_wrong_type(&self, expected: ValueKind) -> ! {
-        panic!(
-            "{}",
-            VmError {
-                kind: VmErrorKind::WrongType { expected },
-                location: self.pc_to_error_location(self.pc),
-                trace: self.make_stack_trace(),
-            }
-        )
     }
 
     pub fn is_done(&self) -> bool {
@@ -2024,15 +2011,6 @@ impl Display for VmErrorKind {
             }
             VmErrorKind::InternalError(s) => {
                 write!(f, "internal error: {s}")
-            }
-            VmErrorKind::WrongType { expected } => {
-                write!(
-                    f,
-                    "internal error: wrong type on top of stack, expected: {expected:?}"
-                )
-            }
-            VmErrorKind::Underflow => {
-                write!(f, "internal error: stack underflow")
             }
         }
     }
