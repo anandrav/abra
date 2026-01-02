@@ -83,28 +83,6 @@ implement Equal for array<T Equal> {
     }
 }
 
-implement Equal for (T1 Equal, T2 Equal) {
-    fn equal(a, b) {
-        let (a1, a2) = a
-        let (b1, b2) = b
-        (a1 == b1) and (a2 == b2)
-    }
-}
-implement Equal for (T1 Equal, T2 Equal, T3 Equal) {
-    fn equal(a, b) {
-        let (a1, a2, a3) = a
-        let (b1, b2, b3) = b
-        (a1 == b1) and (a2 == b2) and (a3 == b3)
-    }
-}
-implement Equal for (T1 Equal, T2 Equal, T3 Equal, T4 Equal) {
-    fn equal(a, b) {
-        let (a1, a2, a3, a4) = a
-        let (b1, b2, b3, b4) = b
-        (a1 == b1) and (a2 == b2) and (a3 == b3) and (a4 == b4)
-    }
-}
-
 interface Hash {
     fn hash(a: Self) -> int
 }
@@ -121,7 +99,7 @@ implement Hash for bool {
     fn hash(a) = if a { 1 } else { 0 }
 }
 
-// use fnv-1a, iterate over individual bytes.
+// TODO: use fnv-1a, iterate over individual bytes.
 implement Hash for string {
     fn hash(a) = panic("string hash unimplemented")
 }
@@ -136,39 +114,6 @@ implement Hash for array<T Hash> {
         for elem in a {
             h = hash_combine(h, elem)
         }
-        h
-    }
-}
-
-implement Hash for (T1 Hash, T2 Hash) {
-    fn hash(p) {
-        let (a, b) = p
-        var h = 17
-        h = hash_combine(h, a)
-        h = hash_combine(h, b)
-        h
-    }
-}
-
-implement Hash for (T1 Hash, T2 Hash, T3 Hash) {
-    fn hash(p) {
-        let (a, b, c) = p
-        var h = 17
-        h = hash_combine(h, a)
-        h = hash_combine(h, b)
-        h = hash_combine(h, c)
-        h
-    }
-}
-
-implement Hash for (T1 Hash, T2 Hash, T3 Hash, T4 Hash) {
-    fn hash(p) {
-        let (a, b, c, d) = p
-        var h = 17
-        h = hash_combine(h, a)
-        h = hash_combine(h, b)
-        h = hash_combine(h, c)
-        h = hash_combine(h, d)
         h
     }
 }
@@ -206,48 +151,6 @@ implement Ord for bool {
     fn less_than_or_equal(a, b) = not (a and not b)
     fn greater_than(a, b) = a and (not b)
     fn greater_than_or_equal(a, b) = a and not b
-}
-
-implement Ord for (T1 Ord, T2 Ord) {
-    fn less_than(a, b) {
-        let (a1, a2) = a
-        let (b1, b2) = b
-
-        if Ord.less_than(a1, b1) return true
-        if Ord.greater_than(a1, b1) return false
-
-        Ord.less_than(a2, b2)
-    }
-
-    fn less_than_or_equal(a, b) {
-        let (a1, a2) = a
-        let (b1, b2) = b
-
-        if Ord.less_than(a1, b1) return true
-        if Ord.greater_than(a1, b1) return false
-
-        Ord.less_than_or_equal(a2, b2)
-    }
-
-    fn greater_than(a, b) {
-        let (a1, a2) = a
-        let (b1, b2) = b
-
-        if Ord.greater_than(a1, b1) return true
-        if Ord.less_than(a1, b1) return false
-
-        Ord.greater_than(a2, b2)
-    }
-
-    fn greater_than_or_equal(a, b) {
-        let (a1, a2) = a
-        let (b1, b2) = b
-
-        if Ord.greater_than(a1, b1) return true
-        if Ord.less_than(a1, b1) return false
-
-        Ord.greater_than_or_equal(a2, b2)
-    }
 }
 
 interface Clone {
@@ -296,24 +199,6 @@ implement ToString for bool {
 }
 implement ToString for float {
     fn str(f) = float_to_string(f)
-}
-implement ToString for (T1 ToString, T2 ToString) {
-    fn str(p) {
-        let (a, b) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString) {
-    fn str(p) {
-        let (a, b, c) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ")"
-    }
-}
-implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString) {
-    fn str(p) {
-        let (a, b, c, d) = p
-        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ")"
-    }
 }
 
 implement ToString for option<T ToString> {
@@ -593,6 +478,244 @@ extend array<T> {
             temp.pop()
             cleanup = cleanup + 1
         }
+    }
+}
+
+// Tuple interface implementations
+
+implement ToString for (T1 ToString, T2 ToString) {
+    fn str(p) {
+        let (a, b) = p
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ")"
+    }
+}
+implement ToString for (T1 ToString, T2 ToString, T3 ToString) {
+    fn str(p) {
+        let (a, b, c) = p
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ")"
+    }
+}
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString) {
+    fn str(p) {
+        let (a, b, c, d) = p
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ")"
+    }
+}
+
+implement Hash for (T1 Hash, T2 Hash) {
+    fn hash(p) {
+        let (a, b) = p
+        var h = 17
+        h = hash_combine(h, a)
+        h = hash_combine(h, b)
+        h
+    }
+}
+
+implement Hash for (T1 Hash, T2 Hash, T3 Hash) {
+    fn hash(p) {
+        let (a, b, c) = p
+        var h = 17
+        h = hash_combine(h, a)
+        h = hash_combine(h, b)
+        h = hash_combine(h, c)
+        h
+    }
+}
+
+implement Hash for (T1 Hash, T2 Hash, T3 Hash, T4 Hash) {
+    fn hash(p) {
+        let (a, b, c, d) = p
+        var h = 17
+        h = hash_combine(h, a)
+        h = hash_combine(h, b)
+        h = hash_combine(h, c)
+        h = hash_combine(h, d)
+        h
+    }
+}
+
+implement Equal for (T1 Equal, T2 Equal) {
+    fn equal(a, b) {
+        let (a1, a2) = a
+        let (b1, b2) = b
+        (a1 == b1) and (a2 == b2)
+    }
+}
+implement Equal for (T1 Equal, T2 Equal, T3 Equal) {
+    fn equal(a, b) {
+        let (a1, a2, a3) = a
+        let (b1, b2, b3) = b
+        (a1 == b1) and (a2 == b2) and (a3 == b3)
+    }
+}
+implement Equal for (T1 Equal, T2 Equal, T3 Equal, T4 Equal) {
+    fn equal(a, b) {
+        let (a1, a2, a3, a4) = a
+        let (b1, b2, b3, b4) = b
+        (a1 == b1) and (a2 == b2) and (a3 == b3) and (a4 == b4)
+    }
+}
+
+implement Ord for (T1 Ord, T2 Ord) {
+    fn less_than(a, b) {
+        let (a1, a2) = a
+        let (b1, b2) = b
+
+        if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
+        Ord.less_than(a2, b2)
+    }
+
+    fn less_than_or_equal(a, b) {
+        let (a1, a2) = a
+        let (b1, b2) = b
+
+        if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
+        Ord.less_than_or_equal(a2, b2)
+    }
+
+    fn greater_than(a, b) {
+        let (a1, a2) = a
+        let (b1, b2) = b
+
+        if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
+        Ord.greater_than(a2, b2)
+    }
+
+    fn greater_than_or_equal(a, b) {
+        let (a1, a2) = a
+        let (b1, b2) = b
+
+        if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
+        Ord.greater_than_or_equal(a2, b2)
+    }
+}
+
+implement Ord for (T1 Ord, T2 Ord, T3 Ord) {
+    fn less_than(a, b) {
+        let (a1, a2, a3) = a
+        let (b1, b2, b3) = b
+
+        if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
+        if Ord.less_than(a2, b2) return true
+        if Ord.greater_than(a2, b2) return false
+
+        Ord.less_than(a3, b3)
+    }
+
+    fn less_than_or_equal(a, b) {
+        let (a1, a2, a3) = a
+        let (b1, b2, b3) = b
+
+        if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
+        if Ord.less_than(a2, b2) return true
+        if Ord.greater_than(a2, b2) return false
+
+        Ord.less_than_or_equal(a3, b3)
+    }
+
+    fn greater_than(a, b) {
+        let (a1, a2, a3) = a
+        let (b1, b2, b3) = b
+
+        if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
+        if Ord.greater_than(a2, b2) return true
+        if Ord.less_than(a2, b2) return false
+
+        Ord.greater_than(a3, b3)
+    }
+
+    fn greater_than_or_equal(a, b) {
+        let (a1, a2, a3) = a
+        let (b1, b2, b3) = b
+
+        if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
+        if Ord.greater_than(a2, b2) return true
+        if Ord.less_than(a2, b2) return false
+
+        Ord.greater_than_or_equal(a3, b3)
+    }
+}
+
+implement Ord for (T1 Ord, T2 Ord, T3 Ord, T4 Ord) {
+    fn less_than(a, b) {
+        let (a1, a2, a3, a4) = a
+        let (b1, b2, b3, b4) = b
+
+        if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
+        if Ord.less_than(a2, b2) return true
+        if Ord.greater_than(a2, b2) return false
+
+        if Ord.less_than(a3, b3) return true
+        if Ord.greater_than(a3, b3) return false
+
+        Ord.less_than(a4, b4)
+    }
+
+    fn less_than_or_equal(a, b) {
+        let (a1, a2, a3, a4) = a
+        let (b1, b2, b3, b4) = b
+
+        if Ord.less_than(a1, b1) return true
+        if Ord.greater_than(a1, b1) return false
+
+        if Ord.less_than(a2, b2) return true
+        if Ord.greater_than(a2, b2) return false
+
+        if Ord.less_than(a3, b3) return true
+        if Ord.greater_than(a3, b3) return false
+
+        Ord.less_than_or_equal(a4, b4)
+    }
+
+    fn greater_than(a, b) {
+        let (a1, a2, a3, a4) = a
+        let (b1, b2, b3, b4) = b
+
+        if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
+        if Ord.greater_than(a2, b2) return true
+        if Ord.less_than(a2, b2) return false
+
+        if Ord.greater_than(a3, b3) return true
+        if Ord.less_than(a3, b3) return false
+
+        Ord.greater_than(a4, b4)
+    }
+
+    fn greater_than_or_equal(a, b) {
+        let (a1, a2, a3, a4) = a
+        let (b1, b2, b3, b4) = b
+
+        if Ord.greater_than(a1, b1) return true
+        if Ord.less_than(a1, b1) return false
+
+        if Ord.greater_than(a2, b2) return true
+        if Ord.less_than(a2, b2) return false
+
+        if Ord.greater_than(a3, b3) return true
+        if Ord.less_than(a3, b3) return false
+
+        Ord.greater_than_or_equal(a4, b4)
     }
 }
 
