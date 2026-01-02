@@ -7,9 +7,9 @@ m.insert((1, true), "h3ll0")
 m.insert((3, true), "3")
 m.insert((4, false), "4")
 m.insert((5, true), "5")
-let s1 = m.get((1, true))!
-let s2 = m.get((2, false))!
-let s5 = m.get((5, true))!
+let s1 = m.get((1, true))
+let s2 = m.get((2, false))
+let s5 = m.get((5, true))
 println(s1)
 println(s2)
 println(s5)

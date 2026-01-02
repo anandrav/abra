@@ -34,6 +34,15 @@ implement Num for float {
 
 type option<T> = some(T) | none
 
+extend option<T> {
+    fn is_some(self) -> bool {
+        match self {
+            .some(_) -> true
+            .none -> false
+        }
+    }
+}
+
 fn unwrap(m: option<T>) -> T {
     match m {
         .some(x) -> x

@@ -83,7 +83,11 @@ extend map<K Hash Equal, V> {
         self.count = self.count + 1
     }
 
-    fn get(self, key: K) -> option<V> {
+    fn get(self, key: K) -> V {
+        self.try_get(key)!
+    }
+
+    fn try_get(self, key: K) -> option<V> {
         if self.buckets.len() == 0 return .none
 
         let hash_code = Hash.hash(key)
@@ -99,6 +103,10 @@ extend map<K Hash Equal, V> {
             i = self.entry_nexts[i]
         }
         .none
+    }
+
+    fn contains(self, key: K) -> bool {
+        self.try_get(key).is_some()
     }
 
     fn remove(self, key: K) -> bool {
