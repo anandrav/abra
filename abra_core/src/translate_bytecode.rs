@@ -56,9 +56,7 @@ impl FuncDesc {
             FuncKind::NamedFunc(f) => ctx.fully_qualified_names[&f.name.id].clone(),
             FuncKind::AnonymousFunc { lambda, .. } => format!("<lambda>[{}]", lambda.id),
             FuncKind::IntrinsicWrapper(b, _) => b.name(),
-            FuncKind::ForeignFunctionWrapper { func_decl, .. } => {
-                ctx.fully_qualified_names[&func_decl.name.id].clone()
-            }
+            FuncKind::ForeignFunctionWrapper { symbol, .. } => symbol.clone(),
             FuncKind::HostFunctionWrapper(f) => ctx.fully_qualified_names[&f.name.id].clone(),
         }
     }
