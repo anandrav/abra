@@ -53,7 +53,6 @@ pub enum IntrinsicOperation {
 
     Atan2,
 
-    // TODO: maybe need atan2, exp aka e^x ?, is_nan(), is_inf(), is_neg_inf(),
     LessThanInt,
     LessThanOrEqualInt,
     GreaterThanInt,
@@ -227,7 +226,7 @@ impl IntrinsicOperation {
             IntrinsicOperation::ArrayPush => {
                 let a = TypeVar::make_poly(
                     reason.clone(),
-                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()), // TODO: rename this and others to "T"
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()),
                 );
                 TypeVar::make_func(
                     vec![
