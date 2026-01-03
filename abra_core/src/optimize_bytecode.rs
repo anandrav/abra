@@ -231,8 +231,8 @@ fn peephole3_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
                         Instr::PushInt(a),
                         Instr::PushInt(b),
                         Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
-                        let c = a.wrapping_add(*b); // TODO: checked_add here and everywhere else
+                    ) if a.checked_add(*b).is_some() => {
+                        let c = a + b;
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
                             lineno,
@@ -246,8 +246,8 @@ fn peephole3_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
                         Instr::PushInt(a),
                         Instr::PushInt(b),
                         Instr::SubInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
-                        let c = a.wrapping_sub(*b);
+                    ) if a.checked_sub(*b).is_some() => {
+                        let c = a - b;
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
                             lineno,
@@ -261,8 +261,8 @@ fn peephole3_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
                         Instr::PushInt(a),
                         Instr::PushInt(b),
                         Instr::MulInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
-                        let c = a.wrapping_mul(*b);
+                    ) if a.checked_mul(*b).is_some() => {
+                        let c = a * b;
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
                             lineno,
@@ -276,11 +276,11 @@ fn peephole3_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
                         Instr::PushInt(a),
                         Instr::PushInt(b),
                         Instr::DivInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
+                    ) if a.checked_div(*b).is_some() => {
                         if *b == 0 {
                             false
                         } else {
-                            let c = a.wrapping_div(*b);
+                            let c = a / b;
                             ret.push(Line::Instr {
                                 instr: Instr::PushInt(c),
                                 lineno,
@@ -295,8 +295,8 @@ fn peephole3_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
                         Instr::PushInt(a),
                         Instr::PushInt(b),
                         Instr::PowInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
-                        let c = a.wrapping_pow(*b as u32);
+                    ) if a.checked_pow(*b as u32).is_some() => {
+                        let c = a.pow(*b as u32);
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
                             lineno,
