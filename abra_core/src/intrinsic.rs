@@ -227,7 +227,7 @@ impl IntrinsicOperation {
             IntrinsicOperation::ArrayPush => {
                 let a = TypeVar::make_poly(
                     reason.clone(),
-                    PolytypeDeclaration::IntrinsicOperation(*self, "a".to_string()), // TODO: rename this and others to "T"
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()), // TODO: rename this and others to "T"
                 );
                 TypeVar::make_func(
                     vec![
@@ -242,7 +242,7 @@ impl IntrinsicOperation {
             IntrinsicOperation::ArrayLength => {
                 let a = TypeVar::make_poly(
                     reason.clone(),
-                    PolytypeDeclaration::IntrinsicOperation(*self, "a".to_string()),
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()),
                 );
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(
@@ -258,7 +258,7 @@ impl IntrinsicOperation {
             IntrinsicOperation::ArrayPop => {
                 let a = TypeVar::make_poly(
                     reason.clone(),
-                    PolytypeDeclaration::IntrinsicOperation(*self, "a".to_string()),
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()),
                 );
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(
