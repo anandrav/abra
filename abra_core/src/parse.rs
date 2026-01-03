@@ -946,41 +946,78 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::IntLit(s) => {
-                self.consume_token();
-                Expr {
-                    kind: Rc::new(ExprKind::Int(s.parse::<i64>().unwrap())), // TODO: don't unwrap. report error if this can't fit in an i64
-                    loc: self.location(lo),
-                    id: NodeId::new(),
+            TokenKind::IntLit(s) => match s.parse::<i64>() {
+                Ok(n) => {
+                    self.consume_token();
+                    Expr {
+                        kind: Rc::new(ExprKind::Int(n)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
                 }
-            }
-            TokenKind::FloatLit(s) => {
-                self.consume_token();
-                Expr {
-                    kind: Rc::new(ExprKind::Float(s)), // TODO: make sure float fits in an f64?
-                    loc: self.location(lo),
-                    id: NodeId::new(),
+                Err(_) => {
+                    return Err(Error::ProblematicToken(
+                        "Could not parse integer literal. Out of range?".into(),
+                        self.current_token_location(),
+                    )
+                    .into());
                 }
-            }
+            },
+            TokenKind::FloatLit(s) => match s.parse::<f64>() {
+                Ok(_) => {
+                    self.consume_token();
+                    Expr {
+                        kind: Rc::new(ExprKind::Float(s)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                }
+                Err(_) => {
+                    return Err(Error::ProblematicToken(
+                        "Could not parse float literal. Out of range?".into(),
+                        self.current_token_location(),
+                    )
+                    .into());
+                }
+            },
             TokenKind::Minus => {
                 self.consume_token();
                 match self.current_token().kind {
-                    TokenKind::IntLit(s) => {
-                        self.consume_token();
-                        Expr {
-                            kind: Rc::new(ExprKind::Int(
-                                ("-".to_string() + &s).parse::<i64>().unwrap(),
-                            )), // TODO: don't unwrap. report error if this can't fit in an i64
-                            loc: self.location(lo),
-                            id: NodeId::new(),
+                    TokenKind::IntLit(s) => match ("-".to_string() + &s).parse::<i64>() {
+                        Ok(n) => {
+                            self.consume_token();
+                            Expr {
+                                kind: Rc::new(ExprKind::Int(n)),
+                                loc: self.location(lo),
+                                id: NodeId::new(),
+                            }
                         }
-                    }
+                        Err(_) => {
+                            return Err(Error::ProblematicToken(
+                                "Could not parse negated integer literal. Out of range?".into(),
+                                self.current_token_location(),
+                            )
+                            .into());
+                        }
+                    },
                     TokenKind::FloatLit(s) => {
-                        self.consume_token();
-                        Expr {
-                            kind: Rc::new(ExprKind::Float("-".to_string() + &s)), // TODO: make sure float fits in an f64?
-                            loc: self.location(lo),
-                            id: NodeId::new(),
+                        let f_string = "-".to_string() + &s;
+                        match f_string.parse::<f64>() {
+                            Ok(_) => {
+                                self.consume_token();
+                                Expr {
+                                    kind: Rc::new(ExprKind::Float(f_string)),
+                                    loc: self.location(lo),
+                                    id: NodeId::new(),
+                                }
+                            }
+                            Err(_) => {
+                                return Err(Error::ProblematicToken(
+                                    "Could not parse negated float literal. Out of range?".into(),
+                                    self.current_token_location(),
+                                )
+                                .into());
+                            }
                         }
                     }
                     _ => {
@@ -1188,26 +1225,44 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::IntLit(s) => {
-                self.consume_token();
-                Pat {
-                    kind: Rc::new(PatKind::Int(s.parse::<i64>().unwrap())), // TODO: don't unwrap. report error if this can't fit in an i64
-                    loc: self.location(lo),
-                    id: NodeId::new(),
+            TokenKind::IntLit(s) => match s.parse::<i64>() {
+                Ok(n) => {
+                    self.consume_token();
+                    Pat {
+                        kind: Rc::new(PatKind::Int(n)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
                 }
-            }
-            TokenKind::FloatLit(s) => {
-                self.consume_token();
-                Pat {
-                    kind: Rc::new(PatKind::Float(s)), // TODO: report error if doesn't fit in f64?
-                    loc: self.location(lo),
-                    id: NodeId::new(),
+                Err(_) => {
+                    return Err(Error::ProblematicToken(
+                        "Could not parse integer literal. Out of range?".into(),
+                        self.current_token_location(),
+                    )
+                    .into());
                 }
-            }
+            },
+            TokenKind::FloatLit(s) => match s.parse::<f64>() {
+                Ok(_) => {
+                    self.consume_token();
+                    Pat {
+                        kind: Rc::new(PatKind::Float(s)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
+                }
+                Err(_) => {
+                    return Err(Error::ProblematicToken(
+                        "Could not parse float literal. Out of range?".into(),
+                        self.current_token_location(),
+                    )
+                    .into());
+                }
+            },
             TokenKind::StringLit(s) => {
                 self.consume_token();
                 Pat {
-                    kind: Rc::new(PatKind::Str(s)), // TODO: don't unwrap. report error if this can't fit in an i64
+                    kind: Rc::new(PatKind::Str(s)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }
