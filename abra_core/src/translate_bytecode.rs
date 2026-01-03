@@ -2079,10 +2079,10 @@ impl Translator {
             std::collections::hash_map::Entry::Vacant(v) => {
                 st.funcs_to_generate.push(desc.clone());
                 let label = match &desc.overload_ty {
-                    None => func_name.clone(), // TODO: again, derive it from the FuncDesc. And make sure it's FULLY QUALIFIED NAME (FQN)
+                    None => func_name.clone(),
                     Some(overload_ty) => {
                         let monoty = overload_ty.monotype().unwrap();
-                        let mut label_hint = format!("{func_name}__{monoty}"); // TODO: doulble-underscore isn't a good separator. Users could write a signature that looks the same as a monomorphized one and cause a clash. Use forbidden symbol(s) for the separator between function name and monomorphized type
+                        let mut label_hint = format!("{func_name}__%{monoty}");
                         if let FuncKind::AnonymousFunc {
                             capture_types_concrete,
                             ..
@@ -2090,10 +2090,10 @@ impl Translator {
                             && !capture_types_concrete.is_empty()
                         {
                             let label_hint = &mut label_hint;
-                            swrite!(label_hint, "__");
+                            swrite!(label_hint, "__%");
                             for (i, ty) in capture_types_concrete.into_iter().enumerate() {
                                 if i != 0 {
-                                    swrite!(label_hint, "_");
+                                    swrite!(label_hint, ",");
                                 }
                                 swrite!(label_hint, "{ty}");
                             }
