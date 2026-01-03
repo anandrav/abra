@@ -906,7 +906,7 @@ impl Translator {
                     Some(substituted_ty)
                 };
 
-                let func_name = "lambda".to_string();
+                let func_name = format!("lambda[{}]", expr.id);
 
                 let (_, captures, _locals) =
                     self.calculate_args_captures_locals(&overload_ty, args, body, mono);
@@ -2075,10 +2075,10 @@ impl Translator {
             std::collections::hash_map::Entry::Vacant(v) => {
                 st.funcs_to_generate.push(desc.clone());
                 let label = match &desc.overload_ty {
-                    None => func_name.clone(),
+                    None => func_name.clone(), // TODO: again, derive it from the FuncDesc. And make sure it's FULLY QUALIFIED NAME (FQN)
                     Some(overload_ty) => {
                         let monoty = overload_ty.monotype().unwrap();
-                        let mut label_hint = format!("{func_name}__{monoty}");
+                        let mut label_hint = format!("{func_name}__{monoty}"); // TODO: doulble-underscore isn't a good separator. Users could write a signature that looks the same as a monomorphized one and cause a clash. Use forbidden symbol(s) for the separator between function name and monomorphized type
                         if let FuncKind::AnonymousFunc {
                             capture_types_concrete,
                             ..

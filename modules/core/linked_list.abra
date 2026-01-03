@@ -19,7 +19,7 @@ extend list<T> {
 
     fn map(self, f: T -> U) -> list<U> {
         match self {
-            .empty -> .empty
+            .empty -> list.empty // TODO: shouldn't need this qualifier
             .cons(head, tail) -> .cons(f(head), tail.map(f))
         }
     }
@@ -36,7 +36,7 @@ extend list<T> {
 
     fn filter(self, f: T -> bool) -> list<T> {
         match self {
-            .empty -> .empty
+            .empty -> list.empty // TODO: shouldn't need this qualifier
             .cons (head, tail) ->
                 if f(head) { .cons(head, tail.filter(f)) } else { tail.filter(f) }
         }
@@ -44,5 +44,28 @@ extend list<T> {
 
     fn reverse(self) -> list<T> {
         self.fold((acc, head) -> list.cons(head, acc), .empty)
+    }
+}
+
+implement ToString for list<T ToString> {
+    fn str(self) -> string {
+        "[ " .. self.str_helper() .. " ]"
+    }
+
+// TODO: having an extra method here doesn't result in an error message
+/*
+    fn str_helper(self) -> string {
+        panic("aaaah")
+    }
+*/
+}
+
+extend list<T ToString> {
+    fn str_helper(self) -> string {
+        match self {
+            list.empty -> ""
+            list.cons(x, .empty) -> ToString.str(x)
+            list.cons(x, xs) -> ToString.str(x) .. ", " .. xs.str_helper()
+        }
     }
 }

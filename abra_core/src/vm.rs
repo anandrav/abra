@@ -116,6 +116,7 @@ pub enum VmErrorKind {
     DivisionByZero,
 
     // internal errors AKA bugs
+    WrongType(ExpectedType, ValueTag),
     FfiNotEnabled,
     LibLoadFailure(String),
     SymbolLoadFailure(String),
@@ -599,21 +600,85 @@ impl ValueTag {
             ValueTag::Struct | ValueTag::Array | ValueTag::Variant | ValueTag::String
         )
     }
+
+    fn to_expected_type(&self) -> ExpectedType {
+        match self {
+            ValueTag::Int => ExpectedType::Int,
+            ValueTag::Float => ExpectedType::Float,
+            ValueTag::Bool => ExpectedType::Bool,
+            ValueTag::Struct => ExpectedType::Struct,
+            ValueTag::Array => ExpectedType::Array,
+            ValueTag::Variant => ExpectedType::Variant,
+            ValueTag::String => ExpectedType::String,
+            ValueTag::Addr => ExpectedType::Addr,
+        }
+    }
+}
+
+impl Display for ValueTag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValueTag::Int => write!(f, "int"),
+            ValueTag::Float => write!(f, "float"),
+            ValueTag::Bool => write!(f, "bool"),
+            ValueTag::Struct => write!(f, "struct"),
+            ValueTag::Array => write!(f, "array"),
+            ValueTag::Variant => write!(f, "variant"),
+            ValueTag::String => write!(f, "string"),
+            ValueTag::Addr => write!(f, "address"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExpectedType {
+    Int,
+    Float,
+    Bool,
+    HeapObject,
+    Struct,
+    Array,
+    Variant,
+    String,
+    Addr,
+}
+
+impl Display for ExpectedType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExpectedType::Int => write!(f, "int"),
+            ExpectedType::Float => write!(f, "float"),
+            ExpectedType::Bool => write!(f, "bool"),
+            ExpectedType::HeapObject => write!(f, "heap object"),
+            ExpectedType::Struct => write!(f, "struct"),
+            ExpectedType::Array => write!(f, "array"),
+            ExpectedType::Variant => write!(f, "variant"),
+            ExpectedType::String => write!(f, "string"),
+            ExpectedType::Addr => write!(f, "address"),
+        }
+    }
 }
 
 impl Value {
+    fn check_type(&self, _vm: &Vm, tag: ValueTag) {
+        if cfg!(debug_assertions) {
+            if self.1 != tag {
+                _vm.fail(VmErrorKind::WrongType(tag.to_expected_type(), self.1));
+            }
+        }
+    }
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {
-        debug_assert_eq!(self.1, ValueTag::Int);
+        self.check_type(_vm, ValueTag::Int);
         self.0 as AbraInt
     }
 
     pub fn get_float(&self, _vm: &Vm) -> AbraFloat {
-        debug_assert_eq!(self.1, ValueTag::Float);
+        self.check_type(_vm, ValueTag::Float);
         AbraFloat::from_bits(self.0)
     }
 
     pub fn get_bool(&self, _vm: &Vm) -> bool {
-        debug_assert_eq!(self.1, ValueTag::Bool);
+        self.check_type(_vm, ValueTag::Bool);
         self.0 != 0
     }
 
@@ -623,12 +688,12 @@ impl Value {
     }
 
     fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a StructObject {
-        debug_assert_eq!(self.1, ValueTag::Struct);
+        self.check_type(_vm, ValueTag::Struct);
         unsafe { &*(self.0 as *const StructObject) }
     }
 
     unsafe fn get_struct_mut<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
-        debug_assert_eq!(self.1, ValueTag::Struct);
+        self.check_type(_vm, ValueTag::Struct);
         unsafe { &mut *(self.0 as *mut StructObject) }
     }
 
@@ -636,7 +701,7 @@ impl Value {
     where
         Self: Sized,
     {
-        debug_assert_eq!(self.1, ValueTag::Array);
+        self.check_type(_vm, ValueTag::Array);
         unsafe { &*(self.0 as *const ArrayObject) }
     }
 
@@ -644,7 +709,7 @@ impl Value {
     where
         Self: Sized,
     {
-        debug_assert_eq!(self.1, ValueTag::Array);
+        self.check_type(_vm, ValueTag::Array);
         unsafe { &mut *(self.0 as *mut ArrayObject) }
     }
 
@@ -652,18 +717,18 @@ impl Value {
     where
         Self: Sized,
     {
-        debug_assert_eq!(self.1, ValueTag::Variant);
+        self.check_type(_vm, ValueTag::Variant);
         unsafe { &mut *(self.0 as *mut EnumObject) }
     }
 
     pub fn view_string<'a>(&self, _vm: &Vm) -> &'a str {
-        debug_assert_eq!(self.1, ValueTag::String);
+        self.check_type(_vm, ValueTag::String);
         let so = unsafe { &*(self.0 as *const StringObject) };
         &so.str
     }
 
     fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
-        debug_assert_eq!(self.1, ValueTag::Addr);
+        self.check_type(_vm, ValueTag::Addr);
         ProgramCounter(self.0 as u32)
     }
 }
@@ -2031,6 +2096,9 @@ impl Display for VmErrorKind {
             }
             VmErrorKind::DivisionByZero => {
                 write!(f, "error: division by zero")
+            }
+            VmErrorKind::WrongType(expected, actual) => {
+                write!(f, "error: expected type `{expected} but got `{actual}`")
             }
             VmErrorKind::FfiNotEnabled => {
                 write!(f, "ffi is not enabled")
