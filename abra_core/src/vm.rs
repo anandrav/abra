@@ -601,7 +601,7 @@ impl ValueTag {
         )
     }
 
-    fn to_expected_type(&self) -> ExpectedType {
+    fn to_expected_type(self) -> ExpectedType {
         match self {
             ValueTag::Int => ExpectedType::Int,
             ValueTag::Float => ExpectedType::Float,
@@ -661,10 +661,8 @@ impl Display for ExpectedType {
 
 impl Value {
     fn check_type(&self, _vm: &Vm, tag: ValueTag) {
-        if cfg!(debug_assertions) {
-            if self.1 != tag {
-                _vm.fail(VmErrorKind::WrongType(tag.to_expected_type(), self.1));
-            }
+        if cfg!(debug_assertions) && self.1 != tag {
+            _vm.fail(VmErrorKind::WrongType(tag.to_expected_type(), self.1));
         }
     }
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {

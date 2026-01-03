@@ -611,6 +611,12 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                                 method_decl,
                                 f.name.node(),
                             );
+                            if let Some(fully_qualified_name) =
+                                ctx.fully_qualified_names.get(&iface_def.methods[m].name.id)
+                            {
+                                ctx.fully_qualified_names
+                                    .insert(f.name.id, fully_qualified_name.clone());
+                            }
                         }
                     }
                     _ => ctx.errors.push(Error::MustExtendType {

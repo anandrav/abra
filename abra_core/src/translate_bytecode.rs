@@ -50,6 +50,18 @@ impl FuncDesc {
             FuncKind::HostFunctionWrapper(f) => f.name.v.clone(),
         }
     }
+
+    fn fully_qualified_name(&self, ctx: &StaticsContext) -> String {
+        match &self.kind {
+            FuncKind::NamedFunc(f) => ctx.fully_qualified_names[&f.name.id].clone(),
+            FuncKind::AnonymousFunc { lambda, .. } => format!("<lambda>[{}]", lambda.id),
+            FuncKind::IntrinsicWrapper(b, _) => b.name(),
+            FuncKind::ForeignFunctionWrapper { func_decl, .. } => {
+                ctx.fully_qualified_names[&func_decl.name.id].clone()
+            }
+            FuncKind::HostFunctionWrapper(f) => ctx.fully_qualified_names[&f.name.id].clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -906,8 +918,6 @@ impl Translator {
                     Some(substituted_ty)
                 };
 
-                let func_name = format!("lambda[{}]", expr.id);
-
                 let (_, captures, _locals) =
                     self.calculate_args_captures_locals(&overload_ty, args, body, mono);
 
@@ -927,7 +937,7 @@ impl Translator {
                     },
                     overload_ty: overload_ty.clone(),
                 };
-                let label = self.get_func_label(st, desc, &func_name);
+                let label = self.get_func_label(st, desc);
 
                 self.emit(st, Instr::PushAddr(label.clone()));
                 for capture in &captures {
@@ -999,7 +1009,7 @@ impl Translator {
                     kind: FuncKind::IntrinsicWrapper(*b, ast_node),
                     overload_ty,
                 };
-                let label = self.get_func_label(st, desc, &b.name());
+                let label = self.get_func_label(st, desc);
                 self.emit(st, Instr::PushAddr(label.clone()));
                 self.emit(st, Instr::MakeClosure(0));
             }
@@ -1014,13 +1024,12 @@ impl Translator {
                     Some(substituted_ty)
                 };
 
-                let func_name = &self.statics.fully_qualified_names[&f.name.id];
                 let desc = FuncDesc {
                     kind: FuncKind::NamedFunc(f.clone()),
                     overload_ty: overload_ty.clone(),
                 };
 
-                let label = self.get_func_label(st, desc, func_name);
+                let label = self.get_func_label(st, desc);
                 self.emit(st, Instr::PushAddr(label.clone()));
                 self.emit(st, Instr::MakeClosure(0));
             }
@@ -1042,13 +1051,12 @@ impl Translator {
                             let interface_impl_ty = unifvar.solution().unwrap();
 
                             if overload_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
-                                let func_name = &self.statics.fully_qualified_names[&method.id];
                                 let desc = FuncDesc {
                                     kind: FuncKind::NamedFunc(func_def.clone()),
                                     overload_ty: Some(overload_ty.clone()),
                                 };
 
-                                let label = self.get_func_label(st, desc, func_name);
+                                let label = self.get_func_label(st, desc);
                                 self.emit(st, Instr::PushAddr(label.clone()));
                                 self.emit(st, Instr::MakeClosure(0));
                                 return;
@@ -1064,7 +1072,7 @@ impl Translator {
                     kind: FuncKind::HostFunctionWrapper(f.clone()),
                     overload_ty: None,
                 };
-                let label = self.get_func_label(st, desc, &f.name.v);
+                let label = self.get_func_label(st, desc);
                 self.emit(st, Instr::PushAddr(label.clone()));
                 self.emit(st, Instr::MakeClosure(0));
             }
@@ -1081,7 +1089,7 @@ impl Translator {
                     },
                     overload_ty: None,
                 };
-                let label = self.get_func_label(st, desc, &func_decl.name.v);
+                let label = self.get_func_label(st, desc);
                 self.emit(st, Instr::PushAddr(label.clone()));
                 self.emit(st, Instr::MakeClosure(0));
             }
@@ -1120,7 +1128,7 @@ impl Translator {
     fn translate_func_ap_helper(
         &self,
         f: &Rc<FuncDef>,
-        f_fully_qualified_name: &String,
+        f_fully_qualified_name: &str,
         func_node: AstNode,
         mono: &MonomorphEnv,
         st: &mut TranslatorState,
@@ -1981,7 +1989,7 @@ impl Translator {
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
         overload_ty: Option<Type>,
-        func_name: &String,
+        func_name: &str,
         func_def: &Rc<FuncDef>,
     ) {
         if let Some(overload_ty) = &overload_ty {
@@ -1991,7 +1999,7 @@ impl Translator {
             kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),
         };
-        let label = self.get_func_label(st, desc, func_name);
+        let label = self.get_func_label(st, desc);
         let is_func = |ty: &Option<SolvedType>, arg: SolvedType, out: SolvedType| {
             *ty == Some(SolvedType::Function(vec![arg], out.into()))
         };
@@ -2013,7 +2021,7 @@ impl Translator {
                 false
             }
         };
-        match func_name.as_str() {
+        match func_name {
             // inline basic/fundamental operations instead of performing function call
             "array.push" => {
                 // arrays of void use dummy values
@@ -2063,12 +2071,8 @@ impl Translator {
         }
     }
 
-    fn get_func_label(
-        &self,
-        st: &mut TranslatorState,
-        desc: FuncDesc,
-        func_name: &String, // TODO: instead of passing in func_name just get it from the FuncDesc.
-    ) -> Label {
+    fn get_func_label(&self, st: &mut TranslatorState, desc: FuncDesc) -> Label {
+        let func_name = desc.fully_qualified_name(&self.statics);
         let entry = st.func_map.entry(desc.clone());
         match entry {
             std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
