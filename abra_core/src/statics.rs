@@ -343,6 +343,12 @@ pub(crate) enum Error {
     InterfaceImplTypeNotGeneric {
         node: AstNode,
     },
+    InterfaceImplMissingMethod {
+        iface: Rc<InterfaceDef>,
+        ty: SolvedType,
+        iface_impl_node: AstNode,
+        missing_method_index: usize,
+    },
     // break and continue
     NotInLoop {
         node: AstNode,

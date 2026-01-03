@@ -245,10 +245,27 @@ impl Error {
             }
             Error::InterfaceImplTypeNotGeneric { node } => {
                 diagnostic = diagnostic.with_message(
-                    "Interface cannot be implemented for this type unless it is fully generic.",
+                    "Interface cannot be implemented for this type unless it has generic arguments.",
                 );
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
+            }
+            Error::InterfaceImplMissingMethod {
+                iface,
+                ty,
+                iface_impl_node,
+                missing_method_index,
+            } => {
+                let method = &iface.methods[*missing_method_index];
+                diagnostic = diagnostic.with_message(format!(
+                    "Implementation of interface `{}` for type `{}` is missing method `{}`.",
+                    iface.name.v, ty, method.name.v
+                ));
+                let (file, range) = method.name.node().get_file_and_range();
+                labels.push(Label::secondary(file, range).with_message("this method is missing"));
+                let (file, range) = iface_impl_node.get_file_and_range();
+                labels
+                    .push(Label::secondary(file, range).with_message("this type's implementation"));
             }
             Error::NotInLoop { node } => {
                 diagnostic = diagnostic.with_message("This statement must be in a loop");

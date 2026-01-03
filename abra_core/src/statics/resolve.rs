@@ -596,27 +596,54 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                 });
                 return;
             };
+            let mut method_set = HashMap::default();
+            for (index, method) in iface_def.methods.iter().enumerate() {
+                method_set.insert(method.name.v.clone(), index);
+            }
             if let Some(decl) = ctx.resolution_map.get(&iface_impl.typ.id).cloned() {
                 match decl.into_type_key() {
                     Some(type_key) => {
-                        for (m, f) in iface_impl.methods.iter().enumerate() {
-                            let method_decl = Declaration::InterfaceMethod {
-                                iface: iface_def.clone(),
-                                method: m,
-                            };
-                            try_add_member_function(
-                                ctx,
-                                type_key.clone(),
-                                f,
-                                method_decl,
-                                f.name.node(),
-                            );
-                            if let Some(fully_qualified_name) =
-                                ctx.fully_qualified_names.get(&iface_def.methods[m].name.id)
+                        for f in iface_impl.methods.iter() {
+                            method_set.remove(&f.name.v);
+                            if let Some((original_m, _)) = iface_def
+                                .methods
+                                .iter()
+                                .enumerate()
+                                .find(|(_, method)| method.name.v == f.name.v)
                             {
-                                ctx.fully_qualified_names
-                                    .insert(f.name.id, fully_qualified_name.clone());
+                                let method_decl = Declaration::InterfaceMethod {
+                                    iface: iface_def.clone(),
+                                    method: original_m,
+                                };
+                                try_add_member_function(
+                                    ctx,
+                                    type_key.clone(),
+                                    f,
+                                    method_decl,
+                                    f.name.node(),
+                                );
+                                if let Some(fully_qualified_name) = ctx
+                                    .fully_qualified_names
+                                    .get(&iface_def.methods[original_m].name.id)
+                                {
+                                    ctx.fully_qualified_names
+                                        .insert(f.name.id, fully_qualified_name.clone());
+                                }
+                            } else {
+                                // TODO: need better error message like "this method `blah` is not in the interface being implemented, `Foo`"
+                                ctx.errors.push(Error::UnresolvedIdentifier {
+                                    node: f.name.node(),
+                                });
                             }
+                        }
+
+                        for (_, method_index) in method_set {
+                            ctx.errors.push(Error::InterfaceImplMissingMethod {
+                                iface: iface_def.clone(),
+                                ty: iface_impl.typ.to_solved_type(ctx).unwrap(),
+                                iface_impl_node: iface_impl.typ.node(),
+                                missing_method_index: method_index,
+                            });
                         }
                     }
                     _ => ctx.errors.push(Error::MustExtendType {

@@ -51,13 +51,6 @@ implement ToString for list<T ToString> {
     fn str(self) -> string {
         "[ " .. self.str_helper() .. " ]"
     }
-
-// TODO: having an extra method here doesn't result in an error message
-/*
-    fn str_helper(self) -> string {
-        panic("aaaah")
-    }
-*/
 }
 
 extend list<T ToString> {
