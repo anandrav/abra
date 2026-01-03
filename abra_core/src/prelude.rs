@@ -108,7 +108,6 @@ implement Hash for bool {
     fn hash(a) = if a { 1 } else { 0 }
 }
 
-// TODO: use fnv-1a, iterate over individual bytes.
 implement Hash for string {
     fn hash(s) {
         // FNV-1a offset basis
@@ -126,7 +125,7 @@ implement Hash for string {
 }
 
 fn hash_combine(seed: int, value: T Hash) -> int {
-    wrapping_add(wrapping_mul(seed, 31), Hash.hash(value)) // TODO: using wrapping multiply
+    wrapping_add(wrapping_mul(seed, 31), Hash.hash(value))
 }
 
 implement Hash for array<T Hash> {

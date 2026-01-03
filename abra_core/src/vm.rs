@@ -579,7 +579,7 @@ impl CallData {
 // - vtable index
 const _: [(); 16] = [(); size_of::<Value>()];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Value(u64, ValueTag); // TODO: use value tag instead of bool and add asserts get_int, get_float, get_bool, get_object_header, get_struct etc.
+pub struct Value(u64, ValueTag);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueTag {
