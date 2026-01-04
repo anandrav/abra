@@ -108,7 +108,7 @@ fn c(code: &str) -> &str {
 impl ErrorSummary {
     pub fn emit(&self) {
         if !self.msg.is_empty() {
-            let red = c("\x1b[38;2;230;100;100m");
+            let red = c("\x1B[1;31m");
             let bold = c("\x1b[1m");
             let reset = c("\x1b[0m");
             eprintln!("{red}{bold}error:{reset} {}", self.msg);

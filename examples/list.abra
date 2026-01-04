@@ -1,6 +1,6 @@
 use core/linked_list
 
-let xs = list.cons(1, .cons(2, .cons(3, .cons(4, .empty))))
+let xs = list.from_array([1, 2, 3, 4])
 let xs = xs.filter(x -> x % 2 == 0)
 let xs = xs.map(x -> x - 1)
 println(xs)

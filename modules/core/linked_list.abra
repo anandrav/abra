@@ -9,7 +9,25 @@ fn range(lo: int, hi: int) {
 }
 */
 
+/*
+TODO
+ this should be a member function.
+ Unfortunately, name resolution doesn't seem to work when it's a member function
+ due to declaration order and recursion or something
+ */
+fn list_from_array_helper(a: array<T>, index: int) -> list<T> {
+    if index == a.len() {
+        .empty
+    } else {
+        .cons(a[index], list_from_array_helper(a, index + 1))
+    }
+}
+
 extend list<T> {
+    fn from_array(a: array<T>) -> list<T> {
+        list_from_array_helper(a, 0)
+    }
+
     fn fold(self, f: (U, T) -> U, acc: U) -> U {
         match self {
             .empty -> acc
