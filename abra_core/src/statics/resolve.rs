@@ -656,17 +656,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             let symbol_table = symbol_table.new_scope();
             resolve_names_typ(ctx, &symbol_table, &ext.typ, true);
 
-            let fqn_type = fqn_of_type(ctx, &ext.typ);
-            for f in &ext.methods {
-                if let Some(fqn_type) = &fqn_type {
-                    let fully_qualified_name = format!("{}.{}", fqn_type, f.name.v.clone());
-                    ctx.fully_qualified_names
-                        .insert(f.name.id, fully_qualified_name);
-                }
-
-                resolve_names_func_helper(ctx, &symbol_table, &f.args, &f.body, &f.ret_type);
-            }
-
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
@@ -751,9 +740,46 @@ fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
         ItemKind::FuncDecl { .. }
         | ItemKind::InterfaceDef(..)
         | ItemKind::InterfaceImpl(..)
-        | ItemKind::Extension(..)
         | ItemKind::Import(..)
         | ItemKind::TypeDef(..) => {}
+        ItemKind::Extension(ext) => {
+            let symbol_table = symbol_table.new_scope();
+            resolve_names_typ(ctx, &symbol_table, &ext.typ, true);
+
+            let fqn_type = fqn_of_type(ctx, &ext.typ);
+            for f in &ext.methods {
+                if let Some(fqn_type) = &fqn_type {
+                    let fully_qualified_name = format!("{}.{}", fqn_type, f.name.v.clone());
+                    ctx.fully_qualified_names
+                        .insert(f.name.id, fully_qualified_name);
+                }
+
+                resolve_names_func_helper(ctx, &symbol_table, &f.args, &f.body, &f.ret_type);
+            }
+
+            // In this pass, we also gather the declarations of member functions
+            // We don't gather declarations of member functions in the same pass as gathering type definitions, because
+            // the former depends on the latter
+            // if let Some(decl) = ctx.resolution_map.get(&ext.typ.id).cloned() {
+            //     match decl.into_type_key() {
+            //         Some(type_key) => {
+            //             for f in &ext.methods {
+            //                 let method_decl = Declaration::MemberFunction(f.clone());
+            //                 try_add_member_function(
+            //                     ctx,
+            //                     type_key.clone(),
+            //                     f,
+            //                     method_decl,
+            //                     f.name.node(),
+            //                 );
+            //             }
+            //         }
+            //         _ => ctx.errors.push(Error::MustExtendType {
+            //             node: ext.typ.node(),
+            //         }),
+            //     }
+            // }
+        }
         ItemKind::Stmt(stmt) => {
             resolve_names_stmt(ctx, symbol_table, stmt);
         }
