@@ -1,1 +1,1 @@
-autocmd BufRead,BufNewFile *.abra set filetype=abra
+au BufNewFile,BufRead *.abra set filetype=abra
