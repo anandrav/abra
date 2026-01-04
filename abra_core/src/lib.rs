@@ -107,10 +107,12 @@ fn c(code: &str) -> &str {
 
 impl ErrorSummary {
     pub fn emit(&self) {
-        let red = c("\x1b[38;2;230;100;100m");
-        let bold = c("\x1b[1m");
-        let reset = c("\x1b[0m");
-        eprintln!("{red}{bold}error:{reset} {}", self.msg);
+        if !self.msg.is_empty() {
+            let red = c("\x1b[38;2;230;100;100m");
+            let bold = c("\x1b[1m");
+            let reset = c("\x1b[0m");
+            eprintln!("{red}{bold}error:{reset} {}", self.msg);
+        }
         if let Some((file_db, errors)) = &self.more {
             for error in errors {
                 error.emit(file_db);
