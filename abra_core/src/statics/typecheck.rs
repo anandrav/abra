@@ -2356,8 +2356,9 @@ fn generate_constraints_expr(
                     &arm.pat,
                 );
                 generate_constraints_stmt(ctx, polyvar_scope, mode.clone(), &arm.stmt);
-                generate_constraints_stmt(ctx, polyvar_scope, Mode::ana(&node_ty), &arm.stmt);
-                if let StmtKind::Expr(..) = &*arm.stmt.kind {
+                if let StmtKind::Expr(expr) = &*arm.stmt.kind {
+                    let expr_ty = TypeVar::from_node(ctx, expr.node());
+                    constrain(ctx, &node_ty, &expr_ty)
                 } else {
                     constrain(
                         ctx,

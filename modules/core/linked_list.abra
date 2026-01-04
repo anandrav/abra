@@ -31,7 +31,7 @@ extend list<T> {
 
     fn map(self, f: T -> U) -> list<U> {
         match self {
-            .empty -> list.empty // TODO: shouldn't need this qualifier
+            .empty -> .empty
             .cons(head, tail) -> .cons(f(head), tail.map(f))
         }
     }
@@ -48,7 +48,7 @@ extend list<T> {
 
     fn filter(self, f: T -> bool) -> list<T> {
         match self {
-            .empty -> list.empty // TODO: shouldn't need this qualifier
+            .empty -> .empty
             .cons (head, tail) ->
                 if f(head) { .cons(head, tail.filter(f)) } else { tail.filter(f) }
         }
@@ -68,9 +68,9 @@ implement ToString for list<T ToString> {
 extend list<T ToString> {
     fn str_helper(self) -> string {
         match self {
-            list.empty -> ""
-            list.cons(x, .empty) -> ToString.str(x)
-            list.cons(x, xs) -> ToString.str(x) .. ", " .. xs.str_helper()
+            .empty -> ""
+            .cons(x, .empty) -> ToString.str(x)
+            .cons(x, xs) -> ToString.str(x) .. ", " .. xs.str_helper()
         }
     }
 }
