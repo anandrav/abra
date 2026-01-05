@@ -1636,9 +1636,9 @@ enum PostfixOp {
 impl BinaryOperator {
     pub(crate) fn precedence(&self) -> u8 {
         match self {
-            BinaryOperator::Equal | BinaryOperator::NotEqual => 1,
-            BinaryOperator::Format => 2,
-            BinaryOperator::And | BinaryOperator::Or => 4,
+            BinaryOperator::And | BinaryOperator::Or => 1,
+            BinaryOperator::Equal | BinaryOperator::NotEqual => 2,
+            BinaryOperator::Format => 3,
             BinaryOperator::LessThan
             | BinaryOperator::LessThanOrEqual
             | BinaryOperator::GreaterThan
