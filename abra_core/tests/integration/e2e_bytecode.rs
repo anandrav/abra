@@ -16,8 +16,7 @@ fn arithmetic() {
 fn sub(x, y) {
   x - y
 }
-let x = 3
-let y = 4
+let x = 3; let y = 4
 let z = sub(x, y)
 let h = sub(z, 1)
 h

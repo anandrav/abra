@@ -24,6 +24,10 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
         match parser.parse_item() {
             Ok(item) => {
                 items.push(item);
+                // optional semicolon between toplevel statements (and items in general)
+                if parser.current_token().tag() == TokenTag::Semicolon {
+                    parser.consume_token();
+                }
             }
             Err(e) => {
                 // flush errors
