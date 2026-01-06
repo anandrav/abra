@@ -679,7 +679,7 @@ impl Parser {
     // TODO: is this helper necessary now?
     fn parse_statement_block(&mut self) -> Result<Vec<Rc<Stmt>>, Box<Error>> {
         self.expect_token(TokenTag::OpenBrace);
-        self.parse_delimited_list(TokenTag::CloseBrace, TokenTag::Newline, Self::parse_stmt)
+        self.parse_delimited_list(TokenTag::CloseBrace, TokenTag::Semicolon, Self::parse_stmt) // TODO: allow semicolon as optional separator for statements
     }
 
     fn parse_delimited_list<T>(
@@ -695,7 +695,9 @@ impl Parser {
                 break;
             }
             productions.push(parse_production(self)?);
-            if self.current_token().tag() == separator {
+            if self.current_token().tag() == separator
+                || self.current_token().tag() == TokenTag::Newline
+            {
                 self.consume_token();
             } else {
                 break;
@@ -1064,7 +1066,7 @@ impl Parser {
                 self.expect_token(TokenTag::OpenBrace);
                 let arms = self.parse_delimited_list(
                     TokenTag::CloseBrace,
-                    TokenTag::Newline,
+                    TokenTag::Comma,
                     Self::parse_match_arm,
                 )?;
                 Expr {

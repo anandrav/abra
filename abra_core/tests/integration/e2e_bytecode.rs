@@ -422,9 +422,7 @@ fn match_int() {
     let src = r#"
 let n = 1
 match n {
-    0 -> 0
-    1 -> 1
-    _ -> 2
+    0 -> 0, 1 -> 1, _ -> 2,
 }
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -969,8 +967,7 @@ fn local_in_while_scope() {
     let src = r#"
     var x = 5
     while x > 0 {
-        let tmp = x
-        x = tmp - 1
+        let tmp = x; x = tmp - 1
     }
     5
     "#;
