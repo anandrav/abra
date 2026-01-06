@@ -39,7 +39,6 @@ pub(crate) fn parse_file(ctx: &mut StaticsContext, file_id: FileId) -> Rc<FileAs
             }
         }
     }
-    ctx.errors.extend(parser.errors);
 
     let file_data = ctx.file_db.get(file_id).unwrap();
     Rc::new(FileAst {
