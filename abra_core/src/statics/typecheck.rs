@@ -1873,7 +1873,7 @@ fn generate_constraints_stmt(
                         rhs,
                     );
                 }
-                AssignOperator::PlusEq => {
+                AssignOperator::PlusEq | AssignOperator::MinusEq => {
                     let ty_lhs = TypeVar::from_node(ctx, lhs.node());
                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
                     let num_iface = InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.Num")); // TODO: make these member variables of ctx

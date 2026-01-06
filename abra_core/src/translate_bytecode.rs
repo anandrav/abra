@@ -1816,17 +1816,37 @@ impl Translator {
                             }
                         }
                     }
-                    AssignOperator::PlusEq => {
-                        let add_instr = |st| {
-                            match rvalue_ty {
-                                SolvedType::Int => {
-                                    self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
-                                }
-                                SolvedType::Float => {
-                                    self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
-                                }
-                                _ => unreachable!(),
-                            };
+                    AssignOperator::PlusEq | AssignOperator::MinusEq => {
+                        let perform_op = |st| match assign_op {
+                            AssignOperator::PlusEq => {
+                                match rvalue_ty {
+                                    SolvedType::Int => {
+                                        self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top));
+                                    }
+                                    SolvedType::Float => {
+                                        self.emit(
+                                            st,
+                                            Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top),
+                                        );
+                                    }
+                                    _ => unreachable!(),
+                                };
+                            }
+                            AssignOperator::MinusEq => {
+                                match rvalue_ty {
+                                    SolvedType::Int => {
+                                        self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top));
+                                    }
+                                    SolvedType::Float => {
+                                        self.emit(
+                                            st,
+                                            Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top),
+                                        );
+                                    }
+                                    _ => unreachable!(),
+                                };
+                            }
+                            _ => unreachable!(),
                         };
                         match &*expr1.kind {
                             // variable assignment
@@ -1841,7 +1861,7 @@ impl Translator {
                                 self.emit(st, Instr::LoadOffset(*idx));
                                 // add number
                                 self.translate_expr(rvalue, offset_table, mono, st);
-                                add_instr(st);
+                                perform_op(st);
                                 // store in x
                                 self.emit(st, Instr::StoreOffset(*idx));
                             }
@@ -1854,7 +1874,7 @@ impl Translator {
                                 self.emit(st, Instr::GetField(idx, Reg::Top));
                                 // add number
                                 self.translate_expr(rvalue, offset_table, mono, st);
-                                add_instr(st);
+                                perform_op(st);
                                 // store in struct.field
                                 self.translate_expr(accessed, offset_table, mono, st);
                                 let idx =
@@ -1869,7 +1889,7 @@ impl Translator {
                                 self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
                                 // add number
                                 self.translate_expr(rvalue, offset_table, mono, st);
-                                add_instr(st);
+                                perform_op(st);
                                 // store in array at index
                                 self.translate_expr(index, offset_table, mono, st);
                                 self.translate_expr(array, offset_table, mono, st);

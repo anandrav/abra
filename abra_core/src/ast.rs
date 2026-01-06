@@ -547,7 +547,7 @@ pub enum AssignOperator {
     Equal,
     // numeric
     PlusEq,
-    // Subtract,
+    MinusEq,
     // Multiply,
     // Divide,
     // Mod,

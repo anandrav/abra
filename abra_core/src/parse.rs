@@ -841,6 +841,7 @@ impl Parser {
         Some(match self.current_token().tag() {
             TokenTag::Eq => AssignOperator::Equal,
             TokenTag::PlusEq => AssignOperator::PlusEq,
+            TokenTag::MinusEq => AssignOperator::MinusEq,
             _ => return None,
         })
     }

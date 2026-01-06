@@ -49,6 +49,8 @@ pub(crate) enum TokenKind {
     PlusEq,
     // `-`
     Minus,
+    // `-=`
+    MinusEq,
     // `*`
     Star,
     // `/`
@@ -212,6 +214,7 @@ impl TokenKind {
             | TokenKind::Plus
             | TokenKind::PlusEq
             | TokenKind::Minus
+            | TokenKind::MinusEq
             | TokenKind::Star
             | TokenKind::Slash
             | TokenKind::Caret
@@ -448,6 +451,8 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             '-' => {
                 if let Some('>') = lexer.peek_char(1) {
                     lexer.emit(TokenKind::RArrow);
+                } else if let Some('=') = lexer.peek_char(1) {
+                    lexer.emit(TokenKind::MinusEq)
                 } else {
                     lexer.emit(TokenKind::Minus);
                 }
@@ -600,6 +605,7 @@ impl TokenTag {
             TokenTag::Plus => "+",
             TokenTag::PlusEq => "+=",
             TokenTag::Minus => "-",
+            TokenTag::MinusEq => "-=",
             TokenTag::Star => "*",
             TokenTag::Slash => "/",
             TokenTag::Caret => "^",
