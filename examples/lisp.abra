@@ -1,0 +1,296 @@
+use core/map
+use core/strings
+use core/math
+use core/linked_list
+use core/fs
+
+// --- Types ---
+
+type LispVal =
+  | Atom(string)
+  | List(list<LispVal>)
+  | Number(int)
+  | Bool(bool)
+  | Func(string, LispVal)
+  | Nil
+
+implement ToString for LispVal {
+    fn str(self) -> string {
+        match self {
+            .Atom(s) -> s
+            .Number(n) -> int_to_string(n)
+            .Bool(b) -> if b "true" else "false"
+            .Nil -> "nil"
+            .Func(arg, _) -> "<lambda:" .. arg .. ">"
+            .List(l) -> {
+                var s = "("
+                var curr = l
+                while true {
+                    match curr {
+                        .empty -> break
+                        .cons(h, t) -> {
+                            s = s .. ToString.str(h)
+                            match t {
+                                .empty -> {}
+                                _ -> s = s .. " "
+                            }
+                            curr = t
+                        }
+                    }
+                }
+                s .. ")"
+            }
+        }
+    }
+}
+
+type Env = {
+    vars: map<string, LispVal>
+    outer: option<Env>
+}
+
+extend Env {
+    fn new() -> Env {
+        Env(map.new(), .none)
+    }
+
+    fn get(self, name: string) -> option<LispVal> {
+        match self.vars.try_get(name) {
+            .some(v) -> .some(v)
+            .none -> match self.outer {
+                .some(parent) -> parent.get(name)
+                .none -> .none
+            }
+        }
+    }
+
+    fn set(self, name: string, val: LispVal) {
+        self.vars.insert(name, val)
+    }
+}
+
+// --- Proper Tokenizer ---
+
+fn tokenize(input: string) -> array<string> {
+    let chars = input.chars()
+    let len = chars.len()
+    let tokens = []
+    
+    var i = 0
+    while i < len {
+        let c = chars[i]
+        
+        if c == "(" or c == ")" {
+            tokens.push(c)
+            i += 1
+        } else if c == " " or c == "\n" or c == "\t" {
+            i += 1 // Skip whitespace
+        } else {
+            // Read atom (number or identifier) until delimiter
+            var atom = ""
+            while i < len {
+                let next_c = chars[i]
+                if next_c == "(" or next_c == ")" or next_c == " " or next_c == "\n" {
+                    break
+                }
+                atom = atom .. next_c
+                i += 1
+            }
+            tokens.push(atom)
+        }
+    }
+    tokens
+}
+
+// --- Parsing (Uses new tokenizer output) ---
+
+fn parse(tokens: array<string>) -> LispVal {
+    if tokens.is_empty() return .Nil
+    // We pass index 0 to start reading
+    let (val, _) = read_from_tokens(tokens, 0)
+    val
+}
+
+// Returns (Value, NewIndex)
+fn read_from_tokens(tokens: array<string>, idx: int) -> (LispVal, int) {
+    if idx >= tokens.len() return (.Nil, idx)
+
+    let token = tokens[idx]
+    
+    if token == "(" {
+        var list_items = []
+        var curr = idx + 1
+        
+        // Read until matching close paren
+        while curr < tokens.len() and tokens[curr] != ")" {
+            let (val, next_idx) = read_from_tokens(tokens, curr)
+            list_items.push(val)
+            curr = next_idx
+        }
+        
+        // Convert array to linked list (cons cells)
+        var l = list.empty
+        var i = list_items.len() - 1
+        while i >= 0 {
+            l = list.cons(list_items[i], l)
+            i -= 1
+        }
+        
+        // Return list + index after the closing ')'
+        (.List(l), curr + 1)
+    } else if token == ")" {
+        panic("Unexpected ) at index " .. idx)
+    } else {
+        // Parse Atomic Value (Number or Symbol)
+        if token.to_int().is_some() {
+             (.Number(token.to_int()!), idx + 1)
+        } else {
+             (.Atom(token), idx + 1)
+        }
+    }
+}
+
+// --- Evaluation ---
+
+fn eval(val: LispVal, env: Env) -> LispVal {
+    match val {
+        .Atom(s) -> {
+            match env.get(s) {
+                .some(v) -> v
+                .none -> panic("Undefined symbol: " .. s)
+            }
+        }
+        .Number(_) -> val
+        .List(l) -> {
+            match l {
+                .empty -> .Nil
+                .cons(head, tail) -> {
+                    // Check special forms
+                    match head {
+                        .Atom("quote") -> {
+                            match tail {
+                                .cons(q, _) -> q
+                                _ -> .Nil
+                            }
+                        }
+                        .Atom("if") -> {
+                            // (if cond then else)
+                            // Basic list unpacking
+                            let cond_node = match tail { 
+                                .cons(c, _) -> c
+                                 _ -> .Nil 
+                                }
+                            let then_node = match tail {
+                                 .cons(_, .cons(t, _)) -> t
+                                 _ -> .Nil 
+                                }
+                            let else_node = match tail { 
+                                .cons(_, .cons(_, .cons(e, _))) -> e
+                                _ -> .Nil 
+                            }
+                            
+                            let cond_res = eval(cond_node, env)
+                            match cond_res {
+                                .Bool(false) -> eval(else_node, env)
+                                _ -> eval(then_node, env)
+                            }
+                        }
+                        .Atom("define") -> {
+                            let name_node = match tail { 
+                                .cons(n, _) -> n
+                                 _ -> .Nil 
+                                }
+                            let val_node  = match tail { 
+                                .cons(_, .cons(v, _)) -> v
+                                 _ -> .Nil 
+                                }
+                            
+                            let name = match name_node { 
+                                .Atom(s) -> s
+                                 _ -> panic("Define requires symbol") 
+                                }
+                            let res = eval(val_node, env)
+                            env.set(name, res)
+                            res
+                        }
+                        _ -> {
+                            // Function application
+                            let func = eval(head, env)
+                            
+                            // Eval args
+                            var args = []
+                            var curr_arg = tail
+                            while true {
+                                match curr_arg {
+                                    .empty -> break
+                                    .cons(a, rest) -> {
+                                        args.push(eval(a, env))
+                                        curr_arg = rest
+                                    }
+                                }
+                            }
+                            
+                            match func {
+                                .Func(param, body) -> {
+                                    let new_env = Env(map.new(), .some(env))
+                                    if args.len() > 0 {
+                                        new_env.set(param, args[0])
+                                    }
+                                    eval(body, new_env)
+                                }
+                                .Atom("+") -> {
+                                    let sum = match (args[0], args[1]) {
+                                        (.Number(a), .Number(b)) -> a + b
+                                        _ -> 0
+                                    }
+                                    .Number(sum)
+                                }
+                                .Atom("-") -> {
+                                    let diff = match (args[0], args[1]) {
+                                        (.Number(a), .Number(b)) -> a - b
+                                        _ -> 0
+                                    }
+                                    .Number(diff)
+                                }
+                                _ -> panic("Not a function: " .. ToString.str(func))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        _ -> val
+    }
+}
+
+fn main() {
+    let args = get_args()
+    let code = if args.is_empty() {
+        let code = "(+ 10 (- 20 5))"
+        println("no input file given, defaulting to example program: `" .. code .. "`")
+        code
+    } else {
+        let fname = args[0]
+        let code = fread(fname)!
+        code
+    }
+
+    let env = Env.new()
+    env.set("+", .Atom("+"))
+    env.set("-", .Atom("-"))
+
+    let tokens = tokenize(code)
+    
+    // Debug print tokens
+    var s = "["
+    for t in tokens { s = s .. "'" .. t .. "', " }
+    println("Tokens: " .. s .. "]")
+
+    let ast = parse(tokens)
+    println("AST: " .. ast)
+    
+    let res = eval(ast, env)
+    println("Result: " .. res)
+}
+
+main()
