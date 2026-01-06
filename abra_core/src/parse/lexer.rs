@@ -287,6 +287,7 @@ impl Lexer {
     }
 
     fn peek_char(&self, dist: usize) -> Option<char> {
+        // TODO: just return EOF instead of None
         self.chars.get(self.index + dist).cloned()
     }
 
@@ -564,6 +565,10 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             ' ' | '\t' => {
                 // skip space
                 lexer.index += 1;
+            }
+            '\\' if Some('\n') == lexer.peek_char(1) => {
+                // line continuation
+                lexer.index += 2;
             }
             _ => {
                 ctx.errors

@@ -918,6 +918,7 @@ impl Parser {
     }
 
     fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Box<Error>> {
+        self.skip_newlines();
         let current = self.current_token();
         let lo = self.current_token().span.lo;
 

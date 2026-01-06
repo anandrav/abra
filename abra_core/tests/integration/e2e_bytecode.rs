@@ -77,6 +77,24 @@ z
 }
 
 #[test]
+fn newlines_within_expression() {
+    let src = r#"
+8 *
+3 /
+4 \
+- 1
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 5);
+}
+
+#[test]
 fn more_arithmetic() {
     let src = r#"
 let a = 2
