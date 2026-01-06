@@ -16,7 +16,8 @@ fn arithmetic() {
 fn sub(x, y) {
   x - y
 }
-let x = 3; let y = 4
+let x = 3
+let y = 4
 let z = sub(x, y)
 let h = sub(z, 1)
 h
@@ -29,6 +30,50 @@ h
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(&vm), -2);
+}
+
+#[test]
+fn statements_optional_semicolons() {
+    let src = r#"
+let x = 3; let y = 4
+let z = {
+    let a = 1; let b = 2;
+    a + b
+}
+z + x + y
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 10);
+}
+
+#[test]
+fn func_args_optional_commas() {
+    let src = r#"
+fn sub(x, y) {
+  x - y
+}
+let x = 3
+let y = 4
+let z = sub(
+            x
+            y
+           )
+z
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), -1);
 }
 
 #[test]
@@ -421,7 +466,9 @@ fn match_int() {
     let src = r#"
 let n = 1
 match n {
-    0 -> 0, 1 -> 1, _ -> 2,
+    0 -> 0
+    1 -> 1
+    _ -> 2,
 }
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -455,13 +502,12 @@ match n {
 }
 
 #[test]
-fn match_trailing_comma() {
+fn match_expression_optional_commas() {
     let src = r#"
 let n = 42
 match n {
-    0 -> 0
-    1 -> 1
-    _ -> 99
+    0 -> 0, 1 -> 1,
+    _ -> 99,
 }
 "#;
     let program = unwrap_or_panic(compile_bytecode(
