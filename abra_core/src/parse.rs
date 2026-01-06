@@ -842,6 +842,9 @@ impl Parser {
             TokenTag::Eq => AssignOperator::Equal,
             TokenTag::PlusEq => AssignOperator::PlusEq,
             TokenTag::MinusEq => AssignOperator::MinusEq,
+            TokenTag::StarEq => AssignOperator::StarEq,
+            TokenTag::SlashEq => AssignOperator::SlashEq,
+            TokenTag::ModEq => AssignOperator::ModEq,
             _ => return None,
         })
     }

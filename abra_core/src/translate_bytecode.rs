@@ -1816,7 +1816,11 @@ impl Translator {
                             }
                         }
                     }
-                    AssignOperator::PlusEq | AssignOperator::MinusEq => {
+                    AssignOperator::PlusEq
+                    | AssignOperator::MinusEq
+                    | AssignOperator::StarEq
+                    | AssignOperator::SlashEq
+                    | AssignOperator::ModEq => {
                         let perform_op = |st| match assign_op {
                             AssignOperator::PlusEq => {
                                 match rvalue_ty {
@@ -1845,6 +1849,37 @@ impl Translator {
                                     }
                                     _ => unreachable!(),
                                 };
+                            }
+                            AssignOperator::StarEq => {
+                                match rvalue_ty {
+                                    SolvedType::Int => {
+                                        self.emit(st, Instr::MulInt(Reg::Top, Reg::Top, Reg::Top));
+                                    }
+                                    SolvedType::Float => {
+                                        self.emit(
+                                            st,
+                                            Instr::MulFloat(Reg::Top, Reg::Top, Reg::Top),
+                                        );
+                                    }
+                                    _ => unreachable!(),
+                                };
+                            }
+                            AssignOperator::SlashEq => {
+                                match rvalue_ty {
+                                    SolvedType::Int => {
+                                        self.emit(st, Instr::DivInt(Reg::Top, Reg::Top, Reg::Top));
+                                    }
+                                    SolvedType::Float => {
+                                        self.emit(
+                                            st,
+                                            Instr::DivFloat(Reg::Top, Reg::Top, Reg::Top),
+                                        );
+                                    }
+                                    _ => unreachable!(),
+                                };
+                            }
+                            AssignOperator::ModEq => {
+                                self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
                             }
                             _ => unreachable!(),
                         };

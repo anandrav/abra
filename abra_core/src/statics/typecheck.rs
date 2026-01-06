@@ -1873,7 +1873,10 @@ fn generate_constraints_stmt(
                         rhs,
                     );
                 }
-                AssignOperator::PlusEq | AssignOperator::MinusEq => {
+                AssignOperator::PlusEq
+                | AssignOperator::MinusEq
+                | AssignOperator::StarEq
+                | AssignOperator::SlashEq => {
                     let ty_lhs = TypeVar::from_node(ctx, lhs.node());
                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
                     let num_iface = InterfaceConstraint::no_args(ctx.get_iface_decl("prelude.Num")); // TODO: make these member variables of ctx
@@ -1882,6 +1885,28 @@ fn generate_constraints_stmt(
                         ctx,
                         polyvar_scope,
                         Mode::ana_reason(ty_lhs, ConstraintReason::LetSetLhsRhs),
+                        rhs,
+                    );
+                }
+                AssignOperator::ModEq => {
+                    // TODO: TypeVar reasons and constraint reasons need a rehab
+                    // TODO: why is constraint_reason optional AND there exists ConstraintReason::None ?
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope,
+                        Mode::Ana {
+                            expected: TypeVar::make_int(Reason::BinopLeft(stmt.node())),
+                            constraint_reason: None,
+                        },
+                        lhs,
+                    );
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope,
+                        Mode::Ana {
+                            expected: TypeVar::make_int(Reason::BinopRight(stmt.node())),
+                            constraint_reason: None,
+                        },
                         rhs,
                     );
                 }

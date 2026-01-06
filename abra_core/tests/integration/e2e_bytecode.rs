@@ -44,6 +44,10 @@ let f = e ^ 3
 let g = f % 5
 var h = -g
 h += -1
+h -= -10
+h *= 2
+h /= 2
+h %= 5
 h
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -53,7 +57,7 @@ h
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), -3);
+    assert_eq!(top.get_int(&vm), 2);
 }
 
 #[test]
@@ -67,6 +71,9 @@ let e = d / 3.0
 let f = e ^ 3.0
 var g = -f
 g += 2.0
+g -= -5.0
+g /= 4.0
+g *= 3.0
 g
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -76,7 +83,7 @@ g
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_float(&vm), -25.0);
+    assert_eq!(top.get_float(&vm), -15.0);
 }
 
 // TODO: this and most other tests should be way more concise. A one-liner. Basically assert_eq!(run("atan2(-1.0, -1.0)").get_float(&vm), -2.3561944901923449)

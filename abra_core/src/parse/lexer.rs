@@ -53,12 +53,18 @@ pub(crate) enum TokenKind {
     MinusEq,
     // `*`
     Star,
+    // '*='
+    StarEq,
     // `/`
     Slash,
+    // '/='
+    SlashEq,
     // `^`
     Caret,
-    // `mod`
+    // `%`
     Mod,
+    // '%='
+    ModEq,
     // `and`
     And,
     // `or`
@@ -216,9 +222,12 @@ impl TokenKind {
             | TokenKind::Minus
             | TokenKind::MinusEq
             | TokenKind::Star
+            | TokenKind::StarEq
             | TokenKind::Slash
+            | TokenKind::SlashEq
             | TokenKind::Caret
             | TokenKind::Mod
+            | TokenKind::ModEq
             | TokenKind::Dot
             | TokenKind::DotDot
             | TokenKind::Comma
@@ -408,8 +417,20 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             ':' => lexer.emit(TokenKind::Colon),
             ',' => lexer.emit(TokenKind::Comma),
             '\n' => lexer.emit(TokenKind::Newline),
-            '*' => lexer.emit(TokenKind::Star),
-            '%' => lexer.emit(TokenKind::Mod),
+            '*' => {
+                if let Some('=') = lexer.peek_char(1) {
+                    lexer.emit(TokenKind::StarEq)
+                } else {
+                    lexer.emit(TokenKind::Star)
+                }
+            }
+            '%' => {
+                if let Some('=') = lexer.peek_char(1) {
+                    lexer.emit(TokenKind::ModEq)
+                } else {
+                    lexer.emit(TokenKind::Mod)
+                }
+            }
             '^' => lexer.emit(TokenKind::Caret),
             '#' => lexer.emit(TokenKind::Pound),
             '|' => lexer.emit(TokenKind::VBar),
@@ -530,6 +551,8 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         next += 1;
                     }
                     lexer.index += next + 2;
+                } else if let Some('=') = lexer.peek_char(1) {
+                    lexer.emit(TokenKind::SlashEq)
                 } else {
                     lexer.emit(TokenKind::Slash);
                 }
@@ -607,9 +630,12 @@ impl TokenTag {
             TokenTag::Minus => "-",
             TokenTag::MinusEq => "-=",
             TokenTag::Star => "*",
+            TokenTag::StarEq => "*=",
             TokenTag::Slash => "/",
+            TokenTag::SlashEq => "/=",
             TokenTag::Caret => "^",
             TokenTag::Mod => "%",
+            TokenTag::ModEq => "%=",
             TokenTag::Dot => ".",
             TokenTag::DotDot => "..",
             TokenTag::Comma => ",",
