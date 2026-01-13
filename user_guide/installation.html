@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "../searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -185,18 +185,16 @@ cd abra
 ./scripts/install
 </code></pre>
 <p>After, you should be able to run Abra from the command line</p>
-<pre><code>% abra --help
-Usage: abra [OPTIONS] &lt;FILE&gt; [ARGS]...
+<pre><code>Usage: abra [OPTIONS] &lt;FILE&gt; [ARGS]...
 
 Arguments:
-  &lt;FILE&gt;     The main Abra file to compile and execute
-  [ARGS]...  Arguments to pass to the Abra program
+    &lt;FILE&gt;    The main Abra file to compile and execute
+    [ARGS]    Arguments for the Abra program
 
 Options:
-  -m, --standard-modules &lt;DIRECTORY&gt;  Override the default module directory (~/.abra/modules).
-  -h, --help                 Print help
-  -V, --version              Print version
-
+    --standard-modules &lt;DIRECTORY&gt;     Override the default standard modules directory
+    -a, --assembly                     Print the assembly for the Abra program
+    -h, --help                         Print help
 </code></pre>
 <h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
 <h4 id="cargo"><a class="header" href="#cargo">Cargo</a></h4>

@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "../searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -179,8 +179,8 @@
                     <main>
                         <h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
 <p>It is recommended to use the <code>option</code> type defined in the standard library as a return type for functions that can fail.</p>
-<pre><code>type option&lt;'T&gt; =
-  | some of 'T
+<pre><code>type option&lt;T&gt; =
+  | some of T
   | none
 </code></pre>
 <pre><code>fn safe_divide(a: float, b: float) -&gt; option&lt;float&gt; {
@@ -196,8 +196,8 @@ if it’s the <code>none</code> case. This is useful if you know that the result
 The <code>!</code> operator is syntactic sugar for calling <code>.unwrap()</code> on some value.</p>
 <pre><code>// assume string_to_int: string -&gt; option&lt;int&gt;
 
-let a = string_to_int("10")!
-let b = string_to_int("5")!
+let a = "10".to_int()!
+let b = "5".to_int()!
 println(a + b)
 
 // prints "15"

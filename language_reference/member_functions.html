@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "../searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -180,14 +180,14 @@
                         <h2 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h2>
 <p>For convenience, you can define member functions on both user-defined and built-in types.</p>
 <pre><code>type Person = {
-    first_name: string,
-    last_name: string,
-    age: int,
+    first_name: string
+    last_name: string
+    age: int
 }
 
 extend Person {
     fn fullname(self) -&gt; string {
-        self.first_name &amp; self.last_name
+        self.first_name .. self.last_name
     }
 }
 
@@ -196,16 +196,16 @@ extend Person {
 let p = Person("Arthur", "Pendragon", 15)
 let name = p.fullname() // "Arthur Pendragon"
 </code></pre>
-<pre><code>extend array&lt;'T&gt; {
-    fn len(self: array&lt;'T&gt;) -&gt; int {
+<pre><code>extend array&lt;T&gt; {
+    fn len(self: array&lt;T&gt;) -&gt; int {
         array_length(self)
     }
 
-    fn push(self: array&lt;'T&gt;, x: 'T) -&gt; void {
+    fn push(self: array&lt;T&gt;, x: T) -&gt; void {
         array_push(self, x)
     }
 
-    fn pop(self: array&lt;'T&gt;) -&gt; void {
+    fn pop(self: array&lt;T&gt;) -&gt; void {
         array_pop(self)
     }
 }

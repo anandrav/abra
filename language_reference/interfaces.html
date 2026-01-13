@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "../searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -180,7 +180,7 @@
                         <h1 id="interfaces"><a class="header" href="#interfaces">Interfaces</a></h1>
 <p>An interface is a set of operations supported by some type named <code>self</code>.</p>
 <p>A type implements an interface if it supports all its operations.
-As an example, the <code>Num</code> interface supports the <code>add()</code>, <code>subtract()</code>, <code>multiply()</code>, and <code>divide()</code> operations.
+As an example, the <code>Num</code> interface supports the <code>add()</code>, <code>subtract()</code>, <code>multiply()</code>, <code>divide()</code>, and <code>power()</code> operations.
 The Number interface is implemented by both the <code>int</code> and <code>float</code> built-in types.</p>
 <pre><code>// support conversion to string
 interface ToString {
@@ -188,15 +188,15 @@ interface ToString {
 }
 
 type Person = {
-    first_name: string,
-    last_name: string,
-    age: int,
+    first_name: string
+    last_name: string
+    age: int
 }
 
 // support conversion to string for the Person type
-impl ToString for Person {
+implement ToString for Person {
     fn str(x: Person) -&gt; string {
-        x.first_name &amp; " " &amp; x.last_name &amp; ", " x.age &amp; " years old."
+        x.first_name .. " " .. x.last_name .. ", " x.age .. " years old."
     }
 }
 
@@ -209,12 +209,12 @@ let s = p.str() // "Arthur Pendragon 15"
 <h3 id="standard-library-interfaces"><a class="header" href="#standard-library-interfaces">Standard library interfaces</a></h3>
 <h4 id="tostring"><a class="header" href="#tostring">ToString</a></h4>
 <p>The ToString interface allows you to convert some type to a string.
-Any type which implements the ToString interface can be passed as an argument to the <code>&amp;</code> operator.</p>
+Any type which implements the ToString interface can be passed as an argument to the <code>..</code> operator.</p>
 <pre><code>let arr = [1, 2, 3]
 let arr_str = arr.str()         // arr_str = "[1, 2, 3]"
 let age = 23
 let name = "John"
-println(name &amp; " is " &amp; age)    // prints "John is 23"
+println(name .. " is " .. age)    // prints "John is 23"
 </code></pre>
 <h4 id="clone"><a class="header" href="#clone">Clone</a></h4>
 <p>The clone interface allows you to create a deep copy of some data structure.

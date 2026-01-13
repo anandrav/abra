@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d15d289f.js"></script>
@@ -178,17 +178,19 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="about-abra"><a class="header" href="#about-abra">About Abra</a></h1>
-<p>The primary goal of Abra is to be the most <strong>user-friendly</strong> programming language.</p>
+<p>The primary goal of Abra is to be a <strong>user-friendly</strong> programming language.</p>
 <p>More specifically, Abra is optimized for these use cases:</p>
 <ol>
 <li>Giving beginner programmers a gentle introduction to writing code</li>
 <li>Allowing experienced programmers to prototype quickly</li>
+<li>Easily embed code inside a video game or game engine</li>
 </ol>
 <p>Abra does this through the combination of these features:</p>
 <ul>
-<li>a strong static type system with error messages that guide the user</li>
-<li>a garbage collector to remove the mental overhead of manually freeing memory or passing around allocators or writing
-lifetime annotations</li>
+<li>a strong static type system with error messages that prevent the user from making mistakes</li>
+<li>a garbage collector to remove the mental overhead of manually freeing memory, passing around allocators, writing lifetime annotations, or worrying about reference-count cycles.</li>
+<li>a small stack-based virtual machine made available through a library with a simple C API for reading/writing values</li>
+<li>lightweight syntax and minimal boilerplate. Semicolons and commas are often optional</li>
 </ul>
 <p>Abra is not the only language to have a type system and a garbage collector. Some others include:</p>
 <ul>
@@ -197,14 +199,16 @@ lifetime annotations</li>
 <li>TypeScript</li>
 <li>Java</li>
 <li>C#</li>
+<li>Go</li>
 </ul>
-<p>However, Abra is distinct from more mainstream choices like TypeScript, Java, C# because it has powerful
-Hindley-Milner-style type inference.
+<p>However, Abra is distinct from more mainstream choices like TypeScript, Java, and C# because it has Hindley-Milner-style type inference, and considerably less boilerplate.
 Abra is distinct from OCaml because it has ad-hoc polymorphism.
-Abra is distinct from Haskell because it is not a pure, lazy functional language with monadic IO.</p>
-<p>Abra is not optimized for these use cases and does not aim to be:</p>
+Abra is distinct from Haskell because it is not a pure, lazy functional language with monadic IO. Abra is distinct from Go because Go does not have algebraic data types or polymorphism.
+Abra is distinct from Lua, a popular choice for game scripting, because Abra has a strong static type system.</p>
+<p>Abra isn’t necessarily a better choice than these other languages. For many use cases, it would be much better to just use something like TypeScript or C#. These comparisons are meant to illustrate Abra’s unique advantages for particular projects and for novice programmers.</p>
+<p>Abra is not suitable for these use cases and does not aim to be:</p>
 <ul>
-<li>graphics</li>
+<li>low-level graphics programming</li>
 <li>operating systems</li>
 <li>embedded systems</li>
 </ul>

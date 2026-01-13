@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "../searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -250,6 +250,15 @@ stab()          // halberd.stab
 
 swing()         // halberd.swing
 stab()          // halberd.stab
+</code></pre>
+</li>
+<li>
+<p>Import symbols under a user-specified prefix</p>
+<pre><code>use weapons/sword as sword
+use weapons/halberd as polearm
+
+sword.swing()           // sword.swing
+polearm.stab()          // halberd.stab
 </code></pre>
 </li>
 </ol>

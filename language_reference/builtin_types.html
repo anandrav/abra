@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "../searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -180,7 +180,7 @@
                         <h1 id="built-in-types"><a class="header" href="#built-in-types">Built-in Types</a></h1>
 <h3 id="int"><a class="header" href="#int">int</a></h3>
 <p>A 64-bit signed integer.
-Supports addition, subtraction, multiplication, division, and exponentiation operators.</p>
+Supports addition, subtraction, multiplication, division, exponentiation, and modulus operators.</p>
 <pre><code>let a = 5
 let b = 2 + 2   // 4
 let c = 2 * 3   // 6
@@ -188,6 +188,7 @@ let d = 5 - 2   // 3
 let e = 12 / 3  // 4
 let f = 13 / 3  // also 4
 let g = 2 ^ 3   // 8
+let h = g % 6   // 2
 
 let n = (a + c / d) ^ 2 // 49
 </code></pre>
@@ -203,21 +204,21 @@ let sword_is_equipped = false
 </code></pre>
 <h3 id="string"><a class="header" href="#string">string</a></h3>
 <p>Garbage-collected unicode text data.
-Strings can be concatenated together using the <code>&amp;</code> operator.</p>
+Strings can be concatenated together using the <code>..</code> operator to create a new string.</p>
 <pre><code>let name = "Merlin"
-let message = name &amp; " is a wizard." // "Merlin is a wizard."
+let message = name .. " is a wizard." // "Merlin is a wizard."
 </code></pre>
 <h3 id="arrayt"><a class="header" href="#arrayt">array&lt;T&gt;</a></h3>
 <p>A built-in dynamic array data structure. Supports random access (zero-indexed), pushing, and popping elements.
 Arrays are homogenous; elements of the array must have the same type i.e. an array cannot mix <code>int</code> and <code>float</code>
 elements, for instance.</p>
-<pre><code>let arr = [1, 2, 3, 4]  // create an array with some numbers
-arr.push(5)             // arr = [1, 2, 3, 4, 5]
+<pre><code>let arr = [1, 2, 3, 4]  // create an array containing some ints
+arr.push(5)             // arr == [1, 2, 3, 4, 5]
 let n = arr.len()       // 5
 let n = arr[2]          // 3
-arr[2] := 49
+arr[2] := 49            // arr == [1, 2, 49, 4, 5]
 let n = arr[2]          // 49
-arr.pop()               // arr = [1, 2, 3, 4]
+arr.pop()               // arr == [1, 2, 49, 4]
 </code></pre>
 <h3 id="tuples"><a class="header" href="#tuples">tuples</a></h3>
 <ul>

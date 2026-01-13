@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3a678ecd.js";
+            window.path_to_searchindex_js = "../searchindex-fedd2295.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -180,16 +180,16 @@
                         <h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
 <p>Define a <code>struct</code> to group together related pieces of data.</p>
 <pre><code>type Person = {
-    first_name: string,
-    last_name: string,
-    age: int,
+    first_name: string
+    last_name: string
+    age: int
 }
 </code></pre>
 <p>Create an instance of a struct by calling its constructor, which is a function that shares the same name as the struct.</p>
 <pre><code>let frank = Person("Frank", "Smith", 34)
 </code></pre>
 <p>Access the fields of a struct and modify them by using dot <code>.</code> syntax.</p>
-<pre><code>let fullname = frank.first_name &amp; " " &amp; frank.last_name
+<pre><code>let fullname = frank.first_name .. " " .. frank.last_name
 // fullname = "Frank Smith"
 frank.age = frank.age + 1
 // age = 35
