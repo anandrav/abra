@@ -21,7 +21,7 @@ fn fibonacci(n: int) -> int {
 ```
 
 The last expression in the body of the function is the return value. You can also return early from a function.
-If a function's body doesn't have a last expression, the function returns `void`, which is nothing.
+If a function's body doesn't have a last expression, the function returns `void`, which means it returns `nil` which is nothing.
 
 ```
 fn fibonacci(n: int) -> int {
