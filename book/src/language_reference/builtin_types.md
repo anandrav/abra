@@ -3,7 +3,7 @@
 ### int
 
 A 64-bit signed integer.
-Supports addition, subtraction, multiplication, division, and exponentiation operators.
+Supports addition, subtraction, multiplication, division, exponentiation, and modulus operators.
 ```
 let a = 5
 let b = 2 + 2   // 4
@@ -12,6 +12,7 @@ let d = 5 - 2   // 3
 let e = 12 / 3  // 4
 let f = 13 / 3  // also 4
 let g = 2 ^ 3   // 8
+let h = g % 6   // 2
 
 let n = (a + c / d) ^ 2 // 49
 ```
@@ -36,11 +37,11 @@ let sword_is_equipped = false
 ### string
 
 Garbage-collected unicode text data.
-Strings can be concatenated together using the `&` operator.
+Strings can be concatenated together using the `..` operator to create a new string.
 
 ```
 let name = "Merlin"
-let message = name & " is a wizard." // "Merlin is a wizard."
+let message = name .. " is a wizard." // "Merlin is a wizard."
 ```
 
 ### array&lt;T&gt;
@@ -50,13 +51,13 @@ Arrays are homogenous; elements of the array must have the same type i.e. an arr
 elements, for instance.
 
 ```
-let arr = [1, 2, 3, 4]  // create an array with some numbers
-arr.push(5)             // arr = [1, 2, 3, 4, 5]
+let arr = [1, 2, 3, 4]  // create an array containing some ints
+arr.push(5)             // arr == [1, 2, 3, 4, 5]
 let n = arr.len()       // 5
 let n = arr[2]          // 3
-arr[2] := 49
+arr[2] := 49            // arr == [1, 2, 49, 4, 5]
 let n = arr[2]          // 49
-arr.pop()               // arr = [1, 2, 3, 4]
+arr.pop()               // arr == [1, 2, 49, 4]
 ```
 
 ### tuples

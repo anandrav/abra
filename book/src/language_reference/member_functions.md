@@ -4,14 +4,14 @@ For convenience, you can define member functions on both user-defined and built-
 
 ```
 type Person = {
-    first_name: string,
-    last_name: string,
-    age: int,
+    first_name: string
+    last_name: string
+    age: int
 }
 
 extend Person {
     fn fullname(self) -> string {
-        self.first_name & self.last_name
+        self.first_name .. self.last_name
     }
 }
 
@@ -22,16 +22,16 @@ let name = p.fullname() // "Arthur Pendragon"
 ```
 
 ```
-extend array<'T> {
-    fn len(self: array<'T>) -> int {
+extend array<T> {
+    fn len(self: array<T>) -> int {
         array_length(self)
     }
 
-    fn push(self: array<'T>, x: 'T) -> void {
+    fn push(self: array<T>, x: T) -> void {
         array_push(self, x)
     }
 
-    fn pop(self: array<'T>) -> void {
+    fn pop(self: array<T>) -> void {
         array_pop(self)
     }
 }

@@ -3,8 +3,8 @@
 It is recommended to use the `option` type defined in the standard library as a return type for functions that can fail.
 
 ```
-type option<'T> =
-  | some of 'T
+type option<T> =
+  | some of T
   | none
 ```
 
@@ -25,8 +25,8 @@ The `!` operator is syntactic sugar for calling `.unwrap()` on some value.
 ```
 // assume string_to_int: string -> option<int>
 
-let a = string_to_int("10")!
-let b = string_to_int("5")!
+let a = "10".to_int()!
+let b = "5".to_int()!
 println(a + b)
 
 // prints "15"

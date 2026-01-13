@@ -3,7 +3,7 @@
 An interface is a set of operations supported by some type named `self`.
 
 A type implements an interface if it supports all its operations.
-As an example, the `Num` interface supports the `add()`, `subtract()`, `multiply()`, and `divide()` operations.
+As an example, the `Num` interface supports the `add()`, `subtract()`, `multiply()`, `divide()`, and `power()` operations.
 The Number interface is implemented by both the `int` and `float` built-in types.
 
 ```
@@ -13,15 +13,15 @@ interface ToString {
 }
 
 type Person = {
-    first_name: string,
-    last_name: string,
-    age: int,
+    first_name: string
+    last_name: string
+    age: int
 }
 
 // support conversion to string for the Person type
-impl ToString for Person {
+implement ToString for Person {
     fn str(x: Person) -> string {
-        x.first_name & " " & x.last_name & ", " x.age & " years old."
+        x.first_name .. " " .. x.last_name .. ", " x.age .. " years old."
     }
 }
 
@@ -37,14 +37,14 @@ let s = p.str() // "Arthur Pendragon 15"
 #### ToString
 
 The ToString interface allows you to convert some type to a string.
-Any type which implements the ToString interface can be passed as an argument to the `&` operator.
+Any type which implements the ToString interface can be passed as an argument to the `..` operator.
 
 ```
 let arr = [1, 2, 3]
 let arr_str = arr.str()         // arr_str = "[1, 2, 3]"
 let age = 23
 let name = "John"
-println(name & " is " & age)    // prints "John is 23"
+println(name .. " is " .. age)    // prints "John is 23"
 ```
 
 #### Clone

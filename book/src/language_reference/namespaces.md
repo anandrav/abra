@@ -93,3 +93,12 @@ To avoid name clashes, users can either:
     swing()         // halberd.swing
     stab()          // halberd.stab
     ```
+3. Import symbols under a user-specified prefix
+
+    ```
+    use weapons/sword as sword
+    use weapons/halberd as polearm
+    
+    sword.swing()           // sword.swing
+    polearm.stab()          // halberd.stab
+    ```

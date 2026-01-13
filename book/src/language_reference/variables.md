@@ -8,7 +8,7 @@ let y = 8
 ```
 
 Mutable variables can be created using the `var` keyword.
-Their value can be updated using the assignment `:=` operator.
+Their value can be updated using the assignment `=` operator.
 
 ```
 var x = 5       // x = 5

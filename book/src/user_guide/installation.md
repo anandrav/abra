@@ -12,18 +12,16 @@ cd abra
 After, you should be able to run Abra from the command line
 
 ```
-% abra --help
 Usage: abra [OPTIONS] <FILE> [ARGS]...
 
 Arguments:
-  <FILE>     The main Abra file to compile and execute
-  [ARGS]...  Arguments to pass to the Abra program
+    <FILE>    The main Abra file to compile and execute
+    [ARGS]    Arguments for the Abra program
 
 Options:
-  -m, --standard-modules <DIRECTORY>  Override the default module directory (~/.abra/modules).
-  -h, --help                 Print help
-  -V, --version              Print version
-
+    --standard-modules <DIRECTORY>     Override the default standard modules directory
+    -a, --assembly                     Print the assembly for the Abra program
+    -h, --help                         Print help
 ```
 
 ### Requirements
