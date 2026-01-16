@@ -271,11 +271,21 @@ pub fn generate_bindings_for_crate() {
         );
     }
 
-    let output_path = current_dir.join("src").join("lib.rs");
+    // let source_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("Could not get CARGO_MANIFEST_DIR"));
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("Could not get OUT_DIR"));
+    let mut root_mod_path = out_dir.join(package_name.clone());
+    root_mod_path.add_extension("rs");
+    std::fs::write(
+        &root_mod_path,
+        format!("include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/mod.rs\"));"),
+    )
+    .unwrap();
 
-    std::fs::write(&output_path, output).unwrap();
+    let output_path = out_dir.join("lib.rs");
 
-    run_formatter("src/lib.rs", true);
+    std::fs::write(&output_path, output).unwrap(); // TODO: there are unwraps all over the place. Need to have better error reporting
+
+    run_formatter(output_path.to_str().unwrap(), true);
 }
 
 pub fn run_formatter(output_path: &str, skip_children: bool) {
