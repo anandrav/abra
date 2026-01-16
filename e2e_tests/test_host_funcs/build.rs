@@ -11,7 +11,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file_provider = OsFileProvider::single_dir(abra_src_dir);
 
     let this_dir = std::env::var("CARGO_MANIFEST_DIR")?;
-    let destination = PathBuf::from(this_dir).join("src");
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+    let destination = out_dir;
 
     if let Err(s) = abra_core::generate_host_function_enum("util.abra", file_provider, &destination)
     {
