@@ -11,7 +11,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let file_provider = OsFileProvider::single_dir(this_dir.clone());
 
-    let destination = this_dir.join("src");
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+    let destination = out_dir;
 
     if let Err(s) =
         abra_core::generate_host_function_enum("host_funcs.abra", file_provider, &destination)

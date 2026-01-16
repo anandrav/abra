@@ -10,7 +10,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join("abra_src");
     let file_provider = OsFileProvider::single_dir(abra_src_dir);
 
-    let this_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let destination = out_dir;
 
