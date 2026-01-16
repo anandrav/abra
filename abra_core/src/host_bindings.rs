@@ -18,11 +18,11 @@ pub fn generate_host_function_enum(
     let file_asts = get_files(&mut ctx, &[main_host_func_file_name])?;
     statics::analyze(&mut ctx, &file_asts)?;
 
-    let destination = destination.join("generated");
-    if fs::exists(&destination).unwrap() {
-        fs::remove_dir_all(&destination).unwrap();
-    }
-    fs::create_dir(&destination).unwrap();
+    // let destination = destination.join("generated");
+    // if fs::exists(&destination).unwrap() {
+    //     fs::remove_dir_all(&destination).unwrap();
+    // }
+    // fs::create_dir(&destination).unwrap();
 
     let mut root_namespace = Namespace::new();
 
