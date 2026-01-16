@@ -277,7 +277,7 @@ pub fn generate_bindings_for_crate() {
     root_mod_path.add_extension("rs");
     std::fs::write(
         &root_mod_path,
-        format!("include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/mod.rs\"));"),
+        format!("include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/{package_name}/mod.rs\"));"),
     )
     .unwrap();
 
