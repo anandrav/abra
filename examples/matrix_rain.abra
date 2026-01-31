@@ -1,6 +1,6 @@
-use term
 use core/time
 use core/random
+use ard/term
 
 type Stream = {
   y: float

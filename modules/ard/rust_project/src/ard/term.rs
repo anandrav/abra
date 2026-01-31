@@ -6,7 +6,7 @@ use std::io::Write;
 use std::io::stdout;
 use std::time::Duration;
 
-use crate::ffi::term::KeyCode;
+use crate::ffi::ard::term::KeyCode;
 use abra_core::vm::AbraInt;
 use crossterm::cursor;
 use crossterm::event::Event;
@@ -41,11 +41,11 @@ pub fn poll_key_event(milliseconds: AbraInt) -> bool {
 pub fn get_key_event() -> KeyCode {
     loop {
         if let Ok(Event::Key(CtKeyEvent {
-            code,
-            modifiers: _,
-            kind: _,
-            state: _,
-        })) = read()
+                                 code,
+                                 modifiers: _,
+                                 kind: _,
+                                 state: _,
+                             })) = read()
         {
             match code {
                 CtKeyCode::Left => break KeyCode::Left,
@@ -89,7 +89,7 @@ pub fn mark(s: String, x: AbraInt, y: AbraInt) {
         cursor::MoveToRow(y),
         style::Print(s)
     )
-    .unwrap();
+        .unwrap();
 }
 
 pub fn flush() {
