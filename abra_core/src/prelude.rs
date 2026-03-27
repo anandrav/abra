@@ -68,6 +68,12 @@ extend result<T, E> {
     }
 }
 
+interface Unwrap {
+    outputtype Output
+
+    fn unwrap(self) -> Output
+}
+
 fn unwrap(m: option<T>) -> T {
     match m {
         .some(x) -> x
