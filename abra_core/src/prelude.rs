@@ -41,6 +41,31 @@ extend option<T> {
             .none -> false
         }
     }
+
+    fn is_none(self) -> bool {
+        match self {
+            .some(_) -> false
+            .none -> true
+        }
+    }
+}
+
+type result<T, E> = ok(T) | err(E)
+
+extend result<T, E> {
+    fn is_ok(self) -> bool {
+        match self {
+            .ok(_) -> true
+            .err(_) -> false
+        }
+    }
+
+    fn is_err(self) -> bool {
+        match self {
+            .ok(_) -> false
+            .err(_) -> true
+        }
+    }
 }
 
 fn unwrap(m: option<T>) -> T {

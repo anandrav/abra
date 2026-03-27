@@ -3350,7 +3350,6 @@ impl Display for PotentialType {
             PotentialType::Poly(_, decl) => {
                 match decl {
                     PolytypeDeclaration::Ordinary(polyty) => {
-                        write!(f, "{}", polyty.name.id)?;
                         write!(f, "{}", polyty.name.v)?;
                         if !polyty.interfaces.is_empty() {
                             write!(f, " ")?;
@@ -3424,8 +3423,6 @@ impl Display for SolvedType {
                 match polyty {
                     // TODO: this is duplicated right above. Maybe implement Dispaly for PolytypeDeclaration
                     PolytypeDeclaration::Ordinary(polyty) => {
-                        // TODO: why is this here?
-                        write!(f, "{}", polyty.name.id)?;
                         write!(f, "{}", polyty.name.v)?;
                         if !polyty.interfaces.is_empty() {
                             write!(f, " ")?;
