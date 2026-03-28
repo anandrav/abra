@@ -2052,7 +2052,6 @@ impl Translator {
         func_def: &Rc<FuncDef>,
     ) {
         if let Some(overload_ty) = &overload_ty {
-            println!("overload_ty = {}", overload_ty);
             assert!(overload_ty.monotype().is_some());
         }
         let desc = FuncDesc {
