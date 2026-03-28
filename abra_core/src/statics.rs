@@ -124,11 +124,43 @@ impl StaticsContext {
         }
     }
 
+    pub(crate) fn get_free_function_decl(&self, name: &str) -> Rc<FuncDef> {
+        let Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_decl)) =
+            self.root_namespace.get_declaration(name)
+        else {
+            panic!()
+        };
+        func_decl.clone()
+    }
+
     pub(crate) fn get_iface_decl(&self, name: &str) -> Rc<InterfaceDef> {
         let Declaration::InterfaceDef(iface_def) = self.root_namespace.get_declaration(name) else {
             panic!()
         };
         iface_def.clone()
+    }
+
+    pub(crate) fn get_iface_method_decl(
+        &self,
+        name: &str,
+    ) -> (
+        /*iface */ Rc<InterfaceDef>,
+        /* method index */ usize,
+    ) {
+        // TODO: just make a struct for this return type
+        let Declaration::InterfaceMethod { iface, method } =
+            self.root_namespace.get_declaration(name)
+        else {
+            panic!()
+        };
+        (iface, method)
+    }
+
+    pub(crate) fn get_enum_decl(&self, name: &str) -> Rc<EnumDef> {
+        let Declaration::Enum(enum_def) = self.root_namespace.get_declaration(name) else {
+            panic!()
+        };
+        enum_def.clone()
     }
 }
 
@@ -268,6 +300,27 @@ impl Declaration {
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
             Declaration::Struct(struct_def) => Some(TypeKey::TyApp(Nominal::Struct(struct_def))),
             Declaration::BuiltinType(builtin_type) => Some(builtin_type.to_type_key()),
+        }
+    }
+
+    pub fn downcast_to_interface_def(self) -> Option<Rc<InterfaceDef>> {
+        match self {
+            Declaration::InterfaceDef(def) => Some(def),
+            _ => None,
+        }
+    }
+
+    pub fn downcast_to_interface_method(self) -> Option<(Rc<InterfaceDef>, usize)> {
+        match self {
+            Declaration::InterfaceMethod { iface, method } => Some((iface, method)),
+            _ => None,
+        }
+    }
+
+    pub fn downcast_to_enum(self) -> Option<Rc<EnumDef>> {
+        match self {
+            Declaration::Enum(def) => Some(def),
+            _ => None,
         }
     }
 }

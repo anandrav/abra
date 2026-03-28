@@ -2828,11 +2828,7 @@ fn generate_constraints_expr(
             constrain(ctx, &node_ty, &elem_ty);
         }
         ExprKind::Unwrap(expr) => {
-            let Declaration::Enum(option_def) =
-                ctx.root_namespace.get_declaration("prelude.option")
-            else {
-                unreachable!()
-            };
+            let option_def = ctx.get_enum_decl("prelude.option");
             let y_poly_decl = PolytypeDeclaration::Ordinary(option_def.ty_args[0].clone());
             let (option_ty, substitution) = TypeVar::make_nominal_with_substitution(
                 ctx,

@@ -543,14 +543,7 @@ impl Translator {
                 };
                 self.translate_expr(right, offset_table, mono, st);
                 let mut helper = |mono: &MonomorphEnv, method_name: &str| {
-                    let iface_method = self.statics.root_namespace.get_declaration(method_name);
-                    let Declaration::InterfaceMethod {
-                        method,
-                        iface: iface_def,
-                    } = iface_method
-                    else {
-                        unreachable!()
-                    };
+                    let (iface_def, method) = self.statics.get_iface_method_decl(method_name);
                     let arg1_ty = self.get_ty(mono, left.node()).unwrap();
                     let arg2_ty = self.get_ty(mono, right.node()).unwrap();
                     let out_ty = self.get_ty(mono, expr.node()).unwrap();
@@ -682,15 +675,7 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::Format => {
-                        let format_append_decl = self
-                            .statics
-                            .root_namespace
-                            .get_declaration("prelude.format_append");
-                        let Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) =
-                            format_append_decl
-                        else {
-                            unreachable!()
-                        };
+                        let func_def = self.statics.get_free_function_decl("prelude.format_append");
                         let func_name = &self.statics.fully_qualified_names[&func_def.name.id];
 
                         let arg2_ty = self.get_ty(mono, right.node()).unwrap();
@@ -943,13 +928,11 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, mono, st);
 
-                let func_decl @ Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) = &self
+                let func_decl = self
                     .statics
                     .root_namespace
-                    .get_declaration("prelude.unwrap")
-                else {
-                    panic!();
-                };
+                    .get_declaration("prelude.unwrap");
+                let f = self.statics.get_free_function_decl("prelude.unwrap");
                 // TODO: this would be easier if the postfix unwrap operator had a dedicated AST node and its own type. Then we wouldn't have to do this weird hack here
                 let expr_ty = self.get_ty(mono, expr.node()).unwrap();
                 let ret_ty = f
@@ -959,7 +942,7 @@ impl Translator {
                     .to_solved_type(&self.statics)
                     .unwrap();
                 mono.update(&ret_ty, &expr_ty);
-                self.translate_func_ap(func_decl, f.name.node(), offset_table, mono, st);
+                self.translate_func_ap(&func_decl, f.name.node(), offset_table, mono, st);
             }
         }
     }
@@ -1977,13 +1960,7 @@ impl Translator {
             StmtKind::ForLoop(pat, iterable, statements) => {
                 self.translate_expr(iterable, offset_table, mono, st);
                 // iterable.make_iterator()
-                let Declaration::InterfaceDef(iterable_iface_def) = self
-                    .statics
-                    .root_namespace
-                    .get_declaration("prelude.Iterable")
-                else {
-                    unreachable!()
-                };
+                let iterable_iface_def = self.statics.get_iface_decl("prelude.Iterable");
                 let fn_make_iterator_ty = &self.statics.for_loop_make_iterator_types[&stmt.id];
                 self.translate_iface_method_ap_helper(
                     st,
@@ -1999,13 +1976,7 @@ impl Translator {
                 self.emit(st, Line::Label(start_label.clone()));
                 // iterator.next()
                 self.emit(st, Instr::Duplicate);
-                let Declaration::InterfaceDef(iterator_iface_def) = self
-                    .statics
-                    .root_namespace
-                    .get_declaration("prelude.Iterator")
-                else {
-                    unreachable!()
-                };
+                let iterator_iface_def = self.statics.get_iface_decl("prelude.Iterator");
                 let fn_next_ty = &self.statics.for_loop_next_types[&stmt.id];
                 self.translate_iface_method_ap_helper(st, mono, &iterator_iface_def, 0, fn_next_ty);
                 // check return value of iterator.next() and branch
