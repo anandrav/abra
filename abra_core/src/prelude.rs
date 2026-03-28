@@ -71,28 +71,27 @@ extend result<T, E> {
 interface Unwrap {
     outputtype Output
 
-    fn unwrap2(self) -> Output
+    // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way. Requires deep dive
+    fn unwrap2(self: Self) -> Output
 }
 
-// implement Unwrap for option<T> {
-//     // TODO: shouldn't have to annotate self: option<T> here...
-//     fn unwrap2(self) -> T {
-//         match self {
-//             .some(x) -> x
-//             .none -> panic("cannot unwrap option.none")
-//         }
-//     }
-// }
+implement Unwrap for option<T> {
+    fn unwrap2(self) -> T {
+        match self {
+            .some(x) -> x
+            .none -> panic("cannot unwrap option.none")
+        }
+    }
+}
 
-// implement Unwrap for result<T, E> {
-//     // TODO: shouldn't have to annotate self: result<T, E> here...
-//     fn unwrap2(self: result<T, E>) -> T {
-//         match self {
-//             .ok(x) -> x
-//             .err(_) -> panic("cannot unwrap result.err")
-//         }
-//     }
-// }
+implement Unwrap for result<T, E> {
+    fn unwrap2(self: result<T, E>) -> T {
+        match self {
+            .ok(x) -> x
+            .err(_) -> panic("cannot unwrap result.err")
+        }
+    }
+}
 
 fn unwrap(m: option<T>) -> T {
     match m {
