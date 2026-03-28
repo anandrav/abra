@@ -2868,8 +2868,8 @@ fn generate_constraints_expr(
                     }
                 }
             } else {
-                panic!()
-                // TODO: report an error. can't unwrap type if type not known at this point
+                ctx.errors
+                    .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
             }
         }
     }
