@@ -71,7 +71,9 @@ extend result<T, E> {
 interface Unwrap {
     outputtype Output
 
-    // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way. Requires deep dive
+    // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way
+    // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
+    // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
     fn unwrap2(self: Self) -> Output
 }
 
