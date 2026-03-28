@@ -124,6 +124,21 @@ impl StaticsContext {
         }
     }
 
+    pub(crate) fn get_iface_impl_for_type(
+        &self,
+        ty: &SolvedType,
+        iface: &Rc<InterfaceDef>,
+    ) -> Option<Rc<InterfaceImpl>> {
+        // TODO: cache this using hashmap
+        let impl_list = self.interface_impls[iface].clone();
+        for imp in impl_list {
+            if ty.fits_impl_ty(self, &imp.typ.to_solved_type(self).unwrap()) {
+                return Some(imp);
+            }
+        }
+        None
+    }
+
     pub(crate) fn get_free_function_decl(&self, name: &str) -> Rc<FuncDef> {
         let Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_decl)) =
             self.root_namespace.get_declaration(name)
@@ -434,7 +449,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
 }
 
 use crate::parse::Span;
-use crate::statics::typecheck::Nominal;
+use crate::statics::typecheck::{Nominal, constrain};
 use codespan_reporting::diagnostic::Label as CsLabel;
 use utils::dlog;
 

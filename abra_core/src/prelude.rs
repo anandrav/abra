@@ -74,11 +74,11 @@ interface Unwrap {
     // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way
     // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
     // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
-    fn unwrap2(self: Self) -> Output
+    fn unwrap(self: Self) -> Output
 }
 
 implement Unwrap for option<T> {
-    fn unwrap2(self) -> T {
+    fn unwrap(self) -> T {
         match self {
             .some(x) -> x
             .none -> panic("cannot unwrap option.none")
@@ -87,7 +87,7 @@ implement Unwrap for option<T> {
 }
 
 implement Unwrap for result<T, E> {
-    fn unwrap2(self: result<T, E>) -> T {
+    fn unwrap(self: result<T, E>) -> T {
         match self {
             .ok(x) -> x
             .err(_) -> panic("cannot unwrap result.err")
@@ -95,12 +95,23 @@ implement Unwrap for result<T, E> {
     }
 }
 
-fn unwrap(m: option<T>) -> T {
-    match m {
-        .some(x) -> x
-        .none -> panic("cannot unwrap option.none")
-    }
+interface Try {
+    outputtype Output
+
+    // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way
+    // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
+    // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
+    fn try(self: Self) -> Output
 }
+
+// implement Try for option<T> {
+//     fn unwrap(self) -> T {
+//         match self {
+//             .some(x) -> x
+//             .none -> panic("cannot unwrap option.none")
+//         }
+//     }
+// }
 
 interface Equal {
     fn equal(a: Self, b: Self) -> bool
