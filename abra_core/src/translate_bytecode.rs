@@ -925,8 +925,8 @@ impl Translator {
 
                 self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
-            ExprKind::Unwrap(expr) => {
-                self.translate_expr(expr, offset_table, mono, st);
+            ExprKind::Unwrap(inner_expr) => {
+                self.translate_expr(inner_expr, offset_table, mono, st);
 
                 // NEW
                 /*
@@ -937,13 +937,13 @@ impl Translator {
 
                 */
                 let unwrap_iface_decl = self.statics.get_iface_decl("prelude.Unwrap");
-                let expr_solved_ty = self.get_ty(mono, expr.node()).unwrap();
+                let inner_expr_solved_ty = self.get_ty(mono, inner_expr.node()).unwrap();
                 // TODO: this is all SUPER duplicated. See typecheck.rs
                 let impl_list = self.statics.interface_impls[&unwrap_iface_decl].clone();
                 let mut impl_found = false;
                 for imp in impl_list {
                     // TODO: don't unwrap after to_solved_type
-                    if expr_solved_ty.fits_impl_ty(
+                    if inner_expr_solved_ty.fits_impl_ty(
                         &self.statics,
                         &imp.typ.to_solved_type(&self.statics).unwrap(),
                     ) {
@@ -961,9 +961,9 @@ impl Translator {
                             .unwrap()
                             .clone(); // TODO: should this be unwrapped?
 
-                        // // TODO: need a more principled way to get the outputtype of a particular implementation
                         if let Some(SolvedType::Function(_, ret_ty)) = unwrap_method_ty.solution() {
-                            mono.update(&ret_ty, &expr_solved_ty);
+                            let expr_solved_type = self.get_ty(mono, expr.node()).unwrap();
+                            mono.update(&ret_ty, &expr_solved_type);
                             self.translate_func_ap(
                                 &unwrap_method_decl,
                                 unwrap_method.name.node(),
@@ -2048,6 +2048,7 @@ impl Translator {
         func_def: &Rc<FuncDef>,
     ) {
         if let Some(overload_ty) = &overload_ty {
+            println!("overload_ty = {}", overload_ty);
             assert!(overload_ty.monotype().is_some());
         }
         let desc = FuncDesc {

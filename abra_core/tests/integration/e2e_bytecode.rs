@@ -1090,7 +1090,7 @@ fib(10)
 }
 
 #[test]
-fn unwrap_good() {
+fn unwrap_option_good() {
     let src = r#"
 let m: option<int> = option.some(3)
 let n: int = m!
@@ -1107,7 +1107,7 @@ n
 }
 
 #[test]
-fn unwrap_bad() {
+fn unwrap_option_bad() {
     let src = r#"
 let m: option<int> = option.none
 let n: int = m!
@@ -1120,6 +1120,24 @@ n
     let mut vm = Vm::new(program);
     vm.run();
     let VmStatus::Error(_) = vm.status() else { panic!() };
+}
+
+#[ignore]
+#[test]
+fn unwrap_result_good() {
+    let src = r#"
+let m: result<int, void> = result.ok(3)
+let n: int = m!
+n
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 3);
 }
 
 // TODO: re-enable
