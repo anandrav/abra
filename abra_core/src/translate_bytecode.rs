@@ -1128,6 +1128,7 @@ impl Translator {
     ) {
         let substituted_ty = func_ty.subst(mono);
         let method = &iface_def.methods[method_index as usize].name;
+        // TODO: this is duplicated elsewhere in this file AND in typechecker I believe
         let impl_list = &self.statics.interface_impls[iface_def];
 
         for imp in impl_list {

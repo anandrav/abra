@@ -1093,7 +1093,8 @@ fib(10)
 fn unwrap_good() {
     let src = r#"
 let m: option<int> = option.some(3)
-m!
+let n: int = m!
+n
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -1109,7 +1110,8 @@ m!
 fn unwrap_bad() {
     let src = r#"
 let m: option<int> = option.none
-m!
+let n: int = m!
+n
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",

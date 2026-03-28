@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{
     Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments, InterfaceDef,
-    Polytype, PolytypeDeclaration, StaticsContext, StructDef,
+    Polytype, PolytypeDeclaration, StaticsContext, StructDef, TypeProv,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
@@ -2828,19 +2828,49 @@ fn generate_constraints_expr(
             constrain(ctx, &node_ty, &elem_ty);
         }
         ExprKind::Unwrap(expr) => {
-            let option_def = ctx.get_enum_decl("prelude.option");
-            let y_poly_decl = PolytypeDeclaration::Ordinary(option_def.ty_args[0].clone());
-            let (option_ty, substitution) = TypeVar::make_nominal_with_substitution(
+            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr);
+            let expr_ty = TypeVar::from_node(ctx, expr.node());
+
+            // the expression being unwrapped must implement Unwrap
+            let unwrap_iface_decl = ctx.get_iface_decl("prelude.Unwrap");
+            constrain_to_iface(
                 ctx,
-                Reason::Node(expr.node()),
-                Nominal::Enum(option_def),
+                &expr_ty,
                 expr.node(),
+                &InterfaceConstraint::new(unwrap_iface_decl.clone(), vec![]),
             );
-            let yes_ty = substitution[&y_poly_decl].clone();
 
-            generate_constraints_expr(ctx, polyvar_scope, Mode::ana(option_ty), expr);
+            // get the implementation of Unwrap for this expression's type
+            if let Some(expr_solved_ty) = expr_ty.solution() {
+                let impl_list = ctx.interface_impls[&unwrap_iface_decl].clone();
+                for imp in impl_list {
+                    // TODO: don't unwrap after to_solved_type
+                    if expr_solved_ty.fits_impl_ty(ctx, &imp.typ.to_solved_type(ctx).unwrap()) {
+                        let unwrap_method = &imp.methods[0];
+                        let unwrap_method_ty = ctx
+                            .unifvars
+                            .get(&TypeProv::Node(unwrap_method.name.node()))
+                            .unwrap()
+                            .clone(); // TODO: should this be unwrapped?
 
-            constrain(ctx, &node_ty, &yes_ty);
+                        // // TODO: need a more principled way to get the outputtype of a particular implementation
+                        if let Some(PotentialType::Function(_, _, ret_ty)) =
+                            unwrap_method_ty.single()
+                        {
+                            // substitute to get particular instance of return type
+                            // for example, unwrapping option<T> gives T. But in this particular case, T might be int
+                            let substitution = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
+                            let ret_ty = ret_ty.subst(&substitution);
+                            constrain(ctx, &node_ty, &ret_ty);
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                }
+            } else {
+                panic!()
+                // TODO: report an error. can't unwrap type if type not known at this point
+            }
         }
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
