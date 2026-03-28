@@ -961,19 +961,23 @@ impl Translator {
                             .unwrap()
                             .clone(); // TODO: should this be unwrapped?
 
-                        if let Some(SolvedType::Function(_, ret_ty)) = unwrap_method_ty.solution() {
-                            let expr_solved_type = self.get_ty(mono, expr.node()).unwrap();
-                            mono.update(&ret_ty, &expr_solved_type);
-                            self.translate_func_ap(
-                                &unwrap_method_decl,
-                                unwrap_method.name.node(),
-                                offset_table,
-                                mono,
-                                st,
-                            );
-                        } else {
-                            unreachable!();
-                        }
+                        let expr_solved_type = self.get_ty(mono, expr.node()).unwrap();
+                        // TODO: smelly code. better way to do this?
+                        mono.update(
+                            &unwrap_method_ty.solution().unwrap(),
+                            &SolvedType::Function(
+                                vec![inner_expr_solved_ty],
+                                expr_solved_type.into(),
+                            ),
+                        );
+                        self.translate_func_ap(
+                            &unwrap_method_decl,
+                            unwrap_method.name.node(),
+                            offset_table,
+                            mono,
+                            st,
+                        );
+                        break;
                     }
                 }
                 if !impl_found {

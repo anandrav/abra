@@ -1122,7 +1122,6 @@ n
     let VmStatus::Error(_) = vm.status() else { panic!() };
 }
 
-#[ignore]
 #[test]
 fn unwrap_result_good() {
     let src = r#"
