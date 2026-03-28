@@ -40,7 +40,7 @@ pub fn generate_host_function_enum(
         root_namespace.add(&path, file_ast.clone());
     }
 
-    generate_file_per_namespace(&root_namespace, &destination, true, &ctx);
+    generate_file_per_namespace(&root_namespace, destination, true, &ctx);
 
     let destination = destination.join("mod.rs");
     run_formatter(destination.to_str().unwrap(), false);
