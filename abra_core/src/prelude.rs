@@ -71,8 +71,28 @@ extend result<T, E> {
 interface Unwrap {
     outputtype Output
 
-    fn unwrap(self) -> Output
+    fn unwrap2(self) -> Output
 }
+
+// implement Unwrap for option<T> {
+//     // TODO: shouldn't have to annotate self: option<T> here...
+//     fn unwrap2(self) -> T {
+//         match self {
+//             .some(x) -> x
+//             .none -> panic("cannot unwrap option.none")
+//         }
+//     }
+// }
+
+// implement Unwrap for result<T, E> {
+//     // TODO: shouldn't have to annotate self: result<T, E> here...
+//     fn unwrap2(self: result<T, E>) -> T {
+//         match self {
+//             .ok(x) -> x
+//             .err(_) -> panic("cannot unwrap result.err")
+//         }
+//     }
+// }
 
 fn unwrap(m: option<T>) -> T {
     match m {
@@ -312,7 +332,7 @@ type ArrayIterator<P> = {
 }
 
 implement Iterator for ArrayIterator<V> {
-    fn next(self: ArrayIterator<V>) -> option<V> {
+    fn next(self) -> option<V> {
         if self.i == self.arr.len() {
             .none
         } else {
@@ -350,7 +370,7 @@ type RangeIterator = {
 }
 
 implement Iterator for RangeIterator {
-    fn next(self) -> option<int> {
+    fn next(self: RangeIterator) -> option<int> {
         if self.begin >= self.end {
             .none
         } else {
