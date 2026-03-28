@@ -549,7 +549,7 @@ impl Translator {
                     let out_ty = self.get_ty(mono, expr.node()).unwrap();
                     let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
-                    self.translate_iface_method_ap_helper(
+                    self.translate_iface_method_call_helper(
                         st,
                         mono,
                         &iface_def,
@@ -729,7 +729,7 @@ impl Translator {
                             self.translate_expr(arg, offset_table, mono, st);
                         }
                         let decl = &self.statics.resolution_map[&func.id];
-                        self.translate_func_ap(decl, func.node(), offset_table, mono, st);
+                        self.translate_func_call(decl, func.node(), offset_table, mono, st);
                     }
                     ExprKind::MemberAccess(receiver_expr, fname) => {
                         self.translate_expr(receiver_expr, offset_table, mono, st);
@@ -738,7 +738,7 @@ impl Translator {
                         }
 
                         let decl = &self.statics.resolution_map[&fname.id];
-                        self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
+                        self.translate_func_call(decl, fname.node(), offset_table, mono, st);
                     }
                     ExprKind::MemberAccessLeadingDot(fname) => {
                         for arg in args {
@@ -746,7 +746,7 @@ impl Translator {
                         }
 
                         let decl = &self.statics.resolution_map[&fname.id];
-                        self.translate_func_ap(decl, fname.node(), offset_table, mono, st);
+                        self.translate_func_call(decl, fname.node(), offset_table, mono, st);
                     }
 
                     ExprKind::Nil
@@ -773,7 +773,7 @@ impl Translator {
                             self.translate_expr(arg, offset_table, mono, st);
                         }
                         self.translate_expr(func, offset_table, mono, st);
-                        self.translate_lambda_ap(st, mono, func.node());
+                        self.translate_lambda_call(st, mono, func.node());
                     }
                 };
             }
@@ -964,7 +964,7 @@ impl Translator {
                     &unwrap_method_ty.solution().unwrap(),
                     &SolvedType::Function(vec![inner_expr_solved_ty], expr_solved_type.into()),
                 );
-                self.translate_func_ap(
+                self.translate_func_call(
                     &unwrap_method_decl,
                     unwrap_method.name.node(),
                     offset_table,
@@ -1123,7 +1123,7 @@ impl Translator {
         }
     }
 
-    fn translate_lambda_ap(&self, st: &mut TranslatorState, mono: &MonomorphEnv, node: AstNode) {
+    fn translate_lambda_call(&self, st: &mut TranslatorState, mono: &MonomorphEnv, node: AstNode) {
         let Some(SolvedType::Function(args, _)) = self.get_ty(mono, node.clone()) else {
             unreachable!()
         };
@@ -1132,7 +1132,7 @@ impl Translator {
     }
 
     // used for free functions and member functions
-    fn translate_func_ap_helper(
+    fn translate_func_call_helper(
         &self,
         f: &Rc<FuncDef>,
         f_fully_qualified_name: &str,
@@ -1150,7 +1150,7 @@ impl Translator {
     }
 
     // used for interface methods
-    fn translate_iface_method_ap_helper(
+    fn translate_iface_method_call_helper(
         &self,
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
@@ -1194,7 +1194,7 @@ impl Translator {
         )
     }
 
-    fn translate_func_ap(
+    fn translate_func_call(
         &self,
         decl: &Declaration,
         func_node: AstNode,
@@ -1207,11 +1207,11 @@ impl Translator {
                 // assume it's a function object
                 let idx = offset_table.get(&node.id()).unwrap();
                 self.emit(st, Instr::LoadOffset(*idx));
-                self.translate_lambda_ap(st, mono, node.clone());
+                self.translate_lambda_call(st, mono, node.clone());
             }
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
-                self.translate_func_ap_helper(f, f_fully_qualified_name, func_node, mono, st);
+                self.translate_func_call_helper(f, f_fully_qualified_name, func_node, mono, st);
             }
             Declaration::FreeFunction(FuncResolutionKind::Host(decl)) => {
                 let idx = self.statics.host_funcs.get_id(decl) as u16;
@@ -1229,7 +1229,7 @@ impl Translator {
                 method,
             } => {
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
-                self.translate_iface_method_ap_helper(
+                self.translate_iface_method_call_helper(
                     st,
                     mono,
                     iface_def,
@@ -1239,7 +1239,7 @@ impl Translator {
             }
             Declaration::MemberFunction(f) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
-                self.translate_func_ap_helper(f, f_fully_qualified_name, func_node, mono, st);
+                self.translate_func_call_helper(f, f_fully_qualified_name, func_node, mono, st);
             }
             Declaration::Struct(def) => {
                 let mut nargs = 0;
@@ -1996,7 +1996,7 @@ impl Translator {
                 // iterable.make_iterator()
                 let iterable_iface_def = self.statics.get_iface_decl("prelude.Iterable");
                 let fn_make_iterator_ty = &self.statics.for_loop_make_iterator_types[&stmt.id];
-                self.translate_iface_method_ap_helper(
+                self.translate_iface_method_call_helper(
                     st,
                     mono,
                     &iterable_iface_def,
@@ -2012,7 +2012,13 @@ impl Translator {
                 self.emit(st, Instr::Duplicate);
                 let iterator_iface_def = self.statics.get_iface_decl("prelude.Iterator");
                 let fn_next_ty = &self.statics.for_loop_next_types[&stmt.id];
-                self.translate_iface_method_ap_helper(st, mono, &iterator_iface_def, 0, fn_next_ty);
+                self.translate_iface_method_call_helper(
+                    st,
+                    mono,
+                    &iterator_iface_def,
+                    0,
+                    fn_next_ty,
+                );
                 // check return value of iterator.next() and branch
                 self.emit(st, Instr::DeconstructVariant);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
