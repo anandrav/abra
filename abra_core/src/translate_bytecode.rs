@@ -543,11 +543,7 @@ impl Translator {
                 };
                 self.translate_expr(right, offset_table, mono, st);
                 let mut helper = |mono: &MonomorphEnv, method_name: &str| {
-                    let iface_method = self
-                        .statics
-                        .root_namespace
-                        .get_declaration(method_name)
-                        .unwrap();
+                    let iface_method = self.statics.root_namespace.get_declaration(method_name);
                     let Declaration::InterfaceMethod {
                         method,
                         iface: iface_def,
@@ -689,8 +685,7 @@ impl Translator {
                         let format_append_decl = self
                             .statics
                             .root_namespace
-                            .get_declaration("prelude.format_append")
-                            .unwrap();
+                            .get_declaration("prelude.format_append");
                         let Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) =
                             format_append_decl
                         else {
@@ -948,11 +943,10 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, mono, st);
 
-                let Some(func_decl @ Declaration::FreeFunction(FuncResolutionKind::Ordinary(f))) =
-                    &self
-                        .statics
-                        .root_namespace
-                        .get_declaration("prelude.unwrap")
+                let func_decl @ Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) = &self
+                    .statics
+                    .root_namespace
+                    .get_declaration("prelude.unwrap")
                 else {
                     panic!();
                 };
@@ -1983,7 +1977,7 @@ impl Translator {
             StmtKind::ForLoop(pat, iterable, statements) => {
                 self.translate_expr(iterable, offset_table, mono, st);
                 // iterable.make_iterator()
-                let Some(Declaration::InterfaceDef(iterable_iface_def)) = self
+                let Declaration::InterfaceDef(iterable_iface_def) = self
                     .statics
                     .root_namespace
                     .get_declaration("prelude.Iterable")
@@ -2005,7 +1999,7 @@ impl Translator {
                 self.emit(st, Line::Label(start_label.clone()));
                 // iterator.next()
                 self.emit(st, Instr::Duplicate);
-                let Some(Declaration::InterfaceDef(iterator_iface_def)) = self
+                let Declaration::InterfaceDef(iterator_iface_def) = self
                     .statics
                     .root_namespace
                     .get_declaration("prelude.Iterator")

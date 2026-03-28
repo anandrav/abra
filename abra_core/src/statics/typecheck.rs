@@ -2828,10 +2828,8 @@ fn generate_constraints_expr(
             constrain(ctx, &node_ty, &elem_ty);
         }
         ExprKind::Unwrap(expr) => {
-            let Declaration::Enum(option_def) = ctx
-                .root_namespace
-                .get_declaration("prelude.option")
-                .unwrap()
+            let Declaration::Enum(option_def) =
+                ctx.root_namespace.get_declaration("prelude.option")
             else {
                 unreachable!()
             };

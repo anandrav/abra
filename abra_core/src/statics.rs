@@ -125,13 +125,10 @@ impl StaticsContext {
     }
 
     pub(crate) fn get_iface_decl(&self, name: &str) -> Rc<InterfaceDef> {
-        if let Some(Declaration::InterfaceDef(iface_def)) =
-            self.root_namespace.get_declaration(name)
-        {
-            iface_def.clone()
-        } else {
-            unreachable!() // TODO: this is NOT unreachable if prelude fails to parse. The prelude.abra should always parse properly but don't panic if it doesn't...
-        }
+        let Declaration::InterfaceDef(iface_def) = self.root_namespace.get_declaration(name) else {
+            panic!()
+        };
+        iface_def.clone()
     }
 }
 
@@ -146,7 +143,7 @@ impl Namespace {
         Self::default()
     }
 
-    pub fn get_declaration(&self, path: &str) -> Option<Declaration> {
+    pub fn try_get_declaration(&self, path: &str) -> Option<Declaration> {
         let segments: Vec<_> = path.split('.').collect();
         let mut current_namespace: &Namespace = self;
         for segment in &segments[0..segments.len() - 1] {
@@ -161,6 +158,10 @@ impl Namespace {
             .declarations
             .get(*segments.last()?)
             .cloned()
+    }
+
+    pub fn get_declaration(&self, path: &str) -> Declaration {
+        self.try_get_declaration(path).unwrap()
     }
 }
 
@@ -252,7 +253,7 @@ impl Display for PolytypeDeclaration {
 type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, Rc<AstType>, SolvedType)>;
 
 impl Declaration {
-    pub fn into_type_key(self: Declaration) -> Option<TypeKey> {
+    pub fn into_type_key(self) -> Option<TypeKey> {
         match self {
             Declaration::FreeFunction(..)
             | Declaration::InterfaceDef(_)
