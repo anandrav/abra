@@ -1156,7 +1156,7 @@ impl Translator {
         mono: &MonomorphEnv,
         iface_def: &Rc<InterfaceDef>,
         method_index: u16,
-        func_ty: &SolvedType,
+        func_ty: &SolvedType, // TODO: type of WHAT? the implementation, or the function signature as a whole?? make it make sense
     ) {
         let substituted_ty = func_ty.subst(mono);
         let method = &iface_def.methods[method_index as usize].name;
@@ -1192,6 +1192,25 @@ impl Translator {
             "interface method call could not be translated. There is a bug with the typechecker. interface = {}. method = {}",
             iface_def.name.v, iface_def.methods[method_index as usize].name.v
         )
+    }
+
+    fn translate_iface_method_call_helper2(
+        &self,
+        st: &mut TranslatorState,
+        mono: &MonomorphEnv,
+        iface_def: &Rc<InterfaceDef>,
+        method_index: u16,
+        impl_ty: &SolvedType,
+    ) {
+        // TODO: still need to do this?
+        let substituted_ty = impl_ty.subst(mono);
+        let imp = &self
+            .statics
+            .get_iface_impl_for_type(&substituted_ty, &iface_def)
+            .unwrap();
+        let method = &imp.methods[method_index as usize];
+        let fqn = &self.statics.fully_qualified_names[&method.name.id];
+        self.handle_func_call(st, mono, Some(substituted_ty.clone()), fqn, method);
     }
 
     fn translate_func_call(
