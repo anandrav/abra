@@ -370,7 +370,7 @@ type RangeIterator = {
 }
 
 implement Iterator for RangeIterator {
-    fn next(self: RangeIterator) -> option<int> {
+    fn next(self) -> option<int> {
         if self.begin >= self.end {
             .none
         } else {
