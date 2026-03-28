@@ -762,6 +762,7 @@ impl Translator {
                     ExprKind::BinOp(..)
                     | ExprKind::Unop(..)
                     | ExprKind::Unwrap(..)
+                    | ExprKind::Try(..)
                     | ExprKind::IfElse(..)
                     | ExprKind::Match(..)
                     | ExprKind::Block(..)
@@ -926,6 +927,66 @@ impl Translator {
                 self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
             ExprKind::Unwrap(inner_expr) => {
+                self.translate_expr(inner_expr, offset_table, mono, st);
+
+                // NEW
+                /*
+                   - get the type of expr
+                   - get the implementation of Unwrap for that type
+                   - get the unwrap method
+                   -
+
+                */
+                let unwrap_iface_decl = self.statics.get_iface_decl("prelude.Unwrap");
+                let inner_expr_solved_ty = self.get_ty(mono, inner_expr.node()).unwrap();
+                // TODO: this is all SUPER duplicated. See typecheck.rs
+                let impl_list = self.statics.interface_impls[&unwrap_iface_decl].clone();
+                let mut impl_found = false;
+                for imp in impl_list {
+                    // TODO: don't unwrap after to_solved_type
+                    if inner_expr_solved_ty.fits_impl_ty(
+                        &self.statics,
+                        &imp.typ.to_solved_type(&self.statics).unwrap(),
+                    ) {
+                        impl_found = true;
+                        let unwrap_method = &imp.methods[0];
+                        // TODO: smelly code
+                        let unwrap_method_decl = Declaration::InterfaceMethod {
+                            iface: unwrap_iface_decl.clone(),
+                            method: 0,
+                        };
+                        let unwrap_method_ty = self
+                            .statics
+                            .unifvars
+                            .get(&TypeProv::Node(unwrap_method.name.node()))
+                            .unwrap()
+                            .clone(); // TODO: should this be unwrapped?
+
+                        let expr_solved_type = self.get_ty(mono, expr.node()).unwrap();
+                        // TODO: smelly code. better way to do this?
+                        mono.update(
+                            &unwrap_method_ty.solution().unwrap(),
+                            &SolvedType::Function(
+                                vec![inner_expr_solved_ty],
+                                expr_solved_type.into(),
+                            ),
+                        );
+                        self.translate_func_ap(
+                            &unwrap_method_decl,
+                            unwrap_method.name.node(),
+                            offset_table,
+                            mono,
+                            st,
+                        );
+                        break;
+                    }
+                }
+                if !impl_found {
+                    unreachable!();
+                }
+            }
+            ExprKind::Try(inner_expr) => {
+                unimplemented!();
                 self.translate_expr(inner_expr, offset_table, mono, st);
 
                 // NEW
@@ -2270,6 +2331,9 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.collect_locals_expr(expr, locals, mono);
             }
+            ExprKind::Try(expr) => {
+                self.collect_locals_expr(expr, locals, mono);
+            }
             ExprKind::FuncAp(func, args) => {
                 self.collect_locals_expr(func, locals, mono);
                 for arg in args {
@@ -2478,6 +2542,9 @@ impl Translator {
                 self.collect_captures_expr(index, captures, mono);
             }
             ExprKind::Unwrap(expr) => {
+                self.collect_captures_expr(expr, captures, mono);
+            }
+            ExprKind::Try(expr) => {
                 self.collect_captures_expr(expr, captures, mono);
             }
             ExprKind::FuncAp(func, args) => {

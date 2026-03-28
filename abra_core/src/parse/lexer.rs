@@ -43,6 +43,8 @@ pub(crate) enum TokenKind {
     Gt,
     /// `!`
     Bang,
+    /// `?`
+    Question,
     // `+`
     Plus,
     // `+=`
@@ -219,6 +221,7 @@ impl TokenKind {
             | TokenKind::Ge
             | TokenKind::Gt
             | TokenKind::Bang
+            | TokenKind::Question
             | TokenKind::Plus
             | TokenKind::PlusEq
             | TokenKind::Minus
@@ -422,6 +425,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             ';' => lexer.emit(TokenKind::Semicolon),
             ',' => lexer.emit(TokenKind::Comma),
             '\n' => lexer.emit(TokenKind::Newline),
+            '?' => lexer.emit(TokenKind::Question),
             '*' => {
                 if let Some('=') = lexer.peek_char(1) {
                     lexer.emit(TokenKind::StarEq)
@@ -634,6 +638,7 @@ impl TokenTag {
             TokenTag::Ge => ">=",
             TokenTag::Gt => ">",
             TokenTag::Bang => "!",
+            TokenTag::Question => "?",
             TokenTag::Plus => "+",
             TokenTag::PlusEq => "+=",
             TokenTag::Minus => "-",

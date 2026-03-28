@@ -817,6 +817,14 @@ impl Parser {
                     id: NodeId::new(),
                 })
             }
+            PostfixOp::Try => {
+                self.consume_token();
+                *lhs = Rc::new(Expr {
+                    kind: ExprKind::Try(lhs.clone()).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                })
+            }
         }
         Ok(())
     }
@@ -875,6 +883,7 @@ impl Parser {
             TokenTag::Dot => PostfixOp::MemberAccess,
             TokenTag::OpenBracket => PostfixOp::IndexAccess,
             TokenTag::Bang => PostfixOp::Unwrap,
+            TokenTag::Question => PostfixOp::Try,
             _ => return None,
         })
     }
@@ -1641,6 +1650,7 @@ enum PostfixOp {
     IndexAccess,
     FuncCall,
     Unwrap,
+    Try,
 }
 
 impl BinaryOperator {
@@ -1678,6 +1688,7 @@ impl PostfixOp {
             PostfixOp::IndexAccess => 12,
             PostfixOp::FuncCall => 13,
             PostfixOp::Unwrap => 14,
+            PostfixOp::Try => 15,
         }
     }
 }

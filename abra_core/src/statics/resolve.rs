@@ -901,6 +901,9 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         ExprKind::Unwrap(expr) => {
             resolve_names_expr(ctx, symbol_table, expr);
         }
+        ExprKind::Try(expr) => {
+            resolve_names_expr(ctx, symbol_table, expr);
+        }
     }
 }
 

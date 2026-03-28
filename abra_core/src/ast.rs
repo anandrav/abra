@@ -517,6 +517,7 @@ pub(crate) enum ExprKind {
     MemberAccessLeadingDot(Rc<Identifier>),
     IndexAccess(Rc<Expr>, Rc<Expr>),
     Unwrap(Rc<Expr>),
+    Try(Rc<Expr>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Copy)]

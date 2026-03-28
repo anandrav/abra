@@ -1,0 +1,3 @@
+let result = result.ok(2)
+let num = result?
+println(num)
