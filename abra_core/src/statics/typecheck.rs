@@ -2840,6 +2840,7 @@ fn generate_constraints_expr(
                 &InterfaceConstraint::new(unwrap_iface_decl.clone(), vec![]),
             );
 
+            // TODO: this is duplicated! same thing is done in translate_bytecode.rs
             // get the implementation of Unwrap for this expression's type
             if let Some(expr_solved_ty) = expr_ty.solution() {
                 let impl_list = ctx.interface_impls[&unwrap_iface_decl].clone();

@@ -12,8 +12,8 @@ use crate::environment::Environment;
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
-use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
+use crate::statics::typecheck::{Nominal, PotentialType, constrain};
 use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
@@ -928,21 +928,57 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, mono, st);
 
-                let func_decl = self
-                    .statics
-                    .root_namespace
-                    .get_declaration("prelude.unwrap");
-                let f = self.statics.get_free_function_decl("prelude.unwrap");
-                // TODO: this would be easier if the postfix unwrap operator had a dedicated AST node and its own type. Then we wouldn't have to do this weird hack here
-                let expr_ty = self.get_ty(mono, expr.node()).unwrap();
-                let ret_ty = f
-                    .ret_type
-                    .clone()
-                    .unwrap()
-                    .to_solved_type(&self.statics)
-                    .unwrap();
-                mono.update(&ret_ty, &expr_ty);
-                self.translate_func_ap(&func_decl, f.name.node(), offset_table, mono, st);
+                // NEW
+                /*
+                   - get the type of expr
+                   - get the implementation of Unwrap for that type
+                   - get the unwrap method
+                   -
+
+                */
+                let unwrap_iface_decl = self.statics.get_iface_decl("prelude.Unwrap");
+                let expr_solved_ty = self.get_ty(mono, expr.node()).unwrap();
+                // TODO: this is all SUPER duplicated. See typecheck.rs
+                let impl_list = self.statics.interface_impls[&unwrap_iface_decl].clone();
+                let mut impl_found = false;
+                for imp in impl_list {
+                    // TODO: don't unwrap after to_solved_type
+                    if expr_solved_ty.fits_impl_ty(
+                        &self.statics,
+                        &imp.typ.to_solved_type(&self.statics).unwrap(),
+                    ) {
+                        impl_found = true;
+                        let unwrap_method = &imp.methods[0];
+                        // TODO: smelly code
+                        let unwrap_method_decl = Declaration::InterfaceMethod {
+                            iface: unwrap_iface_decl.clone(),
+                            method: 0,
+                        };
+                        let unwrap_method_ty = self
+                            .statics
+                            .unifvars
+                            .get(&TypeProv::Node(unwrap_method.name.node()))
+                            .unwrap()
+                            .clone(); // TODO: should this be unwrapped?
+
+                        // // TODO: need a more principled way to get the outputtype of a particular implementation
+                        if let Some(SolvedType::Function(_, ret_ty)) = unwrap_method_ty.solution() {
+                            mono.update(&ret_ty, &expr_solved_ty);
+                            self.translate_func_ap(
+                                &unwrap_method_decl,
+                                unwrap_method.name.node(),
+                                offset_table,
+                                mono,
+                                st,
+                            );
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                }
+                if !impl_found {
+                    unreachable!();
+                }
             }
         }
     }
