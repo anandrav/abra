@@ -1171,6 +1171,7 @@ impl Translator {
         // TODO: this is duplicated elsewhere in this file AND in typechecker I believe
         let impl_list = &self.statics.interface_impls[iface_def];
 
+        // TODO: this looks really hacky and slow. By this point, it should be very straightforward (and efficient) to find the appropriate function definition.
         for imp in impl_list {
             for f in &imp.methods {
                 if f.name.v == *method.v {
