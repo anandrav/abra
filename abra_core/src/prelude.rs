@@ -282,6 +282,15 @@ implement ToString for option<T ToString> {
     }
 }
 
+implement ToString for result<T ToString, E ToString> {
+    fn str(m: result<T ToString, E ToString>) {
+        match m {
+            .ok(x) -> "ok(" .. x .. ")"
+            .err(x) -> "err(" .. x .. ")"
+        }
+    }
+}
+
 implement ToString for array<T ToString> {
     fn str(arr) {
         "[ " .. array_to_string_helper(arr, 0) .. " ]"
