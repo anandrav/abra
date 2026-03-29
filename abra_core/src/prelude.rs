@@ -98,12 +98,14 @@ implement Unwrap for result<T, E> {
 interface Try {
     outputtype Output
     outputtype Residual
-    //
-    // // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way
-    // // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
-    // // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
-    // fn branch(self: Self) -> Output
+
+    // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way
+    // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
+    // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
+    fn branch(self: Self) -> ControlFlow<Residual, Output>
 }
+
+type ControlFlow<B, C> = Break(B) | Continue(C)
 
 // implement Try for option<T> {
 //     fn unwrap(self) -> T {
