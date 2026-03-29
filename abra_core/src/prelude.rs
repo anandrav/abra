@@ -107,14 +107,14 @@ interface Try {
 
 type ControlFlow<B, C> = Break(B) | Continue(C)
 
-// implement Try for option<T> {
-//     fn unwrap(self) -> T {
-//         match self {
-//             .some(x) -> x
-//             .none -> panic("cannot unwrap option.none")
-//         }
-//     }
-// }
+implement Try for option<T> {
+    fn branch(self) {
+        match self {
+            .some(x) -> .Continue(x)
+            .none -> .Break(nil)
+        }
+    }
+}
 
 interface Equal {
     fn equal(a: Self, b: Self) -> bool
