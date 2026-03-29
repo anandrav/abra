@@ -547,14 +547,13 @@ impl Translator {
                     let arg1_ty = self.get_ty(mono, left.node()).unwrap();
                     let arg2_ty = self.get_ty(mono, right.node()).unwrap();
                     let out_ty = self.get_ty(mono, expr.node()).unwrap();
-                    let func_ty = Type::Function(vec![arg1_ty.clone(), arg2_ty], out_ty.into());
+                    let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
                     self.translate_iface_method_call_helper2(
                         st,
                         mono,
                         &iface_def,
                         method as u16,
-                        &arg1_ty,
                         &func_ty,
                     );
                 };
@@ -1204,12 +1203,11 @@ impl Translator {
         mono: &MonomorphEnv,
         iface_def: &Rc<InterfaceDef>,
         method_index: u16,
-        impl_ty: &SolvedType,
         overloaded_func_ty: &SolvedType,
     ) {
-        // TODO: still need to do these?
-        let impl_ty = impl_ty.subst(mono);
         let overloaded_func_ty = overloaded_func_ty.subst(mono);
+        let SolvedType::Function(args, _) = &overloaded_func_ty else { unreachable!() };
+        let impl_ty = &args[0];
         let imp = &self
             .statics
             .get_iface_impl_for_type(&impl_ty.key().unwrap(), &iface_def)
