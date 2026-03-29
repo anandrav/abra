@@ -547,13 +547,14 @@ impl Translator {
                     let arg1_ty = self.get_ty(mono, left.node()).unwrap();
                     let arg2_ty = self.get_ty(mono, right.node()).unwrap();
                     let out_ty = self.get_ty(mono, expr.node()).unwrap();
-                    let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
+                    let func_ty = Type::Function(vec![arg1_ty.clone(), arg2_ty], out_ty.into());
 
-                    self.translate_iface_method_call_helper(
+                    self.translate_iface_method_call_helper2(
                         st,
                         mono,
                         &iface_def,
                         method as u16,
+                        &arg1_ty,
                         &func_ty,
                     );
                 };
@@ -1159,9 +1160,9 @@ impl Translator {
         mono: &MonomorphEnv,
         iface_def: &Rc<InterfaceDef>,
         method_index: u16,
-        func_ty: &SolvedType, // TODO: type of WHAT? the implementation, or the function signature as a whole?? make it make sense
+        func_overload_ty: &SolvedType, // TODO: type of WHAT? the implementation, or the function signature as a whole?? make it make sense
     ) {
-        let substituted_ty = func_ty.subst(mono);
+        let substituted_ty = func_overload_ty.subst(mono);
         let method = &iface_def.methods[method_index as usize].name;
         // TODO: this is duplicated elsewhere in this file AND in typechecker I believe
         let impl_list = &self.statics.interface_impls[iface_def];
@@ -1204,16 +1205,18 @@ impl Translator {
         iface_def: &Rc<InterfaceDef>,
         method_index: u16,
         impl_ty: &SolvedType,
+        overloaded_func_ty: &SolvedType,
     ) {
-        // TODO: still need to do this?
-        let substituted_ty = impl_ty.subst(mono);
+        // TODO: still need to do these?
+        let impl_ty = impl_ty.subst(mono);
+        let overloaded_func_ty = overloaded_func_ty.subst(mono);
         let imp = &self
             .statics
-            .get_iface_impl_for_type(&substituted_ty.key().unwrap(), &iface_def)
+            .get_iface_impl_for_type(&impl_ty.key().unwrap(), &iface_def)
             .unwrap();
         let method = &imp.methods[method_index as usize];
         let fqn = &self.statics.fully_qualified_names[&method.name.id];
-        self.handle_func_call(st, mono, Some(substituted_ty.clone()), fqn, method);
+        self.handle_func_call(st, mono, Some(overloaded_func_ty.clone()), fqn, method);
     }
 
     fn translate_func_call(
