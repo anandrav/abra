@@ -116,6 +116,15 @@ implement Try for option<T> {
     }
 }
 
+implement Try for result<T, E> {
+    fn branch(self) {
+        match self {
+            .ok(x) -> .Continue(x)
+            .err(x) -> .Break(x)
+        }
+    }
+}
+
 interface Equal {
     fn equal(a: Self, b: Self) -> bool
 }
