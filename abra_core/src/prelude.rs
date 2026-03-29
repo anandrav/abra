@@ -105,6 +105,8 @@ interface Try {
     fn branch(self: Self) -> ControlFlow<Residual, Output>
 }
 
+// TODO: maybe... rename to something like
+// Bail/Abandon/Withdraw/Leave/BackOut/Cancel and Proceed/Stay/Remain
 type ControlFlow<B, C> = Break(B) | Continue(C)
 
 implement Try for option<T> {
@@ -124,6 +126,18 @@ implement Try for result<T, E> {
         }
     }
 }
+
+type Status =
+    | NotGood
+    | ReallyBad
+    | Terrible
+    | Good
+    | PrettyGood
+    | PrettyPrettyPrettyGood
+
+// implement Try for Status {
+//
+// }
 
 interface Equal {
     fn equal(a: Self, b: Self) -> bool
@@ -342,7 +356,7 @@ fn format_append(s1: T1 ToString, s2: T2 ToString) {
 
 interface Iterable {
     outputtype IterableItem
-    outputtype Iter impl Iterator<IteratorItem=IterableItem>
+    outputtype Iter impl Iterator<IteratorItem=IterableItem> // TODO: are you just able to remove the <IteratorItem=IterableItem>? Should that be allowed??
 
     fn make_iterator(self: Self) -> Iter
 }
