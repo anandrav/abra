@@ -408,11 +408,11 @@ impl TypeKey {
             | (TypeKey::String, SolvedType::String)
             | (TypeKey::Void, SolvedType::Void) => true,
             (TypeKey::Tuple(nelems), SolvedType::Tuple(tys2)) => (*nelems as usize) == tys2.len(),
-            (TypeKey::Function(nargs), SolvedType::Function(args2, out2)) => {
+            (TypeKey::Function(nargs), SolvedType::Function(args2, _out2)) => {
                 (*nargs as usize) == args2.len()
             }
             // TODO: why is this called "ident".
-            (TypeKey::TyApp(ident1), SolvedType::Nominal(ident2, tys2)) => ident1 == ident2,
+            (TypeKey::TyApp(ident1), SolvedType::Nominal(ident2, _tys2)) => ident1 == ident2,
             _ => false,
         }
     }
@@ -2909,7 +2909,7 @@ fn generate_constraints_expr(
                     .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
             }
         }
-        ExprKind::Try(expr) => {
+        ExprKind::Try(_expr) => {
             unimplemented!();
         }
     }

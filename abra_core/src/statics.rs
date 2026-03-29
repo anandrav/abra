@@ -131,12 +131,9 @@ impl StaticsContext {
     ) -> Option<Rc<InterfaceImpl>> {
         // TODO: cache this using hashmap
         let impl_list = self.interface_impls[iface].clone();
-        for imp in impl_list {
-            if ty.fits_impl_ty(&imp.typ.to_solved_type(self).unwrap()) {
-                return Some(imp);
-            }
-        }
-        None
+        impl_list
+            .into_iter()
+            .find(|imp| ty.fits_impl_ty(&imp.typ.to_solved_type(self).unwrap()))
     }
 
     pub(crate) fn get_free_function_decl(&self, name: &str) -> Rc<FuncDef> {
@@ -449,7 +446,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
 }
 
 use crate::parse::Span;
-use crate::statics::typecheck::{Nominal, constrain};
+use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
 use utils::dlog;
 

@@ -975,7 +975,7 @@ impl Translator {
                     st,
                 );
             }
-            ExprKind::Try(inner_expr) => {
+            ExprKind::Try(_inner_expr) => {
                 unimplemented!();
             }
         }
@@ -1166,7 +1166,7 @@ impl Translator {
         let impl_ty = &args[0];
         let imp = &self
             .statics
-            .get_iface_impl_for_type(&impl_ty.key().unwrap(), &iface_def)
+            .get_iface_impl_for_type(&impl_ty.key().unwrap(), iface_def)
             .unwrap();
         let method = &imp.methods[method_index as usize];
         let fqn = &self.statics.fully_qualified_names[&method.name.id];
