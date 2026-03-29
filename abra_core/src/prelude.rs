@@ -97,11 +97,12 @@ implement Unwrap for result<T, E> {
 
 interface Try {
     outputtype Output
-
-    // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way
-    // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
-    // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
-    fn try(self: Self) -> Output
+    outputtype Residual
+    //
+    // // TODO: shouldn't need capital S Self here. Also removing it breaks stuff in a really weird way
+    // // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
+    // // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
+    // fn branch(self: Self) -> Output
 }
 
 // implement Try for option<T> {
