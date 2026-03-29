@@ -943,7 +943,10 @@ impl Translator {
                 // get the implementation of Unwrap for that type
                 let imp = self
                     .statics
-                    .get_iface_impl_for_type(&inner_expr_solved_ty, &unwrap_iface_decl)
+                    .get_iface_impl_for_type(
+                        &inner_expr_solved_ty.key().unwrap(),
+                        &unwrap_iface_decl,
+                    )
                     .unwrap();
                 let unwrap_method = &imp.methods[0];
                 // TODO: smelly code
@@ -1206,7 +1209,7 @@ impl Translator {
         let substituted_ty = impl_ty.subst(mono);
         let imp = &self
             .statics
-            .get_iface_impl_for_type(&substituted_ty, &iface_def)
+            .get_iface_impl_for_type(&substituted_ty.key().unwrap(), &iface_def)
             .unwrap();
         let method = &imp.methods[method_index as usize];
         let fqn = &self.statics.fully_qualified_names[&method.name.id];

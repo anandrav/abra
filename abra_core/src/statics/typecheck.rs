@@ -322,6 +322,22 @@ impl SolvedType {
         }
     }
 
+    pub(crate) fn key(&self) -> Option<TypeKey> {
+        match self {
+            Self::Poly(..) => None,
+            Self::InterfaceOutput(_) => None,
+            Self::Void => Some(TypeKey::Void),
+            Self::Never => Some(TypeKey::Never),
+            Self::Int => Some(TypeKey::Int),
+            Self::Float => Some(TypeKey::Float),
+            Self::Bool => Some(TypeKey::Bool),
+            Self::String => Some(TypeKey::String),
+            Self::Function(args, _) => Some(TypeKey::Function(args.len() as u8)),
+            Self::Tuple(elems) => Some(TypeKey::Tuple(elems.len() as u8)),
+            Self::Nominal(ident, _) => Some(TypeKey::TyApp(ident.clone())),
+        }
+    }
+
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
             Self::Poly(polyty) => match polyty {
@@ -372,7 +388,7 @@ pub(crate) enum Monotype {
 pub(crate) enum TypeKey {
     Poly(PolytypeDeclaration),
     InterfaceOutput(Rc<InterfaceOutputType>),
-    TyApp(Nominal),
+    TyApp(Nominal), // TODO: rename to Nominal
     Void,
     Never,
     Int,
@@ -381,6 +397,25 @@ pub(crate) enum TypeKey {
     String,
     Function(u8), // u8 represents the number of arguments
     Tuple(u8),    // u8 represents the number of elements
+}
+
+impl TypeKey {
+    pub(crate) fn fits_impl_ty(&self, impl_ty: &SolvedType) -> bool {
+        match (self, &impl_ty) {
+            (TypeKey::Int, SolvedType::Int)
+            | (TypeKey::Bool, SolvedType::Bool)
+            | (TypeKey::Float, SolvedType::Float)
+            | (TypeKey::String, SolvedType::String)
+            | (TypeKey::Void, SolvedType::Void) => true,
+            (TypeKey::Tuple(nelems), SolvedType::Tuple(tys2)) => (*nelems as usize) == tys2.len(),
+            (TypeKey::Function(nargs), SolvedType::Function(args2, out2)) => {
+                (*nargs as usize) == args2.len()
+            }
+            // TODO: why is this called "ident".
+            (TypeKey::TyApp(ident1), SolvedType::Nominal(ident2, tys2)) => ident1 == ident2,
+            _ => false,
+        }
+    }
 }
 
 impl Display for TypeKey {
@@ -2843,25 +2878,31 @@ fn generate_constraints_expr(
             // TODO: this is duplicated! same thing is done in translate_bytecode.rs
             // get the implementation of Unwrap for this expression's type
             if let Some(expr_solved_ty) = expr_ty.solution() {
-                if let Some(imp) = ctx.get_iface_impl_for_type(&expr_solved_ty, &unwrap_iface_decl)
-                {
-                    let unwrap_method = &imp.methods[0];
-                    let unwrap_method_ty = ctx
-                        .unifvars
-                        .get(&TypeProv::Node(unwrap_method.name.node()))
-                        .unwrap()
-                        .clone(); // TODO: should this be unwrapped?
+                if let Some(ty_key) = expr_solved_ty.key() {
+                    if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &unwrap_iface_decl) {
+                        let unwrap_method = &imp.methods[0];
+                        let unwrap_method_ty = ctx
+                            .unifvars
+                            .get(&TypeProv::Node(unwrap_method.name.node()))
+                            .unwrap()
+                            .clone(); // TODO: should this be unwrapped?
 
-                    // // TODO: need a more principled way to get the outputtype of a particular implementation
-                    if let Some(PotentialType::Function(_, _, ret_ty)) = unwrap_method_ty.single() {
-                        // substitute to get particular instance of return type
-                        // for example, unwrapping option<T> gives T. But in this particular case, T might be int
-                        let substitution = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
-                        let ret_ty = ret_ty.subst(&substitution);
-                        constrain(ctx, &node_ty, &ret_ty);
-                    } else {
-                        unreachable!();
+                        // // TODO: need a more principled way to get the outputtype of a particular implementation
+                        if let Some(PotentialType::Function(_, _, ret_ty)) =
+                            unwrap_method_ty.single()
+                        {
+                            // substitute to get particular instance of return type
+                            // for example, unwrapping option<T> gives T. But in this particular case, T might be int
+                            let substitution = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
+                            let ret_ty = ret_ty.subst(&substitution);
+                            constrain(ctx, &node_ty, &ret_ty);
+                        } else {
+                            unreachable!();
+                        }
                     }
+                } else {
+                    ctx.errors
+                        .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
                 }
             } else {
                 ctx.errors
@@ -3317,6 +3358,7 @@ impl SolvedType {
                         .zip(tys2.iter())
                         .all(|(ty1, ty2)| ty1.fits_impl_ty(ctx, ty2))
             }
+            // TODO: what is this wildcard for again? Make sure it's correct
             (_, SolvedType::Poly(poly_decl)) => {
                 let ifaces = poly_decl.interfaces(ctx);
                 ifaces

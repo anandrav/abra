@@ -126,13 +126,13 @@ impl StaticsContext {
 
     pub(crate) fn get_iface_impl_for_type(
         &self,
-        ty: &SolvedType,
+        ty: &TypeKey,
         iface: &Rc<InterfaceDef>,
     ) -> Option<Rc<InterfaceImpl>> {
         // TODO: cache this using hashmap
         let impl_list = self.interface_impls[iface].clone();
         for imp in impl_list {
-            if ty.fits_impl_ty(self, &imp.typ.to_solved_type(self).unwrap()) {
+            if ty.fits_impl_ty(&imp.typ.to_solved_type(self).unwrap()) {
                 return Some(imp);
             }
         }
