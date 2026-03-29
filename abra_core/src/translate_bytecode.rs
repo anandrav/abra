@@ -549,7 +549,7 @@ impl Translator {
                     let out_ty = self.get_ty(mono, expr.node()).unwrap();
                     let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
-                    self.translate_iface_method_call_helper2(
+                    self.translate_iface_method_call_helper(
                         st,
                         mono,
                         &iface_def,
@@ -1154,50 +1154,6 @@ impl Translator {
 
     // used for interface methods
     fn translate_iface_method_call_helper(
-        &self,
-        st: &mut TranslatorState,
-        mono: &MonomorphEnv,
-        iface_def: &Rc<InterfaceDef>,
-        method_index: u16,
-        func_overload_ty: &SolvedType, // TODO: type of WHAT? the implementation, or the function signature as a whole?? make it make sense
-    ) {
-        let substituted_ty = func_overload_ty.subst(mono);
-        let method = &iface_def.methods[method_index as usize].name;
-        // TODO: this is duplicated elsewhere in this file AND in typechecker I believe
-        let impl_list = &self.statics.interface_impls[iface_def];
-
-        // TODO: this looks really hacky and slow. By this point, it should be very straightforward (and efficient) to find the appropriate function definition.
-        for imp in impl_list {
-            for f in &imp.methods {
-                if f.name.v == *method.v {
-                    let unifvar = self
-                        .statics
-                        .unifvars
-                        .get(&TypeProv::Node(f.name.node()))
-                        .unwrap();
-                    let interface_impl_ty = unifvar.solution().unwrap();
-
-                    if substituted_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
-                        let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
-                        self.handle_func_call(
-                            st,
-                            mono,
-                            Some(substituted_ty.clone()),
-                            fully_qualified_name,
-                            f,
-                        );
-                        return;
-                    }
-                }
-            }
-        }
-        unreachable!(
-            "interface method call could not be translated. There is a bug with the typechecker. interface = {}. method = {}",
-            iface_def.name.v, iface_def.methods[method_index as usize].name.v
-        )
-    }
-
-    fn translate_iface_method_call_helper2(
         &self,
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
