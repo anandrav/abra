@@ -440,6 +440,15 @@ pub(crate) struct InterfaceDef {
     pub(crate) attributes: Vec<Attribute>,
 }
 
+impl InterfaceDef {
+    pub fn get_output_type_by_name(&self, name: &str) -> Option<Rc<InterfaceOutputType>> {
+        self.output_types
+            .iter()
+            .find(|ot| ot.name.v == name)
+            .cloned()
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceOutputType {
     pub(crate) name: Rc<Identifier>,

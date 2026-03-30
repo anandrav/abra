@@ -2010,9 +2010,7 @@ fn generate_constraints_stmt(
                 return;
             };
             let output_type = iterable_iface_def
-                .output_types
-                .iter()
-                .find(|ot| ot.name.v == "IterableItem")
+                .get_output_type_by_name("IterableItem")
                 .unwrap();
             let item_ty = ctx
                 .unifvars
@@ -2045,11 +2043,7 @@ fn generate_constraints_stmt(
                 .insert(stmt.id, make_iterator_type.solution().unwrap());
 
             // Iter::next type
-            let iter_output_type = iterable_iface_def
-                .output_types
-                .iter()
-                .find(|ot| ot.name.v == "Iter")
-                .unwrap();
+            let iter_output_type = iterable_iface_def.get_output_type_by_name("Iter").unwrap();
             let iter_output_type = ctx
                 .unifvars
                 .get(&Prov::InstantiateInterfaceOutputType(
@@ -2879,11 +2873,8 @@ fn generate_constraints_expr(
             if let Some(expr_solved_ty) = expr_ty.solution() {
                 if let Some(ty_key) = expr_solved_ty.key() {
                     if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &unwrap_iface_decl) {
-                        let output_type = unwrap_iface_decl
-                            .output_types
-                            .iter()
-                            .find(|ot| ot.name.v == "Output")
-                            .unwrap();
+                        let output_type =
+                            unwrap_iface_decl.get_output_type_by_name("Output").unwrap();
                         let output_ty = ctx
                             .unifvars
                             .get(&Prov::InstantiateInterfaceOutputType(
