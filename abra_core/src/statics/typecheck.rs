@@ -2506,7 +2506,7 @@ fn generate_constraints_expr(
                         }
                         Some(Declaration::InterfaceMethod {
                             iface: iface_def,
-                            method,
+                            method_index: method,
                         }) => {
                             // fully qualified interface method
                             // example: Clone.clone(my_struct)
@@ -2590,7 +2590,7 @@ fn generate_constraints_expr(
                                         }
                                         Declaration::InterfaceMethod {
                                             iface: iface_def,
-                                            method,
+                                            method_index: method,
                                         } => {
                                             let impl_ty =
                                                 TypeVar::from_node(ctx, receiver_expr.node());
@@ -2721,7 +2721,7 @@ fn generate_constraints_expr(
                         member_ident.id,
                         Declaration::InterfaceMethod {
                             iface: iface.clone(),
-                            method: i,
+                            method_index: i,
                         },
                     );
                     let method_ty = TypeVar::from_node(ctx, method.name.node());

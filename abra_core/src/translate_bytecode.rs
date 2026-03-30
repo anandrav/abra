@@ -948,11 +948,13 @@ impl Translator {
                         &unwrap_iface_decl,
                     )
                     .unwrap();
+                // get the unwrap method
+                // TODO: get by name instead
                 let unwrap_method = &imp.methods[0];
                 // TODO: smelly code
                 let unwrap_method_decl = Declaration::InterfaceMethod {
                     iface: unwrap_iface_decl.clone(),
-                    method: 0,
+                    method_index: 0,
                 };
                 let unwrap_method_ty = self
                     .statics
@@ -1043,39 +1045,26 @@ impl Translator {
                 self.emit(st, Instr::MakeClosure(0));
             }
 
-            Declaration::InterfaceMethod { iface, method } => {
-                let overload_ty = self.get_ty(mono, ast_node).unwrap();
+            Declaration::InterfaceMethod {
+                iface,
+                method_index,
+            } => {
+                let overloaded_func_ty = self.get_ty(mono, ast_node).unwrap();
+                let SolvedType::Function(args, _) = &overloaded_func_ty else { unreachable!() };
+                let impl_ty = &args[0];
+                let imp = &self
+                    .statics
+                    .get_iface_impl_for_type(&impl_ty.key().unwrap(), iface)
+                    .unwrap();
+                let method = &imp.methods[*method_index];
+                let desc = FuncDesc {
+                    kind: FuncKind::NamedFunc(method.clone()),
+                    overload_ty: Some(overloaded_func_ty.clone()),
+                };
 
-                let method = &iface.methods[*method].name;
-                // TODO this logic is duplicated elsewhere and also looks really inefficient
-                // TODO: this logic is insane to be honest. this is part of a larger problem with this overall function
-                let impl_list = &self.statics.interface_impls[iface];
-                for imp in impl_list {
-                    for func_def in &imp.methods {
-                        if func_def.name.v == *method.v {
-                            let unifvar = self
-                                .statics
-                                .unifvars
-                                .get(&TypeProv::Node(func_def.name.node()))
-                                .unwrap();
-                            let interface_impl_ty = unifvar.solution().unwrap();
-
-                            if overload_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
-                                let desc = FuncDesc {
-                                    kind: FuncKind::NamedFunc(func_def.clone()),
-                                    overload_ty: Some(overload_ty.clone()),
-                                };
-
-                                let label = self.get_func_label(st, desc);
-                                self.emit(st, Instr::PushAddr(label.clone()));
-                                self.emit(st, Instr::MakeClosure(0));
-                                return;
-                            }
-                        }
-                    }
-                }
-
-                panic!();
+                let label = self.get_func_label(st, desc);
+                self.emit(st, Instr::PushAddr(label.clone()));
+                self.emit(st, Instr::MakeClosure(0));
             }
             Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
                 let desc = FuncDesc {
@@ -1205,7 +1194,7 @@ impl Translator {
             }
             Declaration::InterfaceMethod {
                 iface: iface_def,
-                method,
+                method_index: method,
             } => {
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
                 self.translate_iface_method_call_helper(

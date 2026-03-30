@@ -78,7 +78,7 @@ fn gather_declarations_item(
                     method_name,
                     Declaration::InterfaceMethod {
                         iface: iface.clone(),
-                        method,
+                        method_index: method,
                     },
                 );
             }
@@ -613,7 +613,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                             {
                                 let method_decl = Declaration::InterfaceMethod {
                                     iface: iface_def.clone(),
-                                    method: original_m,
+                                    method_index: original_m,
                                 };
                                 try_add_member_function(
                                     ctx,
@@ -954,7 +954,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                             field.id,
                             Declaration::InterfaceMethod {
                                 iface: iface_def.clone(),
-                                method: idx,
+                                method_index: idx,
                             },
                         );
                         found = true;

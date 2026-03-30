@@ -444,7 +444,7 @@ fn add_detail_for_decl_node(
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
         Declaration::InterfaceMethod {
             iface: iface_def,
-            method,
+            method_index: method,
         } => iface_def.methods[*method].name.node(),
         Declaration::MemberFunction(func_def) => func_def.name.node(),
         Declaration::Enum(enum_def) => enum_def.name.node(),

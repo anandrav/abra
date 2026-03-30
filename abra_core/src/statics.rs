@@ -160,8 +160,10 @@ impl StaticsContext {
         /* method index */ usize,
     ) {
         // TODO: just make a struct for this return type
-        let Declaration::InterfaceMethod { iface, method } =
-            self.root_namespace.get_declaration(name)
+        let Declaration::InterfaceMethod {
+            iface,
+            method_index: method,
+        } = self.root_namespace.get_declaration(name)
         else {
             panic!()
         };
@@ -226,7 +228,7 @@ pub(crate) enum Declaration {
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface: Rc<InterfaceDef>,
-        method: usize,
+        method_index: usize,
     },
     InterfaceOutputType {
         iface: Rc<InterfaceDef>,
