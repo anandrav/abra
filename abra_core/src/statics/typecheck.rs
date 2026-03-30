@@ -2007,17 +2007,10 @@ fn generate_constraints_stmt(
                 });
                 return;
             };
-            let output_type = iterable_iface_def
+            let item_output_type = iterable_iface_def
                 .get_output_type_by_name("IterableItem")
                 .unwrap();
-            let item_ty = ctx
-                .unifvars
-                .get(&Prov::InstantiateInterfaceOutputType(
-                    imp.clone(),
-                    output_type.clone(),
-                ))
-                .unwrap()
-                .clone();
+            let item_ty = ctx.get_output_type_of_iface_impl(&imp, item_output_type);
             // substitute { T = int } here
             let subst = get_substitution_of_typ(ctx, &imp.typ, &iterable_ty);
             let item_ty = item_ty.subst(&subst);
@@ -2038,14 +2031,7 @@ fn generate_constraints_stmt(
 
             // Iter::next type
             let iter_output_type = iterable_iface_def.get_output_type_by_name("Iter").unwrap();
-            let iter_output_type = ctx
-                .unifvars
-                .get(&Prov::InstantiateInterfaceOutputType(
-                    imp,
-                    iter_output_type.clone(),
-                ))
-                .unwrap()
-                .clone();
+            let iter_output_type = ctx.get_output_type_of_iface_impl(&imp, iter_output_type);
             let Some(iter_output_type_solved) = iter_output_type.solution() else { panic!() };
             let Some(iterator_imp) =
                 iter_output_type_solved.get_iface_impls(ctx, &iterator_iface_def)
@@ -2860,14 +2846,7 @@ fn generate_constraints_expr(
                     if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &unwrap_iface_decl) {
                         let output_type =
                             unwrap_iface_decl.get_output_type_by_name("Output").unwrap();
-                        let output_ty = ctx
-                            .unifvars
-                            .get(&Prov::InstantiateInterfaceOutputType(
-                                imp.clone(),
-                                output_type.clone(),
-                            ))
-                            .unwrap()
-                            .clone();
+                        let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
                         // substitute { T = int } here
                         let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
                         let output_ty = output_ty.subst(&subst);
@@ -2888,6 +2867,22 @@ fn generate_constraints_expr(
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
     handle_ana(ctx, mode, node_ty);
+}
+
+impl StaticsContext {
+    fn get_output_type_of_iface_impl(
+        &self,
+        imp: &Rc<InterfaceImpl>,
+        output_type: Rc<InterfaceOutputType>,
+    ) -> TypeVar {
+        self.unifvars
+            .get(&Prov::InstantiateInterfaceOutputType(
+                imp.clone(),
+                output_type.clone(),
+            ))
+            .unwrap()
+            .clone()
+    }
 }
 
 fn infer_enum(mode: &Mode, variant_name: &str) -> Option<(Rc<EnumDef>, usize)> {
