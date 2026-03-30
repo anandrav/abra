@@ -929,51 +929,17 @@ impl Translator {
             ExprKind::Unwrap(inner_expr) => {
                 self.translate_expr(inner_expr, offset_table, mono, st);
 
-                // NEW
-                /*
-                   - get the type of expr
-                   - get the implementation of Unwrap for that type
-                   - get the unwrap method
-                   -
-
-                */
                 let unwrap_iface_decl = self.statics.get_iface_decl("prelude.Unwrap");
-                // get the type of expr being unwrapped
+                // get this particular node's version of the type of unwrap()
                 let inner_expr_solved_ty = self.get_ty(mono, inner_expr.node()).unwrap();
-                // get the implementation of Unwrap for that type
-                let imp = self
-                    .statics
-                    .get_iface_impl_for_type(
-                        &inner_expr_solved_ty.key().unwrap(),
-                        &unwrap_iface_decl,
-                    )
-                    .unwrap();
-                // get the unwrap method
-                let unwrap_method = &imp.get_method_by_name("unwrap").unwrap();
-                // TODO: smelly code
-                let unwrap_method_decl = Declaration::InterfaceMethod {
-                    iface: unwrap_iface_decl.clone(),
-                    method_index: 0,
-                };
-                let unwrap_method_ty = self
-                    .statics
-                    .unifvars
-                    .get(&TypeProv::Node(unwrap_method.name.node()))
-                    .unwrap()
-                    .clone(); // TODO: should this be unwrapped?
-
-                let expr_solved_type = self.get_ty(mono, expr.node()).unwrap();
-                // TODO: smelly code. better way to do this?
-                mono.update(
-                    &unwrap_method_ty.solution().unwrap(),
-                    &SolvedType::Function(vec![inner_expr_solved_ty], expr_solved_type.into()),
-                );
-                self.translate_func_call(
-                    &unwrap_method_decl,
-                    unwrap_method.name.node(),
-                    offset_table,
-                    mono,
+                let out_ty = self.get_ty(mono, expr.node()).unwrap();
+                let fn_unwrap_ty = SolvedType::Function(vec![inner_expr_solved_ty], out_ty.into());
+                self.translate_iface_method_call_helper(
                     st,
+                    mono,
+                    &unwrap_iface_decl,
+                    0,
+                    &fn_unwrap_ty,
                 );
             }
             ExprKind::Try(_inner_expr) => {
