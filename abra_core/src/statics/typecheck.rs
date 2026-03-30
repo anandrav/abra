@@ -3289,7 +3289,7 @@ impl SolvedType {
         ctx: &StaticsContext,
         iface: &Rc<InterfaceDef>,
     ) -> Option<Rc<InterfaceImpl>> {
-        // TODO: this should be cached or pre-computed
+        // TODO: this should just be a hashmap lookup
         let impl_list = ctx.interface_impls.get(iface).cloned()?;
         impl_list
             .iter()
