@@ -2875,30 +2875,27 @@ fn generate_constraints_expr(
                 &InterfaceConstraint::new(unwrap_iface_decl.clone(), vec![]),
             );
 
-            // TODO: this is duplicated! same thing is done in translate_bytecode.rs
             // get the implementation of Unwrap for this expression's type
             if let Some(expr_solved_ty) = expr_ty.solution() {
                 if let Some(ty_key) = expr_solved_ty.key() {
                     if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &unwrap_iface_decl) {
-                        let unwrap_method = &imp.methods[0];
-                        let unwrap_method_ty = ctx
+                        let output_type = unwrap_iface_decl
+                            .output_types
+                            .iter()
+                            .find(|ot| ot.name.v == "Output")
+                            .unwrap();
+                        let output_ty = ctx
                             .unifvars
-                            .get(&TypeProv::Node(unwrap_method.name.node()))
+                            .get(&Prov::InstantiateInterfaceOutputType(
+                                imp.clone(),
+                                output_type.clone(),
+                            ))
                             .unwrap()
-                            .clone(); // TODO: should this be unwrapped?
-
-                        // // TODO: need a more principled way to get the outputtype of a particular implementation
-                        if let Some(PotentialType::Function(_, _, ret_ty)) =
-                            unwrap_method_ty.single()
-                        {
-                            // substitute to get particular instance of return type
-                            // for example, unwrapping option<T> gives T. But in this particular case, T might be int
-                            let substitution = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
-                            let ret_ty = ret_ty.subst(&substitution);
-                            constrain(ctx, &node_ty, &ret_ty);
-                        } else {
-                            unreachable!();
-                        }
+                            .clone();
+                        // substitute { T = int } here
+                        let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
+                        let output_ty = output_ty.subst(&subst);
+                        constrain(ctx, &node_ty, &output_ty);
                     }
                 } else {
                     ctx.errors
