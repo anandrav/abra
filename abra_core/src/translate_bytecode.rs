@@ -14,7 +14,7 @@ use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
+use crate::statics::{Declaration, PolytypeDeclaration};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
