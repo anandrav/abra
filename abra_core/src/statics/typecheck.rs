@@ -2862,7 +2862,64 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::Try(_expr) => {
-            unimplemented!();
+            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr);
+            let expr_ty = TypeVar::from_node(ctx, expr.node());
+
+            // the expression being unwrapped must implement Unwrap
+            let try_iface_decl = ctx.get_iface_decl("prelude.Try");
+            constrain_to_iface(
+                ctx,
+                &expr_ty,
+                expr.node(),
+                &InterfaceConstraint::new(try_iface_decl.clone(), vec![]),
+            );
+
+            // get the implementation of Try for this expression's type
+            if let Some(expr_solved_ty) = expr_ty.solution() {
+                if let Some(ty_key) = expr_solved_ty.key() {
+                    if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &try_iface_decl) {
+                        // the type of the expression is the type of unwrap's output
+                        let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
+                        let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
+                        // substitute { T = int } here
+                        let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
+                        let output_ty = output_ty.subst(&subst);
+                        constrain(ctx, &node_ty, &output_ty);
+
+                        // the type of the residual must match the type of the outer function's return type's residual
+                        let residual_type =
+                            try_iface_decl.get_output_type_by_name("Output").unwrap();
+                        let residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
+                        let residual_ty = residual_ty.subst(&subst);
+
+                        // TODO LAST HERE
+                        /*
+                            Because the return type of the calling function is often not known at this
+                            point, the constraint should be pushed to a Vector, and then all those
+                            constraints will be addressed toward the end of typechecking
+
+                            The constraint can be broken into 3 parts:
+                            1. the return type of the calling function must implement Try interface
+                            2. the return type of the calling function must have the same TypeKey
+                               as the type of the expression being try'd
+                            3. the residual of the return type of the calling function must
+                                be equal to the residual of the type of the expression being try'd
+
+                            The information necessary to check this constraint is:
+                            1. The calling function (to retrieve its return type)
+                            2. The type of the expression being try'd
+                            3. The residual of the type of the expressio being try'd
+
+                        */
+                    }
+                } else {
+                    ctx.errors
+                        .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
+                }
+            } else {
+                ctx.errors
+                    .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
+            }
         }
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
