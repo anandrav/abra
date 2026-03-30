@@ -949,8 +949,7 @@ impl Translator {
                     )
                     .unwrap();
                 // get the unwrap method
-                // TODO: get by name instead
-                let unwrap_method = &imp.methods[0];
+                let unwrap_method = &imp.get_method_by_name("unwrap").unwrap();
                 // TODO: smelly code
                 let unwrap_method_decl = Declaration::InterfaceMethod {
                     iface: unwrap_iface_decl.clone(),
