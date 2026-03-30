@@ -441,6 +441,13 @@ pub(crate) struct InterfaceDef {
 }
 
 impl InterfaceDef {
+    pub fn get_method_by_name(&self, name: &str) -> Option<(usize, &Rc<FuncDecl>)> {
+        self.methods
+            .iter()
+            .enumerate()
+            .find(|(_i, method)| method.name.v == name)
+    }
+
     pub fn get_output_type_by_name(&self, name: &str) -> Option<Rc<InterfaceOutputType>> {
         self.output_types
             .iter()
@@ -464,6 +471,15 @@ pub(crate) struct InterfaceImpl {
     pub(crate) methods: Vec<Rc<FuncDef>>,
 
     pub(crate) id: NodeId,
+}
+
+impl InterfaceImpl {
+    pub fn get_method_by_name(&self, name: &str) -> Option<Rc<FuncDef>> {
+        self.methods
+            .iter()
+            .find(|method| method.name.v == name)
+            .cloned()
+    }
 }
 
 impl std::hash::Hash for InterfaceImpl {

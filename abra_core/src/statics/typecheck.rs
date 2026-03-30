@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{
     Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments, InterfaceDef,
-    Polytype, PolytypeDeclaration, StaticsContext, StructDef, TypeProv,
+    Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
@@ -1631,10 +1631,8 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
             }
 
             for f in &iface_impl.methods {
-                let method_name = f.name.v.clone();
-                if let Some(interface_method) =
-                    iface_def.methods.iter().find(|m| m.name.v == method_name)
-                {
+                let method_name = &f.name.v;
+                if let Some((_, interface_method)) = iface_def.get_method_by_name(method_name) {
                     generate_constraints_func_decl(
                         ctx,
                         interface_method.name.node(),
@@ -2032,11 +2030,7 @@ fn generate_constraints_stmt(
             ctx.loop_stack.pop();
             // update bookkeeping for code generation
             // make_iterator type
-            let make_iterator_method = imp
-                .methods
-                .iter()
-                .find(|m| m.name.v == "make_iterator")
-                .unwrap();
+            let make_iterator_method = imp.get_method_by_name("make_iterator").unwrap();
             let make_iterator_type =
                 TypeVar::from_node(ctx, make_iterator_method.name.node()).subst(&subst);
             ctx.for_loop_make_iterator_types
@@ -2059,11 +2053,7 @@ fn generate_constraints_stmt(
                 return;
             };
             let subst2 = get_substitution_of_typ(ctx, &iterator_imp.typ, &iter_output_type);
-            let next_method = iterator_imp
-                .methods
-                .iter()
-                .find(|m| m.name.v == "next")
-                .unwrap();
+            let next_method = iterator_imp.get_method_by_name("next").unwrap();
             let next_method_typ = TypeVar::from_node(ctx, next_method.name.node());
             let next_method_typ = next_method_typ.subst(&subst2);
             let next_method_typ = next_method_typ.subst(&subst);
@@ -2726,25 +2716,20 @@ fn generate_constraints_expr(
             } else if let Some(Declaration::InterfaceDef(iface)) =
                 ctx.resolution_map.get(&accessed.id).cloned()
             {
-                let mut found = false;
-                for (i, method) in iface.methods.iter().enumerate() {
-                    if method.name.v == member_ident.v {
-                        found = true;
-                        ctx.resolution_map.insert(
-                            member_ident.id,
-                            Declaration::InterfaceMethod {
-                                iface: iface.clone(),
-                                method: i,
-                            },
-                        );
-                        let method_ty = TypeVar::from_node(ctx, method.name.node());
-                        let method_ty = method_ty.instantiate(ctx, polyvar_scope, expr.node());
-                        constrain(ctx, &node_ty, &method_ty);
-                        let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
-                        constrain(ctx, &node_ty, &member_ident_ty);
-                    }
-                }
-                if !found {
+                if let Some((i, method)) = iface.get_method_by_name(&member_ident.v) {
+                    ctx.resolution_map.insert(
+                        member_ident.id,
+                        Declaration::InterfaceMethod {
+                            iface: iface.clone(),
+                            method: i,
+                        },
+                    );
+                    let method_ty = TypeVar::from_node(ctx, method.name.node());
+                    let method_ty = method_ty.instantiate(ctx, polyvar_scope, expr.node());
+                    constrain(ctx, &node_ty, &method_ty);
+                    let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
+                    constrain(ctx, &node_ty, &member_ident_ty);
+                } else {
                     ctx.errors.push(Error::UnresolvedIdentifier {
                         node: member_ident.node(),
                     })
@@ -3304,6 +3289,7 @@ impl SolvedType {
         ctx: &StaticsContext,
         iface: &Rc<InterfaceDef>,
     ) -> Option<Rc<InterfaceImpl>> {
+        // TODO: this should be cached or pre-computed
         let impl_list = ctx.interface_impls.get(iface).cloned()?;
         impl_list
             .iter()
