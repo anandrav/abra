@@ -127,7 +127,7 @@ implement Try for result<T, E> {
     }
 }
 
-type Status =
+type MyStatus =
     | NotGood
     | ReallyBad
     | Terrible
@@ -135,7 +135,7 @@ type Status =
     | PrettyGood
     | PrettyPrettyPrettyGood
 
-// implement Try for Status {
+// implement Try for MyStatus {
 //
 // }
 
