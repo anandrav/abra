@@ -1483,9 +1483,9 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
     for constraint in ctx.try_operator_constraints.clone() {
         let (caller_ret_ty, tried_expr_node, tried_expr_ty, tried_expr_residual_ty) = constraint;
 
-        let Some(caller_ret_ty) = caller_ret_ty.solution() else { continue };
+        let Some(caller_ret_ty_solved) = caller_ret_ty.solution() else { continue };
 
-        let Some(ret_ty_key) = caller_ret_ty.key() else { continue };
+        let Some(ret_ty_key) = caller_ret_ty_solved.key() else { continue };
         let Some(tried_expr_key) = tried_expr_ty.key() else { continue };
 
         if ret_ty_key != tried_expr_key {
@@ -1504,6 +1504,8 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         let residual_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
         let ret_ty_residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
+        let subst = get_substitution_of_typ(ctx, &imp.typ, &caller_ret_ty);
+        let ret_ty_residual_ty = ret_ty_residual_ty.subst(&subst);
 
         constrain(ctx, &tried_expr_residual_ty, &ret_ty_residual_ty);
     }
