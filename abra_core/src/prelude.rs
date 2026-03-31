@@ -103,27 +103,35 @@ interface Try {
     // ('self' argument in unwrap2 for option and unwrap2 for result conflict, thinks they're the same type??)
     // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
     fn branch(self: Self) -> ControlFlow<Residual, Output>
+
+    fn from_residual(self: Self, r: Residual) -> Self
 }
 
 // TODO: maybe... rename to something like
 // Bail/Abandon/Withdraw/Leave/BackOut/Cancel and Proceed/Stay/Remain
 type ControlFlow<B, C> = Break(B) | Continue(C)
 
-implement Try for option<T> {
-    fn branch(self) {
-        match self {
-            .some(x) -> .Continue(x)
-            .none -> .Break(nil)
-        }
-    }
-}
+// implement Try for option<T> {
+//     fn branch(self) {
+//         match self {
+//             .some(x) -> .Continue(x)
+//             .none -> .Break(nil)
+//         }
+//     }
+//
+//
+// }
 
 implement Try for result<T, E> {
     fn branch(self) -> ControlFlow<E, T> {  // TODO: shouldn't need to annotate this :/
         match self {
             .ok(x) -> .Continue(x)
-            .err(x) -> .Break(x)
+            .err(e) -> .Break(e)
         }
+    }
+
+    fn from_residual(self, r: E) -> result<T, E> {
+        result.err(r)
     }
 }
 

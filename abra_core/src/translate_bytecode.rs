@@ -12,8 +12,8 @@ use crate::environment::Environment;
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
-use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
+use crate::statics::typecheck::{Nominal, TypeVar};
 use crate::statics::{Declaration, PolytypeDeclaration};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
@@ -957,16 +957,29 @@ impl Translator {
                     0,
                     &fn_branch_ty,
                 );
-                // LAST HERE
                 let tag_success_label = make_label("tag_success");
-                self.emit(st, Instr::Duplicate);
                 self.emit(st, Instr::DeconstructVariant);
                 // TODO: in the future, get the tag indexes using a helper function instead of hardcoding them
                 self.emit(st, Instr::PushInt(0 as AbraInt)); // ControlFlow.Break
                 self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 self.emit(st, Instr::JumpIfFalse(tag_success_label.clone()));
-                let return_nargs = st.return_stack.last().unwrap();
-                self.emit(st, Instr::Return(*return_nargs));
+
+                let out_ty = self.get_ty(mono, inner_expr.node()).unwrap();
+
+                // TODO: LAST HERE
+                let fn_from_residual_ty = panic!(); // SolvedType::Function(vec![out_ty.clone(), residual_ty], out_ty.into());
+                // TODO: stupid fucking hack because interface functions require Self (impl_ty) for first argument
+                self.emit(st, Instr::PushInt(0));
+                println!("fn_from_residual_ty {}", fn_from_residual_ty);
+                self.translate_iface_method_call_helper(
+                    st,
+                    mono,
+                    &try_iface_decl,
+                    0,
+                    &fn_from_residual_ty,
+                );
+                let return_nargs = st.return_stack.last().unwrap().clone();
+                self.emit(st, Instr::Return(return_nargs));
                 self.emit(st, tag_success_label);
             }
         }

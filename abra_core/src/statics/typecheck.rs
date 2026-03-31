@@ -1812,7 +1812,7 @@ fn constrain_iface_arguments_in_tyvar(
     };
 }
 
-fn get_substitution_of_typ(
+pub(crate) fn get_substitution_of_typ(
     ctx: &StaticsContext,
     original: &Rc<AstType>,
     with_params: &TypeVar,
@@ -2996,7 +2996,7 @@ fn generate_constraints_expr(
 }
 
 impl StaticsContext {
-    fn get_output_type_of_iface_impl(
+    pub(crate) fn get_output_type_of_iface_impl(
         &self,
         imp: &Rc<InterfaceImpl>,
         output_type: Rc<InterfaceOutputType>,
