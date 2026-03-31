@@ -45,6 +45,8 @@ pub(crate) struct StaticsContext {
     // order-independent manner.
     pub(crate) interface_namespaces: HashMap<Rc<InterfaceDef>, Rc<Namespace>>,
 
+    pub(crate) try_operator_constraints: Vec<(TypeVar, AstNode, SolvedType, TypeVar)>,
+
     // BOOKKEEPING
 
     // most recent loops while traversing AST
@@ -92,6 +94,8 @@ impl StaticsContext {
             resolution_map: Default::default(),
             fully_qualified_names: Default::default(),
             interface_namespaces: Default::default(),
+
+            try_operator_constraints: Default::default(),
 
             loop_stack: Default::default(),
             func_ret_stack: Default::default(),
@@ -409,6 +413,11 @@ pub(crate) enum Error {
     RedundantArms {
         node: AstNode,
         redundant_arms: Vec<AstNode>,
+    },
+    TriedExpressionAndRetTypeMustMatch {
+        node: AstNode,
+        ret_ty_key: TypeKey,
+        tried_expr_key: TypeKey,
     },
     #[cfg(not(feature = "ffi"))]
     FfiNotEnabled(AstNode),

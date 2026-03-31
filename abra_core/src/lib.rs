@@ -86,7 +86,6 @@ fn compile_bytecode_(
     let mut ctx = StaticsContext::new(file_provider);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
-
     let translator = Translator::new(ctx, file_asts);
     Ok(translator.translate())
 }

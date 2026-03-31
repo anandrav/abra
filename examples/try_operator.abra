@@ -1,3 +1,8 @@
-let result = result.ok(2)
-let num = result?
-println(num)
+fn blah() -> result<int, string> {
+  let x: result<int, string> = result.ok(2)
+  let num = x?
+  println(num)
+  .ok(3)
+}
+
+blah()

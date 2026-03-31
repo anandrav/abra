@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
+    _print_node, Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration,
+    StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportKind,
@@ -1142,6 +1143,9 @@ fn resolve_names_typ(
         }
         TypeKind::NamedWithParams(identifier, args) => {
             // the Type node and the Identifier node should both resolve to the same thing
+            // TODO: if the identifier resolves to a variable that should be an error...
+            // TODO: because the variable is not a type, and converting to a TypeVar later will fail
+            // TODO: for instance let result: result<int, string> = .ok(2), the second `result` will resolve to the first `result`
             resolve_identifier(ctx, symbol_table, identifier);
             if let Some(decl) = ctx.resolution_map.get(&identifier.id) {
                 ctx.resolution_map.insert(typ.id, decl.clone());

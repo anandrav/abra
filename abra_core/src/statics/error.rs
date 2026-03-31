@@ -320,6 +320,19 @@ impl Error {
                 diagnostic = diagnostic.with_message("Foreign functions are not enabled");
                 labels.push(Label::secondary(file, range))
             }
+            Error::TriedExpressionAndRetTypeMustMatch {
+                node,
+                ret_ty_key,
+                tried_expr_key,
+            } => {
+                diagnostic = diagnostic.with_message("This expression");
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+                notes.push(format!(
+                    "Return type {} does not match the expression's type {}",
+                    ret_ty_key, tried_expr_key
+                ))
+            }
         };
 
         diagnostic = diagnostic.with_labels(labels);
