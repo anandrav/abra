@@ -942,8 +942,32 @@ impl Translator {
                     &fn_unwrap_ty,
                 );
             }
-            ExprKind::Try(_inner_expr) => {
-                unimplemented!();
+            ExprKind::Try(inner_expr) => {
+                self.translate_expr(inner_expr, offset_table, mono, st);
+
+                let try_iface_decl = self.statics.get_iface_decl("prelude.Try");
+                // get this particular node's version of the type of unwrap()
+                let inner_expr_solved_ty = self.get_ty(mono, inner_expr.node()).unwrap();
+                let out_ty = self.get_ty(mono, expr.node()).unwrap();
+                let fn_branch_ty = SolvedType::Function(vec![inner_expr_solved_ty], out_ty.into());
+                self.translate_iface_method_call_helper(
+                    st,
+                    mono,
+                    &try_iface_decl,
+                    0,
+                    &fn_branch_ty,
+                );
+                // LAST HERE
+                let tag_success_label = make_label("tag_success");
+                self.emit(st, Instr::Duplicate);
+                self.emit(st, Instr::DeconstructVariant);
+                // TODO: in the future, get the tag indexes using a helper function instead of hardcoding them
+                self.emit(st, Instr::PushInt(0 as AbraInt)); // ControlFlow.Break
+                self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
+                self.emit(st, Instr::JumpIfFalse(tag_success_label.clone()));
+                let return_nargs = st.return_stack.last().unwrap();
+                self.emit(st, Instr::Return(*return_nargs));
+                self.emit(st, tag_success_label);
             }
         }
     }
