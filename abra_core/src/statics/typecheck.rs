@@ -1603,21 +1603,9 @@ pub(crate) fn generate_constraints_file_decls(ctx: &mut StaticsContext, file: &R
     }
 }
 
-fn generate_constraints_item_decls1(ctx: &mut StaticsContext, item: &Rc<Item>) {
-    match &*item.kind {
-        ItemKind::InterfaceDef(..) => {}
-        ItemKind::Import(..) => {}
-        ItemKind::Stmt(_) => {}
-        ItemKind::InterfaceImpl(iface_impl) => {
-            generate_constraints_iface_impl(ctx, iface_impl);
-        }
-        ItemKind::Extension(_) => {}
-        ItemKind::TypeDef(_) => {}
-        ItemKind::FuncDef(_) => {}
-        ItemKind::FuncDecl { .. } => {}
-    }
-}
-
+// decls0 is responsible for most declarations
+// The exception is interface implementations, which must be processed after all interface *declarations*
+// have been processed.
 fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
     match &*item.kind {
         ItemKind::InterfaceDef(..) => {}
@@ -1651,6 +1639,23 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
         ItemKind::FuncDecl(decl) => {
             generate_constraints_func_decl(ctx, decl.name.node(), &decl.args, Some(&decl.ret_type));
         }
+    }
+}
+
+// decls1 only handles interface implementations
+// This is after decls0 has handled interface declarations
+fn generate_constraints_item_decls1(ctx: &mut StaticsContext, item: &Rc<Item>) {
+    match &*item.kind {
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::Import(..) => {}
+        ItemKind::Stmt(_) => {}
+        ItemKind::InterfaceImpl(iface_impl) => {
+            generate_constraints_iface_impl(ctx, iface_impl);
+        }
+        ItemKind::Extension(_) => {}
+        ItemKind::TypeDef(_) => {}
+        ItemKind::FuncDef(_) => {}
+        ItemKind::FuncDecl { .. } => {}
     }
 }
 
