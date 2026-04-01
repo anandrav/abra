@@ -122,15 +122,15 @@ type ControlFlow<B, C> = Break(B) | Continue(C)
 //
 // }
 
-implement Try for result<T, E> {
-    fn branch(self) -> ControlFlow<E, T> {  // TODO: shouldn't need to annotate this :/
+implement Try for result<T2, E2> {
+    fn branch(self) -> ControlFlow<E2, T2> {  // TODO: shouldn't need to annotate this :/
         match self {
             .ok(x) -> .Continue(x)
             .err(e) -> .Break(e)
         }
     }
 
-    fn from_residual(r: E) -> result<T, E> {
+    fn from_residual(r: E2) -> result<T2, E2> {
         result.err(r)
     }
 }

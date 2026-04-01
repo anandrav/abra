@@ -28,7 +28,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use utils::hash::HashMap;
 use utils::hash::HashSet;
 use utils::id_set::IdSet;
-use utils::swrite;
+use utils::{dlog, swrite};
 
 type OffsetTable = HashMap<NodeId, i16>;
 type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
@@ -298,7 +298,7 @@ impl Translator {
     pub(crate) fn dump_assembly(&self) {
         let st = self.translate_to_assembly();
         for line in st.lines.iter() {
-            println!("{}", line);
+            dlog!("{}", line);
         }
     }
 
@@ -948,8 +948,23 @@ impl Translator {
                 let try_iface_decl = self.statics.get_iface_decl("prelude.Try");
                 // get this particular node's version of the type of unwrap()
                 let inner_expr_solved_ty = self.get_ty(mono, inner_expr.node()).unwrap();
+                dlog!("inner_expr_solved_ty {}", inner_expr_solved_ty);
                 let out_ty = self.get_ty(mono, expr.node()).unwrap();
-                let fn_branch_ty = SolvedType::Function(vec![inner_expr_solved_ty], out_ty.into());
+                // let imp = &self
+                //     .statics
+                //     .get_iface_impl_for_type(&inner_expr_solved_ty.key().unwrap(), &try_iface_decl)
+                //     .unwrap();
+                // let method = &imp.methods[0];
+                // let method_ty = self.get_ty(mono, method.name.node()).unwrap();
+                // let temp_mono = mono.new_scope();
+                // temp_mono.update()
+                // method_ty.subst(mono);
+                // method_ty.subst(mono);
+                // dlog!("branch method_ty: {}", method_ty);
+                // TODO: out_ty is the wrong choice here, it needs to be ControlFlow<...>
+                let SolvedType::Function(_, control_flow_ty) = out_ty else { unreachable!() };
+                let fn_branch_ty =
+                    SolvedType::Function(vec![inner_expr_solved_ty], control_flow_ty.into());
                 self.translate_iface_method_call_helper(
                     st,
                     mono,
@@ -967,10 +982,16 @@ impl Translator {
                 let out_ty = self.get_ty(mono, inner_expr.node()).unwrap();
 
                 // TODO: LAST HERE
-                let fn_from_residual_ty = panic!(); // SolvedType::Function(vec![out_ty.clone(), residual_ty], out_ty.into());
+                let residual_ty = self
+                    .statics
+                    .tried_expr_residual_types
+                    .get(&inner_expr.id)
+                    .unwrap();
+                let fn_from_residual_ty =
+                    SolvedType::Function(vec![residual_ty.clone()], out_ty.into());
                 // TODO: stupid fucking hack because interface functions require Self (impl_ty) for first argument
                 self.emit(st, Instr::PushInt(0));
-                println!("fn_from_residual_ty {}", fn_from_residual_ty);
+                dlog!("fn_from_residual_ty {}", fn_from_residual_ty);
                 self.translate_iface_method_call_helper(
                     st,
                     mono,
@@ -1194,9 +1215,20 @@ impl Translator {
         method_index: u16,
         overloaded_func_ty: &SolvedType,
     ) {
+        // TODO: this is duplicated
+        dlog!("overloaded_func_ty: {}", overloaded_func_ty);
         let overloaded_func_ty = overloaded_func_ty.subst(mono);
-        let SolvedType::Function(args, _) = &overloaded_func_ty else { unreachable!() };
-        let impl_ty = &args[0];
+        let impl_ty = self.extract_impl_ty_from_overloaded_func_ty(
+            &overloaded_func_ty,
+            iface_def,
+            &(method_index as usize),
+        );
+        dlog!(
+            "name of func: {}",
+            iface_def.methods[method_index as usize].name.v
+        );
+        dlog!("overloaded_func_ty: {}", overloaded_func_ty);
+        dlog!("impl_ty: {}", impl_ty);
         let imp = &self
             .statics
             .get_iface_impl_for_type(&impl_ty.key().unwrap(), iface_def)

@@ -21,6 +21,7 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -1487,6 +1488,9 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         let Some(ret_ty_key) = caller_ret_ty_solved.key() else { continue };
         let Some(tried_expr_key) = tried_expr_ty.key() else { continue };
+        let Some(tried_expr_residual_ty_solved) = tried_expr_residual_ty.solution() else {
+            continue;
+        };
 
         if ret_ty_key != tried_expr_key {
             ctx.errors.push(Error::TriedExpressionAndRetTypeMustMatch {
@@ -1508,6 +1512,9 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
         let ret_ty_residual_ty = ret_ty_residual_ty.subst(&subst);
 
         constrain(ctx, &tried_expr_residual_ty, &ret_ty_residual_ty);
+
+        ctx.tried_expr_residual_types
+            .insert(tried_expr_node.id(), tried_expr_residual_ty_solved);
     }
 }
 
@@ -2946,7 +2953,7 @@ fn generate_constraints_expr(
         ExprKind::Try(expr_inner) => {
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr_inner);
             let expr_inner_ty = TypeVar::from_node(ctx, expr_inner.node());
-            println!("expr_inner_ty: {}", expr_inner_ty);
+            dlog!("expr_inner_ty: {}", expr_inner_ty);
 
             // the expression being unwrapped must implement Unwrap
             let try_iface_decl = ctx.get_iface_decl("prelude.Try");
@@ -2964,12 +2971,12 @@ fn generate_constraints_expr(
                         // the type of the expression is the type of unwrap's output
                         let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
                         let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
-                        println!("output_ty: {}", output_ty);
+                        dlog!("output_ty: {}", output_ty);
                         // substitute { T = int } here
                         let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_inner_ty);
                         let output_ty = output_ty.subst(&subst);
                         constrain(ctx, &node_ty, &output_ty);
-                        println!("output_ty: {}", output_ty);
+                        dlog!("output_ty: {}", output_ty);
 
                         // the type of the residual must match the type of the outer function's return type's residual
                         let residual_type =
@@ -2988,7 +2995,7 @@ fn generate_constraints_expr(
                         );
                         ctx.try_operator_constraints.push((
                             calling_func_ty.clone(),
-                            expr.node(),
+                            expr_inner.node(),
                             expr_inner_solved_ty,
                             residual_ty,
                         ));
