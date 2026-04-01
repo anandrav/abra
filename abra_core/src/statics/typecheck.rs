@@ -1506,7 +1506,7 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
             continue;
         };
 
-        let residual_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
+        let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
         let ret_ty_residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
         let subst = get_substitution_of_typ(ctx, &imp.typ, &caller_ret_ty);
         let ret_ty_residual_ty = ret_ty_residual_ty.subst(&subst);
@@ -1515,6 +1515,12 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         ctx.tried_expr_residual_types
             .insert(tried_expr_node.id(), tried_expr_residual_ty_solved);
+        if let Some(ret_ty_residual_ty) = ret_ty_residual_ty.solution() {
+            ctx.tried_expr_calling_func_residual_types
+                .insert(tried_expr_node.id(), ret_ty_residual_ty);
+        }
+        ctx.tried_expr_calling_func_return_types
+            .insert(tried_expr_node.id(), caller_ret_ty_solved);
     }
 }
 
@@ -2980,7 +2986,7 @@ fn generate_constraints_expr(
 
                         // the type of the residual must match the type of the outer function's return type's residual
                         let residual_type =
-                            try_iface_decl.get_output_type_by_name("Output").unwrap();
+                            try_iface_decl.get_output_type_by_name("Residual").unwrap();
                         let residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
                         let residual_ty = residual_ty.subst(&subst);
 

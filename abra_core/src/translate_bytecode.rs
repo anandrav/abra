@@ -962,7 +962,13 @@ impl Translator {
                 // method_ty.subst(mono);
                 // dlog!("branch method_ty: {}", method_ty);
                 // TODO: out_ty is the wrong choice here, it needs to be ControlFlow<...>
-                let SolvedType::Function(_, control_flow_ty) = out_ty else { unreachable!() };
+                let control_flow_ty = self
+                    .statics
+                    .tried_expr_calling_func_return_types
+                    .get(&inner_expr.id)
+                    .unwrap()
+                    .clone();
+                println!("control_flow_ty: {}", control_flow_ty);
                 let fn_branch_ty =
                     SolvedType::Function(vec![inner_expr_solved_ty], control_flow_ty.into());
                 self.translate_iface_method_call_helper(
