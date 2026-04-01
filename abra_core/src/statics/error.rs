@@ -333,6 +333,13 @@ impl Error {
                     ret_ty_key, tried_expr_key
                 ))
             }
+            Error::InterfaceMethodMustContainSelfInSignature { node } => {
+                diagnostic = diagnostic.with_message(
+                    "This interface method must contain `Self` type in its signature",
+                );
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+            }
         };
 
         diagnostic = diagnostic.with_labels(labels);

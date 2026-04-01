@@ -1870,6 +1870,31 @@ fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: &Rc<Inter
             &method.args,
             Some(&method.ret_type),
         );
+
+        if let Some(method_ty) = node_ty.solution() {
+            if let SolvedType::Function(args, ret) = method_ty {
+                let mut found = false;
+                for arg in args {
+                    // TODO: in the future, recursively search subtypes for Self instead of just toplevel args and return type.
+                    if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = arg {
+                        if iface == *iface_def {
+                            found = true;
+                        }
+                    }
+                }
+                if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = *ret {
+                    if iface == *iface_def {
+                        found = true;
+                    }
+                }
+                if !found {
+                    ctx.errors
+                        .push(Error::InterfaceMethodMustContainSelfInSignature {
+                            node: method.name.node(),
+                        });
+                }
+            }
+        }
     }
 }
 

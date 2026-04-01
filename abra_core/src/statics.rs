@@ -397,6 +397,9 @@ pub(crate) enum Error {
         iface_impl_node: AstNode,
         missing_method_index: usize,
     },
+    InterfaceMethodMustContainSelfInSignature {
+        node: AstNode,
+    },
     // break and continue
     NotInLoop {
         node: AstNode,

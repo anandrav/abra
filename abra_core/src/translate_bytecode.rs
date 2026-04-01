@@ -12,8 +12,8 @@ use crate::environment::Environment;
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
-use crate::statics::typecheck::SolvedType;
 use crate::statics::typecheck::{Nominal, TypeVar};
+use crate::statics::typecheck::{Prov, SolvedType};
 use crate::statics::{Declaration, PolytypeDeclaration};
 use crate::statics::{FuncResolutionKind, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
@@ -1052,8 +1052,11 @@ impl Translator {
                 method_index,
             } => {
                 let overloaded_func_ty = self.get_ty(mono, ast_node).unwrap();
-                let SolvedType::Function(args, _) = &overloaded_func_ty else { unreachable!() };
-                let impl_ty = &args[0];
+                let impl_ty = self.extract_impl_ty_from_overloaded_func_ty(
+                    &overloaded_func_ty,
+                    iface,
+                    method_index,
+                );
                 let imp = &self
                     .statics
                     .get_iface_impl_for_type(&impl_ty.key().unwrap(), iface)
@@ -1114,6 +1117,45 @@ impl Translator {
             | Declaration::BuiltinType(_) => {
                 unreachable!()
             }
+        }
+    }
+
+    fn extract_impl_ty_from_overloaded_func_ty(
+        &self,
+        overloaded_func_ty: &SolvedType,
+        iface: &Rc<InterfaceDef>,
+        method_index: &usize,
+    ) -> SolvedType {
+        // TODO: this line of code sucks
+        let method_signature = self
+            .statics
+            .unifvars
+            .get(&Prov::Node(iface.methods[*method_index].name.node()))
+            .unwrap()
+            .solution()
+            .unwrap();
+        self.extract_impl_ty_from_overloaded_func_ty_helper(&method_signature, overloaded_func_ty)
+    }
+
+    fn extract_impl_ty_from_overloaded_func_ty_helper(
+        &self,
+        method_signature: &Type,
+        overloaded_ty: &Type,
+    ) -> SolvedType {
+        match (method_signature, overloaded_ty) {
+            // recurse
+            (Type::Function(args, out), Type::Function(args2, out2)) => {
+                for (i, arg) in args.iter().enumerate() {
+                    if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = arg {
+                        return args2[i].clone();
+                    }
+                }
+                if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = &**out {
+                    return *out2.clone();
+                }
+                unreachable!();
+            }
+            _ => unreachable!(),
         }
     }
 
