@@ -1604,8 +1604,7 @@ pub(crate) fn generate_constraints_file_decls(ctx: &mut StaticsContext, file: &R
 }
 
 // decls0 is responsible for most declarations
-// The exception is interface implementations, which must be processed after all interface *declarations*
-// have been processed.
+// It also updates the impl_list data structure so it can be used in decls1
 fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
     match &*item.kind {
         ItemKind::InterfaceDef(..) => {}
@@ -1643,7 +1642,10 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
 }
 
 // decls1 only handles interface implementations
-// This is after decls0 has handled interface declarations
+// It actually performs type analysis for interface implementations, it's misnamed
+// This was probably so that when analyzing free functions in the program,
+// inference can work properly because all the types have been solved for interface implementations
+// TODO: this seems bug prone...
 fn generate_constraints_item_decls1(ctx: &mut StaticsContext, item: &Rc<Item>) {
     match &*item.kind {
         ItemKind::InterfaceDef(..) => {}
