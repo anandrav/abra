@@ -104,7 +104,7 @@ interface Try {
     // this is resolved though if self always gets Self implicitly. Then it will be instantiated to a type inference variable
     fn branch(self: Self) -> ControlFlow<Residual, Output>
 
-    fn from_residual(self: Self, r: Residual) -> Self
+    fn from_residual(r: Residual) -> Self
 }
 
 // TODO: maybe... rename to something like
@@ -130,7 +130,7 @@ implement Try for result<T, E> {
         }
     }
 
-    fn from_residual(self, r: E) -> result<T, E> {
+    fn from_residual(r: E) -> result<T, E> {
         result.err(r)
     }
 }
