@@ -1,0 +1,23 @@
+#!/bin/bash
+set -eou pipefail
+
+echo "Installing development dependencies..."
+
+echo ""
+echo "Adding wasm32-unknown-unknown target..."
+rustup target add wasm32-unknown-unknown
+
+echo ""
+echo "Adding nightly version of rustfmt"
+rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
+
+echo ""
+echo "Installing cargo-deny..."
+cargo install --locked cargo-deny
+
+echo ""
+echo "Installing mdbook..."
+cargo install --locked mdbook
+
+echo ""
+echo "Done"
