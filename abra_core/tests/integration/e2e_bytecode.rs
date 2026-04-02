@@ -1178,10 +1178,7 @@ blah()!
 fn try_option_none() {
     let src = r#"
 fn blah() -> option<int> {
-    // .none? // TODO: should just be able to do this
-    let o: option<int> = .none
-    o?
-  .some(3)
+    option.none?
 }
 match blah() {
     .some(_) -> panic("should be err")
