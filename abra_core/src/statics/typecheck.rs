@@ -1484,6 +1484,7 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
     for constraint in ctx.try_operator_constraints.clone() {
         let (caller_ret_ty, tried_expr_node, tried_expr_key, tried_expr_residual_ty) = constraint;
 
+        // TODO LAST HERE. Try using single() instead of solution() where possible
         let Some(caller_ret_ty_solved) = caller_ret_ty.solution() else { continue };
 
         let ret_ty_key = caller_ret_ty_solved.key();
