@@ -19,14 +19,19 @@ for i in 10 {
 
 ## Installation
 
-(Requires Rust and Cargo: https://www.rust-lang.org/tools/install)
-
-(Requires Node to install VS Code extension)
+Requires [Rust and Cargo](https://www.rust-lang.org/tools/install).
 
 ```
 git clone https://github.com/anandrav/abra.git
 cd abra
 ./scripts/install
+```
+
+Optionally install editor extensions:
+
+```
+./scripts/install --vim      # Vim syntax highlighting
+./scripts/install --vscode   # VS Code extension (requires Node/npm)
 ```
 
 ## Documentation
