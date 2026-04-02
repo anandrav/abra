@@ -27,7 +27,7 @@ fn main() {
 
   var quit = false
   
-  while not(quit) {
+  while not quit {
     let start = get_time()
 
     // 1. Draw
@@ -40,7 +40,7 @@ fn main() {
     var action_taken = false
     while poll_key_event(1) {
       let key = get_key_event()
-      if not(action_taken) {
+      if not action_taken {
         match key {
           .Char("q") -> quit = true
           .Esc -> quit = true

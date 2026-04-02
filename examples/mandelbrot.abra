@@ -32,13 +32,13 @@ fn main() {
   var needs_redraw = true
   var quit = false
 
-  while not(quit) {
+  while not quit {
     let (curr_w, curr_h) = get_size()!
     
     let render_h = curr_h - 2
     if render_h < 1 { render_h = 1 }
 
-    if not(curr_w == view.width) or not(render_h == view.height) {
+    if curr_w != view.width or render_h != view.height {
       view.width = curr_w
       view.height = render_h
       needs_redraw = true

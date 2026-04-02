@@ -193,11 +193,11 @@ fn update(st: State) {
     let num_valid_locations = width * height - snake.body.len()
     var found = false
     var point = Point(0, 0)
-    while not(found) {
+    while not found {
       let index = random_int(0, num_valid_locations)
       point = index_to_point(index, width, height)
 
-      found = not(snake.body.contains(point))
+      found = not snake.body.contains(point)
     }
 
     fruit.location = point

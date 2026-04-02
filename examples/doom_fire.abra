@@ -21,7 +21,7 @@ fn main() {
 
   var quit = false
 
-  while not(quit) {
+  while not quit {
     let start = get_time()
     
     // 1. Resize Check

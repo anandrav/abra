@@ -22,12 +22,12 @@ fn main() {
 
   var quit = false
 
-  while not(quit) {
+  while not quit {
     let start_time = get_time()
     let (curr_w, curr_h) = get_size()!
 
     // Handle Resize
-    if not(curr_w == w) or not(curr_h == h) {
+    if curr_w != w or curr_h != h {
       clear()
       w = curr_w
       h = curr_h
