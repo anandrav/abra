@@ -5,17 +5,22 @@ set -euo pipefail
 export RUSTFLAGS="-Awarnings"
 
 QUICK=false
+VIM=false
+VSCODE=false
 
 CARGO_BUILD_PROFILE="--release"
 CARGO_INSTALL_PROFILE=""
 CARGO_BUILD_SUBDIR="release"
-# Check for --dev flag
 for arg in "$@"; do
   if [[ "$arg" == "--quick" ]]; then
     QUICK=true
     CARGO_BUILD_PROFILE=""
     CARGO_INSTALL_PROFILE="--debug"
     CARGO_BUILD_SUBDIR="debug"
+  elif [[ "$arg" == "--vim" ]]; then
+    VIM=true
+  elif [[ "$arg" == "--vscode" ]]; then
+    VSCODE=true
   fi
 done
 
@@ -105,8 +110,11 @@ install_abra_vscode_extension() {
   popd > /dev/null
 }
 
-if [ $QUICK = false ]; then
+if [ $VIM = true ]; then
     install_vim_syntax_highlighting
+fi
+
+if [ $VSCODE = true ]; then
     install_abra_vscode_extension
 fi
 
