@@ -1090,7 +1090,7 @@ fib(10)
 }
 
 #[test]
-fn unwrap_option_good() {
+fn unwrap_option_some() {
     let src = r#"
 let m: option<int> = option.some(3)
 let n: int = m!
@@ -1107,7 +1107,7 @@ n
 }
 
 #[test]
-fn unwrap_option_bad() {
+fn unwrap_option_none() {
     let src = r#"
 let m: option<int> = option.none
 let n: int = m!
@@ -1123,7 +1123,7 @@ n
 }
 
 #[test]
-fn unwrap_result_good() {
+fn unwrap_result_ok() {
     let src = r#"
 let m: result<int, string> = result.ok(3)
 let n: int = m!
@@ -1140,7 +1140,7 @@ n
 }
 
 #[test]
-fn unwrap_result_bad() {
+fn unwrap_result_err() {
     let src = r#"
 let m: result<int, string> = result.err("badbadbad")
 let n: int = m!
@@ -1156,7 +1156,7 @@ n
 }
 
 #[test]
-fn try_operator_ok() {
+fn try_result_ok() {
     let src = r#"
 fn blah() -> result<int, string> {
   result.ok(2)?
@@ -1175,7 +1175,7 @@ blah()!
 }
 
 #[test]
-fn try_operator_err() {
+fn try_result_err() {
     let src = r#"
 fn blah() -> result<int, string> {
   result.err("this is an error")?
