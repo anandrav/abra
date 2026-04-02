@@ -137,18 +137,6 @@ implement Try for result<T2, E2> {
     }
 }
 
-type MyStatus =
-    | NotGood
-    | ReallyBad
-    | Terrible
-    | Good
-    | PrettyGood
-    | PrettyPrettyPrettyGood
-
-// implement Try for MyStatus {
-//
-// }
-
 interface Equal {
     fn equal(a: Self, b: Self) -> bool
 }

@@ -1,9 +1,0 @@
-fn blah() -> result<bool, string> {
-  // let x: result<int, string> = result.err("ruh roh")
-  let x: result<int, string> = result.ok(2)
-  let num = x?
-  println(num)
-  .ok(true)
-}
-
-println(blah())

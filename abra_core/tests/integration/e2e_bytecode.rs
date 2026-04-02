@@ -1235,6 +1235,61 @@ match blah() {
     assert_eq!(top.view_string(&vm), "this is an error");
 }
 
+#[test]
+fn try_custom_status_enum() {
+    let src = r#"
+type MyStatus =
+    | NotGood
+    | ReallyBad
+    | Terrible
+    | Good
+    | PrettyGood
+    | PrettyPrettyPrettyGood
+
+implement Try for MyStatus {
+    fn branch(self) -> ControlFlow<MyStatus, MyStatus> {
+        match self {
+            .NotGood -> .Break(self)
+            .ReallyBad -> .Break(self)
+            .Terrible -> .Break(self)
+            .Good -> .Continue(self)
+            .PrettyGood -> .Continue(self)
+            .PrettyPrettyPrettyGood -> .Continue(self)
+        }
+    }
+
+    fn from_residual(r: MyStatus) -> MyStatus {
+        r
+    }
+}
+
+fn test_early_exit() -> MyStatus {
+  MyStatus.Good?
+  MyStatus.PrettyGood?
+  MyStatus.PrettyPrettyPrettyGood?
+
+  // early exit happens here!
+  MyStatus.ReallyBad?
+
+  // return good status if we made it to the end (which we don't)
+  MyStatus.Good
+}
+
+match test_early_exit() {
+  MyStatus.ReallyBad -> 10,
+  _ -> panic("did not work"),
+}
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 10);
+}
+
 // TODO: re-enable
 #[ignore]
 #[test]
