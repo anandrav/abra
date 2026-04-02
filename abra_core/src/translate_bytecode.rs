@@ -968,7 +968,7 @@ impl Translator {
                     .get(&inner_expr.id)
                     .unwrap()
                     .clone();
-                println!("control_flow_ty: {}", control_flow_ty);
+                dlog!("control_flow_ty: {}", control_flow_ty);
                 let fn_branch_ty = self
                     .statics
                     .tried_expr_fn_branch_types
@@ -1166,7 +1166,7 @@ impl Translator {
             .unwrap()
             .solution()
             .unwrap();
-        println!("method_signature: {}", method_signature);
+        dlog!("method_signature: {}", method_signature);
         self.extract_impl_ty_from_overloaded_func_ty_helper(&method_signature, overloaded_func_ty)
     }
 
