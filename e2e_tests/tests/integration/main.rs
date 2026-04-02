@@ -73,6 +73,10 @@ none
 some()
 true
 true
+2
+3
+1
+4
 caught not found
 caught not found
 caught not found

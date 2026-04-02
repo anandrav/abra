@@ -68,6 +68,25 @@ fn main() -> result<void, FsError> {
     println(is_dir(cwd))
     println(is_dir(temp_dir()))
 
+    // ── glob ──
+    mkdir_all("_test_fs_dir/sub")?
+    write("_test_fs_dir/one.txt", "1")?
+    write("_test_fs_dir/two.txt", "2")?
+    write("_test_fs_dir/three.log", "3")?
+    write("_test_fs_dir/sub/four.txt", "4")?
+    let txt_files = glob("_test_fs_dir/*.txt")?
+    println(txt_files.len())
+    let all_txt = glob("_test_fs_dir/**/*.txt")?
+    println(all_txt.len())
+    let log_files = glob("_test_fs_dir/*.log")?
+    println(log_files.len())
+
+    // ── walk_dir ──
+    let all_files = walk_dir("_test_fs_dir")?
+    println(all_files.len())
+
+    rmdir_all("_test_fs_dir")?
+
     // ── error handling: pattern match on FsError variants ──
     println(check_read_error())
     println(check_remove_error())

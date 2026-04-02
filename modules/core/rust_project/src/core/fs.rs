@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ffi::core::fs::FsError;
+use glob as glob_crate;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::Path;
@@ -128,4 +129,37 @@ pub fn getcwd() -> Result<String, FsError> {
 
 pub fn temp_dir() -> String {
     std::env::temp_dir().to_string_lossy().to_string()
+}
+
+// ── Batch file discovery ──
+
+pub fn glob(pattern: String) -> Result<Vec<String>, FsError> {
+    let paths =
+        glob_crate::glob(&pattern).map_err(|e| FsError::Other(e.msg.to_string()))?;
+    let mut result = Vec::new();
+    for entry in paths {
+        let path = entry.map_err(|e| io_err(e.into_error()))?;
+        result.push(path.to_string_lossy().to_string());
+    }
+    Ok(result)
+}
+
+pub fn walk_dir(path: String) -> Result<Vec<String>, FsError> {
+    let mut result = Vec::new();
+    walk_dir_recursive(Path::new(&path), &mut result)?;
+    Ok(result)
+}
+
+fn walk_dir_recursive(dir: &Path, result: &mut Vec<String>) -> Result<(), FsError> {
+    let entries = fs::read_dir(dir).map_err(io_err)?;
+    for entry in entries {
+        let entry = entry.map_err(io_err)?;
+        let path = entry.path();
+        if path.is_dir() {
+            walk_dir_recursive(&path, result)?;
+        } else {
+            result.push(path.to_string_lossy().to_string());
+        }
+    }
+    Ok(())
 }

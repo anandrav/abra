@@ -74,3 +74,10 @@ implement ToString for FsError {
 #foreign fn getcwd() -> result<string, FsError>
 // Return the system temporary directory
 #foreign fn temp_dir() -> string
+
+// ── Batch file discovery ──
+
+// Match file paths against a glob pattern (e.g. "src/**/*.txt")
+#foreign fn glob(pattern: string) -> result<array<string>, FsError>
+// Recursively list all files under a directory
+#foreign fn walk_dir(path: string) -> result<array<string>, FsError>
