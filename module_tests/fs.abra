@@ -4,29 +4,38 @@ fn check(cond: bool, msg: string) -> result<void, string> {
     if cond { result.ok(nil) } else { result.err(msg) }
 }
 
-fn run_test(name: string, r: result<void, E ToString>) -> int {
-    print("  fs::" .. name .. " ... ")
-    match r {
-        result.ok(_) -> { println("ok"); 0 }
-        result.err(e) -> { println("FAILED: " .. e); 1 }
+type TestRunner = { failed: int }
+
+extend TestRunner {
+    fn new() -> TestRunner { TestRunner(0) }
+
+    fn run(self, name: string, r: result<void, E ToString>) {
+        print("  fs::" .. name .. " ... ")
+        match r {
+            result.ok(_) -> println("ok")
+            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+        }
+    }
+
+    fn finish(self) {
+        if self.failed > 0 {
+            panic(self.failed .. " test(s) failed")
+        }
     }
 }
 
-var failed = 0
-failed = failed + run_test("read_write", test_read_write())
-failed = failed + run_test("exists_copy_rename_remove", test_exists_copy_rename_remove())
-failed = failed + run_test("directories", test_directories())
-failed = failed + run_test("path_manipulation", test_path_manipulation())
-failed = failed + run_test("environment", test_environment())
-failed = failed + run_test("glob_and_walk", test_glob_and_walk())
-failed = failed + run_test("metadata", test_metadata())
-failed = failed + run_test("symlinks", test_symlinks())
-failed = failed + run_test("permissions", test_permissions())
-failed = failed + run_test("error_handling", test_error_handling())
-
-if failed > 0 {
-    panic(failed .. " test(s) failed")
-}
+let t = TestRunner.new()
+t.run("read_write", test_read_write())
+t.run("exists_copy_rename_remove", test_exists_copy_rename_remove())
+t.run("directories", test_directories())
+t.run("path_manipulation", test_path_manipulation())
+t.run("environment", test_environment())
+t.run("glob_and_walk", test_glob_and_walk())
+t.run("metadata", test_metadata())
+t.run("symlinks", test_symlinks())
+t.run("permissions", test_permissions())
+t.run("error_handling", test_error_handling())
+t.finish()
 
 fn test_read_write() -> result<void, FsError> {
     write("_test_rw.txt", "hello world")?
