@@ -1521,6 +1521,31 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
         }
         ctx.tried_expr_calling_func_return_types
             .insert(tried_expr_node.id(), caller_ret_ty_solved);
+
+        let fn_branch_signature =
+            TypeVar::from_node(ctx, imp.get_method_by_name("branch").unwrap().name.node());
+        // let Some(fn_branch_signature) = fn_branch_signature.solution() else { continue };
+        let fn_from_residual_signature = TypeVar::from_node(
+            ctx,
+            imp.get_method_by_name("from_residual").unwrap().name.node(),
+        );
+        // let Some(fn_from_residual_signature) = fn_from_residual_signature.solution() else { continue };
+
+        let tried_expr_ty = TypeVar::from_node(ctx, tried_expr_node.clone());
+        let subst = get_substitution_of_typ(ctx, &imp.typ, &tried_expr_ty);
+
+        let fn_branch_signature = fn_branch_signature.subst(&subst);
+        let fn_from_residual_signature = fn_from_residual_signature.subst(&subst);
+        dlog!("fn_from_branch_signature: {}", fn_branch_signature);
+        dlog!("fn_from_residual_signature: {}", fn_from_residual_signature);
+        if let Some(fn_branch_signature) = fn_branch_signature.solution() {
+            ctx.tried_expr_fn_branch_types
+                .insert(tried_expr_node.id(), fn_branch_signature);
+        }
+        if let Some(fn_from_residual_signature) = fn_from_residual_signature.solution() {
+            ctx.tried_expr_fn_from_residual_types
+                .insert(tried_expr_node.id(), fn_from_residual_signature);
+        }
     }
 }
 

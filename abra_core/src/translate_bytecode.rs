@@ -969,8 +969,11 @@ impl Translator {
                     .unwrap()
                     .clone();
                 println!("control_flow_ty: {}", control_flow_ty);
-                let fn_branch_ty =
-                    SolvedType::Function(vec![inner_expr_solved_ty], control_flow_ty.into());
+                let fn_branch_ty = self
+                    .statics
+                    .tried_expr_fn_branch_types
+                    .get(&inner_expr.id)
+                    .unwrap();
                 self.translate_iface_method_call_helper(
                     st,
                     mono,
@@ -987,22 +990,24 @@ impl Translator {
 
                 let out_ty = self.get_ty(mono, inner_expr.node()).unwrap();
 
-                // TODO: LAST HERE
-                let residual_ty = self
+                // let residual_ty = self
+                //     .statics
+                //     .tried_expr_residual_types
+                //     .get(&inner_expr.id)
+                //     .unwrap();
+                let fn_from_residual_ty = self
                     .statics
-                    .tried_expr_residual_types
+                    .tried_expr_fn_from_residual_types
                     .get(&inner_expr.id)
                     .unwrap();
-                let fn_from_residual_ty =
-                    SolvedType::Function(vec![residual_ty.clone()], out_ty.into());
                 // TODO: stupid fucking hack because interface functions require Self (impl_ty) for first argument
-                self.emit(st, Instr::PushInt(0));
+                // self.emit(st, Instr::PushInt(0));
                 dlog!("fn_from_residual_ty {}", fn_from_residual_ty);
                 self.translate_iface_method_call_helper(
                     st,
                     mono,
                     &try_iface_decl,
-                    0,
+                    1,
                     &fn_from_residual_ty,
                 );
                 let return_nargs = st.return_stack.last().unwrap().clone();
@@ -1161,6 +1166,7 @@ impl Translator {
             .unwrap()
             .solution()
             .unwrap();
+        println!("method_signature: {}", method_signature);
         self.extract_impl_ty_from_overloaded_func_ty_helper(&method_signature, overloaded_func_ty)
     }
 

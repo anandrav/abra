@@ -66,11 +66,14 @@ pub(crate) struct StaticsContext {
     // for loop function types. used by translator when desugaring for loop to calls
     // of Iterable.make_iterator() and Iterator.next(), which requires knowing the concrete
     // types of the methods
+    // This bookkeeping is necessary because we do not de-sugar to an intermediate representation at the moment
     pub(crate) for_loop_make_iterator_types: HashMap<NodeId, SolvedType>,
     pub(crate) for_loop_next_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_residual_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_calling_func_residual_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_calling_func_return_types: HashMap<NodeId, SolvedType>,
+    pub(crate) tried_expr_fn_branch_types: HashMap<NodeId, SolvedType>,
+    pub(crate) tried_expr_fn_from_residual_types: HashMap<NodeId, SolvedType>,
 
     // dylibs (for bytecode translation)
     pub(crate) dylibs: IdSet<PathBuf>,
@@ -113,6 +116,8 @@ impl StaticsContext {
             tried_expr_residual_types: Default::default(),
             tried_expr_calling_func_residual_types: Default::default(),
             tried_expr_calling_func_return_types: Default::default(),
+            tried_expr_fn_branch_types: Default::default(),
+            tried_expr_fn_from_residual_types: Default::default(),
 
             // int_constants: Default::default(),
             // float_constants: Default::default(),
