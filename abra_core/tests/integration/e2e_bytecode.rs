@@ -1159,9 +1159,7 @@ n
 fn try_operator_ok() {
     let src = r#"
 fn blah() -> result<int, string> {
-  // result.ok(2)?  // TODO: this should typecheck but it doesn't right now
-  let r: result<int, string> = result.ok(2)
-  r?
+  result.ok(2)?
   .ok(3)
 }
 blah()!
