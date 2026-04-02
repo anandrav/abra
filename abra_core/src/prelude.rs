@@ -66,6 +66,13 @@ extend result<T, E> {
             .err(_) -> true
         }
     }
+
+    fn map_err(self, f: E -> E2) -> result<T, E2> {
+        match self {
+            .ok(x) -> result.ok(x)
+            .err(e) -> result.err(f(e))
+        }
+    }
 }
 
 interface Unwrap {
