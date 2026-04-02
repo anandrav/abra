@@ -1159,7 +1159,7 @@ n
 fn try_option_some() {
     let src = r#"
 fn blah() -> option<int> {
-  option.some(2)?
+  option.some(true)?
   .some(10)
 }
 blah()!
@@ -1199,7 +1199,7 @@ match blah() {
 fn try_result_ok() {
     let src = r#"
 fn blah() -> result<int, string> {
-  result.ok(2)?
+  result.ok(true)?
   .ok(3)
 }
 blah()!
