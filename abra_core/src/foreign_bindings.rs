@@ -829,7 +829,10 @@ where
                     let t = T::from_vm_unsafe(vm, vm_funcs);
                     Some(t)
                 }
-                1 => None,
+                1 => {
+                    let _ = <() as VmFfiType>::from_vm_unsafe(vm, vm_funcs);
+                    None
+                }
                 _ => panic!("unexpected tag for Option type {tag}"),
             }
         }
@@ -844,8 +847,7 @@ where
                 }
                 None => {
                     // TODO: remove need for this dummy value
-                    let nil: AbraInt = 0;
-                    nil.to_vm_unsafe(vm, vm_funcs);
+                    ().to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.construct_variant)(vm, 1);
                 }
             }

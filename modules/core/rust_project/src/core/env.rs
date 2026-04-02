@@ -5,3 +5,8 @@
 pub fn get_var(key: String) -> String {
     std::env::var(key).unwrap_or("".to_string())
 }
+
+pub fn set_var(key: String, value: String) {
+    // Safety: Abra programs are single-threaded
+    unsafe { std::env::set_var(key, value) };
+}

@@ -1,3 +1,75 @@
+#foreign
+type ExecError =
+    | NotFound(string)
+    | PermissionDenied(string)
+    | Other(string)
+
+implement ToString for ExecError {
+    fn str(e) {
+        match e {
+            ExecError.NotFound(s) -> "not found: " .. s
+            ExecError.PermissionDenied(s) -> "permission denied: " .. s
+            ExecError.Other(s) -> s
+        }
+    }
+}
+
+#foreign
+type Output = {
+    stdout: string
+    stderr: string
+    status: int
+}
+
+extend Output {
+    fn success(self) -> bool {
+        self.status == 0
+    }
+}
+
+type Cmd = {
+    programs: array<string>
+    all_args: array<array<string>>
+    cmd_stdin: option<string>
+}
+
+fn exec(program: string) -> Cmd {
+    Cmd([program], [[]], option.none)
+}
+
+extend Cmd {
+    fn args(self, a: array<string>) -> Cmd {
+        let new_all_args = self.all_args
+        let last = new_all_args.len() - 1
+        new_all_args[last] = a
+        Cmd(self.programs, new_all_args, self.cmd_stdin)
+    }
+
+    fn stdin(self, input: string) -> Cmd {
+        Cmd(self.programs, self.all_args, option.some(input))
+    }
+
+    fn pipe(self, program: string, args: array<string>) -> Cmd {
+        let new_programs = self.programs
+        new_programs.push(program)
+        let new_all_args = self.all_args
+        new_all_args.push(args)
+        Cmd(new_programs, new_all_args, self.cmd_stdin)
+    }
+
+    fn run(self) -> result<Output, ExecError> {
+        run_pipeline(self.programs, self.all_args, self.cmd_stdin)
+    }
+}
 
 #foreign
 fn command(s: string) -> int
+
+#foreign
+fn run(s: string) -> result<Output, ExecError>
+
+#foreign
+fn run_sh(s: string) -> result<Output, ExecError>
+
+#foreign
+fn run_pipeline(programs: array<string>, all_args: array<array<string>>, stdin: option<string>) -> result<Output, ExecError>

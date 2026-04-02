@@ -1,5 +1,5 @@
 use crate::ast::{FileAst, ImportKind, ItemKind, Type, TypeDefKind, TypeKind};
-use crate::foreign_bindings::{name_of_ty, run_formatter};
+use crate::foreign_bindings::{VmFfiType, name_of_ty, run_formatter};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
@@ -601,7 +601,10 @@ where
                 let t = T::from_vm(vm);
                 Some(t)
             }
-            1 => None,
+            1 => {
+                let _ = <() as VmType>::from_vm(vm);
+                None
+            }
             _ => panic!("unexpected tag for Option type {tag}"),
         }
     }
@@ -615,8 +618,7 @@ where
                 }
                 None => {
                     // TODO: remove need for this dummy value
-                    let nil: AbraInt = 0;
-                    nil.to_vm(vm);
+                    ().to_vm(vm);
                     vm.construct_variant(1);
                 }
             }
