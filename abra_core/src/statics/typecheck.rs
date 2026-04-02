@@ -21,7 +21,6 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -1521,8 +1520,6 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         let fn_branch_signature = fn_branch_signature.subst(&tried_ty_subst);
         let fn_from_residual_signature = fn_from_residual_signature.subst(&ret_ty_subst);
-        dlog!("fn_from_branch_signature: {}", fn_branch_signature);
-        dlog!("fn_from_residual_signature: {}", fn_from_residual_signature);
         if let Some(fn_branch_signature) = fn_branch_signature.solution() {
             ctx.tried_expr_fn_branch_types
                 .insert(tried_expr_node.id(), fn_branch_signature);
@@ -2964,7 +2961,6 @@ fn generate_constraints_expr(
         ExprKind::Try(expr_inner) => {
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr_inner);
             let expr_inner_ty = TypeVar::from_node(ctx, expr_inner.node());
-            dlog!("expr_inner_ty: {}", expr_inner_ty);
 
             // the expression being unwrapped must implement Unwrap
             let try_iface_decl = ctx.get_iface_decl("prelude.Try");
@@ -2983,12 +2979,10 @@ fn generate_constraints_expr(
                     // the type of the expression is the type of unwrap's output
                     let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
                     let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
-                    dlog!("output_ty: {}", output_ty);
                     // substitute { T = int } here
                     let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_inner_ty);
                     let output_ty = output_ty.subst(&subst);
                     constrain(ctx, &node_ty, &output_ty);
-                    dlog!("output_ty: {}", output_ty);
 
                     // the type of the residual must match the type of the outer function's return type's residual
                     let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
