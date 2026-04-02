@@ -87,7 +87,7 @@ implement Unwrap for option<T> {
 }
 
 implement Unwrap for result<T, E> {
-    fn unwrap(self: result<T, E>) -> T {
+    fn unwrap(self: result<T, E>) -> T { // TODO: self shouldn't need to be annotated here
         match self {
             .ok(x) -> x
             .err(_) -> panic("cannot unwrap result.err")
@@ -111,16 +111,18 @@ interface Try {
 // Bail/Abandon/Withdraw/Leave/BackOut/Cancel and Proceed/Stay/Remain
 type ControlFlow<B, C> = Break(B) | Continue(C)
 
-// implement Try for option<T> {
-//     fn branch(self) {
-//         match self {
-//             .some(x) -> .Continue(x)
-//             .none -> .Break(nil)
-//         }
-//     }
-//
-//
-// }
+implement Try for option<T> {
+    fn branch(self: option<T>) -> ControlFlow<void, T> {
+        match self {
+            .some(x) -> .Continue(x)
+            .none -> .Break(nil)
+        }
+    }
+
+    fn from_residual(r: void) -> option<T> {
+        option.none
+    }
+}
 
 implement Try for result<T2, E2> {
     fn branch(self) -> ControlFlow<E2, T2> {  // TODO: shouldn't need to annotate this :/
