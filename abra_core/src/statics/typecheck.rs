@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{
-    _print_node, Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments,
-    InterfaceDef, Polytype, PolytypeDeclaration, StaticsContext, StructDef,
+    Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments, InterfaceDef,
+    Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
@@ -1895,28 +1895,28 @@ fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: &Rc<Inter
             Some(&method.ret_type),
         );
 
-        if let Some(method_ty) = node_ty.solution() {
-            if let SolvedType::Function(args, ret) = method_ty {
-                let mut found = false;
-                for arg in args {
-                    // TODO: in the future, recursively search subtypes for Self instead of just toplevel args and return type.
-                    if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = arg {
-                        if iface == *iface_def {
-                            found = true;
-                        }
-                    }
+        if let Some(method_ty) = node_ty.solution()
+            && let SolvedType::Function(args, ret) = method_ty
+        {
+            let mut found = false;
+            for arg in args {
+                // TODO: in the future, recursively search subtypes for Self instead of just toplevel args and return type.
+                if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = arg
+                    && iface == *iface_def
+                {
+                    found = true;
                 }
-                if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = *ret {
-                    if iface == *iface_def {
-                        found = true;
-                    }
-                }
-                if !found {
-                    ctx.errors
-                        .push(Error::InterfaceMethodMustContainSelfInSignature {
-                            node: method.name.node(),
-                        });
-                }
+            }
+            if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = *ret
+                && iface == *iface_def
+            {
+                found = true;
+            }
+            if !found {
+                ctx.errors
+                    .push(Error::InterfaceMethodMustContainSelfInSignature {
+                        node: method.name.node(),
+                    });
             }
         }
     }

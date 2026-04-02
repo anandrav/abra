@@ -12,7 +12,7 @@ use crate::environment::Environment;
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;
-use crate::statics::typecheck::{Nominal, TypeVar};
+use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::{Prov, SolvedType};
 use crate::statics::{Declaration, PolytypeDeclaration};
 use crate::statics::{FuncResolutionKind, Type};
@@ -951,13 +951,7 @@ impl Translator {
                     .tried_expr_fn_branch_types
                     .get(&inner_expr.id)
                     .unwrap();
-                self.translate_iface_method_call_helper(
-                    st,
-                    mono,
-                    &try_iface_decl,
-                    0,
-                    &fn_branch_ty,
-                );
+                self.translate_iface_method_call_helper(st, mono, &try_iface_decl, 0, fn_branch_ty);
                 let tag_success_label = make_label("tag_success");
                 self.emit(st, Instr::DeconstructVariant);
                 self.emit(st, Instr::PushInt(0 as AbraInt)); // ControlFlow.Break
@@ -974,9 +968,9 @@ impl Translator {
                     mono,
                     &try_iface_decl,
                     1,
-                    &fn_from_residual_ty,
+                    fn_from_residual_ty,
                 );
-                let return_nargs = st.return_stack.last().unwrap().clone();
+                let return_nargs = *st.return_stack.last().unwrap();
                 self.emit(st, Instr::Return(return_nargs));
                 self.emit(st, tag_success_label);
             }

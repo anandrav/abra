@@ -3,8 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    _print_node, Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration,
-    StaticsContext,
+    Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportKind,
