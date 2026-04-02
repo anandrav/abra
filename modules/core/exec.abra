@@ -1,2 +1,3 @@
 
-#foreign fn command(s: string) -> int
+#foreign
+fn command(s: string) -> int

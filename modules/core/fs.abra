@@ -19,87 +19,119 @@ implement ToString for FsError {
 // ── File I/O ──
 
 // Read the entire contents of a file as a string
-#foreign fn read(path: string) -> result<string, FsError>
+#foreign
+fn read(path: string) -> result<string, FsError>
 // Write a string to a file, creating it if it doesn't exist or truncating it if it does
-#foreign fn write(path: string, contents: string) -> result<void, FsError>
+#foreign
+fn write(path: string, contents: string) -> result<void, FsError>
 // Append a line to a file, creating it if it doesn't exist
-#foreign fn append(path: string, contents: string) -> result<void, FsError>
+#foreign
+fn append(path: string, contents: string) -> result<void, FsError>
 // Copy a file from src to dest
-#foreign fn copy(src: string, dest: string) -> result<void, FsError>
+#foreign
+fn copy(src: string, dest: string) -> result<void, FsError>
 // Rename or move a file or directory
-#foreign fn rename(old_path: string, new_path: string) -> result<void, FsError>
+#foreign
+fn rename(old_path: string, new_path: string) -> result<void, FsError>
 // Delete a file
-#foreign fn remove(path: string) -> result<void, FsError>
+#foreign
+fn remove(path: string) -> result<void, FsError>
 // Check whether a path exists on disk
-#foreign fn exists(path: string) -> result<bool, FsError>
+#foreign
+fn exists(path: string) -> result<bool, FsError>
 
 // ── Directory operations ──
 
 // Create a directory (parent must exist)
-#foreign fn mkdir(path: string) -> result<void, FsError>
+#foreign
+fn mkdir(path: string) -> result<void, FsError>
 // Create a directory and all missing parent directories
-#foreign fn mkdir_all(path: string) -> result<void, FsError>
+#foreign
+fn mkdir_all(path: string) -> result<void, FsError>
 // Remove an empty directory
-#foreign fn rmdir(path: string) -> result<void, FsError>
+#foreign
+fn rmdir(path: string) -> result<void, FsError>
 // Remove a directory and all its contents recursively
-#foreign fn rmdir_all(path: string) -> result<void, FsError>
+#foreign
+fn rmdir_all(path: string) -> result<void, FsError>
 // List the entries in a directory, returning their full paths
-#foreign fn list_dir(path: string) -> result<array<string>, FsError>
+#foreign
+fn list_dir(path: string) -> result<array<string>, FsError>
 
 // ── Metadata ──
 
 // Return true if path is a regular file
-#foreign fn is_file(path: string) -> bool
+#foreign
+fn is_file(path: string) -> bool
 // Return true if path is a directory
-#foreign fn is_dir(path: string) -> bool
+#foreign
+fn is_dir(path: string) -> bool
 // Return true if path is a symbolic link
-#foreign fn is_symlink(path: string) -> bool
+#foreign
+fn is_symlink(path: string) -> bool
 // Return the size of a file in bytes
-#foreign fn file_size(path: string) -> result<int, FsError>
+#foreign
+fn file_size(path: string) -> result<int, FsError>
 // Return the last modification time as seconds since the Unix epoch
-#foreign fn modified_time(path: string) -> result<float, FsError>
+#foreign
+fn modified_time(path: string) -> result<float, FsError>
 // Return true if the file is executable (always true on Windows)
-#foreign fn is_executable(path: string) -> result<bool, FsError>
+#foreign
+fn is_executable(path: string) -> result<bool, FsError>
 
 // ── Path manipulation ──
 
 // Join two path components with the platform separator
-#foreign fn join(base: string, child: string) -> string
+#foreign
+fn join(base: string, child: string) -> string
 // Return the parent directory of a path, or none for a root/bare name
-#foreign fn parent(path: string) -> option<string>
+#foreign
+fn parent(path: string) -> option<string>
 // Return the final component of a path (file or directory name)
-#foreign fn filename(path: string) -> option<string>
+#foreign
+fn filename(path: string) -> option<string>
 // Return the file extension without the leading dot
-#foreign fn extension(path: string) -> option<string>
+#foreign
+fn extension(path: string) -> option<string>
 // Return the file name without its extension
-#foreign fn stem(path: string) -> option<string>
+#foreign
+fn stem(path: string) -> option<string>
 // Resolve a path to an absolute path (the path must exist)
-#foreign fn absolute(path: string) -> result<string, FsError>
+#foreign
+fn absolute(path: string) -> result<string, FsError>
 
 // ── Symlinks ──
 
 // Create a symbolic link at link_path pointing to target
-#foreign fn symlink(target: string, link_path: string) -> result<void, FsError>
+#foreign
+fn symlink(target: string, link_path: string) -> result<void, FsError>
 // Read the target of a symbolic link
-#foreign fn read_link(path: string) -> result<string, FsError>
+#foreign
+fn read_link(path: string) -> result<string, FsError>
 
 // ── Permissions ──
 
 // Set whether a file is executable (Unix only, no-op on Windows)
-#foreign fn set_executable(path: string, executable: bool) -> result<void, FsError>
+#foreign
+fn set_executable(path: string, executable: bool) -> result<void, FsError>
 
 // ── Environment ──
 
 // Return the current working directory
-#foreign fn getcwd() -> result<string, FsError>
+#foreign
+fn getcwd() -> result<string, FsError>
 // Return the system temporary directory
-#foreign fn temp_dir() -> string
+#foreign
+fn temp_dir() -> string
 // Create a unique temporary file and return its path
-#foreign fn temp_file() -> result<string, FsError>
+#foreign
+fn temp_file() -> result<string, FsError>
 
 // ── Batch file discovery ──
 
 // Match file paths against a glob pattern (e.g. "src/**/*.txt")
-#foreign fn glob(pattern: string) -> result<array<string>, FsError>
+#foreign
+fn glob(pattern: string) -> result<array<string>, FsError>
 // Recursively list all files under a directory
-#foreign fn walk_dir(path: string) -> result<array<string>, FsError>
+#foreign
+fn walk_dir(path: string) -> result<array<string>, FsError>
