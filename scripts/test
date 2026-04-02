@@ -15,16 +15,7 @@ cargo test "$@"
 cargo build --quiet --package abra_module_core
 echo ""
 echo "running module tests"
-FS_TESTS="read_write exists_copy_rename_remove directories path_manipulation environment glob_and_walk metadata symlinks permissions error_handling"
-for test in $FS_TESTS; do
-  printf "  fs::%-30s " "$test"
-  if cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/fs.abra "$test" 2>&1; then
-    echo "ok"
-  else
-    echo "FAILED"
-    exit 1
-  fi
-done
+cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/fs.abra
 
 pushd $WD/abra_core > /dev/null
 cargo check --lib --target wasm32-unknown-unknown

@@ -1,22 +1,31 @@
 use core/fs
 
-let args = get_args()
-if args.len() == 0 {
-    panic("usage: fs.abra <test_name>")
+fn check(cond: bool, msg: string) -> result<void, string> {
+    if cond { result.ok(nil) } else { result.err(msg) }
 }
 
-match args[0] {
-    "read_write" -> test_read_write()!
-    "exists_copy_rename_remove" -> test_exists_copy_rename_remove()!
-    "directories" -> test_directories()!
-    "path_manipulation" -> test_path_manipulation()
-    "environment" -> test_environment()!
-    "glob_and_walk" -> test_glob_and_walk()!
-    "metadata" -> test_metadata()!
-    "symlinks" -> test_symlinks()!
-    "permissions" -> test_permissions()!
-    "error_handling" -> test_error_handling()
-    _ -> panic("unknown test: " .. args[0])
+fn run_test(name: string, r: result<void, E ToString>) -> int {
+    print("  fs::" .. name .. " ... ")
+    match r {
+        result.ok(_) -> { println("ok"); 0 }
+        result.err(e) -> { println("FAILED: " .. e); 1 }
+    }
+}
+
+var failed = 0
+failed = failed + run_test("read_write", test_read_write())
+failed = failed + run_test("exists_copy_rename_remove", test_exists_copy_rename_remove())
+failed = failed + run_test("directories", test_directories())
+failed = failed + run_test("path_manipulation", test_path_manipulation())
+failed = failed + run_test("environment", test_environment())
+failed = failed + run_test("glob_and_walk", test_glob_and_walk())
+failed = failed + run_test("metadata", test_metadata())
+failed = failed + run_test("symlinks", test_symlinks())
+failed = failed + run_test("permissions", test_permissions())
+failed = failed + run_test("error_handling", test_error_handling())
+
+if failed > 0 {
+    panic(failed .. " test(s) failed")
 }
 
 fn test_read_write() -> result<void, FsError> {
@@ -71,14 +80,15 @@ fn test_directories() -> result<void, FsError> {
     result.ok(nil)
 }
 
-fn test_path_manipulation() {
-    assert(join("foo", "bar.txt") == "foo/bar.txt", "join")
-    assert(parent("/a/b/c.txt").unwrap() == "/a/b", "parent")
-    assert(filename("/a/b/c.txt").unwrap() == "c.txt", "filename")
-    assert(extension("/a/b/c.txt").unwrap() == "txt", "extension")
-    assert(stem("/a/b/c.txt").unwrap() == "c", "stem")
-    assert(extension("noext").is_none(), "extension of file with no extension")
-    assert(parent("lonely").unwrap() == "", "parent of bare filename")
+fn test_path_manipulation() -> result<void, string> {
+    check(join("foo", "bar.txt") == "foo/bar.txt", "join")?
+    check(parent("/a/b/c.txt").unwrap() == "/a/b", "parent")?
+    check(filename("/a/b/c.txt").unwrap() == "c.txt", "filename")?
+    check(extension("/a/b/c.txt").unwrap() == "txt", "extension")?
+    check(stem("/a/b/c.txt").unwrap() == "c", "stem")?
+    check(extension("noext").is_none(), "extension of file with no extension")?
+    check(parent("lonely").unwrap() == "", "parent of bare filename")?
+    result.ok(nil)
 }
 
 fn test_environment() -> result<void, FsError> {
@@ -156,32 +166,34 @@ fn test_permissions() -> result<void, FsError> {
     result.ok(nil)
 }
 
-fn test_error_handling() {
+fn test_error_handling() -> result<void, string> {
     let r1: result<string, FsError> = read("_test_err_nonexistent.txt")
     match r1 {
-        result.ok(_) -> panic("expected error from read")
+        result.ok(_) -> return result.err("expected error from read")
         result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> panic("wrong error kind from read")
+        result.err(_) -> return result.err("wrong error kind from read")
     }
 
     let r2: result<void, FsError> = remove("_test_err_nonexistent.txt")
     match r2 {
-        result.ok(_) -> panic("expected error from remove")
+        result.ok(_) -> return result.err("expected error from remove")
         result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> panic("wrong error kind from remove")
+        result.err(_) -> return result.err("wrong error kind from remove")
     }
 
     let r3: result<void, FsError> = mkdir("_test_err_dir/nested/deep")
     match r3 {
-        result.ok(_) -> panic("expected error from mkdir")
+        result.ok(_) -> return result.err("expected error from mkdir")
         result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> panic("wrong error kind from mkdir")
+        result.err(_) -> return result.err("wrong error kind from mkdir")
     }
 
     let r4: result<string, FsError> = read("_test_err_no_such_file.txt")
     match r4 {
-        result.ok(_) -> panic("expected error from read")
+        result.ok(_) -> return result.err("expected error from read")
         result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> panic("wrong error kind from read")
+        result.err(_) -> return result.err("wrong error kind from read")
     }
+
+    result.ok(nil)
 }
