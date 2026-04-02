@@ -1156,6 +1156,49 @@ n
 }
 
 #[test]
+fn try_option_some() {
+    let src = r#"
+fn blah() -> option<int> {
+  option.some(2)?
+  .some(10)
+}
+blah()!
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 10);
+}
+
+#[test]
+fn try_option_none() {
+    let src = r#"
+fn blah() -> option<int> {
+    // .none? // TODO: should just be able to do this
+    let o: option<int> = .none
+    o?
+  .some(3)
+}
+match blah() {
+    .some(_) -> panic("should be err")
+    .none -> 10
+}
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 10);
+}
+
+#[test]
 fn try_result_ok() {
     let src = r#"
 fn blah() -> result<int, string> {
