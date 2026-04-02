@@ -1091,7 +1091,7 @@ impl Translator {
                 );
                 let imp = &self
                     .statics
-                    .get_iface_impl_for_type(&impl_ty.key().unwrap(), iface)
+                    .get_iface_impl_for_type(&impl_ty.key(), iface)
                     .unwrap();
                 let method = &imp.methods[*method_index];
                 let desc = FuncDesc {
@@ -1243,7 +1243,7 @@ impl Translator {
         dlog!("impl_ty: {}", impl_ty);
         let imp = &self
             .statics
-            .get_iface_impl_for_type(&impl_ty.key().unwrap(), iface_def)
+            .get_iface_impl_for_type(&impl_ty.key(), iface_def)
             .unwrap();
         let method = &imp.methods[method_index as usize];
         let fqn = &self.statics.fully_qualified_names[&method.name.id];

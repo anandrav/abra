@@ -324,19 +324,19 @@ impl SolvedType {
         }
     }
 
-    pub(crate) fn key(&self) -> Option<TypeKey> {
+    pub(crate) fn key(&self) -> TypeKey {
         match self {
-            Self::Poly(..) => None,
-            Self::InterfaceOutput(_) => None,
-            Self::Void => Some(TypeKey::Void),
-            Self::Never => Some(TypeKey::Never),
-            Self::Int => Some(TypeKey::Int),
-            Self::Float => Some(TypeKey::Float),
-            Self::Bool => Some(TypeKey::Bool),
-            Self::String => Some(TypeKey::String),
-            Self::Function(args, _) => Some(TypeKey::Function(args.len() as u8)),
-            Self::Tuple(elems) => Some(TypeKey::Tuple(elems.len() as u8)),
-            Self::Nominal(ident, _) => Some(TypeKey::TyApp(ident.clone())),
+            Self::Poly(decl) => TypeKey::Poly(decl.clone()),
+            Self::InterfaceOutput(output_type) => TypeKey::InterfaceOutput(output_type.clone()),
+            Self::Void => TypeKey::Void,
+            Self::Never => TypeKey::Never,
+            Self::Int => TypeKey::Int,
+            Self::Float => TypeKey::Float,
+            Self::Bool => TypeKey::Bool,
+            Self::String => TypeKey::String,
+            Self::Function(args, _) => TypeKey::Function(args.len() as u8),
+            Self::Tuple(elems) => TypeKey::Tuple(elems.len() as u8),
+            Self::Nominal(ident, _) => TypeKey::TyApp(ident.clone()),
         }
     }
 
@@ -1482,12 +1482,11 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
     */
     for constraint in ctx.try_operator_constraints.clone() {
-        let (caller_ret_ty, tried_expr_node, tried_expr_ty, tried_expr_residual_ty) = constraint;
+        let (caller_ret_ty, tried_expr_node, tried_expr_key, tried_expr_residual_ty) = constraint;
 
         let Some(caller_ret_ty_solved) = caller_ret_ty.solution() else { continue };
 
-        let Some(ret_ty_key) = caller_ret_ty_solved.key() else { continue };
-        let Some(tried_expr_key) = tried_expr_ty.key() else { continue };
+        let ret_ty_key = caller_ret_ty_solved.key();
         let Some(tried_expr_residual_ty_solved) = tried_expr_residual_ty.solution() else {
             continue;
         };
@@ -2962,19 +2961,14 @@ fn generate_constraints_expr(
 
             // get the implementation of Unwrap for this expression's type
             if let Some(expr_solved_ty) = expr_ty.solution() {
-                if let Some(ty_key) = expr_solved_ty.key() {
-                    if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &unwrap_iface_decl) {
-                        let output_type =
-                            unwrap_iface_decl.get_output_type_by_name("Output").unwrap();
-                        let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
-                        // substitute { T = int } here
-                        let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
-                        let output_ty = output_ty.subst(&subst);
-                        constrain(ctx, &node_ty, &output_ty);
-                    }
-                } else {
-                    ctx.errors
-                        .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
+                let ty_key = expr_solved_ty.key();
+                if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &unwrap_iface_decl) {
+                    let output_type = unwrap_iface_decl.get_output_type_by_name("Output").unwrap();
+                    let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
+                    // substitute { T = int } here
+                    let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
+                    let output_ty = output_ty.subst(&subst);
+                    constrain(ctx, &node_ty, &output_ty);
                 }
             } else {
                 ctx.errors
@@ -2996,64 +2990,60 @@ fn generate_constraints_expr(
             );
 
             // get the implementation of Try for this expression's type
-            if let Some(expr_inner_solved_ty) = expr_inner_ty.solution() {
-                if let Some(ty_key) = expr_inner_solved_ty.key() {
-                    if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &try_iface_decl) {
-                        // the type of the expression is the type of unwrap's output
-                        let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
-                        let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
-                        dlog!("output_ty: {}", output_ty);
-                        // substitute { T = int } here
-                        let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_inner_ty);
-                        let output_ty = output_ty.subst(&subst);
-                        constrain(ctx, &node_ty, &output_ty);
-                        dlog!("output_ty: {}", output_ty);
+            if let Some(expr_inner_potential_ty) = expr_inner_ty.single() {
+                let expr_inner_ty_key = expr_inner_potential_ty.key();
+                if let Some(imp) = ctx.get_iface_impl_for_type(&expr_inner_ty_key, &try_iface_decl)
+                {
+                    // the type of the expression is the type of unwrap's output
+                    let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
+                    let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
+                    dlog!("output_ty: {}", output_ty);
+                    // substitute { T = int } here
+                    let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_inner_ty);
+                    let output_ty = output_ty.subst(&subst);
+                    constrain(ctx, &node_ty, &output_ty);
+                    dlog!("output_ty: {}", output_ty);
 
-                        // the type of the residual must match the type of the outer function's return type's residual
-                        let residual_type =
-                            try_iface_decl.get_output_type_by_name("Residual").unwrap();
-                        let residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
-                        let residual_ty = residual_ty.subst(&subst);
+                    // the type of the residual must match the type of the outer function's return type's residual
+                    let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
+                    let residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
+                    let residual_ty = residual_ty.subst(&subst);
 
-                        // TODO: if try operator is used at toplevel there is no calling function...
-                        let calling_func_ty = ctx.func_ret_stack.last().unwrap().clone();
-                        let calling_func_ty = ctx.unifvars.get(&calling_func_ty).unwrap().clone();
-                        constrain_to_iface(
-                            ctx,
-                            &calling_func_ty,
-                            expr.node(),
-                            &InterfaceConstraint::no_args(try_iface_decl),
-                        );
-                        ctx.try_operator_constraints.push((
-                            calling_func_ty.clone(),
-                            expr_inner.node(),
-                            expr_inner_solved_ty,
-                            residual_ty,
-                        ));
+                    // TODO: if try operator is used at toplevel there is no calling function...
+                    let calling_func_ty = ctx.func_ret_stack.last().unwrap().clone();
+                    let calling_func_ty = ctx.unifvars.get(&calling_func_ty).unwrap().clone();
+                    constrain_to_iface(
+                        ctx,
+                        &calling_func_ty,
+                        expr.node(),
+                        &InterfaceConstraint::no_args(try_iface_decl),
+                    );
+                    ctx.try_operator_constraints.push((
+                        calling_func_ty.clone(),
+                        expr_inner.node(),
+                        expr_inner_ty_key,
+                        residual_ty,
+                    ));
 
-                        // TODO LAST HERE
-                        /*
-                            Because the return type of the calling function is often not known at this
-                            point, the constraint should be pushed to a Vector, and then all those
-                            constraints will be addressed toward the end of typechecking
+                    // TODO LAST HERE
+                    /*
+                        Because the return type of the calling function is often not known at this
+                        point, the constraint should be pushed to a Vector, and then all those
+                        constraints will be addressed toward the end of typechecking
 
-                            The constraint can be broken into 3 parts:
-                            1. the return type of the calling function must implement Try interface
-                            2. the return type of the calling function must have the same TypeKey
-                               as the type of the expression being try'd
-                            3. the residual of the return type of the calling function must
-                                be equal to the residual of the type of the expression being try'd
+                        The constraint can be broken into 3 parts:
+                        1. the return type of the calling function must implement Try interface
+                        2. the return type of the calling function must have the same TypeKey
+                           as the type of the expression being try'd
+                        3. the residual of the return type of the calling function must
+                            be equal to the residual of the type of the expression being try'd
 
-                            The information necessary to check this constraint is:
-                            1. The calling function (to retrieve its return type)
-                            2. The type of the expression being try'd
-                            3. The residual of the type of the expressio being try'd
+                        The information necessary to check this constraint is:
+                        1. The calling function (to retrieve its return type)
+                        2. The type of the expression being try'd
+                        3. The residual of the type of the expressio being try'd
 
-                        */
-                    }
-                } else {
-                    ctx.errors
-                        .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
+                    */
                 }
             } else {
                 ctx.errors

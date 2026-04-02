@@ -45,7 +45,7 @@ pub(crate) struct StaticsContext {
     // order-independent manner.
     pub(crate) interface_namespaces: HashMap<Rc<InterfaceDef>, Rc<Namespace>>,
 
-    pub(crate) try_operator_constraints: Vec<(TypeVar, AstNode, SolvedType, TypeVar)>,
+    pub(crate) try_operator_constraints: Vec<(TypeVar, AstNode, TypeKey, TypeVar)>,
 
     // BOOKKEEPING
 
