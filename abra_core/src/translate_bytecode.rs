@@ -946,29 +946,6 @@ impl Translator {
                 self.translate_expr(inner_expr, offset_table, mono, st);
 
                 let try_iface_decl = self.statics.get_iface_decl("prelude.Try");
-                // get this particular node's version of the type of unwrap()
-                let inner_expr_solved_ty = self.get_ty(mono, inner_expr.node()).unwrap();
-                dlog!("inner_expr_solved_ty {}", inner_expr_solved_ty);
-                let out_ty = self.get_ty(mono, expr.node()).unwrap();
-                // let imp = &self
-                //     .statics
-                //     .get_iface_impl_for_type(&inner_expr_solved_ty.key().unwrap(), &try_iface_decl)
-                //     .unwrap();
-                // let method = &imp.methods[0];
-                // let method_ty = self.get_ty(mono, method.name.node()).unwrap();
-                // let temp_mono = mono.new_scope();
-                // temp_mono.update()
-                // method_ty.subst(mono);
-                // method_ty.subst(mono);
-                // dlog!("branch method_ty: {}", method_ty);
-                // TODO: out_ty is the wrong choice here, it needs to be ControlFlow<...>
-                let control_flow_ty = self
-                    .statics
-                    .tried_expr_calling_func_return_types
-                    .get(&inner_expr.id)
-                    .unwrap()
-                    .clone();
-                dlog!("control_flow_ty: {}", control_flow_ty);
                 let fn_branch_ty = self
                     .statics
                     .tried_expr_fn_branch_types
@@ -983,26 +960,15 @@ impl Translator {
                 );
                 let tag_success_label = make_label("tag_success");
                 self.emit(st, Instr::DeconstructVariant);
-                // TODO: in the future, get the tag indexes using a helper function instead of hardcoding them
                 self.emit(st, Instr::PushInt(0 as AbraInt)); // ControlFlow.Break
                 self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 self.emit(st, Instr::JumpIfFalse(tag_success_label.clone()));
 
-                let out_ty = self.get_ty(mono, inner_expr.node()).unwrap();
-
-                // let residual_ty = self
-                //     .statics
-                //     .tried_expr_residual_types
-                //     .get(&inner_expr.id)
-                //     .unwrap();
                 let fn_from_residual_ty = self
                     .statics
                     .tried_expr_fn_from_residual_types
                     .get(&inner_expr.id)
                     .unwrap();
-                // TODO: stupid fucking hack because interface functions require Self (impl_ty) for first argument
-                // self.emit(st, Instr::PushInt(0));
-                dlog!("fn_from_residual_ty {}", fn_from_residual_ty);
                 self.translate_iface_method_call_helper(
                     st,
                     mono,
@@ -1166,7 +1132,6 @@ impl Translator {
             .unwrap()
             .solution()
             .unwrap();
-        dlog!("method_signature: {}", method_signature);
         self.extract_impl_ty_from_overloaded_func_ty_helper(&method_signature, overloaded_func_ty)
     }
 
@@ -1179,11 +1144,11 @@ impl Translator {
             // recurse
             (Type::Function(args, out), Type::Function(args2, out2)) => {
                 for (i, arg) in args.iter().enumerate() {
-                    if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = arg {
+                    if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(_)) = arg {
                         return args2[i].clone();
                     }
                 }
-                if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(iface)) = &**out {
+                if let SolvedType::Poly(PolytypeDeclaration::InterfaceSelf(_)) = &**out {
                     return *out2.clone();
                 }
                 unreachable!();
@@ -1228,19 +1193,12 @@ impl Translator {
         overloaded_func_ty: &SolvedType,
     ) {
         // TODO: this is duplicated
-        dlog!("overloaded_func_ty: {}", overloaded_func_ty);
         let overloaded_func_ty = overloaded_func_ty.subst(mono);
         let impl_ty = self.extract_impl_ty_from_overloaded_func_ty(
             &overloaded_func_ty,
             iface_def,
             &(method_index as usize),
         );
-        dlog!(
-            "name of func: {}",
-            iface_def.methods[method_index as usize].name.v
-        );
-        dlog!("overloaded_func_ty: {}", overloaded_func_ty);
-        dlog!("impl_ty: {}", impl_ty);
         let imp = &self
             .statics
             .get_iface_impl_for_type(&impl_ty.key(), iface_def)

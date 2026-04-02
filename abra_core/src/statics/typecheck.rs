@@ -1515,12 +1515,6 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         ctx.tried_expr_residual_types
             .insert(tried_expr_node.id(), tried_expr_residual_ty_solved);
-        if let Some(ret_ty_residual_ty) = ret_ty_residual_ty.solution() {
-            ctx.tried_expr_calling_func_residual_types
-                .insert(tried_expr_node.id(), ret_ty_residual_ty);
-        }
-        ctx.tried_expr_calling_func_return_types
-            .insert(tried_expr_node.id(), caller_ret_ty_solved);
 
         let fn_branch_signature =
             TypeVar::from_node(ctx, imp.get_method_by_name("branch").unwrap().name.node());

@@ -70,8 +70,6 @@ pub(crate) struct StaticsContext {
     pub(crate) for_loop_make_iterator_types: HashMap<NodeId, SolvedType>,
     pub(crate) for_loop_next_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_residual_types: HashMap<NodeId, SolvedType>,
-    pub(crate) tried_expr_calling_func_residual_types: HashMap<NodeId, SolvedType>,
-    pub(crate) tried_expr_calling_func_return_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_fn_branch_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_fn_from_residual_types: HashMap<NodeId, SolvedType>,
 
@@ -114,8 +112,6 @@ impl StaticsContext {
             for_loop_make_iterator_types: Default::default(),
             for_loop_next_types: Default::default(),
             tried_expr_residual_types: Default::default(),
-            tried_expr_calling_func_residual_types: Default::default(),
-            tried_expr_calling_func_return_types: Default::default(),
             tried_expr_fn_branch_types: Default::default(),
             tried_expr_fn_from_residual_types: Default::default(),
 
