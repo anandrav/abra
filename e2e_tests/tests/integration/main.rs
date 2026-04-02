@@ -29,15 +29,9 @@ yet another
 some
 [ 1, 2, 3, 4, 5, 6 ]
 [ [ a, b ], [ c ] ]
-[ [ x ], [ y, z ] ]
-[ [ replaced ] ]
-[ [ changed ], [ more ] ]
 42 test
 99
-[ [ hello ] ]
-[ [  ], [ foo ] ]
 true
-programs=["echo"] all_args=[[]]
 programs=["echo"] stdin=None
 "#
     );

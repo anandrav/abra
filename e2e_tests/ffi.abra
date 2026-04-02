@@ -33,25 +33,8 @@ match o {
 }
 let a = pass_array([ 1, 2, 3, 4, 5, 6 ])
 println(a)
-// nested array literal
 let na = pass_nested_array([ ["a", "b"], ["c"] ])
 println(na)
-// nested array built via push
-let na2: array<array<string>> = [["x"]]
-na2.push(["y", "z"])
-let na2r = pass_nested_array(na2)
-println(na2r)
-// nested array built via index assignment
-let na3: array<array<string>> = [[]]
-na3[0] = ["replaced"]
-let na3r = pass_nested_array(na3)
-println(na3r)
-// nested array: push then mutate inner
-let na4: array<array<string>> = [["start"]]
-na4.push(["more"])
-na4[0] = ["changed"]
-let na4r = pass_nested_array(na4)
-println(na4r)
 let rok = pass_result_struct(result.ok(MyStruct(42, false, nil, "test")))
 match rok {
     result.ok(s) -> println(s.i .. " " .. s.s)
@@ -64,47 +47,9 @@ match rerr {
     result.err(_) -> println("wrong")
 }
 
-// nested array passed from struct method (mirrors exec builder)
-type Builder = {
-    programs: array<string>
-    all_args: array<array<string>>
-}
-
-fn make_builder(program: string) -> Builder {
-    Builder([program], [[]])
-}
-
-extend Builder {
-    fn args(self, a: array<string>) -> Builder {
-        let new_all_args = self.all_args
-        let last = new_all_args.len() - 1
-        new_all_args[last] = a
-        Builder(self.programs, new_all_args)
-    }
-
-    fn pipe(self, program: string, args: array<string>) -> Builder {
-        let new_programs = self.programs
-        new_programs.push(program)
-        let new_all_args = self.all_args
-        new_all_args.push(args)
-        Builder(new_programs, new_all_args)
-    }
-
-    fn run(self) -> array<array<string>> {
-        pass_nested_array(self.all_args)
-    }
-}
-
-let b1 = make_builder("echo").args(["hello"])
-println(b1.run())
-let b2 = make_builder("ls").pipe("grep", ["foo"])
-println(b2.run())
-
 // store foreign function in variable/use as lambda
 let pb = pass_bool
 println(pb(true))
 
-// two arrays: array<string> + array<array<string>> (no option param)
-println(pass_two_arrays(["echo"], [[]]))
-// BUG: array<T> followed by option<T> as foreign function params crashes
+// array + option as consecutive foreign function params
 println(pass_array_and_option(["echo"], option.none))

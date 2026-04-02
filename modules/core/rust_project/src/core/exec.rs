@@ -143,32 +143,13 @@ pub fn run_pipeline(
                 cmd.stdin(prev_stdout.take().unwrap());
             }
 
-            // All but last: pipe stdout to next process
-            if i < programs.len() - 1 {
-                cmd.stdout(Stdio::piped());
-            } else {
-                cmd.stdout(Stdio::piped());
-            }
+            cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
 
-            let child = cmd.spawn().map_err(io_err_to_exec_error)?;
+            let mut child = cmd.spawn().map_err(io_err_to_exec_error)?;
             if i < programs.len() - 1 {
-                // Safety: we just set stdout to Stdio::piped()
-                let stdout = child.stdout.as_ref().unwrap();
-                // Convert child stdout to Stdio for next process
-                // We need to use the raw fd
-                #[cfg(unix)]
-                {
-                    use std::os::unix::io::{AsRawFd, FromRawFd};
-                    let fd = stdout.as_raw_fd();
-                    prev_stdout = Some(unsafe { Stdio::from_raw_fd(fd) });
-                }
-                #[cfg(windows)]
-                {
-                    use std::os::windows::io::{AsRawHandle, FromRawHandle};
-                    let handle = stdout.as_raw_handle();
-                    prev_stdout = Some(unsafe { Stdio::from_raw_handle(handle) });
-                }
+                // Take ownership of stdout so it can be passed as stdin to the next process
+                prev_stdout = Some(child.stdout.take().unwrap().into());
             }
             children.push(child);
         }

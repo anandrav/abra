@@ -1,0 +1,120 @@
+use core/exec
+use core/strings
+
+fn check(cond: bool, msg: string) -> result<void, string> {
+    if cond { result.ok(nil) } else { result.err(msg) }
+}
+
+fn str_err(e: ExecError) -> string = e.str()
+
+type TestRunner = { failed: int }
+
+extend TestRunner {
+    fn new() -> TestRunner { TestRunner(0) }
+
+    fn run(self, name: string, r: result<void, E ToString>) {
+        print("  exec::" .. name .. " ... ")
+        match r {
+            result.ok(_) -> println("ok")
+            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+        }
+    }
+
+    fn finish(self) {
+        if self.failed > 0 {
+            panic(self.failed .. " test(s) failed")
+        }
+    }
+}
+
+let t = TestRunner.new()
+t.run("run_echo", test_run_echo())
+t.run("run_status", test_run_status())
+t.run("run_sh", test_run_sh())
+t.run("run_not_found", test_run_not_found())
+t.run("output_success", test_output_success())
+t.run("builder_basic", test_builder_basic())
+t.run("builder_args_with_spaces", test_builder_args_with_spaces())
+t.run("builder_stdin", test_builder_stdin())
+t.run("builder_pipe", test_builder_pipe())
+t.run("builder_stdin_pipe", test_builder_stdin_pipe())
+t.run("builder_not_found", test_builder_not_found())
+t.finish()
+
+fn test_run_echo() -> result<void, string> {
+    let out = run("echo hello").map_err(str_err)?
+    check(out.stdout.trim() == "hello", "stdout should be hello, got: " .. out.stdout)?
+    check(out.status == 0, "exit status should be 0")?
+    result.ok(nil)
+}
+
+fn test_run_status() -> result<void, string> {
+    let out = run("false").map_err(str_err)?
+    check(out.status != 0, "false should return non-zero status")?
+    check(not out.success(), "success() should be false")?
+    result.ok(nil)
+}
+
+fn test_run_sh() -> result<void, string> {
+    let out = run_sh("echo hello && echo world").map_err(str_err)?
+    check(out.stdout.contains("hello"), "stdout should contain hello")?
+    check(out.stdout.contains("world"), "stdout should contain world")?
+    check(out.status == 0, "exit status should be 0")?
+    result.ok(nil)
+}
+
+fn test_run_not_found() -> result<void, string> {
+    let r = run("nonexistent_command_xyz_12345")
+    match r {
+        result.ok(_) -> result.err("expected error for nonexistent command")
+        result.err(ExecError.NotFound(_)) -> result.ok(nil)
+        result.err(e) -> result.err("wrong error kind: " .. e.str())
+    }
+}
+
+fn test_output_success() -> result<void, string> {
+    let out = run("true").map_err(str_err)?
+    check(out.success(), "true should succeed")?
+    check(out.status == 0, "true should return 0")?
+    result.ok(nil)
+}
+
+fn test_builder_basic() -> result<void, string> {
+    let out = exec("echo").args(["hello"]).run().map_err(str_err)?
+    check(out.stdout.trim() == "hello", "stdout should be hello")?
+    check(out.success(), "should succeed")?
+    result.ok(nil)
+}
+
+fn test_builder_args_with_spaces() -> result<void, string> {
+    let out = exec("echo").args(["hello world"]).run().map_err(str_err)?
+    check(out.stdout.trim() == "hello world", "args with spaces should be preserved, got: " .. out.stdout)?
+    result.ok(nil)
+}
+
+fn test_builder_stdin() -> result<void, string> {
+    let out = exec("cat").stdin("hello from stdin").run().map_err(str_err)?
+    check(out.stdout == "hello from stdin", "stdout should match stdin, got: " .. out.stdout)?
+    result.ok(nil)
+}
+
+fn test_builder_pipe() -> result<void, string> {
+    let out = exec("echo").args(["hello world"]).pipe("wc", ["-w"]).run().map_err(str_err)?
+    check(out.stdout.trim() == "2", "word count should be 2, got: " .. out.stdout)?
+    result.ok(nil)
+}
+
+fn test_builder_stdin_pipe() -> result<void, string> {
+    let out = exec("cat").stdin("line1\nline2\nline3\n").pipe("wc", ["-l"]).run().map_err(str_err)?
+    check(out.stdout.trim() == "3", "line count should be 3, got: " .. out.stdout)?
+    result.ok(nil)
+}
+
+fn test_builder_not_found() -> result<void, string> {
+    let r = exec("nonexistent_command_xyz_12345").run()
+    match r {
+        result.ok(_) -> result.err("expected error for nonexistent command")
+        result.err(ExecError.NotFound(_)) -> result.ok(nil)
+        result.err(e) -> result.err("wrong error kind: " .. e.str())
+    }
+}

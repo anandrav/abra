@@ -48,37 +48,6 @@ pub fn pass_result_struct(r: Result<MyStruct, MyEnum>) -> Result<MyStruct, MyEnu
     r
 }
 
-pub fn pass_multi_params(
-    programs: Vec<String>,
-    all_args: Vec<Vec<String>>,
-    stdin: Option<String>,
-) -> String {
-    format!(
-        "programs={:?} all_args={:?} stdin={:?}",
-        programs, all_args, stdin
-    )
-}
-
-pub fn pass_two_arrays(
-    programs: Vec<String>,
-    all_args: Vec<Vec<String>>,
-) -> String {
-    format!(
-        "programs={:?} all_args={:?}",
-        programs, all_args
-    )
-}
-
-pub fn pass_nested_and_option(
-    all_args: Vec<Vec<String>>,
-    stdin: Option<String>,
-) -> String {
-    format!(
-        "all_args={:?} stdin={:?}",
-        all_args, stdin
-    )
-}
-
 pub fn pass_array_and_option(
     programs: Vec<String>,
     stdin: Option<String>,

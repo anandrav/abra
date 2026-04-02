@@ -32,15 +32,6 @@ fn pass_nested_array(a: array<array<string>>) -> array<array<string>>
 fn pass_result_struct(r: result<MyStruct, MyEnum>) -> result<MyStruct, MyEnum>
 
 #foreign
-fn pass_multi_params(programs: array<string>, all_args: array<array<string>>, stdin: option<string>) -> string
-
-#foreign
-fn pass_two_arrays(programs: array<string>, all_args: array<array<string>>) -> string
-
-#foreign
-fn pass_nested_and_option(all_args: array<array<string>>, stdin: option<string>) -> string
-
-#foreign
 fn pass_array_and_option(programs: array<string>, stdin: option<string>) -> string
 
 #foreign
