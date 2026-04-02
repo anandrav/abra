@@ -22,11 +22,11 @@ match args[0] {
 fn test_read_write() -> result<void, FsError> {
     write("_test_rw.txt", "hello world")?
     let contents = read("_test_rw.txt")?
-    println(contents)
+    assert(contents == "hello world", "read after write")
 
     append("_test_rw.txt", "line2")?
     let contents2 = read("_test_rw.txt")?
-    println(contents2)
+    assert(contents2 == "hello worldline2", "read after append")
 
     remove("_test_rw.txt")?
     result.ok(nil)
@@ -34,60 +34,60 @@ fn test_read_write() -> result<void, FsError> {
 
 fn test_exists_copy_rename_remove() -> result<void, FsError> {
     write("_test_ecr.txt", "data")?
-    println(exists("_test_ecr.txt")?)
-    println(exists("_test_ecr_nope.txt")?)
+    assert(exists("_test_ecr.txt")?, "file exists after write")
+    assert(not exists("_test_ecr_nope.txt")?, "nonexistent file does not exist")
 
     copy("_test_ecr.txt", "_test_ecr_copy.txt")?
-    println(exists("_test_ecr_copy.txt")?)
+    assert(exists("_test_ecr_copy.txt")?, "copy exists")
     rename("_test_ecr_copy.txt", "_test_ecr_renamed.txt")?
-    println(exists("_test_ecr_copy.txt")?)
-    println(exists("_test_ecr_renamed.txt")?)
+    assert(not exists("_test_ecr_copy.txt")?, "old name gone after rename")
+    assert(exists("_test_ecr_renamed.txt")?, "new name exists after rename")
 
     remove("_test_ecr.txt")?
     remove("_test_ecr_renamed.txt")?
-    println(exists("_test_ecr.txt")?)
-    println(exists("_test_ecr_renamed.txt")?)
+    assert(not exists("_test_ecr.txt")?, "removed file gone")
+    assert(not exists("_test_ecr_renamed.txt")?, "removed renamed file gone")
 
     result.ok(nil)
 }
 
 fn test_directories() -> result<void, FsError> {
     mkdir("_test_dirs")?
-    println(is_dir("_test_dirs"))
-    println(is_file("_test_dirs"))
+    assert(is_dir("_test_dirs"), "mkdir creates directory")
+    assert(not is_file("_test_dirs"), "directory is not a file")
 
     write("_test_dirs/a.txt", "a")?
     write("_test_dirs/b.txt", "b")?
     let files = list_dir("_test_dirs")?
-    println(files.len())
+    assert(files.len() == 2, "list_dir count")
 
     rmdir_all("_test_dirs")?
-    println(exists("_test_dirs")?)
+    assert(not exists("_test_dirs")?, "rmdir_all removes directory")
 
     mkdir_all("_test_dirs/nested/deep")?
-    println(is_dir("_test_dirs/nested/deep"))
+    assert(is_dir("_test_dirs/nested/deep"), "mkdir_all creates nested dirs")
     rmdir_all("_test_dirs")?
 
     result.ok(nil)
 }
 
 fn test_path_manipulation() {
-    println(join("foo", "bar.txt"))
-    println(parent("/a/b/c.txt"))
-    println(filename("/a/b/c.txt"))
-    println(extension("/a/b/c.txt"))
-    println(stem("/a/b/c.txt"))
-    println(extension("noext"))
-    println(parent("lonely"))
+    assert(join("foo", "bar.txt") == "foo/bar.txt", "join")
+    assert(parent("/a/b/c.txt").unwrap() == "/a/b", "parent")
+    assert(filename("/a/b/c.txt").unwrap() == "c.txt", "filename")
+    assert(extension("/a/b/c.txt").unwrap() == "txt", "extension")
+    assert(stem("/a/b/c.txt").unwrap() == "c", "stem")
+    assert(extension("noext").is_none(), "extension of file with no extension")
+    assert(parent("lonely").unwrap() == "", "parent of bare filename")
 }
 
 fn test_environment() -> result<void, FsError> {
     let cwd = getcwd()?
-    println(is_dir(cwd))
-    println(is_dir(temp_dir()))
+    assert(is_dir(cwd), "cwd is a directory")
+    assert(is_dir(temp_dir()), "temp_dir is a directory")
 
     let tmp = temp_file()?
-    println(is_file(tmp))
+    assert(is_file(tmp), "temp_file creates a file")
     remove(tmp)?
 
     result.ok(nil)
@@ -101,14 +101,14 @@ fn test_glob_and_walk() -> result<void, FsError> {
     write("_test_gw/sub/four.txt", "4")?
 
     let txt_files = glob("_test_gw/*.txt")?
-    println(txt_files.len())
+    assert(txt_files.len() == 2, "glob *.txt count")
     let all_txt = glob("_test_gw/**/*.txt")?
-    println(all_txt.len())
+    assert(all_txt.len() == 3, "glob **/*.txt count")
     let log_files = glob("_test_gw/*.log")?
-    println(log_files.len())
+    assert(log_files.len() == 1, "glob *.log count")
 
     let all_files = walk_dir("_test_gw")?
-    println(all_files.len())
+    assert(all_files.len() == 4, "walk_dir count")
 
     rmdir_all("_test_gw")?
     result.ok(nil)
@@ -117,11 +117,11 @@ fn test_glob_and_walk() -> result<void, FsError> {
 fn test_metadata() -> result<void, FsError> {
     write("_test_meta.txt", "twelve chars")?
 
-    println(is_file("_test_meta.txt"))
-    println(is_dir("_test_meta.txt"))
-    println(file_size("_test_meta.txt")?)
+    assert(is_file("_test_meta.txt"), "is_file")
+    assert(not is_dir("_test_meta.txt"), "not is_dir")
+    assert(file_size("_test_meta.txt")? == 12, "file_size")
     let mtime = modified_time("_test_meta.txt")?
-    println(mtime > 0.0)
+    assert(mtime > 0.0, "modified_time > 0")
 
     remove("_test_meta.txt")?
     result.ok(nil)
@@ -131,12 +131,12 @@ fn test_symlinks() -> result<void, FsError> {
     write("_test_sym.txt", "linked content")?
 
     symlink("_test_sym.txt", "_test_sym_link")?
-    println(is_symlink("_test_sym_link"))
-    println(is_symlink("_test_sym.txt"))
+    assert(is_symlink("_test_sym_link"), "link is symlink")
+    assert(not is_symlink("_test_sym.txt"), "original is not symlink")
     let target = read_link("_test_sym_link")?
-    println(target)
+    assert(target == "_test_sym.txt", "read_link target")
     let link_contents = read("_test_sym_link")?
-    println(link_contents)
+    assert(link_contents == "linked content", "read through symlink")
 
     remove("_test_sym_link")?
     remove("_test_sym.txt")?
@@ -146,11 +146,11 @@ fn test_symlinks() -> result<void, FsError> {
 fn test_permissions() -> result<void, FsError> {
     write("_test_perm.txt", "x")?
 
-    println(is_executable("_test_perm.txt")?)
+    assert(not is_executable("_test_perm.txt")?, "not executable initially")
     set_executable("_test_perm.txt", true)?
-    println(is_executable("_test_perm.txt")?)
+    assert(is_executable("_test_perm.txt")?, "executable after set")
     set_executable("_test_perm.txt", false)?
-    println(is_executable("_test_perm.txt")?)
+    assert(not is_executable("_test_perm.txt")?, "not executable after unset")
 
     remove("_test_perm.txt")?
     result.ok(nil)
@@ -159,28 +159,29 @@ fn test_permissions() -> result<void, FsError> {
 fn test_error_handling() {
     let r1: result<string, FsError> = read("_test_err_nonexistent.txt")
     match r1 {
-        result.ok(_) -> println("unexpected ok")
-        result.err(FsError.NotFound(_)) -> println("caught not found")
-        result.err(_) -> println("wrong error kind")
+        result.ok(_) -> panic("expected error from read")
+        result.err(FsError.NotFound(_)) -> nil
+        result.err(_) -> panic("wrong error kind from read")
     }
 
     let r2: result<void, FsError> = remove("_test_err_nonexistent.txt")
     match r2 {
-        result.ok(_) -> println("unexpected ok")
-        result.err(FsError.NotFound(_)) -> println("caught not found")
-        result.err(_) -> println("wrong error kind")
+        result.ok(_) -> panic("expected error from remove")
+        result.err(FsError.NotFound(_)) -> nil
+        result.err(_) -> panic("wrong error kind from remove")
     }
 
     let r3: result<void, FsError> = mkdir("_test_err_dir/nested/deep")
     match r3 {
-        result.ok(_) -> println("unexpected ok")
-        result.err(FsError.NotFound(_)) -> println("caught not found")
-        result.err(_) -> println("wrong error kind")
+        result.ok(_) -> panic("expected error from mkdir")
+        result.err(FsError.NotFound(_)) -> nil
+        result.err(_) -> panic("wrong error kind from mkdir")
     }
 
     let r4: result<string, FsError> = read("_test_err_no_such_file.txt")
     match r4 {
-        result.ok(_) -> println("unexpected ok")
-        result.err(e) -> println(ToString.str(e))
+        result.ok(_) -> panic("expected error from read")
+        result.err(FsError.NotFound(_)) -> nil
+        result.err(_) -> panic("wrong error kind from read")
     }
 }

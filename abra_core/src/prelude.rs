@@ -348,6 +348,12 @@ fn println(x: T ToString) {
     print_string(ToString.str(x) .. "\n")
 }
 
+fn assert(condition: bool, message: string) {
+    if not condition {
+        panic("assertion failed: " .. message)
+    }
+}
+
 fn format_append(s1: T1 ToString, s2: T2 ToString) {
     concat_strings(ToString.str(s1), ToString.str(s2))
 }
