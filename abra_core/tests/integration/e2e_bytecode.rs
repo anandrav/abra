@@ -1155,6 +1155,50 @@ n
     let VmStatus::Error(_) = vm.status() else { panic!() };
 }
 
+#[test]
+fn try_operator_ok() {
+    let src = r#"
+fn blah() -> result<int, string> {
+  // result.ok(2)?  TODO: this should typecheck but it doesn't right now
+  let r: result<int, string> = result.ok(2)
+  r?
+  .ok(3)
+}
+blah()!
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 3);
+}
+
+#[test]
+fn try_operator_err() {
+    let src = r#"
+fn blah() -> result<int, string> {
+  let r: result<int, string> = result.err("this is an error")
+  r?
+  .ok(3)
+}
+match blah() {
+    .ok(_) -> panic("should be err")
+    .err(s) -> s
+}
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.view_string(&vm), "this is an error");
+}
+
 // TODO: re-enable
 #[ignore]
 #[test]

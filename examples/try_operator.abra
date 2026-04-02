@@ -1,6 +1,6 @@
 fn blah() -> result<int, string> {
-  let x: result<int, string> = result.err("ruh roh")
-  // let x: result<int, string> = result.ok(2)
+  // let x: result<int, string> = result.err("ruh roh")
+  let x: result<int, string> = result.ok(2)
   let num = x?
   println(num)
   .ok(3)
