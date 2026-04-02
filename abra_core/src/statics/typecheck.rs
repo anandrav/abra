@@ -1488,9 +1488,6 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
         let Some(caller_ret_ty_solved) = caller_ret_ty.solution() else { continue };
 
         let ret_ty_key = caller_ret_ty_solved.key();
-        let Some(tried_expr_residual_ty_solved) = tried_expr_residual_ty.solution() else {
-            continue;
-        };
 
         if ret_ty_key != tried_expr_key {
             ctx.errors.push(Error::TriedExpressionAndRetTypeMustMatch {
@@ -1513,17 +1510,12 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         constrain(ctx, &tried_expr_residual_ty, &ret_ty_residual_ty);
 
-        ctx.tried_expr_residual_types
-            .insert(tried_expr_node.id(), tried_expr_residual_ty_solved);
-
         let fn_branch_signature =
             TypeVar::from_node(ctx, imp.get_method_by_name("branch").unwrap().name.node());
-        // let Some(fn_branch_signature) = fn_branch_signature.solution() else { continue };
         let fn_from_residual_signature = TypeVar::from_node(
             ctx,
             imp.get_method_by_name("from_residual").unwrap().name.node(),
         );
-        // let Some(fn_from_residual_signature) = fn_from_residual_signature.solution() else { continue };
 
         let tried_expr_ty = TypeVar::from_node(ctx, tried_expr_node.clone());
         let subst = get_substitution_of_typ(ctx, &imp.typ, &tried_expr_ty);

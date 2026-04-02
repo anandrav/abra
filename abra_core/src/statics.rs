@@ -69,7 +69,6 @@ pub(crate) struct StaticsContext {
     // This bookkeeping is necessary because we do not de-sugar to an intermediate representation at the moment
     pub(crate) for_loop_make_iterator_types: HashMap<NodeId, SolvedType>,
     pub(crate) for_loop_next_types: HashMap<NodeId, SolvedType>,
-    pub(crate) tried_expr_residual_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_fn_branch_types: HashMap<NodeId, SolvedType>,
     pub(crate) tried_expr_fn_from_residual_types: HashMap<NodeId, SolvedType>,
 
@@ -111,7 +110,6 @@ impl StaticsContext {
 
             for_loop_make_iterator_types: Default::default(),
             for_loop_next_types: Default::default(),
-            tried_expr_residual_types: Default::default(),
             tried_expr_fn_branch_types: Default::default(),
             tried_expr_fn_from_residual_types: Default::default(),
 
