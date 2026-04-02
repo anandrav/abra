@@ -83,40 +83,36 @@ implement ToString for JsonValue {
 // --- Internal helpers ---
 
 fn is_digit(c: string) -> bool {
-    let b = string_nth_byte(c, 0)
-    b >= 48 and b <= 57
+    c >= "0" and c <= "9"
 }
 
 fn is_whitespace(c: string) -> bool {
-    // space=32, \n=10, \t=9, \r=13
-    let b = string_nth_byte(c, 0)
-    b == 32 or b == 10 or b == 9 or b == 13
+    c == " " or c == "\n" or c == "\t" or c == "\r"
 }
 
 fn escape_string(s: string) -> string {
     var out = ""
-    for i in string_count_bytes(s) {
-        let b = string_nth_byte(s, i)
-        if b == 34 {
-            // "
-            out = out .. "\\\""
-        } else if b == 92 {
-            // backslash
-            out = out .. "\\\\"
-        } else if b == 10 {
-            // \n
-            out = out .. "\\n"
-        } else if b == 13 {
-            // \r
-            out = out .. "\\r"
-        } else if b == 9 {
-            // \t
-            out = out .. "\\t"
-        } else {
-            out = out .. s.slice(i, i + 1)
+    for c in s.chars() {
+        match c {
+            "\"" -> out = out .. "\\\""
+            "\\" -> out = out .. "\\\\"
+            "\n" -> out = out .. "\\n"
+            "\r" -> out = out .. "\\r"
+            "\t" -> out = out .. "\\t"
+            _ -> out = out .. c
         }
     }
     out
+}
+
+fn format_number(n: float) -> string {
+    let i = float_to_int(n)
+    if int_to_float(i) == n and n >= -9007199254740992.0 \
+        and n <= 9007199254740992.0 {
+        "" .. i
+    } else {
+        "" .. n
+    }
 }
 
 fn indent_str(level: int) -> string {
@@ -179,30 +175,37 @@ extend Parser {
             return .err("unexpected end of input")
         }
         let c = self.peek()
-        if c == "\"" {
-            let s = self.parse_string()?
-            let val: JsonValue = .Str(s)
-            .ok(val)
-        } else if c == "{" {
-            self.parse_object()
-        } else if c == "[" {
-            self.parse_array()
-        } else if c == "t" {
-            self.expect("true")?
-            let val: JsonValue = .Bool(true)
-            .ok(val)
-        } else if c == "f" {
-            self.expect("false")?
-            let val: JsonValue = .Bool(false)
-            .ok(val)
-        } else if c == "n" {
-            self.expect("null")?
-            let val: JsonValue = .Null
-            .ok(val)
-        } else if c == "-" or is_digit(c) {
-            self.parse_number()
-        } else {
-            .err("unexpected character: '" .. c .. "'")
+        match c {
+            "\"" -> {
+                let s = self.parse_string()?
+                let val: JsonValue = .Str(s)
+                .ok(val)
+            }
+            "{" -> self.parse_object()
+            "[" -> self.parse_array()
+            "t" -> {
+                self.expect("true")?
+                let val: JsonValue = .Bool(true)
+                .ok(val)
+            }
+            "f" -> {
+                self.expect("false")?
+                let val: JsonValue = .Bool(false)
+                .ok(val)
+            }
+            "n" -> {
+                self.expect("null")?
+                let val: JsonValue = .Null
+                .ok(val)
+            }
+            "-" -> self.parse_number()
+            _ -> {
+                if is_digit(c) {
+                    self.parse_number()
+                } else {
+                    .err("unexpected character: '" .. c .. "'")
+                }
+            }
         }
     }
 
@@ -218,32 +221,24 @@ extend Parser {
                     return .err("unexpected end of input in string escape")
                 }
                 let escaped = self.advance()
-                if escaped == "\"" {
-                    result_str = result_str .. "\""
-                } else if escaped == "\\" {
-                    result_str = result_str .. "\\"
-                } else if escaped == "/" {
-                    result_str = result_str .. "/"
-                } else if escaped == "n" {
-                    result_str = result_str .. "\n"
-                } else if escaped == "r" {
-                    result_str = result_str .. "\r"
-                } else if escaped == "t" {
-                    result_str = result_str .. "\t"
-                } else if escaped == "b" {
-                    result_str = result_str .. ""
-                } else if escaped == "f" {
-                    result_str = result_str .. ""
-                } else if escaped == "u" {
-                    // skip 4 hex digits, emit replacement char
-                    var i = 0
-                    while i < 4 and not self.done() {
-                        self.advance()
-                        i += 1
+                match escaped {
+                    "\"" -> result_str = result_str .. "\""
+                    "\\" -> result_str = result_str .. "\\"
+                    "/" -> result_str = result_str .. "/"
+                    "n" -> result_str = result_str .. "\n"
+                    "r" -> result_str = result_str .. "\r"
+                    "t" -> result_str = result_str .. "\t"
+                    "b" -> result_str = result_str .. ""
+                    "f" -> result_str = result_str .. ""
+                    "u" -> {
+                        var i = 0
+                        while i < 4 and not self.done() {
+                            self.advance()
+                            i += 1
+                        }
+                        result_str = result_str .. "?"
                     }
-                    result_str = result_str .. "?"
-                } else {
-                    return .err("unknown escape sequence: \\" .. escaped)
+                    _ -> return .err("unknown escape sequence: \\" .. escaped)
                 }
             } else {
                 result_str = result_str .. c
@@ -321,10 +316,7 @@ extend Parser {
             arr.push(elem)
             self.skip_whitespace()
         }
-        if self.done() or self.peek() != "]" {
-            return .err("expected ']'")
-        }
-        self.advance()
+        self.expect("]")?
         let val: JsonValue = .Array(arr)
         .ok(val)
     }
@@ -342,10 +334,7 @@ extend Parser {
         self.skip_whitespace()
         let first_key = self.parse_string()?
         self.skip_whitespace()
-        if self.done() or self.peek() != ":" {
-            return .err("expected ':'")
-        }
-        self.advance()
+        self.expect(":")?
         let first_val = self.parse_value()?
         m.insert(first_key, first_val)
         self.skip_whitespace()
@@ -355,18 +344,12 @@ extend Parser {
             self.skip_whitespace()
             let key = self.parse_string()?
             self.skip_whitespace()
-            if self.done() or self.peek() != ":" {
-                return .err("expected ':'")
-            }
-            self.advance()
+            self.expect(":")?
             let val = self.parse_value()?
             m.insert(key, val)
             self.skip_whitespace()
         }
-        if self.done() or self.peek() != "}" {
-            return .err("expected '}'")
-        }
-        self.advance()
+        self.expect("}")?
         let val: JsonValue = .Object(m)
         .ok(val)
     }
@@ -388,16 +371,7 @@ fn stringify(v: JsonValue) -> string {
     match v {
         .Null -> "null"
         .Bool(b) -> if b { "true" } else { "false" }
-        .Number(n) -> {
-            // if the float is a whole number, print without decimal
-            let i = float_to_int(n)
-            if int_to_float(i) == n and n >= -9007199254740992.0 \
-                and n <= 9007199254740992.0 {
-                "" .. i
-            } else {
-                "" .. n
-            }
-        }
+        .Number(n) -> format_number(n)
         .Str(s) -> "\"" .. escape_string(s) .. "\""
         .Array(arr) -> {
             var out = "["
@@ -423,15 +397,7 @@ fn stringify_indent(v: JsonValue, level: int) -> string {
     match v {
         .Null -> "null"
         .Bool(b) -> if b { "true" } else { "false" }
-        .Number(n) -> {
-            let i = float_to_int(n)
-            if int_to_float(i) == n and n >= -9007199254740992.0 \
-                and n <= 9007199254740992.0 {
-                "" .. i
-            } else {
-                "" .. n
-            }
-        }
+        .Number(n) -> format_number(n)
         .Str(s) -> "\"" .. escape_string(s) .. "\""
         .Array(arr) -> {
             if arr.len() == 0 {
