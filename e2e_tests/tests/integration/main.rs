@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod fs;
+
 use utils::command;
 
 #[test]
@@ -29,68 +31,6 @@ yet another
 some
 [ 1, 2, 3, 4, 5, 6 ]
 true
-"#
-    );
-}
-
-#[test]
-fn test_fs() {
-    command!("cargo build --package abra_module_core").unwrap();
-    let output = command!(
-        "cargo run --package abra_cli --bin abra -- --standard-modules ../modules fs.abra"
-    )
-    .unwrap();
-
-    let stdout_str = String::from_utf8_lossy(&output.stdout);
-    println!("{stdout_str}");
-    let stderr_str = String::from_utf8(output.stderr).unwrap();
-    println!("{stderr_str}");
-    assert_eq!(
-        stdout_str,
-        r#"hello world
-hello worldline2
-
-true
-false
-true
-false
-true
-false
-false
-true
-false
-2
-false
-true
-true
-false
-foo/bar.txt
-some(/a/b)
-some(c.txt)
-some(txt)
-some(c)
-none
-some()
-true
-true
-2
-3
-1
-4
-12
-true
-true
-false
-_test_fs_meta2.txt
-twelve chars
-false
-true
-false
-true
-caught not found
-caught not found
-caught not found
-not found: No such file or directory (os error 2)
 "#
     );
 }

@@ -1,60 +1,77 @@
 use core/fs
 
-fn main() -> result<void, FsError> {
-    // ── write and read ──
-    write("_test_fs_tmp.txt", "hello world")?
-    let contents = read("_test_fs_tmp.txt")?
+let args = get_args()
+if args.len() == 0 {
+    panic("usage: fs.abra <test_name>")
+}
+
+match args[0] {
+    "read_write" -> test_read_write()!
+    "exists_copy_rename_remove" -> test_exists_copy_rename_remove()!
+    "directories" -> test_directories()!
+    "path_manipulation" -> test_path_manipulation()
+    "environment" -> test_environment()!
+    "glob_and_walk" -> test_glob_and_walk()!
+    "metadata" -> test_metadata()!
+    "symlinks" -> test_symlinks()!
+    "permissions" -> test_permissions()!
+    "error_handling" -> test_error_handling()
+    _ -> panic("unknown test: " .. args[0])
+}
+
+fn test_read_write() -> result<void, FsError> {
+    write("_test_rw.txt", "hello world")?
+    let contents = read("_test_rw.txt")?
     println(contents)
 
-    // ── append ──
-    append("_test_fs_tmp.txt", "line2")?
-    let contents2 = read("_test_fs_tmp.txt")?
+    append("_test_rw.txt", "line2")?
+    let contents2 = read("_test_rw.txt")?
     println(contents2)
 
-    // ── exists ──
-    println(exists("_test_fs_tmp.txt")?)
-    println(exists("_test_fs_nonexistent.txt")?)
+    remove("_test_rw.txt")?
+    result.ok(nil)
+}
 
-    // ── copy and rename ──
-    copy("_test_fs_tmp.txt", "_test_fs_copy.txt")?
-    println(exists("_test_fs_copy.txt")?)
-    rename("_test_fs_copy.txt", "_test_fs_renamed.txt")?
-    println(exists("_test_fs_copy.txt")?)
-    println(exists("_test_fs_renamed.txt")?)
+fn test_exists_copy_rename_remove() -> result<void, FsError> {
+    write("_test_ecr.txt", "data")?
+    println(exists("_test_ecr.txt")?)
+    println(exists("_test_ecr_nope.txt")?)
 
-    // ── remove ──
-    remove("_test_fs_tmp.txt")?
-    remove("_test_fs_renamed.txt")?
-    println(exists("_test_fs_tmp.txt")?)
-    println(exists("_test_fs_renamed.txt")?)
+    copy("_test_ecr.txt", "_test_ecr_copy.txt")?
+    println(exists("_test_ecr_copy.txt")?)
+    rename("_test_ecr_copy.txt", "_test_ecr_renamed.txt")?
+    println(exists("_test_ecr_copy.txt")?)
+    println(exists("_test_ecr_renamed.txt")?)
 
-    // ── mkdir, is_dir, is_file ──
-    mkdir("_test_fs_dir")?
-    println(is_dir("_test_fs_dir"))
-    println(is_file("_test_fs_dir"))
+    remove("_test_ecr.txt")?
+    remove("_test_ecr_renamed.txt")?
+    println(exists("_test_ecr.txt")?)
+    println(exists("_test_ecr_renamed.txt")?)
 
-    // ── list_dir ──
-    write("_test_fs_dir/a.txt", "a")?
-    write("_test_fs_dir/b.txt", "b")?
-    let files = list_dir("_test_fs_dir")?
+    result.ok(nil)
+}
+
+fn test_directories() -> result<void, FsError> {
+    mkdir("_test_dirs")?
+    println(is_dir("_test_dirs"))
+    println(is_file("_test_dirs"))
+
+    write("_test_dirs/a.txt", "a")?
+    write("_test_dirs/b.txt", "b")?
+    let files = list_dir("_test_dirs")?
     println(files.len())
 
-    // ── rmdir_all ──
-    rmdir_all("_test_fs_dir")?
-    println(exists("_test_fs_dir")?)
+    rmdir_all("_test_dirs")?
+    println(exists("_test_dirs")?)
 
-    // ── mkdir_all (nested) ──
-    mkdir_all("_test_fs_dir/nested/deep")?
-    println(is_dir("_test_fs_dir/nested/deep"))
-    rmdir_all("_test_fs_dir")?
+    mkdir_all("_test_dirs/nested/deep")?
+    println(is_dir("_test_dirs/nested/deep"))
+    rmdir_all("_test_dirs")?
 
-    // ── is_file ──
-    write("_test_fs_meta.txt", "x")?
-    println(is_file("_test_fs_meta.txt"))
-    println(is_dir("_test_fs_meta.txt"))
-    remove("_test_fs_meta.txt")?
+    result.ok(nil)
+}
 
-    // ── path manipulation ──
+fn test_path_manipulation() {
     println(join("foo", "bar.txt"))
     println(parent("/a/b/c.txt"))
     println(filename("/a/b/c.txt"))
@@ -62,104 +79,108 @@ fn main() -> result<void, FsError> {
     println(stem("/a/b/c.txt"))
     println(extension("noext"))
     println(parent("lonely"))
+}
 
-    // ── getcwd and temp_dir ──
+fn test_environment() -> result<void, FsError> {
     let cwd = getcwd()?
     println(is_dir(cwd))
     println(is_dir(temp_dir()))
 
-    // ── glob ──
-    mkdir_all("_test_fs_dir/sub")?
-    write("_test_fs_dir/one.txt", "1")?
-    write("_test_fs_dir/two.txt", "2")?
-    write("_test_fs_dir/three.log", "3")?
-    write("_test_fs_dir/sub/four.txt", "4")?
-    let txt_files = glob("_test_fs_dir/*.txt")?
-    println(txt_files.len())
-    let all_txt = glob("_test_fs_dir/**/*.txt")?
-    println(all_txt.len())
-    let log_files = glob("_test_fs_dir/*.log")?
-    println(log_files.len())
-
-    // ── walk_dir ──
-    let all_files = walk_dir("_test_fs_dir")?
-    println(all_files.len())
-
-    rmdir_all("_test_fs_dir")?
-
-    // ── file_size and modified_time ──
-    write("_test_fs_meta2.txt", "twelve chars")?
-    println(file_size("_test_fs_meta2.txt")?)
-    let mtime = modified_time("_test_fs_meta2.txt")?
-    println(mtime > 0.0)
-
-    // ── symlink, read_link, is_symlink ──
-    symlink("_test_fs_meta2.txt", "_test_fs_link")?
-    println(is_symlink("_test_fs_link"))
-    println(is_symlink("_test_fs_meta2.txt"))
-    let target = read_link("_test_fs_link")?
-    println(target)
-    let link_contents = read("_test_fs_link")?
-    println(link_contents)
-    remove("_test_fs_link")?
-
-    // ── is_executable, set_executable ──
-    println(is_executable("_test_fs_meta2.txt")?)
-    set_executable("_test_fs_meta2.txt", true)?
-    println(is_executable("_test_fs_meta2.txt")?)
-    set_executable("_test_fs_meta2.txt", false)?
-    println(is_executable("_test_fs_meta2.txt")?)
-    remove("_test_fs_meta2.txt")?
-
-    // ── temp_file ──
     let tmp = temp_file()?
     println(is_file(tmp))
     remove(tmp)?
 
-    // ── error handling: pattern match on FsError variants ──
-    println(check_read_error())
-    println(check_remove_error())
-    println(check_mkdir_error())
-
-    // ── ToString for FsError ──
-    println(check_tostring())
-
     result.ok(nil)
 }
 
-fn check_read_error() -> string {
-    let r: result<string, FsError> = read("_test_fs_nonexistent_12345.txt")
-    match r {
-        result.ok(_) -> "unexpected ok"
-        result.err(FsError.NotFound(_)) -> "caught not found"
-        result.err(_) -> "wrong error kind"
-    }
+fn test_glob_and_walk() -> result<void, FsError> {
+    mkdir_all("_test_gw/sub")?
+    write("_test_gw/one.txt", "1")?
+    write("_test_gw/two.txt", "2")?
+    write("_test_gw/three.log", "3")?
+    write("_test_gw/sub/four.txt", "4")?
+
+    let txt_files = glob("_test_gw/*.txt")?
+    println(txt_files.len())
+    let all_txt = glob("_test_gw/**/*.txt")?
+    println(all_txt.len())
+    let log_files = glob("_test_gw/*.log")?
+    println(log_files.len())
+
+    let all_files = walk_dir("_test_gw")?
+    println(all_files.len())
+
+    rmdir_all("_test_gw")?
+    result.ok(nil)
 }
 
-fn check_remove_error() -> string {
-    let r: result<void, FsError> = remove("_test_fs_nonexistent_12345.txt")
-    match r {
-        result.ok(_) -> "unexpected ok"
-        result.err(FsError.NotFound(_)) -> "caught not found"
-        result.err(_) -> "wrong error kind"
-    }
+fn test_metadata() -> result<void, FsError> {
+    write("_test_meta.txt", "twelve chars")?
+
+    println(is_file("_test_meta.txt"))
+    println(is_dir("_test_meta.txt"))
+    println(file_size("_test_meta.txt")?)
+    let mtime = modified_time("_test_meta.txt")?
+    println(mtime > 0.0)
+
+    remove("_test_meta.txt")?
+    result.ok(nil)
 }
 
-fn check_mkdir_error() -> string {
-    let r: result<void, FsError> = mkdir("_test_fs_dir/nested/deep")
-    match r {
-        result.ok(_) -> "unexpected ok"
-        result.err(FsError.NotFound(_)) -> "caught not found"
-        result.err(_) -> "wrong error kind"
-    }
+fn test_symlinks() -> result<void, FsError> {
+    write("_test_sym.txt", "linked content")?
+
+    symlink("_test_sym.txt", "_test_sym_link")?
+    println(is_symlink("_test_sym_link"))
+    println(is_symlink("_test_sym.txt"))
+    let target = read_link("_test_sym_link")?
+    println(target)
+    let link_contents = read("_test_sym_link")?
+    println(link_contents)
+
+    remove("_test_sym_link")?
+    remove("_test_sym.txt")?
+    result.ok(nil)
 }
 
-fn check_tostring() -> string {
-    let r: result<string, FsError> = read("_test_fs_no_such_file.txt")
-    match r {
-        result.ok(_) -> "unexpected ok"
-        result.err(e) -> ToString.str(e)
-    }
+fn test_permissions() -> result<void, FsError> {
+    write("_test_perm.txt", "x")?
+
+    println(is_executable("_test_perm.txt")?)
+    set_executable("_test_perm.txt", true)?
+    println(is_executable("_test_perm.txt")?)
+    set_executable("_test_perm.txt", false)?
+    println(is_executable("_test_perm.txt")?)
+
+    remove("_test_perm.txt")?
+    result.ok(nil)
 }
 
-main()!
+fn test_error_handling() {
+    let r1: result<string, FsError> = read("_test_err_nonexistent.txt")
+    match r1 {
+        result.ok(_) -> println("unexpected ok")
+        result.err(FsError.NotFound(_)) -> println("caught not found")
+        result.err(_) -> println("wrong error kind")
+    }
+
+    let r2: result<void, FsError> = remove("_test_err_nonexistent.txt")
+    match r2 {
+        result.ok(_) -> println("unexpected ok")
+        result.err(FsError.NotFound(_)) -> println("caught not found")
+        result.err(_) -> println("wrong error kind")
+    }
+
+    let r3: result<void, FsError> = mkdir("_test_err_dir/nested/deep")
+    match r3 {
+        result.ok(_) -> println("unexpected ok")
+        result.err(FsError.NotFound(_)) -> println("caught not found")
+        result.err(_) -> println("wrong error kind")
+    }
+
+    let r4: result<string, FsError> = read("_test_err_no_such_file.txt")
+    match r4 {
+        result.ok(_) -> println("unexpected ok")
+        result.err(e) -> println(ToString.str(e))
+    }
+}

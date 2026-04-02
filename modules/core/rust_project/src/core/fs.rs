@@ -35,7 +35,7 @@ pub fn append(path: String, content: String) -> Result<(), FsError> {
         .append(true)
         .open(&path)
         .map_err(io_err)?;
-    writeln!(file, "{content}").map_err(io_err)
+    write!(file, "{content}").map_err(io_err)
 }
 
 pub fn copy(src: String, dest: String) -> Result<(), FsError> {
