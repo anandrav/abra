@@ -52,6 +52,14 @@ implement ToString for FsError {
 #foreign fn is_file(path: string) -> bool
 // Return true if path is a directory
 #foreign fn is_dir(path: string) -> bool
+// Return true if path is a symbolic link
+#foreign fn is_symlink(path: string) -> bool
+// Return the size of a file in bytes
+#foreign fn file_size(path: string) -> result<int, FsError>
+// Return the last modification time as seconds since the Unix epoch
+#foreign fn modified_time(path: string) -> result<float, FsError>
+// Return true if the file is executable (always true on Windows)
+#foreign fn is_executable(path: string) -> result<bool, FsError>
 
 // ── Path manipulation ──
 
@@ -68,12 +76,26 @@ implement ToString for FsError {
 // Resolve a path to an absolute path (the path must exist)
 #foreign fn absolute(path: string) -> result<string, FsError>
 
+// ── Symlinks ──
+
+// Create a symbolic link at link_path pointing to target
+#foreign fn symlink(target: string, link_path: string) -> result<void, FsError>
+// Read the target of a symbolic link
+#foreign fn read_link(path: string) -> result<string, FsError>
+
+// ── Permissions ──
+
+// Set whether a file is executable (Unix only, no-op on Windows)
+#foreign fn set_executable(path: string, executable: bool) -> result<void, FsError>
+
 // ── Environment ──
 
 // Return the current working directory
 #foreign fn getcwd() -> result<string, FsError>
 // Return the system temporary directory
 #foreign fn temp_dir() -> string
+// Create a unique temporary file and return its path
+#foreign fn temp_file() -> result<string, FsError>
 
 // ── Batch file discovery ──
 

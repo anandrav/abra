@@ -77,6 +77,16 @@ true
 3
 1
 4
+12
+true
+true
+false
+_test_fs_meta2.txt
+twelve chars
+false
+true
+false
+true
 caught not found
 caught not found
 caught not found

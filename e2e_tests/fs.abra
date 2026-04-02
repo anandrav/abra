@@ -87,6 +87,35 @@ fn main() -> result<void, FsError> {
 
     rmdir_all("_test_fs_dir")?
 
+    // ── file_size and modified_time ──
+    write("_test_fs_meta2.txt", "twelve chars")?
+    println(file_size("_test_fs_meta2.txt")?)
+    let mtime = modified_time("_test_fs_meta2.txt")?
+    println(mtime > 0.0)
+
+    // ── symlink, read_link, is_symlink ──
+    symlink("_test_fs_meta2.txt", "_test_fs_link")?
+    println(is_symlink("_test_fs_link"))
+    println(is_symlink("_test_fs_meta2.txt"))
+    let target = read_link("_test_fs_link")?
+    println(target)
+    let link_contents = read("_test_fs_link")?
+    println(link_contents)
+    remove("_test_fs_link")?
+
+    // ── is_executable, set_executable ──
+    println(is_executable("_test_fs_meta2.txt")?)
+    set_executable("_test_fs_meta2.txt", true)?
+    println(is_executable("_test_fs_meta2.txt")?)
+    set_executable("_test_fs_meta2.txt", false)?
+    println(is_executable("_test_fs_meta2.txt")?)
+    remove("_test_fs_meta2.txt")?
+
+    // ── temp_file ──
+    let tmp = temp_file()?
+    println(is_file(tmp))
+    remove(tmp)?
+
     // ── error handling: pattern match on FsError variants ──
     println(check_read_error())
     println(check_remove_error())
