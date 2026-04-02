@@ -1178,9 +1178,7 @@ blah()!
 fn try_operator_err() {
     let src = r#"
 fn blah() -> result<int, string> {
-  let r: result<int, string> = result.err("this is an error")
-  r?
-  .ok(3)
+  result.err("this is an error")?
 }
 match blah() {
     .ok(_) -> panic("should be err")
