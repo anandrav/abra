@@ -1505,8 +1505,8 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
         let ret_ty_residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
-        let subst = get_substitution_of_typ(ctx, &imp.typ, &caller_ret_ty);
-        let ret_ty_residual_ty = ret_ty_residual_ty.subst(&subst);
+        let ret_ty_subst = get_substitution_of_typ(ctx, &imp.typ, &caller_ret_ty);
+        let ret_ty_residual_ty = ret_ty_residual_ty.subst(&ret_ty_subst);
 
         constrain(ctx, &tried_expr_residual_ty, &ret_ty_residual_ty);
 
@@ -1518,10 +1518,10 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
         );
 
         let tried_expr_ty = TypeVar::from_node(ctx, tried_expr_node.clone());
-        let subst = get_substitution_of_typ(ctx, &imp.typ, &tried_expr_ty);
+        let tried_ty_subst = get_substitution_of_typ(ctx, &imp.typ, &tried_expr_ty);
 
-        let fn_branch_signature = fn_branch_signature.subst(&subst);
-        let fn_from_residual_signature = fn_from_residual_signature.subst(&subst);
+        let fn_branch_signature = fn_branch_signature.subst(&tried_ty_subst);
+        let fn_from_residual_signature = fn_from_residual_signature.subst(&ret_ty_subst);
         dlog!("fn_from_branch_signature: {}", fn_branch_signature);
         dlog!("fn_from_residual_signature: {}", fn_from_residual_signature);
         if let Some(fn_branch_signature) = fn_branch_signature.solution() {
