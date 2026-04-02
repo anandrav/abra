@@ -16,6 +16,7 @@ cargo build --quiet --package abra_module_core
 echo ""
 echo "running module tests"
 cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/fs.abra
+cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/strings.abra
 
 pushd $WD/abra_core > /dev/null
 cargo check --lib --target wasm32-unknown-unknown

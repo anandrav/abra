@@ -1,0 +1,103 @@
+use core/strings
+
+fn check(cond: bool, msg: string) -> result<void, string> {
+    if cond { result.ok(nil) } else { result.err(msg) }
+}
+
+type TestRunner = { failed: int }
+
+extend TestRunner {
+    fn new() -> TestRunner { TestRunner(0) }
+
+    fn run(self, name: string, r: result<void, E ToString>) {
+        print("  strings::" .. name .. " ... ")
+        match r {
+            result.ok(_) -> println("ok")
+            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+        }
+    }
+
+    fn finish(self) {
+        if self.failed > 0 {
+            panic(self.failed .. " test(s) failed")
+        }
+    }
+}
+
+let t = TestRunner.new()
+t.run("split", test_split())
+t.run("trim", test_trim())
+t.run("starts_ends_contains", test_starts_ends_contains())
+t.run("replace", test_replace())
+t.run("find", test_find())
+t.run("repeat", test_repeat())
+t.run("pad", test_pad())
+t.run("join", test_join())
+t.finish()
+
+fn test_split() -> result<void, string> {
+    check("hello,world,foo".split(",") == ["hello", "world", "foo"], "basic split")?
+    check("no-delim".split(",") == ["no-delim"], "split with no match")?
+    check("a::b::c".split("::") == ["a", "b", "c"], "split multi-char delimiter")?
+    check("".split(",") == [""], "split empty string")?
+    result.ok(nil)
+}
+
+fn test_trim() -> result<void, string> {
+    check("  hello  ".trim() == "hello", "trim both")?
+    check("  hello  ".trim_start() == "hello  ", "trim_start")?
+    check("  hello  ".trim_end() == "  hello", "trim_end")?
+    check("hello".trim() == "hello", "trim no whitespace")?
+    check("   ".trim() == "", "trim all whitespace")?
+    result.ok(nil)
+}
+
+fn test_starts_ends_contains() -> result<void, string> {
+    check("hello world".starts_with("hello"), "starts_with true")?
+    check(not "hello world".starts_with("world"), "starts_with false")?
+    check("hello world".ends_with("world"), "ends_with true")?
+    check(not "hello world".ends_with("hello"), "ends_with false")?
+    check("hello world".contains("lo wo"), "contains true")?
+    check(not "hello world".contains("xyz"), "contains false")?
+    check("".starts_with(""), "empty starts_with empty")?
+    check("hello".contains(""), "contains empty")?
+    result.ok(nil)
+}
+
+fn test_replace() -> result<void, string> {
+    check("foo bar foo".replace("foo", "baz") == "baz bar baz", "replace all occurrences")?
+    check("hello".replace("xyz", "abc") == "hello", "replace no match")?
+    check("aaa".replace("a", "bb") == "bbbbbb", "replace expand")?
+    result.ok(nil)
+}
+
+fn test_find() -> result<void, string> {
+    let idx = "hello world".find("world")
+    check(idx.is_some(), "find returns some")?
+    check(idx.unwrap() == 6, "find correct index")?
+    check("hello world".find("xyz").is_none(), "find returns none for no match")?
+    check("hello".find("").is_some(), "find empty string")?
+    result.ok(nil)
+}
+
+fn test_repeat() -> result<void, string> {
+    check("ab".repeat(3) == "ababab", "repeat 3")?
+    check("x".repeat(0) == "", "repeat 0")?
+    check("hi".repeat(1) == "hi", "repeat 1")?
+    result.ok(nil)
+}
+
+fn test_pad() -> result<void, string> {
+    check("42".pad_left(5, "0") == "00042", "pad_left")?
+    check("hi".pad_right(5, ".") == "hi...", "pad_right")?
+    check("hello".pad_left(3, "x") == "hello", "pad_left no-op when wider")?
+    check("hello".pad_right(3, "x") == "hello", "pad_right no-op when wider")?
+    result.ok(nil)
+}
+
+fn test_join() -> result<void, string> {
+    check(join(["a", "b", "c"], "-") == "a-b-c", "join with dash")?
+    check(join(["hello"], ",") == "hello", "join single element")?
+    check(join(["a", "b"], "") == "ab", "join empty separator")?
+    result.ok(nil)
+}

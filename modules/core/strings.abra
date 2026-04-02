@@ -15,6 +15,54 @@ extend string {
         string_slice(self, begin, end)
     }
 
+    fn split(self, delimiter: string) -> array<string> {
+        string_split(self, delimiter)
+    }
+
+    fn trim(self) -> string {
+        string_trim(self)
+    }
+
+    fn trim_start(self) -> string {
+        string_trim_start(self)
+    }
+
+    fn trim_end(self) -> string {
+        string_trim_end(self)
+    }
+
+    fn starts_with(self, prefix: string) -> bool {
+        string_starts_with(self, prefix)
+    }
+
+    fn ends_with(self, suffix: string) -> bool {
+        string_ends_with(self, suffix)
+    }
+
+    fn contains(self, substring: string) -> bool {
+        string_contains(self, substring)
+    }
+
+    fn replace(self, old: string, new: string) -> string {
+        string_replace(self, old, new)
+    }
+
+    fn find(self, substring: string) -> option<int> {
+        string_find(self, substring)
+    }
+
+    fn repeat(self, n: int) -> string {
+        string_repeat(self, n)
+    }
+
+    fn pad_left(self, width: int, pad: string) -> string {
+        string_pad_left(self, width, pad)
+    }
+
+    fn pad_right(self, width: int, pad: string) -> string {
+        string_pad_right(self, width, pad)
+    }
+
     fn is_alphabetic(self) -> bool {
         string_is_alphabetic(self)
     }
@@ -44,6 +92,10 @@ extend string {
     }
 }
 
+fn join(arr: array<string>, sep: string) -> string {
+    string_join(arr, sep)
+}
+
 #foreign
 fn string_len(s: string) -> int
 
@@ -55,6 +107,45 @@ fn string_lines(s: string) -> array<string>
 
 #foreign
 fn string_slice(s: string, begin: int, end: int) -> string
+
+#foreign
+fn string_split(s: string, delimiter: string) -> array<string>
+
+#foreign
+fn string_trim(s: string) -> string
+
+#foreign
+fn string_trim_start(s: string) -> string
+
+#foreign
+fn string_trim_end(s: string) -> string
+
+#foreign
+fn string_starts_with(s: string, prefix: string) -> bool
+
+#foreign
+fn string_ends_with(s: string, suffix: string) -> bool
+
+#foreign
+fn string_contains(s: string, substring: string) -> bool
+
+#foreign
+fn string_replace(s: string, old: string, new: string) -> string
+
+#foreign
+fn string_find(s: string, substring: string) -> option<int>
+
+#foreign
+fn string_repeat(s: string, n: int) -> string
+
+#foreign
+fn string_pad_left(s: string, width: int, pad: string) -> string
+
+#foreign
+fn string_pad_right(s: string, width: int, pad: string) -> string
+
+#foreign
+fn string_join(arr: array<string>, sep: string) -> string
 
 #foreign
 fn string_is_alphabetic(s: string) -> bool
