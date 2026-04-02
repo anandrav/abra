@@ -4,7 +4,7 @@ fn check(cond: bool, msg: string) -> result<void, string> {
     if cond { result.ok(nil) } else { result.err(msg) }
 }
 
-fn str_err(e: FsError) -> string { e.str() }
+fn str_err(e: FsError) -> string = e.str()
 
 type TestRunner = { failed: int }
 
