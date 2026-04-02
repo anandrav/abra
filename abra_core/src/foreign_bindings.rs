@@ -830,7 +830,7 @@ where
                     Some(t)
                 }
                 1 => {
-                    let _ = <() as VmFfiType>::from_vm_unsafe(vm, vm_funcs);
+                    <() as VmFfiType>::from_vm_unsafe(vm, vm_funcs);
                     None
                 }
                 _ => panic!("unexpected tag for Option type {tag}"),

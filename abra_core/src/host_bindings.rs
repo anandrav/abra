@@ -1,5 +1,5 @@
 use crate::ast::{FileAst, ImportKind, ItemKind, Type, TypeDefKind, TypeKind};
-use crate::foreign_bindings::{VmFfiType, name_of_ty, run_formatter};
+use crate::foreign_bindings::{name_of_ty, run_formatter};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
@@ -602,7 +602,7 @@ where
                 Some(t)
             }
             1 => {
-                let _ = <() as VmType>::from_vm(vm);
+                <() as VmType>::from_vm(vm);
                 None
             }
             _ => panic!("unexpected tag for Option type {tag}"),
