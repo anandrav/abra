@@ -144,6 +144,10 @@ pub enum Instr {
     EqualFloatImm(Reg, Reg, String),
     EqualBool(Reg, Reg, Reg),
     EqualString(Reg, Reg, Reg),
+    LessThanString(Reg, Reg, Reg),
+    LessThanOrEqualString(Reg, Reg, Reg),
+    GreaterThanString(Reg, Reg, Reg),
+    GreaterThanOrEqualString(Reg, Reg, Reg),
 
     // Control Flow
     Jump(Label),
@@ -387,6 +391,18 @@ impl Display for Instr {
             }
             Instr::EqualBool(dest, reg1, reg2) => write!(f, "equal_bool {dest} {reg1} {reg2}"),
             Instr::EqualString(dest, reg1, reg2) => write!(f, "equal_string {dest} {reg1} {reg2}"),
+            Instr::LessThanString(dest, reg1, reg2) => {
+                write!(f, "less_than_string {dest} {reg1} {reg2}")
+            }
+            Instr::LessThanOrEqualString(dest, reg1, reg2) => {
+                write!(f, "less_than_or_equal_string {dest} {reg1} {reg2}")
+            }
+            Instr::GreaterThanString(dest, reg1, reg2) => {
+                write!(f, "greater_than_string {dest} {reg1} {reg2}")
+            }
+            Instr::GreaterThanOrEqualString(dest, reg1, reg2) => {
+                write!(f, "greater_than_or_equal_string {dest} {reg1} {reg2}")
+            }
             Instr::PushNil(n) => write!(f, "push_nil {n}"),
             Instr::PushBool(b) => write!(f, "push_bool {b}"),
             Instr::PushInt(n) => write!(f, "push_int {n}"),
@@ -692,6 +708,18 @@ fn instr_to_vminstr(
         }
         Instr::EqualString(dest, reg1, reg2) => {
             VmInstr::EqualString(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::LessThanString(dest, reg1, reg2) => {
+            VmInstr::LessThanString(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::LessThanOrEqualString(dest, reg1, reg2) => {
+            VmInstr::LessThanOrEqualString(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::GreaterThanString(dest, reg1, reg2) => {
+            VmInstr::GreaterThanString(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::GreaterThanOrEqualString(dest, reg1, reg2) => {
+            VmInstr::GreaterThanOrEqualString(dest.encode(), reg1.encode(), reg2.encode())
         }
         Instr::PushNil(n) => VmInstr::PushNil(*n),
         Instr::PushBool(b) => VmInstr::PushBool(*b),

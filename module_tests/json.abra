@@ -1,0 +1,207 @@
+use core/json
+use core/strings
+use core/map
+
+fn check(cond: bool, msg: string) -> result<void, string> {
+    if cond { result.ok(nil) } else { result.err(msg) }
+}
+
+type TestRunner = { failed: int }
+
+extend TestRunner {
+    fn new() -> TestRunner { TestRunner(0) }
+
+    fn run(self, name: string, r: result<void, E ToString>) {
+        print("  json::" .. name .. " ... ")
+        match r {
+            result.ok(_) -> println("ok")
+            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+        }
+    }
+
+    fn finish(self) {
+        if self.failed > 0 {
+            panic(self.failed .. " test(s) failed")
+        }
+        println("all json tests passed")
+    }
+}
+
+let t = TestRunner.new()
+t.run("parse_null", test_parse_null())
+t.run("parse_bool", test_parse_bool())
+t.run("parse_number", test_parse_number())
+t.run("parse_string", test_parse_string())
+t.run("parse_array", test_parse_array())
+t.run("parse_object", test_parse_object())
+t.run("parse_nested", test_parse_nested())
+t.run("parse_whitespace", test_parse_whitespace())
+t.run("parse_escapes", test_parse_escapes())
+t.run("parse_errors", test_parse_errors())
+t.run("stringify_primitives", test_stringify_primitives())
+t.run("stringify_array", test_stringify_array())
+t.run("stringify_object", test_stringify_object())
+t.run("stringify_pretty", test_stringify_pretty())
+t.run("roundtrip", test_roundtrip())
+t.run("accessors", test_accessors())
+t.finish()
+
+fn test_parse_null() -> result<void, string> {
+    let v = parse("null")?
+    check(v.is_null(), "null should be null")?
+    result.ok(nil)
+}
+
+fn test_parse_bool() -> result<void, string> {
+    let t = parse("true")?
+    check(t.as_bool()! == true, "true")?
+    let f = parse("false")?
+    check(f.as_bool()! == false, "false")?
+    result.ok(nil)
+}
+
+fn test_parse_number() -> result<void, string> {
+    let n = parse("42")?
+    check(n.as_number()! == 42.0, "integer")?
+    let f = parse("3.14")?
+    check(f.as_number()! == 3.14, "float")?
+    let neg = parse("-7")?
+    check(neg.as_number()! == -7.0, "negative")?
+    let exp = parse("1e3")?
+    check(exp.as_number()! == 1000.0, "exponent")?
+    let zero = parse("0")?
+    check(zero.as_number()! == 0.0, "zero")?
+    result.ok(nil)
+}
+
+fn test_parse_string() -> result<void, string> {
+    let s = parse("\"hello\"")?
+    check(s.as_string()! == "hello", "basic string")?
+    let empty = parse("\"\"")?
+    check(empty.as_string()! == "", "empty string")?
+    result.ok(nil)
+}
+
+fn test_parse_array() -> result<void, string> {
+    let arr = parse("[1, 2, 3]")?
+    let items = arr.as_array()!
+    check(items.len() == 3, "array length")?
+    check(items[0].as_number()! == 1.0, "first element")?
+    check(items[2].as_number()! == 3.0, "third element")?
+    let empty = parse("[]")?
+    check(empty.as_array()!.len() == 0, "empty array")?
+    result.ok(nil)
+}
+
+fn test_parse_object() -> result<void, string> {
+    let obj = parse("{\"a\": 1, \"b\": 2}")?
+    check(obj.get("a").as_number()! == 1.0, "key a")?
+    check(obj.get("b").as_number()! == 2.0, "key b")?
+    let empty = parse("{}")?
+    check(empty.as_object()!.len() == 0, "empty object")?
+    result.ok(nil)
+}
+
+fn test_parse_nested() -> result<void, string> {
+    let v = parse("{\"items\": [1, {\"nested\": true}], \"ok\": null}")?
+    let items = v.get("items").as_array()!
+    check(items.len() == 2, "nested array length")?
+    check(items[0].as_number()! == 1.0, "nested array first")?
+    check(items[1].get("nested").as_bool()! == true, "deeply nested bool")?
+    check(v.get("ok").is_null(), "null value in object")?
+    result.ok(nil)
+}
+
+fn test_parse_whitespace() -> result<void, string> {
+    let v = parse("  \n  { \"key\" :  \"value\"  }  \n")?
+    check(v.get("key").as_string()! == "value", "whitespace handling")?
+    result.ok(nil)
+}
+
+fn test_parse_escapes() -> result<void, string> {
+    let v = parse("\"hello\\nworld\"")?
+    check(v.as_string()! == "hello\nworld", "newline escape")?
+    let v2 = parse("\"tab\\there\"")?
+    check(v2.as_string()! == "tab\there", "tab escape")?
+    let v3 = parse("\"quote\\\"here\"")?
+    check(v3.as_string()! == "quote\"here", "quote escape")?
+    let v4 = parse("\"back\\\\slash\"")?
+    check(v4.as_string()! == "back\\slash", "backslash escape")?
+    result.ok(nil)
+}
+
+fn test_parse_errors() -> result<void, string> {
+    check(parse("").is_err(), "empty input")?
+    check(parse("{").is_err(), "unclosed object")?
+    check(parse("[1,]").is_err(), "trailing comma")?
+    check(parse("tru").is_err(), "truncated keyword")?
+    check(parse("\"unclosed").is_err(), "unclosed string")?
+    check(parse("42 extra").is_err(), "trailing chars")?
+    result.ok(nil)
+}
+
+fn test_stringify_primitives() -> result<void, string> {
+    check(stringify(.Null) == "null", "null")?
+    check(stringify(.Bool(true)) == "true", "true")?
+    check(stringify(.Bool(false)) == "false", "false")?
+    check(stringify(.Number(42.0)) == "42", "integer number")?
+    check(stringify(.Number(3.14)) == "3.14", "float number")?
+    check(stringify(.Str("hello")) == "\"hello\"", "string")?
+    check(stringify(.Str("")) == "\"\"", "empty string")?
+    result.ok(nil)
+}
+
+fn test_stringify_array() -> result<void, string> {
+    let arr: array<JsonValue> = []
+    arr.push(.Number(1.0))
+    arr.push(.Bool(true))
+    arr.push(.Str("x"))
+    let s = stringify(.Array(arr))
+    check(s == "[1,true,\"x\"]", "mixed array: got " .. s)?
+    let empty: array<JsonValue> = []
+    check(stringify(.Array(empty)) == "[]", "empty array")?
+    result.ok(nil)
+}
+
+fn test_stringify_object() -> result<void, string> {
+    let m: map<string, JsonValue> = map.new()
+    check(stringify(.Object(m)) == "{}", "empty object")?
+    m.insert("key", .Str("val"))
+    let s = stringify(.Object(m))
+    check(s == "{\"key\":\"val\"}", "single-key object: got " .. s)?
+    result.ok(nil)
+}
+
+fn test_stringify_pretty() -> result<void, string> {
+    let arr: array<JsonValue> = []
+    arr.push(.Number(1.0))
+    arr.push(.Number(2.0))
+    let s = stringify_pretty(.Array(arr))
+    check(s.contains("\n"), "pretty has newlines")?
+    check(s.contains("  "), "pretty has indentation")?
+    result.ok(nil)
+}
+
+fn test_roundtrip() -> result<void, string> {
+    let input = "{\"name\":\"test\",\"values\":[1,2,3],\"active\":true,\"data\":null}"
+    let parsed = parse(input)?
+    let output = stringify(parsed)
+    let reparsed = parse(output)?
+    // verify key values survived roundtrip
+    check(reparsed.get("name").as_string()! == "test", "roundtrip name")?
+    check(reparsed.get("active").as_bool()! == true, "roundtrip bool")?
+    check(reparsed.get("data").is_null(), "roundtrip null")?
+    let vals = reparsed.get("values").as_array()!
+    check(vals.len() == 3, "roundtrip array length")?
+    check(vals[0].as_number()! == 1.0, "roundtrip array val")?
+    result.ok(nil)
+}
+
+fn test_accessors() -> result<void, string> {
+    let v = parse("{\"a\": [10, 20]}")?
+    check(v.get("a").at(0).as_number()! == 10.0, "chained get/at")?
+    check(v.get("a").at(1).as_number()! == 20.0, "chained get/at second")?
+    check(v.try_get("missing").is_none(), "try_get missing")?
+    check(v.try_get("a").is_some(), "try_get present")?
+    result.ok(nil)
+}

@@ -267,6 +267,13 @@ implement Ord for bool {
     fn greater_than_or_equal(a, b) = a and not b
 }
 
+implement Ord for string {
+    fn less_than(a, b) = less_than_string(a, b)
+    fn less_than_or_equal(a, b) = less_than_or_equal_string(a, b)
+    fn greater_than(a, b) = greater_than_string(a, b)
+    fn greater_than_or_equal(a, b) = greater_than_or_equal_string(a, b)
+}
+
 interface Clone {
     fn clone(x: Self) -> Self
 }

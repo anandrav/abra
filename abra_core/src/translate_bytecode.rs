@@ -603,6 +603,9 @@ impl Translator {
                         SolvedType::Float => {
                             self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top))
                         }
+                        SolvedType::String => {
+                            self.emit(st, Instr::GreaterThanString(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => {
                             helper(mono, "prelude.Ord.greater_than");
                         }
@@ -613,6 +616,9 @@ impl Translator {
                         }
                         SolvedType::Float => {
                             self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
+                        SolvedType::String => {
+                            self.emit(st, Instr::LessThanString(Reg::Top, Reg::Top, Reg::Top))
                         }
                         _ => {
                             helper(mono, "prelude.Ord.less_than");
@@ -627,6 +633,10 @@ impl Translator {
                             st,
                             Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
                         ),
+                        SolvedType::String => self.emit(
+                            st,
+                            Instr::GreaterThanOrEqualString(Reg::Top, Reg::Top, Reg::Top),
+                        ),
                         _ => {
                             helper(mono, "prelude.Ord.greater_than_or_equal");
                         }
@@ -638,6 +648,10 @@ impl Translator {
                         SolvedType::Float => self.emit(
                             st,
                             Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
+                        ),
+                        SolvedType::String => self.emit(
+                            st,
+                            Instr::LessThanOrEqualString(Reg::Top, Reg::Top, Reg::Top),
                         ),
                         _ => {
                             helper(mono, "prelude.Ord.less_than_or_equal");
@@ -1376,6 +1390,10 @@ impl Translator {
             IntrinsicOperation::GreaterThanFloat => 2,
             IntrinsicOperation::GreaterThanOrEqualFloat => 2,
             IntrinsicOperation::EqualFloat => 2,
+            IntrinsicOperation::LessThanString => 2,
+            IntrinsicOperation::LessThanOrEqualString => 2,
+            IntrinsicOperation::GreaterThanString => 2,
+            IntrinsicOperation::GreaterThanOrEqualString => 2,
             IntrinsicOperation::EqualString => 2,
             IntrinsicOperation::IntToFloat => 1,
             IntrinsicOperation::FloatToInt => 1,
@@ -1522,6 +1540,24 @@ impl Translator {
             }
             IntrinsicOperation::EqualFloat => {
                 self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::LessThanString => {
+                self.emit(st, Instr::LessThanString(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::LessThanOrEqualString => {
+                self.emit(
+                    st,
+                    Instr::LessThanOrEqualString(Reg::Top, Reg::Top, Reg::Top),
+                );
+            }
+            IntrinsicOperation::GreaterThanString => {
+                self.emit(st, Instr::GreaterThanString(Reg::Top, Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::GreaterThanOrEqualString => {
+                self.emit(
+                    st,
+                    Instr::GreaterThanOrEqualString(Reg::Top, Reg::Top, Reg::Top),
+                );
             }
             IntrinsicOperation::EqualString => {
                 self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top));

@@ -158,7 +158,7 @@ impl TokenKind {
                 let mut ret = 0;
                 for char in s.chars() {
                     match char {
-                        '\n' | '\t' | '\\' | '"' => ret += 2,
+                        '\n' | '\t' | '\r' | '\\' | '"' => ret += 2,
                         _ => ret += 1,
                     }
                 }
@@ -512,6 +512,9 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                             }
                             't' => {
                                 s.push('\t');
+                            }
+                            'r' => {
+                                s.push('\r');
                             }
                             '"' => {
                                 s.push('"');

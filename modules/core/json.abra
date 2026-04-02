@@ -1,0 +1,494 @@
+use core/strings
+use core/map
+
+type JsonValue =
+    | Null
+    | Bool(bool)
+    | Number(float)
+    | Str(string)
+    | Array(array<JsonValue>)
+    | Object(map<string, JsonValue>)
+
+extend JsonValue {
+    fn get(self, key: string) -> JsonValue {
+        match self {
+            .Object(m) -> m.get(key)
+            _ -> panic("json: get() called on non-object")
+        }
+    }
+
+    fn try_get(self, key: string) -> option<JsonValue> {
+        match self {
+            .Object(m) -> m.try_get(key)
+            _ -> .none
+        }
+    }
+
+    fn at(self, index: int) -> JsonValue {
+        match self {
+            .Array(arr) -> arr[index]
+            _ -> panic("json: at() called on non-array")
+        }
+    }
+
+    fn as_string(self) -> option<string> {
+        match self {
+            .Str(s) -> .some(s)
+            _ -> .none
+        }
+    }
+
+    fn as_number(self) -> option<float> {
+        match self {
+            .Number(n) -> .some(n)
+            _ -> .none
+        }
+    }
+
+    fn as_bool(self) -> option<bool> {
+        match self {
+            .Bool(b) -> .some(b)
+            _ -> .none
+        }
+    }
+
+    fn as_array(self) -> option<array<JsonValue>> {
+        match self {
+            .Array(arr) -> .some(arr)
+            _ -> .none
+        }
+    }
+
+    fn as_object(self) -> option<map<string, JsonValue>> {
+        match self {
+            .Object(m) -> .some(m)
+            _ -> .none
+        }
+    }
+
+    fn is_null(self) -> bool {
+        match self {
+            .Null -> true
+            _ -> false
+        }
+    }
+}
+
+implement ToString for JsonValue {
+    fn str(self) -> string {
+        stringify(self)
+    }
+}
+
+// --- Internal helpers ---
+
+fn is_digit(c: string) -> bool {
+    let b = string_nth_byte(c, 0)
+    b >= 48 and b <= 57
+}
+
+fn is_whitespace(c: string) -> bool {
+    // space=32, \n=10, \t=9, \r=13
+    let b = string_nth_byte(c, 0)
+    b == 32 or b == 10 or b == 9 or b == 13
+}
+
+fn escape_string(s: string) -> string {
+    var out = ""
+    for i in string_count_bytes(s) {
+        let b = string_nth_byte(s, i)
+        if b == 34 {
+            // "
+            out = out .. "\\\""
+        } else if b == 92 {
+            // backslash
+            out = out .. "\\\\"
+        } else if b == 10 {
+            // \n
+            out = out .. "\\n"
+        } else if b == 13 {
+            // \r
+            out = out .. "\\r"
+        } else if b == 9 {
+            // \t
+            out = out .. "\\t"
+        } else {
+            out = out .. s.slice(i, i + 1)
+        }
+    }
+    out
+}
+
+fn indent_str(level: int) -> string {
+    "  ".repeat(level)
+}
+
+// --- Parser ---
+
+type Parser = {
+    src: string
+    chars: array<string>
+    pos: int
+}
+
+extend Parser {
+    fn new(s: string) -> Parser {
+        Parser(s, s.chars(), 0)
+    }
+
+    fn done(self) -> bool {
+        self.pos >= self.chars.len()
+    }
+
+    fn peek(self) -> string {
+        self.chars[self.pos]
+    }
+
+    fn advance(self) -> string {
+        let c = self.chars[self.pos]
+        self.pos += 1
+        c
+    }
+
+    fn skip_whitespace(self) {
+        while not self.done() {
+            if is_whitespace(self.peek()) {
+                self.pos += 1
+            } else {
+                return nil
+            }
+        }
+    }
+
+    fn expect(self, expected: string) -> result<void, string> {
+        for ch in expected.chars() {
+            if self.done() {
+                return .err("unexpected end of input, expected '" .. expected .. "'")
+            }
+            let got = self.advance()
+            if got != ch {
+                return .err("expected '" .. expected .. "', got '" .. got .. "'")
+            }
+        }
+        .ok(nil)
+    }
+
+    fn parse_value(self) -> result<JsonValue, string> {
+        self.skip_whitespace()
+        if self.done() {
+            return .err("unexpected end of input")
+        }
+        let c = self.peek()
+        if c == "\"" {
+            let s = self.parse_string()?
+            let val: JsonValue = .Str(s)
+            .ok(val)
+        } else if c == "{" {
+            self.parse_object()
+        } else if c == "[" {
+            self.parse_array()
+        } else if c == "t" {
+            self.expect("true")?
+            let val: JsonValue = .Bool(true)
+            .ok(val)
+        } else if c == "f" {
+            self.expect("false")?
+            let val: JsonValue = .Bool(false)
+            .ok(val)
+        } else if c == "n" {
+            self.expect("null")?
+            let val: JsonValue = .Null
+            .ok(val)
+        } else if c == "-" or is_digit(c) {
+            self.parse_number()
+        } else {
+            .err("unexpected character: '" .. c .. "'")
+        }
+    }
+
+    fn parse_string(self) -> result<string, string> {
+        self.expect("\"")?
+        var result_str = ""
+        while not self.done() {
+            let c = self.advance()
+            if c == "\"" {
+                return .ok(result_str)
+            } else if c == "\\" {
+                if self.done() {
+                    return .err("unexpected end of input in string escape")
+                }
+                let escaped = self.advance()
+                if escaped == "\"" {
+                    result_str = result_str .. "\""
+                } else if escaped == "\\" {
+                    result_str = result_str .. "\\"
+                } else if escaped == "/" {
+                    result_str = result_str .. "/"
+                } else if escaped == "n" {
+                    result_str = result_str .. "\n"
+                } else if escaped == "r" {
+                    result_str = result_str .. "\r"
+                } else if escaped == "t" {
+                    result_str = result_str .. "\t"
+                } else if escaped == "b" {
+                    result_str = result_str .. ""
+                } else if escaped == "f" {
+                    result_str = result_str .. ""
+                } else if escaped == "u" {
+                    // skip 4 hex digits, emit replacement char
+                    var i = 0
+                    while i < 4 and not self.done() {
+                        self.advance()
+                        i += 1
+                    }
+                    result_str = result_str .. "?"
+                } else {
+                    return .err("unknown escape sequence: \\" .. escaped)
+                }
+            } else {
+                result_str = result_str .. c
+            }
+        }
+        .err("unterminated string")
+    }
+
+    fn parse_number(self) -> result<JsonValue, string> {
+        var num_str = ""
+        // optional minus
+        if not self.done() and self.peek() == "-" {
+            num_str = num_str .. self.advance()
+        }
+        // integer part
+        if self.done() {
+            return .err("unexpected end of input in number")
+        }
+        num_str = num_str .. self.parse_digits()?
+        // optional fraction
+        if not self.done() and self.peek() == "." {
+            num_str = num_str .. self.advance()
+            num_str = num_str .. self.parse_digits()?
+        }
+        // optional exponent
+        if not self.done() and (self.peek() == "e" or self.peek() == "E") {
+            num_str = num_str .. self.advance()
+            if not self.done() and (self.peek() == "+" or self.peek() == "-") {
+                num_str = num_str .. self.advance()
+            }
+            num_str = num_str .. self.parse_digits()?
+        }
+        match num_str.to_float() {
+            .some(f) -> {
+                let val: JsonValue = .Number(f)
+                .ok(val)
+            }
+            .none -> .err("invalid number: " .. num_str)
+        }
+    }
+
+    fn parse_digits(self) -> result<string, string> {
+        var digits = ""
+        while not self.done() {
+            let c = self.peek()
+            if is_digit(c) {
+                digits = digits .. self.advance()
+            } else {
+                break
+            }
+        }
+        if digits.len() == 0 {
+            return .err("expected digit")
+        }
+        .ok(digits)
+    }
+
+    fn parse_array(self) -> result<JsonValue, string> {
+        self.expect("[")?
+        self.skip_whitespace()
+        let arr: array<JsonValue> = []
+        if not self.done() and self.peek() == "]" {
+            self.advance()
+            let val: JsonValue = .Array(arr)
+            return .ok(val)
+        }
+        // first element
+        let first = self.parse_value()?
+        arr.push(first)
+        self.skip_whitespace()
+        // remaining elements
+        while not self.done() and self.peek() == "," {
+            self.advance()
+            let elem = self.parse_value()?
+            arr.push(elem)
+            self.skip_whitespace()
+        }
+        if self.done() or self.peek() != "]" {
+            return .err("expected ']'")
+        }
+        self.advance()
+        let val: JsonValue = .Array(arr)
+        .ok(val)
+    }
+
+    fn parse_object(self) -> result<JsonValue, string> {
+        self.expect("{")?
+        self.skip_whitespace()
+        let m: map<string, JsonValue> = map.new()
+        if not self.done() and self.peek() == "}" {
+            self.advance()
+            let val: JsonValue = .Object(m)
+            return .ok(val)
+        }
+        // first key-value
+        self.skip_whitespace()
+        let first_key = self.parse_string()?
+        self.skip_whitespace()
+        if self.done() or self.peek() != ":" {
+            return .err("expected ':'")
+        }
+        self.advance()
+        let first_val = self.parse_value()?
+        m.insert(first_key, first_val)
+        self.skip_whitespace()
+        // remaining key-values
+        while not self.done() and self.peek() == "," {
+            self.advance()
+            self.skip_whitespace()
+            let key = self.parse_string()?
+            self.skip_whitespace()
+            if self.done() or self.peek() != ":" {
+                return .err("expected ':'")
+            }
+            self.advance()
+            let val = self.parse_value()?
+            m.insert(key, val)
+            self.skip_whitespace()
+        }
+        if self.done() or self.peek() != "}" {
+            return .err("expected '}'")
+        }
+        self.advance()
+        let val: JsonValue = .Object(m)
+        .ok(val)
+    }
+}
+
+// --- Public API ---
+
+fn parse(s: string) -> result<JsonValue, string> {
+    let p = Parser.new(s)
+    let val = p.parse_value()?
+    p.skip_whitespace()
+    if not p.done() {
+        return .err("trailing characters after JSON value")
+    }
+    .ok(val)
+}
+
+fn stringify(v: JsonValue) -> string {
+    match v {
+        .Null -> "null"
+        .Bool(b) -> if b { "true" } else { "false" }
+        .Number(n) -> {
+            // if the float is a whole number, print without decimal
+            let i = float_to_int(n)
+            if int_to_float(i) == n and n >= -9007199254740992.0 \
+                and n <= 9007199254740992.0 {
+                "" .. i
+            } else {
+                "" .. n
+            }
+        }
+        .Str(s) -> "\"" .. escape_string(s) .. "\""
+        .Array(arr) -> {
+            var out = "["
+            for i in arr.len() {
+                if i > 0 {
+                    out = out .. ","
+                }
+                out = out .. stringify(arr[i])
+            }
+            out .. "]"
+        }
+        .Object(m) -> {
+            stringify_object(m)
+        }
+    }
+}
+
+fn stringify_pretty(v: JsonValue) -> string {
+    stringify_indent(v, 0)
+}
+
+fn stringify_indent(v: JsonValue, level: int) -> string {
+    match v {
+        .Null -> "null"
+        .Bool(b) -> if b { "true" } else { "false" }
+        .Number(n) -> {
+            let i = float_to_int(n)
+            if int_to_float(i) == n and n >= -9007199254740992.0 \
+                and n <= 9007199254740992.0 {
+                "" .. i
+            } else {
+                "" .. n
+            }
+        }
+        .Str(s) -> "\"" .. escape_string(s) .. "\""
+        .Array(arr) -> {
+            if arr.len() == 0 {
+                return "[]"
+            }
+            var out = "[\n"
+            for i in arr.len() {
+                out = out .. indent_str(level + 1) .. stringify_indent(arr[i], level + 1)
+                if i < arr.len() - 1 {
+                    out = out .. ","
+                }
+                out = out .. "\n"
+            }
+            out .. indent_str(level) .. "]"
+        }
+        .Object(m) -> {
+            stringify_object_indent(m, level)
+        }
+    }
+}
+
+fn stringify_object(m: map<string, JsonValue>) -> string {
+    if m.len() == 0 {
+        return "{}"
+    }
+    var out = "{"
+    var first = true
+    for i in m.entry_keys.len() {
+        if m.entry_occupied[i] {
+            if not first {
+                out = out .. ","
+            }
+            out = out .. "\"" .. escape_string(m.entry_keys[i]) .. "\":"
+            out = out .. stringify(m.entry_values[i])
+            first = false
+        }
+    }
+    out .. "}"
+}
+
+fn stringify_object_indent(m: map<string, JsonValue>, level: int) -> string {
+    if m.len() == 0 {
+        return "{}"
+    }
+    var out = "{\n"
+    var first = true
+    for i in m.entry_keys.len() {
+        if m.entry_occupied[i] {
+            if not first {
+                out = out .. ","
+                out = out .. "\n"
+            }
+            out = out .. indent_str(level + 1)
+            out = out .. "\"" .. escape_string(m.entry_keys[i]) .. "\": "
+            out = out .. stringify_indent(m.entry_values[i], level + 1)
+            first = false
+        }
+    }
+    out .. "\n" .. indent_str(level) .. "}"
+}

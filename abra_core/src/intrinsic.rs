@@ -63,6 +63,11 @@ pub enum IntrinsicOperation {
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
 
+    LessThanString,
+    LessThanOrEqualString,
+    GreaterThanString,
+    GreaterThanOrEqualString,
+
     EqualInt,
     EqualFloat,
     EqualString,
@@ -169,7 +174,11 @@ impl IntrinsicOperation {
                 reason.clone(),
             ),
 
-            IntrinsicOperation::EqualString => TypeVar::make_func(
+            IntrinsicOperation::LessThanString
+            | IntrinsicOperation::LessThanOrEqualString
+            | IntrinsicOperation::GreaterThanString
+            | IntrinsicOperation::GreaterThanOrEqualString
+            | IntrinsicOperation::EqualString => TypeVar::make_func(
                 vec![
                     TypeVar::make_string(reason.clone()),
                     TypeVar::make_string(reason.clone()),

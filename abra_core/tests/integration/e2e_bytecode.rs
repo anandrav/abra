@@ -1691,6 +1691,31 @@ fn equal_string() {
 }
 
 #[test]
+fn compare_strings() {
+    let cases = vec![
+        (r#" "abc" < "abd" "#, true),
+        (r#" "b" > "a" "#, true),
+        (r#" "abc" <= "abc" "#, true),
+        (r#" "abc" >= "abd" "#, false),
+        (r#" "ab" < "abc" "#, true),
+        (r#" "abc" > "ab" "#, true),
+        (r#" "abc" <= "ab" "#, false),
+        (r#" "" < "a" "#, true),
+        (r#" "a" >= "a" "#, true),
+    ];
+    for (src, expected) in cases {
+        let program = unwrap_or_panic(compile_bytecode(
+            "main.abra",
+            MockFileProvider::single_file(src),
+        ));
+        let mut vm = Vm::new(program);
+        vm.run();
+        let top = vm.top();
+        assert_eq!(top.get_bool(&vm), expected, "failed for: {}", src);
+    }
+}
+
+#[test]
 fn comments() {
     let src = r#"
 // single-line comment

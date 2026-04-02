@@ -491,6 +491,10 @@ pub enum Instr {
     EqualFloatImm(u16, u16, u16),
     EqualBool(u16, u16, u16),
     EqualString(u16, u16, u16),
+    LessThanString(u16, u16, u16),
+    LessThanOrEqualString(u16, u16, u16),
+    GreaterThanString(u16, u16, u16),
+    GreaterThanOrEqualString(u16, u16, u16),
 
     // Control Flow
     Jump(ProgramCounter),
@@ -1521,6 +1525,103 @@ impl Vm {
                 else if a.len() != b.len()
                     || a.as_bytes()[self.string_op_index1] != b.as_bytes()[self.string_op_index1]
                 {
+                    self.store_offset_or_top(dest, false);
+                    self.string_op_index1 = 0;
+                } else {
+                    self.pc.0 -= 1;
+                    self.string_op_index1 += 1;
+                }
+            }
+            Instr::LessThanString(dest, reg1, reg2) => {
+                if self.string_op_index1 == 0 {
+                    self.string_operand2 = self.load_offset_or_top(reg2);
+                    self.string_operand1 = self.load_offset_or_top(reg1);
+                }
+                let b = self.string_operand2.view_string(self);
+                let a = self.string_operand1.view_string(self);
+                let a_bytes = a.as_bytes();
+                let b_bytes = b.as_bytes();
+                let idx = self.string_op_index1;
+                if idx == a_bytes.len() || idx == b_bytes.len() {
+                    // one or both strings exhausted
+                    self.store_offset_or_top(dest, a_bytes.len() < b_bytes.len());
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] < b_bytes[idx] {
+                    self.store_offset_or_top(dest, true);
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] > b_bytes[idx] {
+                    self.store_offset_or_top(dest, false);
+                    self.string_op_index1 = 0;
+                } else {
+                    self.pc.0 -= 1;
+                    self.string_op_index1 += 1;
+                }
+            }
+            Instr::LessThanOrEqualString(dest, reg1, reg2) => {
+                if self.string_op_index1 == 0 {
+                    self.string_operand2 = self.load_offset_or_top(reg2);
+                    self.string_operand1 = self.load_offset_or_top(reg1);
+                }
+                let b = self.string_operand2.view_string(self);
+                let a = self.string_operand1.view_string(self);
+                let a_bytes = a.as_bytes();
+                let b_bytes = b.as_bytes();
+                let idx = self.string_op_index1;
+                if idx == a_bytes.len() || idx == b_bytes.len() {
+                    self.store_offset_or_top(dest, a_bytes.len() <= b_bytes.len());
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] < b_bytes[idx] {
+                    self.store_offset_or_top(dest, true);
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] > b_bytes[idx] {
+                    self.store_offset_or_top(dest, false);
+                    self.string_op_index1 = 0;
+                } else {
+                    self.pc.0 -= 1;
+                    self.string_op_index1 += 1;
+                }
+            }
+            Instr::GreaterThanString(dest, reg1, reg2) => {
+                if self.string_op_index1 == 0 {
+                    self.string_operand2 = self.load_offset_or_top(reg2);
+                    self.string_operand1 = self.load_offset_or_top(reg1);
+                }
+                let b = self.string_operand2.view_string(self);
+                let a = self.string_operand1.view_string(self);
+                let a_bytes = a.as_bytes();
+                let b_bytes = b.as_bytes();
+                let idx = self.string_op_index1;
+                if idx == a_bytes.len() || idx == b_bytes.len() {
+                    self.store_offset_or_top(dest, a_bytes.len() > b_bytes.len());
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] > b_bytes[idx] {
+                    self.store_offset_or_top(dest, true);
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] < b_bytes[idx] {
+                    self.store_offset_or_top(dest, false);
+                    self.string_op_index1 = 0;
+                } else {
+                    self.pc.0 -= 1;
+                    self.string_op_index1 += 1;
+                }
+            }
+            Instr::GreaterThanOrEqualString(dest, reg1, reg2) => {
+                if self.string_op_index1 == 0 {
+                    self.string_operand2 = self.load_offset_or_top(reg2);
+                    self.string_operand1 = self.load_offset_or_top(reg1);
+                }
+                let b = self.string_operand2.view_string(self);
+                let a = self.string_operand1.view_string(self);
+                let a_bytes = a.as_bytes();
+                let b_bytes = b.as_bytes();
+                let idx = self.string_op_index1;
+                if idx == a_bytes.len() || idx == b_bytes.len() {
+                    self.store_offset_or_top(dest, a_bytes.len() >= b_bytes.len());
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] > b_bytes[idx] {
+                    self.store_offset_or_top(dest, true);
+                    self.string_op_index1 = 0;
+                } else if a_bytes[idx] < b_bytes[idx] {
                     self.store_offset_or_top(dest, false);
                     self.string_op_index1 = 0;
                 } else {
