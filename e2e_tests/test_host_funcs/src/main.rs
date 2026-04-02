@@ -29,10 +29,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
     handle_host_func(&mut vm, host_func_args);
     vm.run();
+    let status = vm.status();
+    let VmStatus::PendingHostFunc(i) = status else { panic!() };
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
+    handle_host_func(&mut vm, host_func_args);
+    vm.run();
+    let status = vm.status();
+    let VmStatus::PendingHostFunc(i) = status else { panic!() };
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
+    handle_host_func(&mut vm, host_func_args);
+    vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 28);
+    // 28 (from before) + 30 (p.age) + 42 (bl.n) = 100
+    assert_eq!(top.get_int(&vm), 100);
 
-    // prevent warning
+    // prevent warning for unused Color type (not yet tested via host functions)
     let _ = Color::Red;
 
     Ok(())
@@ -61,6 +72,12 @@ fn handle_host_func(vm: &mut Vm, host_func_args: HostFunctionArgs) {
         }
         HostFunctionArgs::Bar(n1, n2) => {
             HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(vm);
+        }
+        HostFunctionArgs::MakePerson(name, age) => {
+            HostFunctionRet::MakePerson(Person { name, age }).into_vm(vm);
+        }
+        HostFunctionArgs::GetBlah => {
+            HostFunctionRet::GetBlah(Blah { n: 42 }).into_vm(vm);
         }
     }
 }

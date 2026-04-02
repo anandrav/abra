@@ -6,4 +6,8 @@ let (x, y) = bar(2, 3)
 let b = bar
 let (u, v) = b(4, 5)
 
-x + y + u + v
+// test host types: Person and Blah
+let p = make_person("Alice", 30)
+let bl = get_blah()
+
+x + y + u + v + p.age + bl.n

@@ -9,9 +9,14 @@ fn foo(a: int, b: string) -> int
 #host
 fn bar(a: int, b: int) -> (int, int)
 
-// TODO: actually use this type. Pass it back and forth
 #host
 type Color =
     | Red
     | Blue
     | Green
+
+#host
+fn make_person(name: string, age: int) -> Person
+
+#host
+fn get_blah() -> Blah
