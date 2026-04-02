@@ -271,7 +271,7 @@ fn main() {
         code
     } else {
         let fname = args[0]
-        let code = fread(fname)!
+        let code = read(fname)!
         code
     }
 

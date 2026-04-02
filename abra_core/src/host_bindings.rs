@@ -576,6 +576,19 @@ impl VmType for String {
     }
 }
 
+// WARNING: In lots of situations, Abra `void` type doesn't take up space on the stack
+// This conversion is only used when converting an enum like, for instance, result<void, string>
+// This is because enum variants always need a Value, even if the value is `nil`
+impl VmType for () {
+    fn from_vm(vm: &mut Vm) -> Self {
+        vm.pop();
+    }
+
+    fn to_vm(self, vm: &mut Vm) {
+        vm.push_int(0);
+    }
+}
+
 impl<T> VmType for Option<T>
 where
     T: VmType,

@@ -1,0 +1,117 @@
+use core/fs
+
+fn main() -> result<void, FsError> {
+    // ── write and read ──
+    write("_test_fs_tmp.txt", "hello world")?
+    let contents = read("_test_fs_tmp.txt")?
+    println(contents)
+
+    // ── append ──
+    append("_test_fs_tmp.txt", "line2")?
+    let contents2 = read("_test_fs_tmp.txt")?
+    println(contents2)
+
+    // ── exists ──
+    println(exists("_test_fs_tmp.txt")?)
+    println(exists("_test_fs_nonexistent.txt")?)
+
+    // ── copy and rename ──
+    copy("_test_fs_tmp.txt", "_test_fs_copy.txt")?
+    println(exists("_test_fs_copy.txt")?)
+    rename("_test_fs_copy.txt", "_test_fs_renamed.txt")?
+    println(exists("_test_fs_copy.txt")?)
+    println(exists("_test_fs_renamed.txt")?)
+
+    // ── remove ──
+    remove("_test_fs_tmp.txt")?
+    remove("_test_fs_renamed.txt")?
+    println(exists("_test_fs_tmp.txt")?)
+    println(exists("_test_fs_renamed.txt")?)
+
+    // ── mkdir, is_dir, is_file ──
+    mkdir("_test_fs_dir")?
+    println(is_dir("_test_fs_dir"))
+    println(is_file("_test_fs_dir"))
+
+    // ── list_dir ──
+    write("_test_fs_dir/a.txt", "a")?
+    write("_test_fs_dir/b.txt", "b")?
+    let files = list_dir("_test_fs_dir")?
+    println(files.len())
+
+    // ── rmdir_all ──
+    rmdir_all("_test_fs_dir")?
+    println(exists("_test_fs_dir")?)
+
+    // ── mkdir_all (nested) ──
+    mkdir_all("_test_fs_dir/nested/deep")?
+    println(is_dir("_test_fs_dir/nested/deep"))
+    rmdir_all("_test_fs_dir")?
+
+    // ── is_file ──
+    write("_test_fs_meta.txt", "x")?
+    println(is_file("_test_fs_meta.txt"))
+    println(is_dir("_test_fs_meta.txt"))
+    remove("_test_fs_meta.txt")?
+
+    // ── path manipulation ──
+    println(join("foo", "bar.txt"))
+    println(parent("/a/b/c.txt"))
+    println(filename("/a/b/c.txt"))
+    println(extension("/a/b/c.txt"))
+    println(stem("/a/b/c.txt"))
+    println(extension("noext"))
+    println(parent("lonely"))
+
+    // ── getcwd and temp_dir ──
+    let cwd = getcwd()?
+    println(is_dir(cwd))
+    println(is_dir(temp_dir()))
+
+    // ── error handling: pattern match on FsError variants ──
+    println(check_read_error())
+    println(check_remove_error())
+    println(check_mkdir_error())
+
+    // ── ToString for FsError ──
+    println(check_tostring())
+
+    result.ok(nil)
+}
+
+fn check_read_error() -> string {
+    let r: result<string, FsError> = read("_test_fs_nonexistent_12345.txt")
+    match r {
+        result.ok(_) -> "unexpected ok"
+        result.err(FsError.NotFound(_)) -> "caught not found"
+        result.err(_) -> "wrong error kind"
+    }
+}
+
+fn check_remove_error() -> string {
+    let r: result<void, FsError> = remove("_test_fs_nonexistent_12345.txt")
+    match r {
+        result.ok(_) -> "unexpected ok"
+        result.err(FsError.NotFound(_)) -> "caught not found"
+        result.err(_) -> "wrong error kind"
+    }
+}
+
+fn check_mkdir_error() -> string {
+    let r: result<void, FsError> = mkdir("_test_fs_dir/nested/deep")
+    match r {
+        result.ok(_) -> "unexpected ok"
+        result.err(FsError.NotFound(_)) -> "caught not found"
+        result.err(_) -> "wrong error kind"
+    }
+}
+
+fn check_tostring() -> string {
+    let r: result<string, FsError> = read("_test_fs_no_such_file.txt")
+    match r {
+        result.ok(_) -> "unexpected ok"
+        result.err(e) -> ToString.str(e)
+    }
+}
+
+main()!

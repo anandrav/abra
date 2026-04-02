@@ -1,13 +1,76 @@
-#foreign fn fread(path: string) -> option<string>
+#foreign
+type FsError =
+    | NotFound(string)
+    | PermissionDenied(string)
+    | AlreadyExists(string)
+    | Other(string)
 
-#foreign fn fwrite(path: string, contents: string) -> void
+implement ToString for FsError {
+    fn str(e) {
+        match e {
+            .NotFound(msg) -> "not found: " .. msg
+            .PermissionDenied(msg) -> "permission denied: " .. msg
+            .AlreadyExists(msg) -> "already exists: " .. msg
+            .Other(msg) -> msg
+        }
+    }
+}
 
-#foreign fn fexists(path: string) -> bool
+// ── File I/O ──
 
-#foreign fn fremove(path: string) -> void
+// Read the entire contents of a file as a string
+#foreign fn read(path: string) -> result<string, FsError>
+// Write a string to a file, creating it if it doesn't exist or truncating it if it does
+#foreign fn write(path: string, contents: string) -> result<void, FsError>
+// Append a line to a file, creating it if it doesn't exist
+#foreign fn append(path: string, contents: string) -> result<void, FsError>
+// Copy a file from src to dest
+#foreign fn copy(src: string, dest: string) -> result<void, FsError>
+// Rename or move a file or directory
+#foreign fn rename(old_path: string, new_path: string) -> result<void, FsError>
+// Delete a file
+#foreign fn remove(path: string) -> result<void, FsError>
+// Check whether a path exists on disk
+#foreign fn exists(path: string) -> result<bool, FsError>
 
-#foreign fn frename(old_path: string, new_path: string) -> void
+// ── Directory operations ──
 
-#foreign fn fcopy(src: string, dest: string) -> void
+// Create a directory (parent must exist)
+#foreign fn mkdir(path: string) -> result<void, FsError>
+// Create a directory and all missing parent directories
+#foreign fn mkdir_all(path: string) -> result<void, FsError>
+// Remove an empty directory
+#foreign fn rmdir(path: string) -> result<void, FsError>
+// Remove a directory and all its contents recursively
+#foreign fn rmdir_all(path: string) -> result<void, FsError>
+// List the entries in a directory, returning their full paths
+#foreign fn list_dir(path: string) -> result<array<string>, FsError>
 
-#foreign fn fappend(path: string, contents: string) -> void
+// ── Metadata ──
+
+// Return true if path is a regular file
+#foreign fn is_file(path: string) -> bool
+// Return true if path is a directory
+#foreign fn is_dir(path: string) -> bool
+
+// ── Path manipulation ──
+
+// Join two path components with the platform separator
+#foreign fn join(base: string, child: string) -> string
+// Return the parent directory of a path, or none for a root/bare name
+#foreign fn parent(path: string) -> option<string>
+// Return the final component of a path (file or directory name)
+#foreign fn filename(path: string) -> option<string>
+// Return the file extension without the leading dot
+#foreign fn extension(path: string) -> option<string>
+// Return the file name without its extension
+#foreign fn stem(path: string) -> option<string>
+// Resolve a path to an absolute path (the path must exist)
+#foreign fn absolute(path: string) -> result<string, FsError>
+
+// ── Environment ──
+
+// Return the current working directory
+#foreign fn getcwd() -> result<string, FsError>
+// Return the system temporary directory
+#foreign fn temp_dir() -> string

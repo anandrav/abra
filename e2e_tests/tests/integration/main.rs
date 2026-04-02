@@ -34,6 +34,54 @@ true
 }
 
 #[test]
+fn test_fs() {
+    command!("cargo build --package abra_module_core").unwrap();
+    let output = command!(
+        "cargo run --package abra_cli --bin abra -- --standard-modules ../modules fs.abra"
+    )
+    .unwrap();
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    println!("{stdout_str}");
+    let stderr_str = String::from_utf8(output.stderr).unwrap();
+    println!("{stderr_str}");
+    assert_eq!(
+        stdout_str,
+        r#"hello world
+hello worldline2
+
+true
+false
+true
+false
+true
+false
+false
+true
+false
+2
+false
+true
+true
+false
+foo/bar.txt
+some(/a/b)
+some(c.txt)
+some(txt)
+some(c)
+none
+some()
+true
+true
+caught not found
+caught not found
+caught not found
+not found: No such file or directory (os error 2)
+"#
+    );
+}
+
+#[test]
 fn test_host_funcs() {
     let output = command!("cargo run --package test_host_funcs").unwrap();
     let stdout_str = String::from_utf8_lossy(&output.stdout);

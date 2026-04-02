@@ -635,6 +635,8 @@ pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
                 s = "Option".into();
             } else if s == "array" {
                 s = "Vec".into();
+            } else if s == "result" {
+                s = "Result".into();
             }
             s.push('<');
             for param in params {
@@ -793,6 +795,23 @@ impl VmFfiType for String {
         unsafe {
             let string_view = StringView::from_string(&self);
             (vm_funcs.push_string)(vm, string_view);
+        }
+    }
+}
+
+// WARNING: In lots of situations, Abra `void` type doesn't take up space on the stack
+// This conversion is only used when converting an enum like, for instance, result<void, string>
+// This is because enum variants always need a Value, even if the value is `nil`
+impl VmFfiType for () {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        unsafe {
+            (vm_funcs.pop)(vm);
+        }
+    }
+
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+        unsafe {
+            (vm_funcs.push_int)(vm, 0);
         }
     }
 }
