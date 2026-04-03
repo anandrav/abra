@@ -1,8 +1,12 @@
-#compdef -P abra
+#compdef abra
 
 local curcontext="$curcontext" state state_descr line
 typeset -A opt_args
 
 _arguments -C -s -S \
+  '--standard-modules[Override the default standard modules directory]:directory:_directories' \
+  '(-a --assembly)'{-a,--assembly}'[Print the assembly for the Abra program]' \
+  '(-i --import-dir)'{-i,--import-dir}'[Provide an import directory]:directory:_directories' \
+  '(-h --help)'{-h,--help}'[Print help]' \
   '1:abra source file:_files -g "*.abra"' \
-  '*::program input file:_files' && return
+  '*:program arguments:' && return

@@ -298,7 +298,7 @@ impl Translator {
     pub(crate) fn dump_assembly(&self) {
         let st = self.translate_to_assembly();
         for line in st.lines.iter() {
-            dlog!("{}", line);
+            println!("{}", line);
         }
     }
 

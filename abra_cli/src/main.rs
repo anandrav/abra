@@ -95,6 +95,7 @@ fn print_help() {
 
 {title}{bold}Options:{reset}
     {cyan}--standard-modules <DIRECTORY>{reset}     Override the default standard modules directory
+    {cyan}-i, --import-dir <DIRECTORY>{reset}        Provide an import directory
     {cyan}-a, --assembly{reset}                     Print the assembly for the Abra program
     {cyan}-h, --help{reset}                         Print help"
     );
