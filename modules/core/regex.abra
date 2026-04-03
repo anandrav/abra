@@ -1,0 +1,49 @@
+#foreign
+type Match = {
+    text: string
+    start: int
+    end: int
+}
+
+implement ToString for Match {
+    fn str(self) -> string {
+        self.text
+    }
+}
+
+// test if a string matches a pattern
+#foreign
+fn matches(s: string, pattern: string) -> bool
+
+// find the first match of a pattern in a string
+#foreign
+fn find(s: string, pattern: string) -> option<Match>
+
+// find all non-overlapping matches of a pattern in a string
+#foreign
+fn find_all(s: string, pattern: string) -> array<Match>
+
+// replace all matches of a pattern with a replacement string
+// use $1, $2, etc. in replacement to refer to capture groups
+#foreign
+fn replace(s: string, pattern: string, replacement: string) -> string
+
+// replace only the first match
+#foreign
+fn replace_first(s: string, pattern: string, replacement: string) -> string
+
+// split a string by a pattern
+#foreign
+fn split(s: string, pattern: string) -> array<string>
+
+// extract capture groups from the first match
+// returns an array of options, one per group (index 0 is the full match)
+#foreign
+fn captures(s: string, pattern: string) -> option<array<option<string>>>
+
+// extract named capture groups from the first match
+// returns an array of (name, value) pairs for each named group that matched
+#foreign
+fn named_captures(s: string, pattern: string) -> option<array<(string, string)>>
+
+// TODO: add replace_fn(s, pattern, f) that takes a callback once FFI supports function parameters

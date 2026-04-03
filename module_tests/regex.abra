@@ -1,0 +1,164 @@
+use core/regex
+
+fn check(cond: bool, msg: string) -> result<void, string> {
+    if cond { result.ok(nil) } else { result.err(msg) }
+}
+
+type TestRunner = { failed: int }
+
+extend TestRunner {
+    fn new() -> TestRunner { TestRunner(0) }
+
+    fn run(self, name: string, r: result<void, E ToString>) {
+        print("  regex::" .. name .. " ... ")
+        match r {
+            result.ok(_) -> println("ok")
+            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+        }
+    }
+
+    fn finish(self) {
+        if self.failed > 0 {
+            panic(self.failed .. " test(s) failed")
+        }
+    }
+}
+
+let t = TestRunner.new()
+t.run("matches_basic", test_matches_basic())
+t.run("matches_no_match", test_matches_no_match())
+t.run("find_basic", test_find_basic())
+t.run("find_no_match", test_find_no_match())
+t.run("find_all", test_find_all())
+t.run("replace_all", test_replace_all())
+t.run("replace_first", test_replace_first())
+t.run("replace_with_groups", test_replace_with_groups())
+t.run("split", test_split())
+t.run("captures", test_captures())
+t.run("captures_optional_group", test_captures_optional_group())
+t.run("captures_no_match", test_captures_no_match())
+t.run("named_captures", test_named_captures())
+t.run("named_captures_no_match", test_named_captures_no_match())
+t.run("named_captures_no_names", test_named_captures_no_names())
+t.run("invalid_pattern", test_invalid_pattern())
+t.finish()
+
+fn test_matches_basic() -> result<void, string> {
+    check(matches("hello world", "\\bworld\\b"), "should match word")?
+    check(matches("abc123", "^[a-z]+\\d+$"), "should match full pattern")?
+    result.ok(nil)
+}
+
+fn test_matches_no_match() -> result<void, string> {
+    check(not matches("hello", "\\d+"), "should not match digits in hello")?
+    result.ok(nil)
+}
+
+fn test_find_basic() -> result<void, string> {
+    let m = find("hello 42 world", "\\d+")
+    check(m.is_some(), "should find digits")?
+    let m = m!
+    check(m.text == "42", "text should be 42")?
+    check(m.start == 6, "start should be 6")?
+    check(m.end == 8, "end should be 8")?
+    result.ok(nil)
+}
+
+fn test_find_no_match() -> result<void, string> {
+    check(find("hello", "\\d+").is_none(), "should return none")?
+    result.ok(nil)
+}
+
+fn test_find_all() -> result<void, string> {
+    let ms = find_all("a1 b2 c3", "\\d+")
+    check(ms.len() == 3, "should find 3 matches")?
+    check(ms[0].text == "1", "first match")?
+    check(ms[1].text == "2", "second match")?
+    check(ms[2].text == "3", "third match")?
+    result.ok(nil)
+}
+
+fn test_replace_all() -> result<void, string> {
+    let r = replace("foo bar foo", "foo", "baz")
+    check(r == "baz bar baz", "should replace all: " .. r)?
+    result.ok(nil)
+}
+
+fn test_replace_first() -> result<void, string> {
+    let r = replace_first("foo bar foo", "foo", "baz")
+    check(r == "baz bar foo", "should replace first only: " .. r)?
+    result.ok(nil)
+}
+
+fn test_replace_with_groups() -> result<void, string> {
+    let r = replace("2024-01-15", "(\\d{4})-(\\d{2})-(\\d{2})", "$2/$3/$1")
+    check(r == "01/15/2024", "should reorder with groups: " .. r)?
+    result.ok(nil)
+}
+
+fn test_split() -> result<void, string> {
+    let parts = split("one,,two,,,three", ",+")
+    check(parts.len() == 3, "should split into 3 parts")?
+    check(parts[0] == "one", "first part")?
+    check(parts[1] == "two", "second part")?
+    check(parts[2] == "three", "third part")?
+    result.ok(nil)
+}
+
+fn test_captures() -> result<void, string> {
+    let caps = captures("2024-01-15", "(\\d{4})-(\\d{2})-(\\d{2})")
+    check(caps.is_some(), "should capture")?
+    let caps = caps!
+    check(caps.len() == 4, "should have 4 groups (full + 3)")?
+    check(caps[0]! == "2024-01-15", "full match")?
+    check(caps[1]! == "2024", "year")?
+    check(caps[2]! == "01", "month")?
+    check(caps[3]! == "15", "day")?
+    result.ok(nil)
+}
+
+fn test_captures_optional_group() -> result<void, string> {
+    let caps = captures("abc", "(a)(b)(x)?")
+    check(caps.is_some(), "should match")?
+    let caps = caps!
+    check(caps[1]! == "a", "first group")?
+    check(caps[2]! == "b", "second group")?
+    check(caps[3].is_none(), "optional group should be none")?
+    result.ok(nil)
+}
+
+fn test_captures_no_match() -> result<void, string> {
+    check(captures("hello", "(\\d+)").is_none(), "should return none")?
+    result.ok(nil)
+}
+
+fn test_named_captures() -> result<void, string> {
+    let caps = named_captures("2024-01-15", "(?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2})")
+    check(caps.is_some(), "should capture")?
+    let caps = caps!
+    check(caps.len() == 3, "should have 3 named groups")?
+    check(caps[0] == ("year", "2024"), "year")?
+    check(caps[1] == ("month", "01"), "month")?
+    check(caps[2] == ("day", "15"), "day")?
+    result.ok(nil)
+}
+
+fn test_named_captures_no_match() -> result<void, string> {
+    check(named_captures("hello", "(?P<num>\\d+)").is_none(), "should return none")?
+    result.ok(nil)
+}
+
+fn test_named_captures_no_names() -> result<void, string> {
+    check(named_captures("hello", "(\\w+)").is_none(), "no named groups should return none")?
+    result.ok(nil)
+}
+
+fn test_invalid_pattern() -> result<void, string> {
+    check(not matches("hello", "[invalid"), "invalid pattern should not match")?
+    check(find("hello", "[invalid").is_none(), "invalid pattern should return none")?
+    check(find_all("hello", "[invalid").len() == 0, "invalid pattern should return empty")?
+    check(replace("hello", "[invalid", "x") == "hello", "invalid pattern should return original")?
+    check(split("hello", "[invalid").len() == 1, "invalid pattern should return original as single element")?
+    check(captures("hello", "[invalid").is_none(), "invalid pattern should return none")?
+    result.ok(nil)
+}
