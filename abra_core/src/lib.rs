@@ -383,6 +383,20 @@ pub struct DefinitionInfo {
     pub range: Range<usize>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CompletionCandidate {
+    pub label: String,
+    pub kind: CompletionCandidateKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum CompletionCandidateKind {
+    Function,
+    Field,
+    EnumVariant,
+    Type,
+}
+
 /// Run parse + type checking without bytecode translation.
 /// Always returns results, even when there are errors.
 pub fn check(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> AnalysisResult {
@@ -490,6 +504,149 @@ impl AnalysisResult {
         let solved = self.ctx.solution_of_node(node)?;
         Some(format!("{}", solved))
     }
+
+    /// Get completion candidates for dot-access at the given byte offset.
+    /// `offset` should be the position right after the dot character.
+    pub fn completions_at(&self, file_id: FileId, offset: usize) -> Vec<CompletionCandidate> {
+        let file_data = match self.file_db.get(file_id) {
+            Ok(f) => f,
+            Err(_) => return vec![],
+        };
+        let source = &file_data.source;
+
+        // offset is after the dot
+        if offset == 0 {
+            return vec![];
+        }
+        let dot_pos = offset - 1;
+        if source.as_bytes().get(dot_pos) != Some(&b'.') {
+            return vec![];
+        }
+
+        // Extract the identifier before the dot
+        let ident_end = dot_pos;
+        let mut ident_start = ident_end;
+        while ident_start > 0 {
+            let b = source.as_bytes()[ident_start - 1];
+            if b.is_ascii_alphanumeric() || b == b'_' {
+                ident_start -= 1;
+            } else {
+                break;
+            }
+        }
+        if ident_start >= ident_end {
+            return vec![];
+        }
+        let ident_name = &source[ident_start..ident_end];
+
+        let file_ast = match self.file_asts.iter().find(|f| f.loc.file_id == file_id) {
+            Some(f) => f,
+            None => return vec![],
+        };
+
+        // 1. Check imports for namespace completions
+        for item in &file_ast.items {
+            if let ItemKind::Import(path, ast::ImportKind::As(alias)) = &*item.kind
+                && alias.v == ident_name
+                && let Some(ns) = self.ctx.root_namespace.namespaces.get(&path.v)
+            {
+                return namespace_completions(ns);
+            }
+        }
+
+        // 2. Search the AST for Variable nodes with this name, get their types
+        let var_nodes = ast::find_variables_by_name(file_ast, ident_name);
+        for var_node in &var_nodes {
+            if let Some(solved_type) = self.ctx.solution_of_node(var_node.clone()) {
+                let candidates = self.type_completions(&solved_type);
+                if !candidates.is_empty() {
+                    return candidates;
+                }
+            }
+        }
+
+        vec![]
+    }
+
+    fn type_completions(&self, solved_type: &statics::Type) -> Vec<CompletionCandidate> {
+        use statics::typecheck::{Nominal, SolvedType, TypeKey};
+
+        let mut candidates = vec![];
+        match solved_type {
+            SolvedType::Nominal(Nominal::Struct(struct_def), _) => {
+                for field in &struct_def.fields {
+                    candidates.push(CompletionCandidate {
+                        label: field.name.v.clone(),
+                        kind: CompletionCandidateKind::Field,
+                    });
+                }
+                let type_key = TypeKey::TyApp(Nominal::Struct(struct_def.clone()));
+                self.add_member_function_completions(&type_key, &mut candidates);
+            }
+            SolvedType::Nominal(Nominal::Enum(_enum_def), _) => {
+                let type_key = TypeKey::TyApp(Nominal::Enum(_enum_def.clone()));
+                self.add_member_function_completions(&type_key, &mut candidates);
+            }
+            SolvedType::Nominal(Nominal::Array, _) => {
+                self.add_member_function_completions(
+                    &TypeKey::TyApp(Nominal::Array),
+                    &mut candidates,
+                );
+            }
+            SolvedType::Int => {
+                self.add_member_function_completions(&TypeKey::Int, &mut candidates);
+            }
+            SolvedType::Float => {
+                self.add_member_function_completions(&TypeKey::Float, &mut candidates);
+            }
+            SolvedType::String => {
+                self.add_member_function_completions(&TypeKey::String, &mut candidates);
+            }
+            _ => {}
+        }
+        candidates.sort_by(|a, b| a.label.cmp(&b.label));
+        candidates
+    }
+
+    fn add_member_function_completions(
+        &self,
+        type_key: &statics::typecheck::TypeKey,
+        candidates: &mut Vec<CompletionCandidate>,
+    ) {
+        for (tk, name) in self.ctx.member_functions.keys() {
+            if tk == type_key {
+                candidates.push(CompletionCandidate {
+                    label: name.clone(),
+                    kind: CompletionCandidateKind::Function,
+                });
+            }
+        }
+    }
+}
+
+fn namespace_completions(ns: &statics::Namespace) -> Vec<CompletionCandidate> {
+    use statics::Declaration;
+
+    let mut candidates = vec![];
+    for (name, decl) in &ns.declarations {
+        let kind = match decl {
+            Declaration::FreeFunction(_) | Declaration::MemberFunction(_) => {
+                CompletionCandidateKind::Function
+            }
+            Declaration::EnumVariant { .. } => CompletionCandidateKind::EnumVariant,
+            Declaration::Struct(_)
+            | Declaration::Enum(_)
+            | Declaration::BuiltinType(_)
+            | Declaration::InterfaceDef(_) => CompletionCandidateKind::Type,
+            _ => CompletionCandidateKind::Function,
+        };
+        candidates.push(CompletionCandidate {
+            label: name.clone(),
+            kind,
+        });
+    }
+    candidates.sort_by(|a, b| a.label.cmp(&b.label));
+    candidates
 }
 
 fn extract_primary_from_diagnostic(

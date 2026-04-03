@@ -1189,3 +1189,110 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
         | ExprKind::Str(_) => None,
     }
 }
+
+/// Find all Variable expression nodes with the given name in a file AST.
+pub(crate) fn find_variables_by_name(file_ast: &FileAst, name: &str) -> Vec<AstNode> {
+    let mut results = vec![];
+    for item in &file_ast.items {
+        collect_vars_in_item(item, name, &mut results);
+    }
+    results
+}
+
+fn collect_vars_in_item(item: &Rc<Item>, name: &str, out: &mut Vec<AstNode>) {
+    match &*item.kind {
+        ItemKind::FuncDef(func_def) => collect_vars_in_expr(&func_def.body, name, out),
+        ItemKind::Stmt(stmt) => collect_vars_in_stmt(stmt, name, out),
+        ItemKind::InterfaceImpl(iface_impl) => {
+            for method in &iface_impl.methods {
+                collect_vars_in_expr(&method.body, name, out);
+            }
+        }
+        ItemKind::Extension(ext) => {
+            for method in &ext.methods {
+                collect_vars_in_expr(&method.body, name, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_vars_in_stmt(stmt: &Rc<Stmt>, name: &str, out: &mut Vec<AstNode>) {
+    match &*stmt.kind {
+        StmtKind::Let(_, _, expr) => collect_vars_in_expr(expr, name, out),
+        StmtKind::Assign(lhs, _, rhs) => {
+            collect_vars_in_expr(lhs, name, out);
+            collect_vars_in_expr(rhs, name, out);
+        }
+        StmtKind::Expr(expr) | StmtKind::Return(expr) => collect_vars_in_expr(expr, name, out),
+        StmtKind::WhileLoop(cond, body) => {
+            collect_vars_in_expr(cond, name, out);
+            for s in body {
+                collect_vars_in_stmt(s, name, out);
+            }
+        }
+        StmtKind::ForLoop(_, iter, body) => {
+            collect_vars_in_expr(iter, name, out);
+            for s in body {
+                collect_vars_in_stmt(s, name, out);
+            }
+        }
+        StmtKind::Continue | StmtKind::Break => {}
+    }
+}
+
+fn collect_vars_in_expr(expr: &Rc<Expr>, name: &str, out: &mut Vec<AstNode>) {
+    match &*expr.kind {
+        ExprKind::Variable(v) if v == name => {
+            out.push(expr.node());
+        }
+        ExprKind::Variable(_)
+        | ExprKind::Nil
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Bool(_)
+        | ExprKind::Str(_)
+        | ExprKind::MemberAccessLeadingDot(_) => {}
+        ExprKind::BinOp(lhs, _, rhs) => {
+            collect_vars_in_expr(lhs, name, out);
+            collect_vars_in_expr(rhs, name, out);
+        }
+        ExprKind::Unop(_, operand) => collect_vars_in_expr(operand, name, out),
+        ExprKind::FuncAp(func, args) => {
+            collect_vars_in_expr(func, name, out);
+            for arg in args {
+                collect_vars_in_expr(arg, name, out);
+            }
+        }
+        ExprKind::MemberAccess(receiver, _) => collect_vars_in_expr(receiver, name, out),
+        ExprKind::IndexAccess(arr, idx) => {
+            collect_vars_in_expr(arr, name, out);
+            collect_vars_in_expr(idx, name, out);
+        }
+        ExprKind::Block(stmts) => {
+            for s in stmts {
+                collect_vars_in_stmt(s, name, out);
+            }
+        }
+        ExprKind::IfElse(cond, then_branch, else_branch) => {
+            collect_vars_in_expr(cond, name, out);
+            collect_vars_in_stmt(then_branch, name, out);
+            if let Some(else_b) = else_branch {
+                collect_vars_in_stmt(else_b, name, out);
+            }
+        }
+        ExprKind::Match(scrutinee, arms) => {
+            collect_vars_in_expr(scrutinee, name, out);
+            for arm in arms {
+                collect_vars_in_stmt(&arm.stmt, name, out);
+            }
+        }
+        ExprKind::AnonymousFunction(_, _, body) => collect_vars_in_expr(body, name, out),
+        ExprKind::Array(elems) | ExprKind::Tuple(elems) => {
+            for elem in elems {
+                collect_vars_in_expr(elem, name, out);
+            }
+        }
+        ExprKind::Unwrap(inner) | ExprKind::Try(inner) => collect_vars_in_expr(inner, name, out),
+    }
+}

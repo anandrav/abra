@@ -182,8 +182,8 @@ impl StaticsContext {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Namespace {
-    declarations: HashMap<String, Declaration>,
-    namespaces: HashMap<String, Rc<Namespace>>,
+    pub(crate) declarations: HashMap<String, Declaration>,
+    pub(crate) namespaces: HashMap<String, Rc<Namespace>>,
 }
 
 impl Namespace {

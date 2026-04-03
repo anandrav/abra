@@ -3,12 +3,13 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use abra_core::{AnalysisResult, FileData, FileProvider};
+use abra_core::{AnalysisResult, CompletionCandidateKind, FileData, FileProvider};
 use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification as _};
-use lsp_types::request::{GotoDefinition, HoverRequest, Request as _};
+use lsp_types::request::{Completion, GotoDefinition, HoverRequest, Request as _};
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    CompletionItem, CompletionItemKind, CompletionOptions, CompletionResponse, Diagnostic,
+    DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
     GotoDefinitionResponse, Hover, HoverContents, HoverProviderCapability, InitializeParams,
     Location, MarkupContent, MarkupKind, OneOf, Position, Range, ServerCapabilities,
     TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
@@ -22,6 +23,10 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         definition_provider: Some(OneOf::Left(true)),
+        completion_provider: Some(CompletionOptions {
+            trigger_characters: Some(vec![".".to_string()]),
+            ..Default::default()
+        }),
         ..Default::default()
     })?;
 
@@ -240,6 +245,13 @@ fn handle_request(
                 .sender
                 .send(Message::Response(Response::new_ok(id, result)))?;
         }
+        Completion::METHOD => {
+            let (id, params) = cast_request::<Completion>(req)?;
+            let result = completion(state, &params);
+            connection
+                .sender
+                .send(Message::Response(Response::new_ok(id, result)))?;
+        }
         _ => {}
     }
     Ok(())
@@ -288,6 +300,41 @@ fn hover(state: &ServerState, params: &lsp_types::HoverParams) -> Option<Hover> 
         }),
         range: None,
     })
+}
+
+fn completion(
+    state: &ServerState,
+    params: &lsp_types::CompletionParams,
+) -> Option<CompletionResponse> {
+    let analysis = state.analysis.as_ref()?;
+    let uri = &params.text_document_position.text_document.uri;
+    let position = params.text_document_position.position;
+
+    let file_path = uri_to_path(uri)?;
+    let file_id = analysis.file_id_for_path(&file_path)?;
+    let file_data = analysis.file_db.get(file_id).ok()?;
+    let offset = position_to_byte_offset(file_data, position)?;
+
+    let candidates = analysis.completions_at(file_id, offset);
+    if candidates.is_empty() {
+        return None;
+    }
+
+    let items: Vec<CompletionItem> = candidates
+        .into_iter()
+        .map(|c| CompletionItem {
+            label: c.label,
+            kind: Some(match c.kind {
+                CompletionCandidateKind::Function => CompletionItemKind::FUNCTION,
+                CompletionCandidateKind::Field => CompletionItemKind::FIELD,
+                CompletionCandidateKind::EnumVariant => CompletionItemKind::ENUM_MEMBER,
+                CompletionCandidateKind::Type => CompletionItemKind::CLASS,
+            }),
+            ..Default::default()
+        })
+        .collect();
+
+    Some(CompletionResponse::Array(items))
 }
 
 // --- File provider for LSP ---
