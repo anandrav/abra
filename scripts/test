@@ -19,6 +19,7 @@ cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules mo
 cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/strings.abra
 cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/exec.abra
 cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/env.abra
+cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/time.abra
 
 pushd $WD/abra_core > /dev/null
 cargo check --lib --target wasm32-unknown-unknown

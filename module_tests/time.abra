@@ -1,0 +1,164 @@
+use core/time
+
+fn check(cond: bool, msg: string) -> result<void, string> {
+    if cond { result.ok(nil) } else { result.err(msg) }
+}
+
+type TestRunner = { failed: int }
+
+extend TestRunner {
+    fn new() -> TestRunner { TestRunner(0) }
+
+    fn run(self, name: string, r: result<void, E ToString>) {
+        print("  time::" .. name .. " ... ")
+        match r {
+            result.ok(_) -> println("ok")
+            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+        }
+    }
+
+    fn finish(self) {
+        if self.failed > 0 {
+            panic(self.failed .. " test(s) failed")
+        }
+    }
+}
+
+let t = TestRunner.new()
+t.run("get_time", test_get_time())
+t.run("elapsed", test_elapsed())
+t.run("now_utc", test_now_utc())
+t.run("now_local", test_now_local())
+t.run("from_timestamp", test_from_timestamp())
+t.run("make_datetime_valid", test_make_datetime_valid())
+t.run("make_datetime_invalid", test_make_datetime_invalid())
+t.run("format", test_format())
+t.run("parse", test_parse())
+t.run("parse_invalid", test_parse_invalid())
+t.run("weekday", test_weekday())
+t.run("add_seconds", test_add_seconds())
+t.run("add_days", test_add_days())
+t.run("diff", test_diff())
+t.run("to_string", test_to_string())
+t.finish()
+
+fn test_get_time() -> result<void, string> {
+    let t = get_time()
+    check(t > 1_000_000_000.0, "should return a Unix timestamp")?
+    result.ok(nil)
+}
+
+fn test_elapsed() -> result<void, string> {
+    let start = get_time()
+    let e = elapsed(start)
+    check(e >= 0.0, "should be non-negative")?
+    result.ok(nil)
+}
+
+fn test_now_utc() -> result<void, string> {
+    let utc = now_utc()
+    check(utc.year >= 2025, "year should be at least 2025")?
+    check(utc.month >= 1 and utc.month <= 12, "month should be 1-12")?
+    check(utc.day >= 1 and utc.day <= 31, "day should be 1-31")?
+    check(utc.hour >= 0 and utc.hour <= 23, "hour should be 0-23")?
+    check(utc.minute >= 0 and utc.minute <= 59, "minute should be 0-59")?
+    check(utc.second >= 0 and utc.second <= 59, "second should be 0-59")?
+    check(utc.timestamp > 1_000_000_000.0, "timestamp should be valid Unix time")?
+    result.ok(nil)
+}
+
+fn test_now_local() -> result<void, string> {
+    let local = now_local()
+    check(local.year >= 2025, "year should be at least 2025")?
+    check(local.timestamp > 1_000_000_000.0, "timestamp should be valid Unix time")?
+    result.ok(nil)
+}
+
+fn test_from_timestamp() -> result<void, string> {
+    let epoch = from_timestamp(0.0)
+    check(epoch.year == 1970, "year should be 1970")?
+    check(epoch.month == 1, "month should be 1")?
+    check(epoch.day == 1, "day should be 1")?
+    check(epoch.hour == 0, "hour should be 0")?
+    check(epoch.minute == 0, "minute should be 0")?
+    check(epoch.second == 0, "second should be 0")?
+    result.ok(nil)
+}
+
+fn test_make_datetime_valid() -> result<void, string> {
+    let dt = make_datetime(2024, 3, 15, 10, 30, 0)
+    check(dt.is_some(), "valid date should return some")?
+    let dt = dt!
+    check(dt.year == 2024, "year should be 2024")?
+    check(dt.month == 3, "month should be 3")?
+    check(dt.day == 15, "day should be 15")?
+    check(dt.hour == 10, "hour should be 10")?
+    check(dt.minute == 30, "minute should be 30")?
+    result.ok(nil)
+}
+
+fn test_make_datetime_invalid() -> result<void, string> {
+    check(make_datetime(2024, 2, 30, 0, 0, 0).is_none(), "Feb 30 should return none")?
+    check(make_datetime(2024, 13, 1, 0, 0, 0).is_none(), "month 13 should return none")?
+    result.ok(nil)
+}
+
+fn test_format() -> result<void, string> {
+    let dt = make_datetime(2024, 12, 25, 14, 30, 45)!
+    check(format(dt, "%Y/%m/%d") == "2024/12/25", "date format")?
+    check(format(dt, "%H:%M:%S") == "14:30:45", "time format")?
+    result.ok(nil)
+}
+
+fn test_parse() -> result<void, string> {
+    let parsed = parse("2024-06-15 08:30:00", "%Y-%m-%d %H:%M:%S")
+    check(parsed.is_some(), "valid string should parse")?
+    let parsed = parsed!
+    check(parsed.year == 2024, "year")?
+    check(parsed.month == 6, "month")?
+    check(parsed.day == 15, "day")?
+    check(parsed.hour == 8, "hour")?
+    result.ok(nil)
+}
+
+fn test_parse_invalid() -> result<void, string> {
+    check(parse("not a date", "%Y-%m-%d").is_none(), "bad input should return none")?
+    result.ok(nil)
+}
+
+fn test_weekday() -> result<void, string> {
+    let dt = make_datetime(2024, 12, 25, 0, 0, 0)!
+    check(dt.weekday() == "Wednesday", "Dec 25 2024 should be Wednesday")?
+    result.ok(nil)
+}
+
+fn test_add_seconds() -> result<void, string> {
+    let dt = make_datetime(2024, 1, 1, 23, 59, 30)!
+    let later = dt.add_seconds(60.0)
+    check(later.day == 2, "should roll to next day")?
+    check(later.hour == 0, "hour should be 0")?
+    check(later.minute == 0, "minute should be 0")?
+    check(later.second == 30, "second should be 30")?
+    result.ok(nil)
+}
+
+fn test_add_days() -> result<void, string> {
+    let dt = make_datetime(2024, 2, 28, 12, 0, 0)!
+    let next = dt.add_days(1)
+    check(next.month == 2, "should still be Feb (leap year)")?
+    check(next.day == 29, "should be 29th")?
+    result.ok(nil)
+}
+
+fn test_diff() -> result<void, string> {
+    let dt1 = make_datetime(2024, 1, 2, 0, 0, 0)!
+    let dt2 = make_datetime(2024, 1, 1, 0, 0, 0)!
+    check(dt1.diff(dt2) == 86400.0, "diff should be 86400 seconds")?
+    result.ok(nil)
+}
+
+fn test_to_string() -> result<void, string> {
+    let dt = make_datetime(2024, 7, 4, 12, 0, 0)!
+    check(dt.str() == "2024-07-04 12:00:00", "should produce ISO-like format")?
+    result.ok(nil)
+}

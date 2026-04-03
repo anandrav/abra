@@ -1,6 +1,73 @@
-// return the time in seconds
+// return the time in seconds since the Unix epoch
 #foreign
 fn get_time() -> float
 
 #foreign
 fn sleep(seconds: float) -> void
+
+// return seconds elapsed since `start` (which should be a value from get_time())
+fn elapsed(start: float) -> float = get_time() - start
+
+#foreign
+type DateTime = {
+    year: int
+    month: int       // 1-12
+    day: int         // 1-31
+    hour: int        // 0-23
+    minute: int      // 0-59
+    second: int      // 0-59
+    timestamp: float // seconds since Unix epoch
+}
+
+implement ToString for DateTime {
+    fn str(self) -> string {
+        format(self, "%Y-%m-%d %H:%M:%S")
+    }
+}
+
+extend DateTime {
+    fn add_seconds(self, seconds: float) -> DateTime {
+        from_timestamp(self.timestamp + seconds)
+    }
+
+    fn add_days(self, days: int) -> DateTime {
+        from_timestamp(self.timestamp + int_to_float(days) * 86400.0)
+    }
+
+    fn diff(self, other: DateTime) -> float {
+        self.timestamp - other.timestamp
+    }
+
+    fn weekday(self) -> string {
+        weekday_of(self)
+    }
+}
+
+// get the current date and time in UTC
+#foreign
+fn now_utc() -> DateTime
+
+// get the current date and time in the local time zone
+#foreign
+fn now_local() -> DateTime
+
+// create a DateTime from a Unix timestamp (interpreted as UTC)
+#foreign
+fn from_timestamp(timestamp: float) -> DateTime
+
+// create a DateTime from components (UTC). returns none for invalid dates
+#foreign
+fn make_datetime(year: int, month: int, day: int, hour: int, minute: int, second: int) -> option<DateTime>
+
+// format a DateTime using strftime-style format codes
+// common codes: %Y (year), %m (month), %d (day), %H (hour), %M (minute), %S (second)
+#foreign
+fn format(dt: DateTime, fmt: string) -> string
+
+// parse a date string using the given format. returns none on failure
+#foreign
+fn parse(s: string, fmt: string) -> option<DateTime>
+
+// return the day of the week as a string (e.g. "Monday")
+#foreign
+fn weekday_of(dt: DateTime) -> string
