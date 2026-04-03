@@ -1,0 +1,80 @@
+use core/strings
+
+#foreign
+type HttpError =
+    | ConnectionFailed(string)
+    | Timeout(string)
+    | Other(string)
+
+implement ToString for HttpError {
+    fn str(self) {
+        match self {
+            .ConnectionFailed(s) -> "connection failed: " .. s
+            .Timeout(s) -> "timeout: " .. s
+            .Other(s) -> s
+        }
+    }
+}
+
+#foreign
+type Response = {
+    status: int
+    body: string
+    headers: array<(string, string)>
+}
+
+extend Response {
+    fn ok(self) -> bool {
+        self.status >= 200 and self.status < 300
+    }
+
+    fn header(self, name: string) -> option<string> {
+        let lower_name = name.to_lower()
+        for pair in self.headers {
+            let (k, v) = pair
+            if k.to_lower() == lower_name {
+                return .some(v)
+            }
+        }
+        .none
+    }
+}
+
+// simple GET request
+#foreign
+fn get(url: string) -> result<Response, HttpError>
+
+// simple POST request with a body
+#foreign
+fn post(url: string, body: string) -> result<Response, HttpError>
+
+// builder for full control
+type Request = {
+    req_method: string
+    req_url: string
+    req_headers: array<(string, string)>
+    req_body: option<string>
+}
+
+fn request(method: string, url: string) -> Request {
+    Request(method, url, [], .none)
+}
+
+extend Request {
+    fn header(self, name: string, value: string) -> Request {
+        let h = self.req_headers
+        h.push((name, value))
+        Request(self.req_method, self.req_url, h, self.req_body)
+    }
+
+    fn body(self, b: string) -> Request {
+        Request(self.req_method, self.req_url, self.req_headers, .some(b))
+    }
+
+    fn send(self) -> result<Response, HttpError> {
+        send_request(self.req_method, self.req_url, self.req_headers, self.req_body)
+    }
+}
+
+#foreign
+fn send_request(method: string, url: string, headers: array<(string, string)>, body: option<string>) -> result<Response, HttpError>

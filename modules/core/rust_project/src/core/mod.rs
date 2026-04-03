@@ -9,3 +9,5 @@ pub(crate) mod exec;
 pub(crate) mod env;
 
 pub(crate) mod regex;
+
+pub(crate) mod http;
