@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use abra_core::{AnalysisResult, CompletionCandidateKind, FileData, FileProvider};
-use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
+use lsp_server::{Connection, Message, Notification, Request, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification as _};
 use lsp_types::request::{Completion, GotoDefinition, HoverRequest, Request as _};
 use lsp_types::{
@@ -120,7 +120,7 @@ impl ServerState {
             (override_name.clone(), self.workspace_root.clone())
         } else if let Some(ref uri_str) = self.active_file_uri {
             let uri = Uri::from_str(uri_str).ok();
-            let path = uri.as_ref().and_then(|u| uri_to_path(u));
+            let path = uri.as_ref().and_then(uri_to_path);
             match path {
                 Some(p) => {
                     let file_name = p
@@ -230,45 +230,50 @@ fn handle_request(
     state: &ServerState,
     req: Request,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
+    fn respond<R: lsp_types::request::Request>(
+        connection: &Connection,
+        req: Request,
+        handler: impl FnOnce(&R::Params) -> R::Result,
+    ) -> Result<(), Box<dyn Error + Sync + Send>> {
+        let (id, params) = req.extract(R::METHOD)?;
+        let result = handler(&params);
+        connection
+            .sender
+            .send(Message::Response(Response::new_ok(id, result)))?;
+        Ok(())
+    }
+
     match req.method.as_str() {
         GotoDefinition::METHOD => {
-            let (id, params) = cast_request::<GotoDefinition>(req)?;
-            let result = go_to_definition(state, &params);
-            connection
-                .sender
-                .send(Message::Response(Response::new_ok(id, result)))?;
+            respond::<GotoDefinition>(connection, req, |p| go_to_definition(state, p))
         }
-        HoverRequest::METHOD => {
-            let (id, params) = cast_request::<HoverRequest>(req)?;
-            let result = hover(state, &params);
-            connection
-                .sender
-                .send(Message::Response(Response::new_ok(id, result)))?;
-        }
-        Completion::METHOD => {
-            let (id, params) = cast_request::<Completion>(req)?;
-            let result = completion(state, &params);
-            connection
-                .sender
-                .send(Message::Response(Response::new_ok(id, result)))?;
-        }
-        _ => {}
+        HoverRequest::METHOD => respond::<HoverRequest>(connection, req, |p| hover(state, p)),
+        Completion::METHOD => respond::<Completion>(connection, req, |p| completion(state, p)),
+        _ => Ok(()),
     }
-    Ok(())
+}
+
+/// Resolve a text document position to an analysis result, file ID, and byte offset.
+fn resolve_position<'a>(
+    state: &'a ServerState,
+    uri: &Uri,
+    position: Position,
+) -> Option<(&'a AnalysisResult, u32, usize)> {
+    let analysis = state.analysis.as_ref()?;
+    let file_path = uri_to_path(uri)?;
+    let file_id = analysis.file_id_for_path(&file_path)?;
+    let file_data = analysis.file_db.get(file_id).ok()?;
+    let offset = position_to_byte_offset(file_data, position)?;
+    Some((analysis, file_id, offset))
 }
 
 fn go_to_definition(
     state: &ServerState,
     params: &lsp_types::GotoDefinitionParams,
 ) -> Option<GotoDefinitionResponse> {
-    let analysis = state.analysis.as_ref()?;
-    let uri = &params.text_document_position_params.text_document.uri;
-    let position = params.text_document_position_params.position;
-
-    let file_path = uri_to_path(uri)?;
-    let file_id = analysis.file_id_for_path(&file_path)?;
-    let file_data = analysis.file_db.get(file_id).ok()?;
-    let offset = position_to_byte_offset(file_data, position)?;
+    let pos = &params.text_document_position_params;
+    let (analysis, file_id, offset) =
+        resolve_position(state, &pos.text_document.uri, pos.position)?;
 
     let def = analysis.definition_at(file_id, offset)?;
     let def_file = analysis.file_db.get(def.file_id).ok()?;
@@ -282,14 +287,9 @@ fn go_to_definition(
 }
 
 fn hover(state: &ServerState, params: &lsp_types::HoverParams) -> Option<Hover> {
-    let analysis = state.analysis.as_ref()?;
-    let uri = &params.text_document_position_params.text_document.uri;
-    let position = params.text_document_position_params.position;
-
-    let file_path = uri_to_path(uri)?;
-    let file_id = analysis.file_id_for_path(&file_path)?;
-    let file_data = analysis.file_db.get(file_id).ok()?;
-    let offset = position_to_byte_offset(file_data, position)?;
+    let pos = &params.text_document_position_params;
+    let (analysis, file_id, offset) =
+        resolve_position(state, &pos.text_document.uri, pos.position)?;
 
     let type_str = analysis.type_at(file_id, offset)?;
 
@@ -306,14 +306,9 @@ fn completion(
     state: &ServerState,
     params: &lsp_types::CompletionParams,
 ) -> Option<CompletionResponse> {
-    let analysis = state.analysis.as_ref()?;
-    let uri = &params.text_document_position.text_document.uri;
-    let position = params.text_document_position.position;
-
-    let file_path = uri_to_path(uri)?;
-    let file_id = analysis.file_id_for_path(&file_path)?;
-    let file_data = analysis.file_db.get(file_id).ok()?;
-    let offset = position_to_byte_offset(file_data, position)?;
+    let pos = &params.text_document_position;
+    let (analysis, file_id, offset) =
+        resolve_position(state, &pos.text_document.uri, pos.position)?;
 
     let candidates = analysis.completions_at(file_id, offset);
     if candidates.is_empty() {
@@ -445,12 +440,6 @@ fn hex_val(b: u8) -> Option<u8> {
         b'A'..=b'F' => Some(b - b'A' + 10),
         _ => None,
     }
-}
-
-fn cast_request<R: lsp_types::request::Request>(
-    req: Request,
-) -> Result<(RequestId, R::Params), Box<dyn Error + Sync + Send>> {
-    Ok(req.extract(R::METHOD)?)
 }
 
 fn home_dir() -> PathBuf {

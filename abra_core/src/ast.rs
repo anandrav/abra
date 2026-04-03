@@ -882,10 +882,10 @@ fn find_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
             if let Some(node) = find_in_stmt(then_branch, offset) {
                 return Some(node);
             }
-            if let Some(else_b) = else_branch {
-                if let Some(node) = find_in_stmt(else_b, offset) {
-                    return Some(node);
-                }
+            if let Some(else_b) = else_branch
+                && let Some(node) = find_in_stmt(else_b, offset)
+            {
+                return Some(node);
             }
             Some(expr.node())
         }
@@ -1010,16 +1010,16 @@ fn find_ident_in_func_signature(
         if arg_name.loc.contains_offset(offset) {
             return Some(arg_name.node());
         }
-        if let Some(ty) = arg_type {
-            if let Some(node) = find_ident_in_type(ty, offset) {
-                return Some(node);
-            }
-        }
-    }
-    if let Some(ret) = ret_type {
-        if let Some(node) = find_ident_in_type(ret, offset) {
+        if let Some(ty) = arg_type
+            && let Some(node) = find_ident_in_type(ty, offset)
+        {
             return Some(node);
         }
+    }
+    if let Some(ret) = ret_type
+        && let Some(node) = find_ident_in_type(ret, offset)
+    {
+        return Some(node);
     }
     None
 }
@@ -1072,10 +1072,10 @@ fn find_ident_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
     }
     match &*stmt.kind {
         StmtKind::Let(_, (_, type_annot), expr) => {
-            if let Some(ty) = type_annot {
-                if let Some(node) = find_ident_in_type(ty, offset) {
-                    return Some(node);
-                }
+            if let Some(ty) = type_annot
+                && let Some(node) = find_ident_in_type(ty, offset)
+            {
+                return Some(node);
             }
             find_ident_in_expr(expr, offset)
         }
