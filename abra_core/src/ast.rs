@@ -1133,7 +1133,7 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
         }
         ExprKind::MemberAccess(receiver, member) => {
             if member.loc.contains_offset(offset) {
-                return Some(expr.node());
+                return Some(member.node());
             }
             find_ident_in_expr(receiver, offset)
         }
