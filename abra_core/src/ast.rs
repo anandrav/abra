@@ -945,23 +945,29 @@ fn find_ident_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
     }
     match &*item.kind {
         ItemKind::FuncDef(func_def) => {
-            for (arg_name, _) in &func_def.args {
-                if arg_name.loc.contains_offset(offset) {
-                    return Some(arg_name.node());
-                }
+            if let Some(node) =
+                find_ident_in_func_signature(&func_def.args, func_def.ret_type.as_ref(), offset)
+            {
+                return Some(node);
             }
             find_ident_in_expr(&func_def.body, offset)
+        }
+        ItemKind::FuncDecl(func_decl) => {
+            find_ident_in_func_signature(&func_decl.args, Some(&func_decl.ret_type), offset)
         }
         ItemKind::Stmt(stmt) => find_ident_in_stmt(stmt, offset),
         ItemKind::InterfaceImpl(iface_impl) => {
             if iface_impl.iface.loc.contains_offset(offset) {
                 return Some(iface_impl.iface.node());
             }
+            if let Some(node) = find_ident_in_type(&iface_impl.typ, offset) {
+                return Some(node);
+            }
             for method in &iface_impl.methods {
-                for (arg_name, _) in &method.args {
-                    if arg_name.loc.contains_offset(offset) {
-                        return Some(arg_name.node());
-                    }
+                if let Some(node) =
+                    find_ident_in_func_signature(&method.args, method.ret_type.as_ref(), offset)
+                {
+                    return Some(node);
                 }
                 if let Some(node) = find_ident_in_expr(&method.body, offset) {
                     return Some(node);
@@ -970,11 +976,14 @@ fn find_ident_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
             None
         }
         ItemKind::Extension(ext) => {
+            if let Some(node) = find_ident_in_type(&ext.typ, offset) {
+                return Some(node);
+            }
             for method in &ext.methods {
-                for (arg_name, _) in &method.args {
-                    if arg_name.loc.contains_offset(offset) {
-                        return Some(arg_name.node());
-                    }
+                if let Some(node) =
+                    find_ident_in_func_signature(&method.args, method.ret_type.as_ref(), offset)
+                {
+                    return Some(node);
                 }
                 if let Some(node) = find_ident_in_expr(&method.body, offset) {
                     return Some(node);
@@ -992,12 +1001,84 @@ fn find_ident_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
     }
 }
 
+fn find_ident_in_func_signature(
+    args: &[ArgMaybeAnnotated],
+    ret_type: Option<&Rc<Type>>,
+    offset: usize,
+) -> Option<AstNode> {
+    for (arg_name, arg_type) in args {
+        if arg_name.loc.contains_offset(offset) {
+            return Some(arg_name.node());
+        }
+        if let Some(ty) = arg_type {
+            if let Some(node) = find_ident_in_type(ty, offset) {
+                return Some(node);
+            }
+        }
+    }
+    if let Some(ret) = ret_type {
+        if let Some(node) = find_ident_in_type(ret, offset) {
+            return Some(node);
+        }
+    }
+    None
+}
+
+fn find_ident_in_type(typ: &Rc<Type>, offset: usize) -> Option<AstNode> {
+    if !typ.loc.contains_offset(offset) {
+        return None;
+    }
+    match &*typ.kind {
+        TypeKind::NamedWithParams(ident, args) => {
+            if ident.loc.contains_offset(offset) {
+                return Some(ident.node());
+            }
+            for arg in args {
+                if let Some(node) = find_ident_in_type(arg, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        TypeKind::Poly(poly) => {
+            if poly.name.loc.contains_offset(offset) {
+                return Some(poly.name.node());
+            }
+            None
+        }
+        TypeKind::Function(args, ret) => {
+            for arg in args {
+                if let Some(node) = find_ident_in_type(arg, offset) {
+                    return Some(node);
+                }
+            }
+            find_ident_in_type(ret, offset)
+        }
+        TypeKind::Tuple(elems) => {
+            for elem in elems {
+                if let Some(node) = find_ident_in_type(elem, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 fn find_ident_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
     if !stmt.loc.contains_offset(offset) {
         return None;
     }
     match &*stmt.kind {
-        StmtKind::Let(_, (_, _), expr) => find_ident_in_expr(expr, offset),
+        StmtKind::Let(_, (_, type_annot), expr) => {
+            if let Some(ty) = type_annot {
+                if let Some(node) = find_ident_in_type(ty, offset) {
+                    return Some(node);
+                }
+            }
+            find_ident_in_expr(expr, offset)
+        }
         StmtKind::Assign(lhs, _, rhs) => {
             find_ident_in_expr(lhs, offset).or_else(|| find_ident_in_expr(rhs, offset))
         }
