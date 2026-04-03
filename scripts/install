@@ -24,10 +24,6 @@ for arg in "$@"; do
   fi
 done
 
-printf "Initializing Git submodules...\n"
-git submodule update --init --recursive
-printf "Done\n"
-
 printf "Installing Abra CLI to Cargo bin...\n"
 cargo build $CARGO_BUILD_PROFILE
 cargo install $CARGO_INSTALL_PROFILE --bin abra --path abra_cli || {

@@ -1,0 +1,78 @@
+{
+  "name": "abra",
+  "displayName": "Abra",
+  "description": "Abra language support: syntax highlighting, diagnostics, hover types, and go-to-definition",
+  "version": "0.1.0",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:abra"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "abra",
+        "aliases": [
+          "Abra",
+          "abra"
+        ],
+        "extensions": [
+          ".abra"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "abra",
+        "scopeName": "source.abra",
+        "path": "./syntaxes/abra.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "abra",
+        "path": "./snippets/abra.json"
+      }
+    ],
+    "configuration": {
+      "title": "Abra",
+      "properties": {
+        "abra.rootFile": {
+          "type": "string",
+          "default": "",
+          "description": "Optional: always compile from this root file instead of the active file. Leave empty to compile from whichever file you're editing."
+        },
+        "abra.lspPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the abra-lsp binary. If empty, searches PATH."
+        },
+        "abra.standardModulesDir": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Abra standard modules directory. If empty, uses ~/.abra/abra/modules."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "@types/vscode": "^1.87.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.4.0"
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "package": "vsce package"
+  }
+}

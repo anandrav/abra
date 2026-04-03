@@ -1,0 +1,115 @@
+{
+  "Function (block body)": {
+    "prefix": "fn",
+    "body": [
+      "fn ${1:name}(${2:params}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Function with block body"
+  },
+  "Function (expression body)": {
+    "prefix": "fne",
+    "body": "fn ${1:name}(${2:params}) = $0",
+    "description": "Function with expression body"
+  },
+  "For loop": {
+    "prefix": "for",
+    "body": [
+      "for ${1:item} in ${2:iter} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "For loop"
+  },
+  "While loop": {
+    "prefix": "while",
+    "body": [
+      "while ${1:condition} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "While loop"
+  },
+  "If": {
+    "prefix": "if",
+    "body": [
+      "if ${1:condition} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "If block"
+  },
+  "If-else": {
+    "prefix": "ife",
+    "body": [
+      "if ${1:condition} {",
+      "\t$2",
+      "} else {",
+      "\t$0",
+      "}"
+    ],
+    "description": "If-else block"
+  },
+  "Match": {
+    "prefix": "match",
+    "body": [
+      "match ${1:expr} {",
+      "\t${2:pattern} -> $0",
+      "}"
+    ],
+    "description": "Match expression"
+  },
+  "Type (struct)": {
+    "prefix": "struct",
+    "body": "type ${1:Name} = { ${2:field}: ${3:type} }",
+    "description": "Struct type declaration"
+  },
+  "Type (enum)": {
+    "prefix": "enum",
+    "body": "type ${1:Name} = ${2:Variant1} | ${3:Variant2}",
+    "description": "Enum type declaration"
+  },
+  "Interface": {
+    "prefix": "interface",
+    "body": [
+      "interface ${1:Name} {",
+      "\tfn ${2:method}(${3:self: Self})$0",
+      "}"
+    ],
+    "description": "Interface declaration"
+  },
+  "Implement": {
+    "prefix": "implement",
+    "body": [
+      "implement ${1:Interface} for ${2:Type} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Interface implementation"
+  },
+  "Extend": {
+    "prefix": "extend",
+    "body": [
+      "extend ${1:Type} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Type extension"
+  },
+  "Use": {
+    "prefix": "use",
+    "body": "use ${1:core}/${2:module}",
+    "description": "Module import"
+  },
+  "Let binding": {
+    "prefix": "let",
+    "body": "let ${1:name} = $0",
+    "description": "Immutable variable binding"
+  },
+  "Var binding": {
+    "prefix": "var",
+    "body": "var ${1:name} = $0",
+    "description": "Mutable variable binding"
+  }
+}
