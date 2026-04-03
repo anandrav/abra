@@ -1,5 +1,7 @@
 use core/http
+use core/json
 use core/strings
+use core/map
 use test_runner
 
 fn str_err(e: HttpError) -> string = e.str()
@@ -10,6 +12,9 @@ t.run("get_headers", test_get_headers())
 t.run("get_404", test_get_404())
 t.run("post_basic", test_post_basic())
 t.run("request_builder", test_request_builder())
+t.run("response_json", test_response_json())
+t.run("post_json", test_post_json())
+t.run("request_json_body", test_request_json_body())
 t.run("connection_error", test_connection_error())
 t.finish()
 
@@ -49,6 +54,41 @@ fn test_request_builder() -> result<void, string> {
         .map_err(str_err)?
     check(resp.ok(), "status should be 2xx")?
     check(resp.body.contains("test-value"), "response should include custom header value")?
+    result.ok(nil)
+}
+
+fn test_response_json() -> result<void, string> {
+    let resp = get("https://httpbin.org/get").map_err(str_err)?
+    let json = resp.json()?
+    let url = json.get("url").as_string()
+    check(url.is_some(), "json should have url field")?
+    check(url!.contains("httpbin.org"), "url should contain httpbin.org")?
+    result.ok(nil)
+}
+
+fn test_post_json() -> result<void, string> {
+    let m: map<string, JsonValue> = map.new()
+    m.insert("name", .Str("abra"))
+    m.insert("version", .Number(1.0))
+    let resp = post_json("https://httpbin.org/post", .Object(m)).map_err(str_err)?
+    check(resp.ok(), "status should be 2xx")?
+    let json = resp.json()?
+    let ct = json.get("headers").get("Content-Type").as_string()!
+    check(ct.contains("application/json"), "content-type should be json, got: " .. ct)?
+    result.ok(nil)
+}
+
+fn test_request_json_body() -> result<void, string> {
+    let m: map<string, JsonValue> = map.new()
+    m.insert("key", .Str("value"))
+    let resp = request("PUT", "https://httpbin.org/put") \
+        .json_body(.Object(m)) \
+        .send() \
+        .map_err(str_err)?
+    check(resp.ok(), "status should be 2xx")?
+    let json = resp.json()?
+    let ct = json.get("headers").get("Content-Type").as_string()!
+    check(ct.contains("application/json"), "content-type should be json")?
     result.ok(nil)
 }
 

@@ -1,4 +1,5 @@
 use core/strings
+use core/json
 
 #foreign
 type HttpError =
@@ -28,6 +29,10 @@ extend Response {
         self.status >= 200 and self.status < 300
     }
 
+    fn json(self) -> result<JsonValue, string> {
+        parse(self.body)
+    }
+
     fn header(self, name: string) -> option<string> {
         let lower_name = name.to_lower()
         for pair in self.headers {
@@ -47,6 +52,14 @@ fn get(url: string) -> result<Response, HttpError>
 // simple POST request with a body
 #foreign
 fn post(url: string, body: string) -> result<Response, HttpError>
+
+// POST a JsonValue with Content-Type: application/json
+fn post_json(url: string, value: JsonValue) -> result<Response, HttpError> {
+    request("POST", url) \
+        .header("Content-Type", "application/json") \
+        .body(stringify(value)) \
+        .send()
+}
 
 // builder for full control
 type Request = {
@@ -69,6 +82,11 @@ extend Request {
 
     fn body(self, b: string) -> Request {
         Request(self.req_method, self.req_url, self.req_headers, .some(b))
+    }
+
+    fn json_body(self, value: JsonValue) -> Request {
+        self.header("Content-Type", "application/json") \
+            .body(stringify(value))
     }
 
     fn send(self) -> result<Response, HttpError> {
