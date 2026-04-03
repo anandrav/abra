@@ -1,0 +1,26 @@
+fn check(cond: bool, msg: string) -> result<void, string> {
+    if cond { result.ok(nil) } else { result.err(msg) }
+}
+
+type TestRunner = {
+    prefix: string
+    failed: int
+}
+
+extend TestRunner {
+    fn new(prefix: string) -> TestRunner { TestRunner(prefix, 0) }
+
+    fn run(self, name: string, r: result<void, E ToString>) {
+        print("test " .. self.prefix .. "::" .. name .. " ... ")
+        match r {
+            result.ok(_) -> println("ok")
+            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+        }
+    }
+
+    fn finish(self) {
+        if self.failed > 0 {
+            panic(self.failed .. " test(s) failed")
+        }
+    }
+}

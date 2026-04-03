@@ -1,33 +1,9 @@
 use core/json
 use core/strings
 use core/map
+use test_runner
 
-fn check(cond: bool, msg: string) -> result<void, string> {
-    if cond { result.ok(nil) } else { result.err(msg) }
-}
-
-type TestRunner = { failed: int }
-
-extend TestRunner {
-    fn new() -> TestRunner { TestRunner(0) }
-
-    fn run(self, name: string, r: result<void, E ToString>) {
-        print("  json::" .. name .. " ... ")
-        match r {
-            result.ok(_) -> println("ok")
-            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
-        }
-    }
-
-    fn finish(self) {
-        if self.failed > 0 {
-            panic(self.failed .. " test(s) failed")
-        }
-        println("all json tests passed")
-    }
-}
-
-let t = TestRunner.new()
+let t = TestRunner.new("json")
 t.run("parse_null", test_parse_null())
 t.run("parse_bool", test_parse_bool())
 t.run("parse_number", test_parse_number())
