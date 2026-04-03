@@ -28,7 +28,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use utils::hash::HashMap;
 use utils::hash::HashSet;
 use utils::id_set::IdSet;
-use utils::{dlog, swrite};
+use utils::swrite;
 
 type OffsetTable = HashMap<NodeId, i16>;
 type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
