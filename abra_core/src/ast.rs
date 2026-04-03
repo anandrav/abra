@@ -72,7 +72,7 @@ impl FileData {
 
     /// Return the starting byte index of the line with the specified line index.
     /// Convenience method that already generates codespan_reporting::files::Errors if necessary.
-    fn line_start(&self, line_index: usize) -> Result<usize, codespan_reporting::files::Error> {
+    pub fn line_start(&self, line_index: usize) -> Result<usize, codespan_reporting::files::Error> {
         use std::cmp::Ordering;
 
         match line_index.cmp(&self.line_starts.len()) {
@@ -99,7 +99,7 @@ impl FileData {
 }
 
 impl FileData {
-    fn line_index(&self, byte_index: usize) -> Result<usize, codespan_reporting::files::Error> {
+    pub fn line_index(&self, byte_index: usize) -> Result<usize, codespan_reporting::files::Error> {
         Ok(self
             .line_starts
             .binary_search(&byte_index)
@@ -716,5 +716,395 @@ pub(crate) struct Location {
 impl Location {
     pub fn range(&self) -> Range<usize> {
         self.lo..self.hi
+    }
+
+    fn contains_offset(&self, offset: usize) -> bool {
+        self.lo <= offset && offset < self.hi
+    }
+}
+
+// --- LSP utilities: find AST nodes at a given byte offset ---
+
+/// Find the innermost AST node at the given byte offset within a file.
+pub(crate) fn find_innermost_node_at_offset(file_ast: &FileAst, offset: usize) -> Option<AstNode> {
+    for item in &file_ast.items {
+        if !item.loc.contains_offset(offset) {
+            continue;
+        }
+        if let Some(node) = find_in_item(item, offset) {
+            return Some(node);
+        }
+        return Some(item.node());
+    }
+    None
+}
+
+/// Find the identifier at the given byte offset (for go-to-definition).
+pub(crate) fn find_identifier_at_offset(file_ast: &FileAst, offset: usize) -> Option<AstNode> {
+    for item in &file_ast.items {
+        if !item.loc.contains_offset(offset) {
+            continue;
+        }
+        if let Some(node) = find_ident_in_item(item, offset) {
+            return Some(node);
+        }
+    }
+    None
+}
+
+fn find_in_func_def_body(func_def: &Rc<FuncDef>, offset: usize) -> Option<AstNode> {
+    if func_def.name.loc.contains_offset(offset) {
+        return Some(func_def.name.node());
+    }
+    for (arg_name, _) in &func_def.args {
+        if arg_name.loc.contains_offset(offset) {
+            return Some(arg_name.node());
+        }
+    }
+    find_in_expr(&func_def.body, offset)
+}
+
+fn find_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
+    match &*item.kind {
+        ItemKind::FuncDef(func_def) => find_in_func_def_body(func_def, offset),
+        ItemKind::Stmt(stmt) => find_in_stmt(stmt, offset),
+        ItemKind::InterfaceImpl(iface_impl) => {
+            for method in &iface_impl.methods {
+                if let Some(node) = find_in_func_def_body(method, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        ItemKind::Extension(ext) => {
+            for method in &ext.methods {
+                if let Some(node) = find_in_func_def_body(method, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn find_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
+    if !stmt.loc.contains_offset(offset) {
+        return None;
+    }
+    match &*stmt.kind {
+        StmtKind::Let(_, (pat, _), expr) => {
+            if let Some(node) = find_in_expr(expr, offset) {
+                return Some(node);
+            }
+            if pat.loc.contains_offset(offset) {
+                return Some(pat.node());
+            }
+            None
+        }
+        StmtKind::Assign(lhs, _, rhs) => {
+            find_in_expr(lhs, offset).or_else(|| find_in_expr(rhs, offset))
+        }
+        StmtKind::Expr(expr) => find_in_expr(expr, offset),
+        StmtKind::Return(expr) => find_in_expr(expr, offset),
+        StmtKind::WhileLoop(cond, body) => {
+            if let Some(node) = find_in_expr(cond, offset) {
+                return Some(node);
+            }
+            for s in body {
+                if let Some(node) = find_in_stmt(s, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        StmtKind::ForLoop(pat, iter, body) => {
+            if pat.loc.contains_offset(offset) {
+                return Some(pat.node());
+            }
+            if let Some(node) = find_in_expr(iter, offset) {
+                return Some(node);
+            }
+            for s in body {
+                if let Some(node) = find_in_stmt(s, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        StmtKind::Continue | StmtKind::Break => None,
+    }
+}
+
+fn find_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
+    if !expr.loc.contains_offset(offset) {
+        return None;
+    }
+    match &*expr.kind {
+        ExprKind::Variable(_) => Some(expr.node()),
+        ExprKind::BinOp(lhs, _, rhs) => find_in_expr(lhs, offset)
+            .or_else(|| find_in_expr(rhs, offset))
+            .or(Some(expr.node())),
+        ExprKind::Unop(_, operand) => find_in_expr(operand, offset).or(Some(expr.node())),
+        ExprKind::FuncAp(func, args) => {
+            if let Some(node) = find_in_expr(func, offset) {
+                return Some(node);
+            }
+            for arg in args {
+                if let Some(node) = find_in_expr(arg, offset) {
+                    return Some(node);
+                }
+            }
+            Some(expr.node())
+        }
+        ExprKind::MemberAccess(receiver, member) => {
+            if member.loc.contains_offset(offset) {
+                return Some(expr.node());
+            }
+            find_in_expr(receiver, offset).or(Some(expr.node()))
+        }
+        ExprKind::MemberAccessLeadingDot(_) => Some(expr.node()),
+        ExprKind::IndexAccess(arr, idx) => find_in_expr(arr, offset)
+            .or_else(|| find_in_expr(idx, offset))
+            .or(Some(expr.node())),
+        ExprKind::Block(stmts) => {
+            for s in stmts {
+                if let Some(node) = find_in_stmt(s, offset) {
+                    return Some(node);
+                }
+            }
+            Some(expr.node())
+        }
+        ExprKind::IfElse(cond, then_branch, else_branch) => {
+            if let Some(node) = find_in_expr(cond, offset) {
+                return Some(node);
+            }
+            if let Some(node) = find_in_stmt(then_branch, offset) {
+                return Some(node);
+            }
+            if let Some(else_b) = else_branch {
+                if let Some(node) = find_in_stmt(else_b, offset) {
+                    return Some(node);
+                }
+            }
+            Some(expr.node())
+        }
+        ExprKind::Match(scrutinee, arms) => {
+            if let Some(node) = find_in_expr(scrutinee, offset) {
+                return Some(node);
+            }
+            for arm in arms {
+                if arm.loc.contains_offset(offset) {
+                    if let Some(node) = find_in_stmt(&arm.stmt, offset) {
+                        return Some(node);
+                    }
+                    return Some(arm.node());
+                }
+            }
+            Some(expr.node())
+        }
+        ExprKind::AnonymousFunction(args, _, body) => {
+            for (arg_name, _) in args {
+                if arg_name.loc.contains_offset(offset) {
+                    return Some(arg_name.node());
+                }
+            }
+            find_in_expr(body, offset).or(Some(expr.node()))
+        }
+        ExprKind::Array(elems) => {
+            for elem in elems {
+                if let Some(node) = find_in_expr(elem, offset) {
+                    return Some(node);
+                }
+            }
+            Some(expr.node())
+        }
+        ExprKind::Tuple(elems) => {
+            for elem in elems {
+                if let Some(node) = find_in_expr(elem, offset) {
+                    return Some(node);
+                }
+            }
+            Some(expr.node())
+        }
+        ExprKind::Unwrap(inner) | ExprKind::Try(inner) => {
+            find_in_expr(inner, offset).or(Some(expr.node()))
+        }
+        ExprKind::Nil
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Bool(_)
+        | ExprKind::Str(_) => Some(expr.node()),
+    }
+}
+
+// For go-to-definition: find the identifier (Variable or MemberAccess) at offset
+fn find_ident_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
+    if !item.loc.contains_offset(offset) {
+        return None;
+    }
+    match &*item.kind {
+        ItemKind::FuncDef(func_def) => {
+            for (arg_name, _) in &func_def.args {
+                if arg_name.loc.contains_offset(offset) {
+                    return Some(arg_name.node());
+                }
+            }
+            find_ident_in_expr(&func_def.body, offset)
+        }
+        ItemKind::Stmt(stmt) => find_ident_in_stmt(stmt, offset),
+        ItemKind::InterfaceImpl(iface_impl) => {
+            if iface_impl.iface.loc.contains_offset(offset) {
+                return Some(iface_impl.iface.node());
+            }
+            for method in &iface_impl.methods {
+                for (arg_name, _) in &method.args {
+                    if arg_name.loc.contains_offset(offset) {
+                        return Some(arg_name.node());
+                    }
+                }
+                if let Some(node) = find_ident_in_expr(&method.body, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        ItemKind::Extension(ext) => {
+            for method in &ext.methods {
+                for (arg_name, _) in &method.args {
+                    if arg_name.loc.contains_offset(offset) {
+                        return Some(arg_name.node());
+                    }
+                }
+                if let Some(node) = find_ident_in_expr(&method.body, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        ItemKind::Import(ident, _) => {
+            if ident.loc.contains_offset(offset) {
+                return Some(ident.node());
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn find_ident_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
+    if !stmt.loc.contains_offset(offset) {
+        return None;
+    }
+    match &*stmt.kind {
+        StmtKind::Let(_, (_, _), expr) => find_ident_in_expr(expr, offset),
+        StmtKind::Assign(lhs, _, rhs) => {
+            find_ident_in_expr(lhs, offset).or_else(|| find_ident_in_expr(rhs, offset))
+        }
+        StmtKind::Expr(expr) => find_ident_in_expr(expr, offset),
+        StmtKind::Return(expr) => find_ident_in_expr(expr, offset),
+        StmtKind::WhileLoop(cond, body) => {
+            if let Some(node) = find_ident_in_expr(cond, offset) {
+                return Some(node);
+            }
+            for s in body {
+                if let Some(node) = find_ident_in_stmt(s, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        StmtKind::ForLoop(_, iter, body) => {
+            if let Some(node) = find_ident_in_expr(iter, offset) {
+                return Some(node);
+            }
+            for s in body {
+                if let Some(node) = find_ident_in_stmt(s, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        StmtKind::Continue | StmtKind::Break => None,
+    }
+}
+
+fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
+    if !expr.loc.contains_offset(offset) {
+        return None;
+    }
+    match &*expr.kind {
+        ExprKind::Variable(_) => Some(expr.node()),
+        ExprKind::BinOp(lhs, _, rhs) => {
+            find_ident_in_expr(lhs, offset).or_else(|| find_ident_in_expr(rhs, offset))
+        }
+        ExprKind::Unop(_, operand) => find_ident_in_expr(operand, offset),
+        ExprKind::FuncAp(func, args) => {
+            if let Some(node) = find_ident_in_expr(func, offset) {
+                return Some(node);
+            }
+            for arg in args {
+                if let Some(node) = find_ident_in_expr(arg, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        ExprKind::MemberAccess(receiver, member) => {
+            if member.loc.contains_offset(offset) {
+                return Some(expr.node());
+            }
+            find_ident_in_expr(receiver, offset)
+        }
+        ExprKind::MemberAccessLeadingDot(_) => Some(expr.node()),
+        ExprKind::IndexAccess(arr, idx) => {
+            find_ident_in_expr(arr, offset).or_else(|| find_ident_in_expr(idx, offset))
+        }
+        ExprKind::Block(stmts) => {
+            for s in stmts {
+                if let Some(node) = find_ident_in_stmt(s, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        ExprKind::IfElse(cond, then_branch, else_branch) => {
+            if let Some(node) = find_ident_in_expr(cond, offset) {
+                return Some(node);
+            }
+            if let Some(node) = find_ident_in_stmt(then_branch, offset) {
+                return Some(node);
+            }
+            if let Some(else_b) = else_branch {
+                return find_ident_in_stmt(else_b, offset);
+            }
+            None
+        }
+        ExprKind::Match(scrutinee, arms) => {
+            if let Some(node) = find_ident_in_expr(scrutinee, offset) {
+                return Some(node);
+            }
+            for arm in arms {
+                if arm.loc.contains_offset(offset) {
+                    return find_ident_in_stmt(&arm.stmt, offset);
+                }
+            }
+            None
+        }
+        ExprKind::AnonymousFunction(_, _, body) => find_ident_in_expr(body, offset),
+        ExprKind::Array(elems) | ExprKind::Tuple(elems) => {
+            for elem in elems {
+                if let Some(node) = find_ident_in_expr(elem, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        ExprKind::Unwrap(inner) | ExprKind::Try(inner) => find_ident_in_expr(inner, offset),
+        ExprKind::Nil
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Bool(_)
+        | ExprKind::Str(_) => None,
     }
 }

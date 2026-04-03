@@ -5,7 +5,6 @@ extern crate core;
 
 use ast::FileAst;
 use ast::FileDatabase;
-use ast::FileId;
 use ast::ItemKind;
 use core::fmt;
 use std::collections::HashMap;
@@ -30,6 +29,7 @@ pub mod vm;
 
 use crate::statics::StaticsContext;
 pub use ast::FileData;
+pub use ast::FileId;
 pub use host_bindings::*;
 pub use prelude::PRELUDE;
 use statics::Error;
@@ -357,4 +357,184 @@ impl FileProvider for MockFileProvider {
             )))),
         }
     }
+}
+
+// --- LSP / check-only API ---
+
+use std::ops::Range;
+
+pub struct AnalysisResult {
+    pub file_db: FileDatabase,
+    pub(crate) ctx: StaticsContext,
+    pub(crate) file_asts: Vec<Rc<FileAst>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AnalysisError {
+    pub message: String,
+    pub file_id: FileId,
+    pub range: Range<usize>,
+    pub secondary_labels: Vec<(FileId, Range<usize>, String)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DefinitionInfo {
+    pub file_id: FileId,
+    pub range: Range<usize>,
+}
+
+/// Run parse + type checking without bytecode translation.
+/// Always returns results, even when there are errors.
+pub fn check(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> AnalysisResult {
+    let mut ctx = StaticsContext::new(file_provider);
+    let file_asts = match get_files(&mut ctx, &[main_file_name]) {
+        Ok(asts) => asts,
+        Err(e) => {
+            // File loading failed — return result with just the error
+            ctx.errors.push(Error::Generic {
+                msg: e.msg.clone(),
+                node: ast::AstNode::Item(Rc::new(ast::Item {
+                    kind: Rc::new(ItemKind::Stmt(Rc::new(ast::Stmt {
+                        kind: Rc::new(ast::StmtKind::Expr(Rc::new(ast::Expr {
+                            kind: Rc::new(ast::ExprKind::Nil),
+                            loc: ast::Location {
+                                file_id: 0,
+                                lo: 0,
+                                hi: 0,
+                            },
+                            id: ast::NodeId::new(),
+                        }))),
+                        loc: ast::Location {
+                            file_id: 0,
+                            lo: 0,
+                            hi: 0,
+                        },
+                        id: ast::NodeId::new(),
+                    }))),
+                    loc: ast::Location {
+                        file_id: 0,
+                        lo: 0,
+                        hi: 0,
+                    },
+                    id: ast::NodeId::new(),
+                })),
+            });
+            return AnalysisResult {
+                file_db: ctx.file_db.clone(),
+                ctx,
+                file_asts: vec![],
+            };
+        }
+    };
+
+    // Run analysis — ignore the Result, keep ctx regardless
+    let _ = statics::analyze(&mut ctx, &file_asts);
+
+    AnalysisResult {
+        file_db: ctx.file_db.clone(),
+        ctx,
+        file_asts,
+    }
+}
+
+impl AnalysisResult {
+    /// Get all errors from the analysis as LSP-friendly structs.
+    pub fn errors(&self) -> Vec<AnalysisError> {
+        self.ctx
+            .errors
+            .iter()
+            .map(|error| {
+                let diagnostic = error.make_diagnostic();
+                let (primary_file, primary_range, message) =
+                    extract_primary_from_diagnostic(&diagnostic);
+                let secondary_labels = diagnostic
+                    .labels
+                    .iter()
+                    .skip(1)
+                    .map(|label| (label.file_id, label.range.clone(), label.message.clone()))
+                    .collect();
+                AnalysisError {
+                    message,
+                    file_id: primary_file,
+                    range: primary_range,
+                    secondary_labels,
+                }
+            })
+            .collect()
+    }
+
+    /// Find the FileId for a given absolute path.
+    pub fn file_id_for_path(&self, path: &Path) -> Option<FileId> {
+        self.file_db
+            .files
+            .iter()
+            .position(|f| f.absolute_path == path)
+            .map(|i| i as FileId)
+    }
+
+    /// Get the definition location for the identifier at the given byte offset.
+    pub fn definition_at(&self, file_id: FileId, offset: usize) -> Option<DefinitionInfo> {
+        let file_ast = self.file_asts.iter().find(|f| f.loc.file_id == file_id)?;
+
+        let node = ast::find_identifier_at_offset(file_ast, offset)?;
+        let node_id = node.id();
+        let decl = self.ctx.resolution_map.get(&node_id)?;
+        declaration_location(decl)
+    }
+
+    /// Get the type of the expression at the given byte offset, as a display string.
+    pub fn type_at(&self, file_id: FileId, offset: usize) -> Option<String> {
+        let file_ast = self.file_asts.iter().find(|f| f.loc.file_id == file_id)?;
+
+        let node = ast::find_innermost_node_at_offset(file_ast, offset)?;
+        let solved = self.ctx.solution_of_node(node)?;
+        Some(format!("{}", solved))
+    }
+}
+
+fn extract_primary_from_diagnostic(
+    diagnostic: &codespan_reporting::diagnostic::Diagnostic<FileId>,
+) -> (FileId, Range<usize>, String) {
+    if let Some(label) = diagnostic.labels.first() {
+        (
+            label.file_id,
+            label.range.clone(),
+            diagnostic.message.clone(),
+        )
+    } else {
+        (0, 0..0, diagnostic.message.clone())
+    }
+}
+
+fn declaration_location(decl: &statics::Declaration) -> Option<DefinitionInfo> {
+    use statics::{Declaration, FuncResolutionKind};
+    let node = match decl {
+        Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => func_def.name.node(),
+        Declaration::FreeFunction(FuncResolutionKind::Host(func_decl)) => func_decl.name.node(),
+        Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => decl.name.node(),
+        Declaration::MemberFunction(func_def) => func_def.name.node(),
+        Declaration::InterfaceDef(iface) => iface.name.node(),
+        Declaration::InterfaceMethod {
+            iface,
+            method_index,
+        } => iface.methods[*method_index].name.node(),
+        Declaration::InterfaceOutputType { ty, .. } => ty.name.node(),
+        Declaration::Enum(e) => e.name.node(),
+        Declaration::EnumVariant { e, variant } => e.variants[*variant].node(),
+        Declaration::Struct(s) => s.name.node(),
+        Declaration::Var(node) => node.clone(),
+        Declaration::Polytype(statics::PolytypeDeclaration::Ordinary(p)) => p.name.node(),
+        Declaration::Namespace(_, node) => node.clone(),
+        Declaration::Intrinsic(_) | Declaration::BuiltinType(_) => return None,
+        Declaration::Polytype(
+            statics::PolytypeDeclaration::InterfaceSelf(_)
+            | statics::PolytypeDeclaration::ArrayArg
+            | statics::PolytypeDeclaration::IntrinsicOperation(..),
+        ) => return None,
+    };
+    let loc = node.location();
+    Some(DefinitionInfo {
+        file_id: loc.file_id,
+        range: loc.range(),
+    })
 }

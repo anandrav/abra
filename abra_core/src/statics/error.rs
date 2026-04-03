@@ -8,7 +8,7 @@ use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{Buffer, ColorChoice, StandardStream};
 
 impl Error {
-    fn make_diagnostic(&self) -> Diagnostic<FileId> {
+    pub(crate) fn make_diagnostic(&self) -> Diagnostic<FileId> {
         // dbg!(self);
         let mut diagnostic = Diagnostic::error();
         let mut labels = Vec::new();

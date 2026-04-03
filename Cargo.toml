@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "abra_cli",
     "abra_core",
+    "abra_lsp",
     # Abra libraries with Rust implementations
     "modules/*/rust_project",
     # end-to-end tests

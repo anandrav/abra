@@ -37,6 +37,14 @@ cargo install $CARGO_INSTALL_PROFILE --bin abra --path abra_cli || {
 }
 printf "Done\n"
 
+printf "Installing Abra LSP to Cargo bin...\n"
+cargo install $CARGO_INSTALL_PROFILE --bin abra-lsp --path abra_lsp || {
+  printf "Failed!\n"
+  echo "Failed to install Abra LSP." >&2
+  exit 1
+}
+printf "Done\n"
+
 printf "Installing Abra modules...\n"
 if [ -d $HOME/.abra/abra ]; then
     mv "$HOME/.abra/abra" $HOME/.abra/abra_to_delete
@@ -87,6 +95,26 @@ install_abra_vscode_extension() {
   fi
 
   pushd tooling/vscode > /dev/null
+  printf "  - Installing npm dependencies... "
+  if npm install --quiet > /dev/null 2>&1; then
+    printf "Done\n"
+  else
+    printf "Failed!\n"
+    echo "Failed to install npm dependencies." >&2
+    popd > /dev/null
+    return 1
+  fi
+
+  printf "  - Compiling extension... "
+  if npm run compile > /dev/null 2>&1; then
+    printf "Done\n"
+  else
+    printf "Failed!\n"
+    echo "Failed to compile the VS Code extension." >&2
+    popd > /dev/null
+    return 1
+  fi
+
   printf "  - Packaging VS Code extension... "
   if vsce package --allow-missing-repository > /dev/null 2>&1; then
     printf "Done\n"
@@ -97,8 +125,16 @@ install_abra_vscode_extension() {
     return 1
   fi
 
+  VSIX_FILE=$(ls -t *.vsix 2>/dev/null | head -1)
+  if [ -z "$VSIX_FILE" ]; then
+    printf "Failed!\n"
+    echo "No .vsix file found after packaging." >&2
+    popd > /dev/null
+    return 1
+  fi
+
   printf "  - Installing extension... "
-  if code --install-extension abra-0.0.1.vsix --force > /dev/null 2>&1; then
+  if code --install-extension "$VSIX_FILE" --force > /dev/null 2>&1; then
     printf "Done\n"
   else
     printf "Failed!\n"
