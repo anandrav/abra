@@ -15,13 +15,10 @@ cargo test "$@"
 cargo build --quiet --package abra_module_core
 echo ""
 echo "running module tests"
-cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/fs.abra
-cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/strings.abra
-cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/exec.abra
-cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/env.abra
-cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/time.abra
-cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/regex.abra
-cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules module_tests/http.abra
+for f in module_tests/*.abra; do
+  [ "$(basename "$f")" = "test_runner.abra" ] && continue
+  cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules "$f"
+done
 
 pushd $WD/abra_core > /dev/null
 cargo check --lib --target wasm32-unknown-unknown
