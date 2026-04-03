@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::str::FromStr;
 
 use abra_core::{AnalysisResult, CompletionCandidateKind, FileData, FileProvider};
@@ -76,12 +77,12 @@ fn main_loop(
     );
 
     let mut state = ServerState {
-        documents: HashMap::new(),
+        documents: Rc::new(HashMap::new()),
         analysis: None,
         active_file_uri: None,
         workspace_root,
         root_file_override,
-        standard_modules_dir,
+        standard_modules_dir: Rc::new(standard_modules_dir),
     };
 
     for msg in &connection.receiver {
@@ -103,14 +104,14 @@ fn main_loop(
 
 struct ServerState {
     /// Maps URI strings to document contents for open files
-    documents: HashMap<String, String>,
+    documents: Rc<HashMap<String, String>>,
     analysis: Option<AnalysisResult>,
     /// URI of the most recently opened/changed file
     active_file_uri: Option<String>,
     workspace_root: PathBuf,
     /// If set, always compile from this file instead of the active file
     root_file_override: Option<String>,
-    standard_modules_dir: PathBuf,
+    standard_modules_dir: Rc<PathBuf>,
 }
 
 impl ServerState {
@@ -138,9 +139,9 @@ impl ServerState {
         };
 
         let file_provider = LspFileProvider {
-            documents: self.documents.clone(),
+            documents: Rc::clone(&self.documents),
             workspace_root: root_dir,
-            standard_modules_dir: self.standard_modules_dir.clone(),
+            standard_modules_dir: Rc::clone(&self.standard_modules_dir),
         };
 
         let result = abra_core::check(&root_file_name, Box::new(file_provider));
@@ -205,9 +206,7 @@ fn handle_notification(
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(not.params)?;
             let uri_str = params.text_document.uri.as_str().to_string();
-            state
-                .documents
-                .insert(uri_str.clone(), params.text_document.text);
+            Rc::make_mut(&mut state.documents).insert(uri_str.clone(), params.text_document.text);
             state.active_file_uri = Some(uri_str);
             state.recheck(connection)?;
         }
@@ -215,7 +214,7 @@ fn handle_notification(
             let params: DidChangeTextDocumentParams = serde_json::from_value(not.params)?;
             let uri_str = params.text_document.uri.as_str().to_string();
             if let Some(change) = params.content_changes.into_iter().last() {
-                state.documents.insert(uri_str.clone(), change.text);
+                Rc::make_mut(&mut state.documents).insert(uri_str.clone(), change.text);
             }
             state.active_file_uri = Some(uri_str);
             state.recheck(connection)?;
@@ -335,9 +334,9 @@ fn completion(
 // --- File provider for LSP ---
 
 struct LspFileProvider {
-    documents: HashMap<String, String>,
+    documents: Rc<HashMap<String, String>>,
     workspace_root: PathBuf,
-    standard_modules_dir: PathBuf,
+    standard_modules_dir: Rc<PathBuf>,
 }
 
 impl FileProvider for LspFileProvider {
