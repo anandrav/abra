@@ -1,3 +1,5 @@
+use core/colors
+
 fn check(cond: bool, msg: string) -> result<void, string> {
     if cond { result.ok(nil) } else { result.err(msg) }
 }
@@ -13,8 +15,8 @@ extend TestRunner {
     fn run(self, name: string, r: result<void, E ToString>) {
         print("test " .. self.prefix .. "::" .. name .. " ... ")
         match r {
-            result.ok(_) -> println("ok")
-            result.err(e) -> { println("FAILED: " .. e); self.failed = self.failed + 1 }
+            result.ok(_) -> println(green("ok"))
+            result.err(e) -> { println(red("FAILED: ") .. e); self.failed = self.failed + 1 }
         }
     }
 

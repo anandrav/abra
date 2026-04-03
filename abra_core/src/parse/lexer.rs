@@ -159,6 +159,7 @@ impl TokenKind {
                 for char in s.chars() {
                     match char {
                         '\n' | '\t' | '\r' | '\\' | '"' => ret += 2,
+                        c if (c as u32) < 0x20 || (c as u32) == 0x7f => ret += 4, // \xNN
                         _ => ret += 1,
                     }
                 }
@@ -521,6 +522,27 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                             }
                             '\\' => {
                                 s.push('\\');
+                            }
+                            'x' => {
+                                // \xNN hex escape
+                                let h1 = lexer.peek_char(curr + 2);
+                                let h2 = lexer.peek_char(curr + 3);
+                                if let (Some(d1), Some(d2)) = (h1, h2) {
+                                    let hex = format!("{}{}", d1, d2);
+                                    if let Ok(byte) = u8::from_str_radix(&hex, 16) {
+                                        s.push(byte as char);
+                                        curr += 4;
+                                        continue;
+                                    }
+                                }
+                                ctx.errors.push(Error::UnrecognizedEscapeSequence(
+                                    file_id,
+                                    Span {
+                                        lo: lexer.index + curr,
+                                        hi: lexer.index + curr + 1,
+                                    },
+                                ));
+                                skipped_chars += 2;
                             }
                             _ => {
                                 ctx.errors.push(Error::UnrecognizedEscapeSequence(
