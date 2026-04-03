@@ -1,4 +1,4 @@
-let arr = [1, 2, 3, 4, 5]
+ilet arr = [1, 2, 3, 4, 5]
 
 for n in 5 {
   println(n)

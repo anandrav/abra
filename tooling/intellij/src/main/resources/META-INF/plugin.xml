@@ -1,0 +1,38 @@
+<idea-plugin>
+    <id>com.abra.intellij</id>
+    <name>Abra Language</name>
+    <vendor>Abra</vendor>
+    <description><![CDATA[
+        Abra programming language support: syntax highlighting, diagnostics,
+        hover types, go-to-definition, and completions via the abra-lsp
+        language server.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lsp</depends>
+    <depends>org.jetbrains.plugins.textmate</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType
+            name="Abra"
+            implementationClass="com.abra.intellij.AbraFileType"
+            language="Abra"
+            extensions="abra"/>
+
+        <platform.lsp.serverSupportProvider
+            implementation="com.abra.intellij.lsp.AbraLspServerSupportProvider"/>
+
+        <lang.commenter
+            language="Abra"
+            implementationClass="com.abra.intellij.AbraCommenter"/>
+
+        <!-- Delegate highlighting to TextMate; required because custom FileType
+             otherwise overrides TextMate with a blank highlighter -->
+        <editorHighlighterProvider
+            filetype="Abra"
+            implementationClass="org.jetbrains.plugins.textmate.language.syntax.highlighting.TextMateEditorHighlighterProvider"/>
+
+        <textmate.bundleProvider
+            implementation="com.abra.intellij.AbraTextMateBundleProvider"/>
+    </extensions>
+</idea-plugin>

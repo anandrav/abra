@@ -41,6 +41,11 @@
         "path": "./snippets/abra.json"
       }
     ],
+    "configurationDefaults": {
+      "[abra]": {
+        "editor.snippetSuggestions": "top"
+      }
+    },
     "configuration": {
       "title": "Abra",
       "properties": {

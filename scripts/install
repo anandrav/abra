@@ -7,6 +7,7 @@ export RUSTFLAGS="-Awarnings"
 QUICK=false
 VIM=false
 VSCODE=false
+INTELLIJ=false
 
 CARGO_BUILD_PROFILE="--release"
 CARGO_INSTALL_PROFILE=""
@@ -21,6 +22,8 @@ for arg in "$@"; do
     VIM=true
   elif [[ "$arg" == "--vscode" ]]; then
     VSCODE=true
+  elif [[ "$arg" == "--intellij" ]]; then
+    INTELLIJ=true
   fi
 done
 
@@ -140,6 +143,52 @@ install_abra_vscode_extension() {
   fi
 
   popd > /dev/null
+
+  printf "  - Reloading VS Code... "
+  if code --command workbench.action.reloadWindow > /dev/null 2>&1; then
+    printf "Done\n"
+  else
+    printf "Skipped (no active window)\n"
+  fi
+}
+
+install_abra_intellij_plugin() {
+  printf "Installing Abra IntelliJ plugin...\n"
+
+  # Find JDK 21 — required by the IntelliJ Platform Gradle Plugin
+  if [ -d "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home" ]; then
+    INTELLIJ_JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+  elif /usr/libexec/java_home -v 21 &> /dev/null; then
+    INTELLIJ_JAVA_HOME=$(/usr/libexec/java_home -v 21)
+  else
+    echo "JDK 21 not found. Install it with: brew install openjdk@21" >&2
+    return 1
+  fi
+
+  pushd tooling/intellij > /dev/null
+
+  printf "  - Building plugin (JDK 21)... "
+  if JAVA_HOME="$INTELLIJ_JAVA_HOME" ./gradlew buildPlugin --quiet > /dev/null 2>&1; then
+    printf "Done\n"
+  else
+    printf "Failed!\n"
+    echo "Failed to build the IntelliJ plugin." >&2
+    popd > /dev/null
+    return 1
+  fi
+
+  ZIP_FILE=$(ls -t build/distributions/*.zip 2>/dev/null | head -1)
+  if [ -z "$ZIP_FILE" ]; then
+    printf "Failed!\n"
+    echo "No plugin zip found after build." >&2
+    popd > /dev/null
+    return 1
+  fi
+
+  popd > /dev/null
+
+  printf "  - Plugin built: tooling/intellij/%s\n" "$ZIP_FILE"
+  echo "  - To install: open RustRover/IntelliJ > Settings > Plugins > gear icon > Install Plugin from Disk..."
 }
 
 if [ $VIM = true ]; then
@@ -148,6 +197,10 @@ fi
 
 if [ $VSCODE = true ]; then
     install_abra_vscode_extension
+fi
+
+if [ $INTELLIJ = true ]; then
+    install_abra_intellij_plugin
 fi
 
 printf "\nSetup complete! Abra is ready to use."

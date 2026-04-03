@@ -1,0 +1,11 @@
+<ivy-module version="2.0">
+  <info organisation="bundledPlugin" module="org.jetbrains.plugins.textmate" revision="IU-252.23892.409"/>
+  <configurations>
+    <conf name="default" visibility="public"/>
+  </configurations>
+  <publications>
+    <artifact name="joni" ext="jar" conf="default" url="plugins/textmate/lib"/>
+    <artifact name="textmate" ext="jar" conf="default" url="plugins/textmate/lib"/>
+  </publications>
+  <dependencies/>
+</ivy-module>
