@@ -1,13 +1,15 @@
 package com.abra.intellij
 
+import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.openapi.extensions.PluginId
 import org.jetbrains.plugins.textmate.api.TextMateBundleProvider
 import org.jetbrains.plugins.textmate.api.TextMateBundleProvider.PluginBundle
-import java.nio.file.Path
 
 class AbraTextMateBundleProvider : TextMateBundleProvider {
     override fun getBundles(): List<PluginBundle> {
-        val url = this::class.java.classLoader.getResource("textmate/abra.tmbundle")
+        val descriptor = PluginManagerCore.getPlugin(PluginId.getId("com.abra.intellij"))
             ?: return emptyList()
-        return listOf(PluginBundle("Abra", Path.of(url.toURI())))
+        val bundlePath = descriptor.pluginPath.resolve("textmate/abra.tmbundle")
+        return listOf(PluginBundle("Abra", bundlePath))
     }
 }

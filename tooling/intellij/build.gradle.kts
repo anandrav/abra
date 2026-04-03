@@ -42,4 +42,9 @@ tasks {
     buildSearchableOptions {
         enabled = false
     }
+    prepareSandbox {
+        from("src/main/resources/textmate") {
+            into("${intellijPlatform.projectName.get()}/textmate")
+        }
+    }
 }

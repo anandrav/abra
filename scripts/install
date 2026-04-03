@@ -187,8 +187,33 @@ install_abra_intellij_plugin() {
 
   popd > /dev/null
 
-  printf "  - Plugin built: tooling/intellij/%s\n" "$ZIP_FILE"
-  echo "  - To install: open RustRover/IntelliJ > Settings > Plugins > gear icon > Install Plugin from Disk..."
+  # Install into JetBrains IDE plugins directories
+  JETBRAINS_BASE="$HOME/Library/Application Support/JetBrains"
+  INSTALLED=false
+  if [ -d "$JETBRAINS_BASE" ]; then
+    for dir in "$JETBRAINS_BASE"/RustRover* "$JETBRAINS_BASE"/IntelliJ* "$JETBRAINS_BASE"/CLion*; do
+      if [ -d "$dir" ]; then
+        PLUGINS_DIR="$dir/plugins"
+        mkdir -p "$PLUGINS_DIR"
+        # Remove old version if present
+        rm -rf "$PLUGINS_DIR/abra-intellij-plugin"
+        printf "  - Installing to %s... " "$(basename "$dir")"
+        if unzip -qo "tooling/intellij/$ZIP_FILE" -d "$PLUGINS_DIR" > /dev/null 2>&1; then
+          printf "Done\n"
+          INSTALLED=true
+        else
+          printf "Failed!\n"
+        fi
+      fi
+    done
+  fi
+
+  if [ "$INSTALLED" = false ]; then
+    printf "  - No JetBrains IDE found. Plugin built at: tooling/intellij/%s\n" "$ZIP_FILE"
+    echo "  - To install manually: Settings > Plugins > gear icon > Install Plugin from Disk..."
+  else
+    echo "  - Restart your IDE to load the updated plugin."
+  fi
 }
 
 if [ $VIM = true ]; then

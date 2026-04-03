@@ -1,6 +1,7 @@
 {
   "name": "Abra",
   "scopeName": "source.abra",
+  "fileTypes": ["abra"],
   "patterns": [
     {
       "include": "#shebang"
