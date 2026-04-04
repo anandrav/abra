@@ -422,7 +422,7 @@ pub(crate) enum Error {
         node: AstNode,
         redundant_arms: Vec<AstNode>,
     },
-    CantSolveOutputTypeForTryImpl {
+    CantSolveOutputTypeForInterfaceImpl {
         node: AstNode,
         output_type_name: String,
         interface_name: String,

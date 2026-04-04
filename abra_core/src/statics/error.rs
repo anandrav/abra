@@ -320,7 +320,7 @@ impl Error {
                 diagnostic = diagnostic.with_message("Foreign functions are not enabled");
                 labels.push(Label::secondary(file, range))
             }
-            Error::CantSolveOutputTypeForTryImpl {
+            Error::CantSolveOutputTypeForInterfaceImpl {
                 node,
                 output_type_name,
                 interface_name,

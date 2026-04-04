@@ -1501,8 +1501,11 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
             continue;
         };
 
-        let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
-        let ret_ty_residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
+        let Some(ret_ty_residual_ty) =
+            ctx.get_output_type_of_iface_impl(&imp, "Residual", &tried_expr_node, &try_iface_decl)
+        else {
+            continue;
+        };
         let ret_ty_subst = get_substitution_of_typ(ctx, &imp.typ, &caller_ret_ty);
         let ret_ty_residual_ty = ret_ty_residual_ty.subst(&ret_ty_subst);
 
@@ -2109,10 +2112,14 @@ fn generate_constraints_stmt(
                 });
                 return;
             };
-            let item_output_type = iterable_iface_def
-                .get_output_type_by_name("IterableItem")
-                .unwrap();
-            let item_ty = ctx.get_output_type_of_iface_impl(&imp, item_output_type);
+            let Some(item_ty) = ctx.get_output_type_of_iface_impl(
+                &imp,
+                "IterableItem",
+                &pat.node(),
+                &iterable_iface_def,
+            ) else {
+                return;
+            };
             // substitute { T = int } here
             let subst = get_substitution_of_typ(ctx, &imp.typ, &iterable_ty);
             let item_ty = item_ty.subst(&subst);
@@ -2132,9 +2139,12 @@ fn generate_constraints_stmt(
                 .insert(stmt.id, make_iterator_type.solution().unwrap());
 
             // Iter::next type
-            let iter_output_type = iterable_iface_def.get_output_type_by_name("Iter").unwrap();
-            let iter_output_type = ctx.get_output_type_of_iface_impl(&imp, iter_output_type);
-            let Some(iter_output_type_solved) = iter_output_type.solution() else { panic!() };
+            let Some(iter_output_type) =
+                ctx.get_output_type_of_iface_impl(&imp, "Iter", &pat.node(), &iterable_iface_def)
+            else {
+                return;
+            };
+            let iter_output_type_solved = iter_output_type.solution().unwrap();
             let Some(iterator_imp) =
                 iter_output_type_solved.get_iface_impls(ctx, &iterator_iface_def)
             else {
@@ -2929,16 +2939,16 @@ fn generate_constraints_expr(
 
             constrain(ctx, &node_ty, &elem_ty);
         }
-        ExprKind::Unwrap(expr) => {
-            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr);
-            let expr_ty = TypeVar::from_node(ctx, expr.node());
+        ExprKind::Unwrap(expr_inner) => {
+            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr_inner);
+            let expr_ty = TypeVar::from_node(ctx, expr_inner.node());
 
             // the expression being unwrapped must implement Unwrap
             let unwrap_iface_decl = ctx.get_iface_decl("prelude.Unwrap");
             constrain_to_iface(
                 ctx,
                 &expr_ty,
-                expr.node(),
+                expr_inner.node(),
                 &InterfaceConstraint::new(unwrap_iface_decl.clone(), vec![]),
             );
 
@@ -2946,16 +2956,23 @@ fn generate_constraints_expr(
             if let Some(expr_solved_ty) = expr_ty.solution() {
                 let ty_key = expr_solved_ty.key();
                 if let Some(imp) = ctx.get_iface_impl_for_type(&ty_key, &unwrap_iface_decl) {
-                    let output_type = unwrap_iface_decl.get_output_type_by_name("Output").unwrap();
-                    let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
+                    let Some(output_ty) = ctx.get_output_type_of_iface_impl(
+                        &imp,
+                        "Output",
+                        &expr.node(),
+                        &unwrap_iface_decl,
+                    ) else {
+                        return;
+                    };
                     // substitute { T = int } here
                     let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_ty);
                     let output_ty = output_ty.subst(&subst);
                     constrain(ctx, &node_ty, &output_ty);
                 }
             } else {
-                ctx.errors
-                    .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
+                ctx.errors.push(Error::UnwrapNeedsAnnotation {
+                    node: expr_inner.node(),
+                });
             }
         }
         ExprKind::Try(expr_inner) => {
@@ -2977,26 +2994,28 @@ fn generate_constraints_expr(
                 if let Some(imp) = ctx.get_iface_impl_for_type(&expr_inner_ty_key, &try_iface_decl)
                 {
                     // the type of the expression is the type of unwrap's output
-                    let output_type_name = "Output";
-                    let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
-                    let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
-                    if output_ty.solution().is_none() {
-                        ctx.errors.push(Error::CantSolveOutputTypeForTryImpl {
-                            node: expr.node(),
-                            output_type_name: output_type_name.to_string(),
-                            interface_name: try_iface_decl.name.v.clone(),
-                            impl_ty: imp.typ.clone(),
-                        });
+                    let Some(output_ty) = ctx.get_output_type_of_iface_impl(
+                        &imp,
+                        "Output",
+                        &expr.node(),
+                        &try_iface_decl,
+                    ) else {
                         return;
-                    }
+                    };
                     // substitute { T = int } here
                     let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_inner_ty);
                     let output_ty = output_ty.subst(&subst);
                     constrain(ctx, &node_ty, &output_ty);
 
                     // the type of the residual must match the type of the outer function's return type's residual
-                    let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
-                    let residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
+                    let Some(residual_ty) = ctx.get_output_type_of_iface_impl(
+                        &imp,
+                        "Residual",
+                        &expr.node(),
+                        &try_iface_decl,
+                    ) else {
+                        return;
+                    };
                     let residual_ty = residual_ty.subst(&subst);
 
                     // TODO: if try operator is used at toplevel there is no calling function...
@@ -3047,17 +3066,33 @@ fn generate_constraints_expr(
 
 impl StaticsContext {
     pub(crate) fn get_output_type_of_iface_impl(
-        &self,
+        &mut self,
         imp: &Rc<InterfaceImpl>,
-        output_type: Rc<InterfaceOutputType>,
-    ) -> TypeVar {
-        self.unifvars
+        output_type_name: &str,
+
+        node_being_typechecked: &AstNode,
+        iface: &Rc<InterfaceDef>,
+    ) -> Option<TypeVar> {
+        let output_type = iface.get_output_type_by_name(output_type_name).unwrap();
+        let result = self
+            .unifvars
             .get(&Prov::InstantiateInterfaceOutputType(
                 imp.clone(),
                 output_type.clone(),
             ))
             .unwrap()
-            .clone()
+            .clone();
+        if result.solution().is_none() {
+            self.errors
+                .push(Error::CantSolveOutputTypeForInterfaceImpl {
+                    node: node_being_typechecked.clone(),
+                    output_type_name: output_type.name.v.clone(),
+                    interface_name: iface.name.v.clone(),
+                    impl_ty: imp.typ.clone(),
+                });
+            return None;
+        }
+        Some(result)
     }
 }
 
