@@ -7,6 +7,7 @@ else
   export WD="$PWD"
 fi
 
+cargo fmt
 cargo clippy
 
 cargo test "$@"
