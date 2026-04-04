@@ -422,6 +422,12 @@ pub(crate) enum Error {
         node: AstNode,
         redundant_arms: Vec<AstNode>,
     },
+    CantSolveOutputTypeForTryImpl {
+        node: AstNode,
+        output_type_name: String,
+        interface_name: String,
+        impl_ty: Rc<AstType>,
+    },
     TriedExpressionAndRetTypeMustMatch {
         node: AstNode,
         ret_ty_key: TypeKey,

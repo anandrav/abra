@@ -2977,8 +2977,18 @@ fn generate_constraints_expr(
                 if let Some(imp) = ctx.get_iface_impl_for_type(&expr_inner_ty_key, &try_iface_decl)
                 {
                     // the type of the expression is the type of unwrap's output
+                    let output_type_name = "Output";
                     let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
                     let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
+                    if output_ty.solution().is_none() {
+                        ctx.errors.push(Error::CantSolveOutputTypeForTryImpl {
+                            node: expr.node(),
+                            output_type_name: output_type_name.to_string(),
+                            interface_name: try_iface_decl.name.v.clone(),
+                            impl_ty: imp.typ.clone(),
+                        });
+                        return;
+                    }
                     // substitute { T = int } here
                     let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_inner_ty);
                     let output_ty = output_ty.subst(&subst);

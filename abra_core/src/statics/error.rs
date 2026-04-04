@@ -320,6 +320,24 @@ impl Error {
                 diagnostic = diagnostic.with_message("Foreign functions are not enabled");
                 labels.push(Label::secondary(file, range))
             }
+            Error::CantSolveOutputTypeForTryImpl {
+                node,
+                output_type_name,
+                interface_name,
+                impl_ty,
+            } => {
+                diagnostic = diagnostic.with_message(format!(
+                    "Can't typecheck this expression because unable to determine `{}` for {} interface implementation",
+                    output_type_name, interface_name,
+                ));
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+                let (impl_file, impl_range) = impl_ty.node().get_file_and_range();
+                labels.push(
+                    Label::secondary(impl_file, impl_range)
+                        .with_message(format!("this type's implementation of {}", interface_name)),
+                );
+            }
             Error::TriedExpressionAndRetTypeMustMatch {
                 node,
                 ret_ty_key,
