@@ -17,7 +17,7 @@ echo ""
 echo "running module tests"
 for f in module_tests/*.abra; do
   [ "$(basename "$f")" = "test_runner.abra" ] && continue
-  cargo run --quiet --package abra_cli --bin abra -- --standard-modules modules "$f"
+  ./scripts/run "$f"
 done
 
 pushd $WD/abra_core > /dev/null
