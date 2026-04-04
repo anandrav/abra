@@ -158,7 +158,7 @@ fn test_error_handling() -> result<void, string> {
     let r1: result<string, FsError> = read("_test_err_nonexistent.txt")
     match r1 {
         .ok(_) -> return .err("expected error from read")
-        .err(FsError.NotFound(_)) -> nil
+        .err(.NotFound(_)) -> nil
         .err(_) -> return .err("wrong error kind from read")
     }
 

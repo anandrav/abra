@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{
-    Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments, InterfaceDef,
-    Polytype, PolytypeDeclaration, StaticsContext, StructDef,
+    _print_node, Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments,
+    InterfaceDef, Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
@@ -21,6 +21,7 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -997,8 +998,44 @@ impl TypeVar {
         Self::singleton_solved(PotentialType::make_nominal(reason, nominal, params))
     }
 
+    // make nominal type with the original type arguments
+    pub(crate) fn make_nominal_original(
+        ctx: &mut StaticsContext,
+        reason: Reason,
+        nominal: Nominal,
+    ) -> TypeVar {
+        let mut params: Vec<TypeVar> = vec![];
+
+        let mut helper = |ty_args: &Vec<Rc<Polytype>>| {
+            for ty_arg in ty_args {
+                if let Some(Declaration::Polytype(decl)) = ctx.resolution_map.get(&ty_arg.name.id) {
+                    params.push(TypeVar::make_poly(
+                        Reason::Annotation(ty_arg.name.node()),
+                        decl.clone(),
+                    ));
+                }
+            }
+        };
+
+        match &nominal {
+            Nominal::Struct(struct_def) => helper(&struct_def.ty_args),
+            Nominal::Enum(enum_def) => helper(&enum_def.ty_args),
+            Nominal::Array => {
+                // TODO: this is wrong!
+                // params.push(TypeVar::fresh(
+                //     ctx,
+                //     Prov::InstantiateUdtParam(node.clone(), 0),
+                // ));
+                // TODO: wrong!
+                // substitution is left empty for array because it's not used.
+            }
+        }
+
+        TypeVar::make_nominal(reason, nominal, params)
+    }
+
     // Make nominal type with skolems substituted for type arguments. Return type and the substitution (mapping from type argument to skolem that replaced it)
-    pub(crate) fn make_nominal_with_substitution(
+    pub(crate) fn make_nominal_and_substitution(
         ctx: &mut StaticsContext,
         reason: Reason,
         nominal: Nominal,
@@ -1842,6 +1879,7 @@ fn constrain_iface_arguments_in_tyvar(
     };
 }
 
+// TODO: return Option<Substitution> instead of returning empty substitution
 pub(crate) fn get_substitution_of_typ(
     ctx: &StaticsContext,
     original: &Rc<AstType>,
@@ -1873,6 +1911,65 @@ pub(crate) fn get_substitution_of_typ(
             subst.insert(arg.clone(), param.clone());
         }
     }
+    subst
+}
+
+// TODO: duplicated with above
+// TODO: return Option<Substitution> instead of returning empty substitution
+pub(crate) fn get_substitution_of_typ2(
+    ctx: &StaticsContext,
+    original: &TypeVar,
+    actual: &TypeVar,
+) -> Substitution {
+    let mut subst = Substitution::default();
+    let Some(actual_potential_ty) = actual.single() else {
+        panic!();
+        return subst;
+    };
+    let Some(original_potential_ty) = original.single() else {
+        panic!();
+        return subst;
+    };
+    let PotentialType::Nominal(_, _, original_params) = &original_potential_ty else {
+        panic!();
+        return subst;
+    };
+    let PotentialType::Nominal(_, _, actual_params) = &actual_potential_ty else {
+        panic!();
+        return subst;
+    };
+    for (original_arg, actual_arg) in original_params.iter().zip(actual_params) {
+        dlog!("actual_arg: {}", actual_arg);
+        let Some(original_arg_potential_ty) = original_arg.single() else {
+            panic!();
+            continue;
+        };
+        let PotentialType::Poly(_, decl) = original_arg_potential_ty else {
+            panic!();
+            continue;
+        };
+        subst.insert(decl, actual_arg.clone());
+    }
+    // let mut args: Vec<PolytypeDeclaration> = vec![];
+    // for arg in original_params {
+    //     let Some(arg_potential_ty) = arg.single() else {
+    //         continue;
+    //     };
+    //     let TypeKind::Poly(poly) = &*arg.kind else {
+    //         continue;
+    //     };
+    //     let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id)
+    //     else {
+    //         continue;
+    //     };
+    //     args.push(poly_decl.clone());
+    // }
+    // if args.len() != params.len() {
+    //     return subst;
+    // }
+    // for (arg, param) in args.iter().zip(params) {
+    //     subst.insert(arg.clone(), param.clone());
+    // }
     subst
 }
 
@@ -2256,7 +2353,7 @@ fn generate_constraints_expr(
                     }
                     // struct constructor.
                     Declaration::Struct(struct_def) => {
-                        let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
+                        let (def_type, substitution) = TypeVar::make_nominal_and_substitution(
                             ctx,
                             Reason::Node(expr.node()),
                             Nominal::Struct(struct_def.clone()),
@@ -2793,7 +2890,7 @@ fn generate_constraints_expr(
             }) = ctx.resolution_map.get(&member_ident.id).cloned()
             {
                 // qualified enum with no associated data
-                let (def_type, _) = TypeVar::make_nominal_with_substitution(
+                let (def_type, _) = TypeVar::make_nominal_and_substitution(
                     ctx,
                     Reason::Node(accessed.node()),
                     Nominal::Enum(enum_def.clone()),
@@ -2889,6 +2986,9 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::MemberAccessLeadingDot(ident) => {
+            // unqualfied enum variant
+            // example: .none
+            //          ^^^^^
             if let Some((enum_def, idx)) = infer_enum(&mode, &ident.v) {
                 ctx.resolution_map.insert(
                     ident.id,
@@ -2898,7 +2998,7 @@ fn generate_constraints_expr(
                     },
                 );
 
-                let (enum_ty, _) = TypeVar::make_nominal_with_substitution(
+                let (enum_ty, _) = TypeVar::make_nominal_and_substitution(
                     ctx,
                     Reason::Node(expr.node()),
                     Nominal::Enum(enum_def.clone()),
@@ -3097,6 +3197,8 @@ impl StaticsContext {
 }
 
 fn infer_enum(mode: &Mode, variant_name: &str) -> Option<(Rc<EnumDef>, usize)> {
+    dlog!("mode = {:#?}", mode);
+    dlog!("variant name = {variant_name}");
     let expected_ty = mode.get_expected();
     if let Some(expected_ty) = expected_ty
         && let Some(PotentialType::Nominal(_, Nominal::Enum(enum_def), _)) = expected_ty.single()
@@ -3105,8 +3207,10 @@ fn infer_enum(mode: &Mode, variant_name: &str) -> Option<(Rc<EnumDef>, usize)> {
             .iter()
             .position(|v| v.ctor.v == variant_name)
     {
+        dlog!("succeeded.");
         Some((enum_def, idx))
     } else {
+        dlog!("failed.");
         None
     }
 }
@@ -3120,7 +3224,7 @@ fn enum_ctor_helper(
     func_node: AstNode,
     funcap_node: AstNode,
 ) {
-    let (def_type, subst) = TypeVar::make_nominal_with_substitution(
+    let (def_type, subst) = TypeVar::make_nominal_and_substitution(
         ctx,
         Reason::Node(func_node.clone()),
         Nominal::Enum(enum_def.clone()),
@@ -3338,6 +3442,8 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(prefixes, tag, data) => {
+            dlog!("--- ANALYZING VARIANT ---");
+            _print_node(ctx, pat.node());
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.node()),
                 None => TypeVar::make_void(Reason::VariantNoData(pat.node())),
@@ -3349,7 +3455,7 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                     variant,
                 }) = ctx.resolution_map.get(&tag.id).cloned()
                 {
-                    let (enum_ty, substitution) = TypeVar::make_nominal_with_substitution(
+                    let (enum_ty, substitution) = TypeVar::make_nominal_and_substitution(
                         ctx,
                         Reason::Node(pat.node()),
                         Nominal::Enum(enum_def.clone()),
@@ -3383,7 +3489,9 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         },
                     );
 
-                    let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
+                    let Mode::Ana { expected, .. } = &mode else { unreachable!() };
+
+                    let (def_type, substitution) = TypeVar::make_nominal_and_substitution(
                         ctx,
                         Reason::Node(pat.node()),
                         Nominal::Enum(enum_def.clone()),
@@ -3395,13 +3503,26 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
                         Some(ty) => ty.to_typevar(ctx),
                     };
-                    let variant_data_ty = variant_data_ty.subst(&substitution);
-                    constrain(ctx, &ty_data, &variant_data_ty);
+                    let variant_data_ty_instantiated = variant_data_ty.clone().subst(&substitution);
+                    constrain(ctx, &ty_data, &variant_data_ty_instantiated);
 
                     constrain(ctx, &ty_pat, &def_type);
 
                     if let Some(data) = data {
-                        generate_constraints_pat(ctx, Mode::ana(ty_data), data)
+                        // result<T, E>
+                        let original_ty = TypeVar::make_nominal_original(
+                            ctx,
+                            Reason::Node(pat.node()),
+                            Nominal::Enum(enum_def.clone()),
+                        );
+                        // result<void, FsError>
+                        let actual_ty = expected;
+                        // T = void, E = FsError
+                        let subst = get_substitution_of_typ2(ctx, &original_ty, &actual_ty);
+                        // if variant_data_ty = E
+                        // then expected_data_ty = FsError by substitution
+                        let expected_data_ty = variant_data_ty.subst(&subst);
+                        generate_constraints_pat(ctx, Mode::ana(expected_data_ty), data);
                     };
                 } else {
                     ctx.errors
