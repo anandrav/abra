@@ -167,9 +167,16 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>
         stack.push_back(id);
     }
 
-    // prelude
+    // prelude — use embedded content but resolve absolute path via file provider
+    // so the LSP can navigate to the file on disk
     {
-        let prelude_file_data = FileData::new_simple("prelude.abra".into(), PRELUDE.into());
+        let prelude_file_data = match ctx
+            .file_provider
+            .search_for_file(Path::new("prelude.abra"), false)
+        {
+            Ok(fd) => FileData::new(fd.package_name, fd.absolute_path, PRELUDE.into()),
+            Err(_) => FileData::new_simple("prelude.abra".into(), PRELUDE.into()),
+        };
         visited.insert(prelude_file_data.absolute_path.clone());
         let id = ctx.file_db.add(prelude_file_data);
         stack.push_back(id);
