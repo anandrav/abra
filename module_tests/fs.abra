@@ -26,7 +26,7 @@ fn test_read_write() -> result<void, string> {
     check(contents2 == "hello worldline2", "read after append")?
 
     remove("_test_rw.txt").map_err(str_err)?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_exists_copy_rename_remove() -> result<void, string> {
@@ -45,7 +45,7 @@ fn test_exists_copy_rename_remove() -> result<void, string> {
     check(not exists("_test_ecr.txt").map_err(str_err)?, "removed file gone")?
     check(not exists("_test_ecr_renamed.txt").map_err(str_err)?, "removed renamed file gone")?
 
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_directories() -> result<void, string> {
@@ -65,7 +65,7 @@ fn test_directories() -> result<void, string> {
     check(is_dir("_test_dirs/nested/deep"), "mkdir_all creates nested dirs")?
     rmdir_all("_test_dirs").map_err(str_err)?
 
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_path_manipulation() -> result<void, string> {
@@ -76,7 +76,7 @@ fn test_path_manipulation() -> result<void, string> {
     check(stem("/a/b/c.txt").unwrap() == "c", "stem")?
     check(extension("noext").is_none(), "extension of file with no extension")?
     check(parent("lonely").unwrap() == "", "parent of bare filename")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_environment() -> result<void, string> {
@@ -88,7 +88,7 @@ fn test_environment() -> result<void, string> {
     check(is_file(tmp), "temp_file creates a file")?
     remove(tmp).map_err(str_err)?
 
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_glob_and_walk() -> result<void, string> {
@@ -109,7 +109,7 @@ fn test_glob_and_walk() -> result<void, string> {
     check(all_files.len() == 4, "walk_dir count")?
 
     rmdir_all("_test_gw").map_err(str_err)?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_metadata() -> result<void, string> {
@@ -122,7 +122,7 @@ fn test_metadata() -> result<void, string> {
     check(mtime > 0.0, "modified_time > 0")?
 
     remove("_test_meta.txt").map_err(str_err)?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_symlinks() -> result<void, string> {
@@ -138,7 +138,7 @@ fn test_symlinks() -> result<void, string> {
 
     remove("_test_sym_link").map_err(str_err)?
     remove("_test_sym.txt").map_err(str_err)?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_permissions() -> result<void, string> {
@@ -151,37 +151,37 @@ fn test_permissions() -> result<void, string> {
     check(not is_executable("_test_perm.txt").map_err(str_err)?, "not executable after unset")?
 
     remove("_test_perm.txt").map_err(str_err)?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_error_handling() -> result<void, string> {
     let r1: result<string, FsError> = read("_test_err_nonexistent.txt")
     match r1 {
-        result.ok(_) -> return result.err("expected error from read")
-        result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> return result.err("wrong error kind from read")
+        .ok(_) -> return .err("expected error from read")
+        .err(FsError.NotFound(_)) -> nil
+        .err(_) -> return .err("wrong error kind from read")
     }
 
     let r2: result<void, FsError> = remove("_test_err_nonexistent.txt")
     match r2 {
-        result.ok(_) -> return result.err("expected error from remove")
-        result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> return result.err("wrong error kind from remove")
+        .ok(_) -> return .err("expected error from remove")
+        .err(FsError.NotFound(_)) -> nil
+        .err(_) -> return .err("wrong error kind from remove")
     }
 
     let r3: result<void, FsError> = mkdir("_test_err_dir/nested/deep")
     match r3 {
-        result.ok(_) -> return result.err("expected error from mkdir")
-        result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> return result.err("wrong error kind from mkdir")
+        .ok(_) -> return .err("expected error from mkdir")
+        .err(FsError.NotFound(_)) -> nil
+        .err(_) -> return .err("wrong error kind from mkdir")
     }
 
     let r4: result<string, FsError> = read("_test_err_no_such_file.txt")
     match r4 {
-        result.ok(_) -> return result.err("expected error from read")
-        result.err(FsError.NotFound(_)) -> nil
-        result.err(_) -> return result.err("wrong error kind from read")
+        .ok(_) -> return .err("expected error from read")
+        .err(FsError.NotFound(_)) -> nil
+        .err(_) -> return .err("wrong error kind from read")
     }
 
-    result.ok(nil)
+    .ok(nil)
 }
