@@ -151,6 +151,14 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>
     let mut stack: VecDeque<FileId> = VecDeque::new();
     let mut visited = HashSet::<PathBuf>::default();
 
+    let prelude_file_data = match ctx
+        .file_provider
+        .search_for_file(Path::new("prelude.abra"), false)
+    {
+        Ok(fd) => FileData::new(fd.package_name, fd.absolute_path, PRELUDE.into()),
+        Err(_) => FileData::new_simple("prelude.abra".into(), PRELUDE.into()),
+    };
+
     // main file
     for root in roots {
         let main_file_data = match ctx.file_provider.search_for_file(Path::new(root), true) {
@@ -162,21 +170,18 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>
             }
             Ok(main_file_data) => main_file_data,
         };
+        // if main file is named "prelude.abra", it gets skipped
+        // TODO: add an error message if user names the main file prelude.abra?
+        if main_file_data.absolute_path == prelude_file_data.absolute_path {
+            continue;
+        }
         visited.insert(main_file_data.absolute_path.clone());
         let id = ctx.file_db.add(main_file_data);
         stack.push_back(id);
     }
 
-    // prelude — use embedded content but resolve absolute path via file provider
-    // so the LSP can navigate to the file on disk
+    // prelude
     {
-        let prelude_file_data = match ctx
-            .file_provider
-            .search_for_file(Path::new("prelude.abra"), false)
-        {
-            Ok(fd) => FileData::new(fd.package_name, fd.absolute_path, PRELUDE.into()),
-            Err(_) => FileData::new_simple("prelude.abra".into(), PRELUDE.into()),
-        };
         visited.insert(prelude_file_data.absolute_path.clone());
         let id = ctx.file_db.add(prelude_file_data);
         stack.push_back(id);
