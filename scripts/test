@@ -7,19 +7,33 @@ else
   export WD="$PWD"
 fi
 
+print_passed_message() {
+  printf '\033[0;32mPASSED\033[0m\n'
+}
+
+run_module_tests() {
+  cargo build --quiet --package abra_module_core
+  echo ""
+  echo "running module tests"
+  for f in module_tests/*.abra; do
+    [ "$(basename "$f")" = "test_runner.abra" ] && continue
+    ./scripts/run "$f"
+  done
+}
+
+if [[ "${1-}" == "--modules" ]]; then
+  run_module_tests
+  print_passed_message
+  exit 0
+fi
+
 cargo fmt
 cargo clippy
 
 cargo test "$@"
 
 # Run pure-Abra module tests
-cargo build --quiet --package abra_module_core
-echo ""
-echo "running module tests"
-for f in module_tests/*.abra; do
-  [ "$(basename "$f")" = "test_runner.abra" ] && continue
-  ./scripts/run "$f"
-done
+run_module_tests
 
 pushd $WD/abra_core > /dev/null
 cargo check --lib --target wasm32-unknown-unknown
@@ -29,7 +43,5 @@ cargo deny check
 
 mdbook build book
 
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
-printf "${GREEN}PASSED${NC}\n"
+print_passed_message
 
