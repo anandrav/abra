@@ -21,6 +21,7 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -1462,6 +1463,7 @@ impl PolyvarScope {
 }
 
 pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
+    dlog!("--- handle_try_operator_constraints() ---");
     /*
         Because the return type of the calling function is often not known at this
         point, the constraint should be pushed to a Vector, and then all those
@@ -1485,6 +1487,8 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         let Some(caller_ret_ty_solved) = caller_ret_ty.single() else { continue };
 
+        dlog!("caller_ret_ty_solved: {}", caller_ret_ty_solved);
+
         let ret_ty_key = caller_ret_ty_solved.key();
 
         if ret_ty_key != tried_expr_key {
@@ -1503,10 +1507,13 @@ pub(crate) fn handle_try_operator_constraints(ctx: &mut StaticsContext) {
 
         let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
         let ret_ty_residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
+        dlog!("ret_ty_residual_ty before subst: {}", ret_ty_residual_ty);
         let ret_ty_subst = get_substitution_of_typ(ctx, &imp.typ, &caller_ret_ty);
         let ret_ty_residual_ty = ret_ty_residual_ty.subst(&ret_ty_subst);
+        dlog!("ret_ty_residual_ty after subst: {}", ret_ty_residual_ty);
 
         constrain(ctx, &tried_expr_residual_ty, &ret_ty_residual_ty);
+        dlog!("tried_expr_residual_ty: {}", tried_expr_residual_ty);
 
         let fn_branch_signature =
             TypeVar::from_node(ctx, imp.get_method_by_name("branch").unwrap().name.node());
@@ -1662,10 +1669,7 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
 }
 
 // decls1 only handles interface implementations
-// It actually performs type analysis for interface implementations, it's misnamed
-// This was probably so that when analyzing free functions in the program,
-// inference can work properly because all the types have been solved for interface implementations
-// TODO: this seems bug prone...
+// It constrains the method signatures of interface implementatinons to the signatures of the interface declaration
 fn generate_constraints_item_decls1(ctx: &mut StaticsContext, item: &Rc<Item>) {
     match &*item.kind {
         ItemKind::InterfaceDef(..) => {}
@@ -1717,6 +1721,9 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                         Some(&interface_method.ret_type),
                     );
                     let interface_method_ty = TypeVar::from_node(ctx, interface_method.name.node());
+                    if iface_def.name.v == "Try" {
+                        dlog!("interface_method_ty: {}", interface_method_ty);
+                    }
                     let mut substitution: Substitution = HashMap::default();
                     if let Some(poly_decl) = interface_method_ty.get_interface_self_type() {
                         substitution.insert(poly_decl, impl_ty.clone());
@@ -1727,6 +1734,9 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                         interface_method.name.node(),
                         iface_impl,
                     );
+                    if iface_def.name.v == "Try" {
+                        dlog!("interface_method_ty after subst: {}", expected);
+                    }
 
                     let actual = TypeVar::from_node(ctx, f.name.node());
                     constrain(ctx, &expected, &actual);
@@ -2959,6 +2969,7 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::Try(expr_inner) => {
+            dlog!("hello");
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr_inner);
             let expr_inner_ty = TypeVar::from_node(ctx, expr_inner.node());
 
@@ -2973,57 +2984,47 @@ fn generate_constraints_expr(
 
             // get the implementation of Try for this expression's type
             if let Some(expr_inner_potential_ty) = expr_inner_ty.single() {
+                dlog!("expr_inner_potential_ty: {}", expr_inner_potential_ty);
                 let expr_inner_ty_key = expr_inner_potential_ty.key();
                 if let Some(imp) = ctx.get_iface_impl_for_type(&expr_inner_ty_key, &try_iface_decl)
                 {
                     // the type of the expression is the type of unwrap's output
                     let output_type = try_iface_decl.get_output_type_by_name("Output").unwrap();
                     let output_ty = ctx.get_output_type_of_iface_impl(&imp, output_type);
+                    dlog!("output_ty before subst: {}", output_ty);
                     // substitute { T = int } here
                     let subst = get_substitution_of_typ(ctx, &imp.typ, &expr_inner_ty);
                     let output_ty = output_ty.subst(&subst);
+                    dlog!("output_ty after subst: {}", output_ty);
                     constrain(ctx, &node_ty, &output_ty);
 
                     // the type of the residual must match the type of the outer function's return type's residual
                     let residual_type = try_iface_decl.get_output_type_by_name("Residual").unwrap();
                     let residual_ty = ctx.get_output_type_of_iface_impl(&imp, residual_type);
+                    dlog!("residual_ty before subst: {}", residual_ty);
                     let residual_ty = residual_ty.subst(&subst);
+                    dlog!("residual_ty after subst: {}", residual_ty);
 
-                    // TODO: if try operator is used at toplevel there is no calling function...
-                    let calling_func_ty = ctx.func_ret_stack.last().unwrap().clone();
-                    let calling_func_ty = ctx.unifvars.get(&calling_func_ty).unwrap().clone();
+                    // TODO: if try operator is used at toplevel there is no calling function... this will panic
+                    let calling_func_return_ty_prov = ctx.func_ret_stack.last().unwrap().clone();
+                    let calling_func_return_ty = ctx
+                        .unifvars
+                        .get(&calling_func_return_ty_prov)
+                        .unwrap()
+                        .clone();
                     constrain_to_iface(
                         ctx,
-                        &calling_func_ty,
+                        &calling_func_return_ty,
                         expr.node(),
                         &InterfaceConstraint::no_args(try_iface_decl),
                     );
+                    dlog!("calling_func_ty: {}", calling_func_return_ty);
                     ctx.try_operator_constraints.push((
-                        calling_func_ty.clone(),
+                        calling_func_return_ty.clone(),
                         expr_inner.node(),
                         expr_inner_ty_key,
                         residual_ty,
                     ));
-
-                    // TODO LAST HERE
-                    /*
-                        Because the return type of the calling function is often not known at this
-                        point, the constraint should be pushed to a Vector, and then all those
-                        constraints will be addressed toward the end of typechecking
-
-                        The constraint can be broken into 3 parts:
-                        1. the return type of the calling function must implement Try interface
-                        2. the return type of the calling function must have the same TypeKey
-                           as the type of the expression being try'd
-                        3. the residual of the return type of the calling function must
-                            be equal to the residual of the type of the expression being try'd
-
-                        The information necessary to check this constraint is:
-                        1. The calling function (to retrieve its return type)
-                        2. The type of the expression being try'd
-                        3. The residual of the type of the expressio being try'd
-
-                    */
                 }
             } else {
                 ctx.errors
@@ -3032,7 +3033,13 @@ fn generate_constraints_expr(
         }
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
-    handle_ana(ctx, mode, node_ty);
+    if let ExprKind::Try(_) = &*expr.kind {
+        dlog!("node_ty: {}", node_ty);
+    }
+    handle_ana(ctx, mode, node_ty.clone());
+    if let ExprKind::Try(_) = &*expr.kind {
+        dlog!("node_ty after ana: {}", node_ty);
+    }
 }
 
 impl StaticsContext {

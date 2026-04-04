@@ -128,7 +128,7 @@ implement Try for option<T> {
 }
 
 implement Try for result<T2, E2> {
-    fn branch(self) -> ControlFlow<E2, T2> {  // TODO: shouldn't need to annotate this :/
+    fn branch(self) /*-> ControlFlow<E2, T2>*/ {  // TODO: shouldn't need to annotate this :/
         match self {
             .ok(x) -> .Continue(x)
             .err(e) -> .Break(e)

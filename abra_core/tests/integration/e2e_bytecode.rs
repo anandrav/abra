@@ -10,6 +10,11 @@ use abra_core::vm::VmStatus;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+// TODO: all programs in examples/ should at least be compiled to see if that works
+// make another test file called examples.rs
+// use include_str! to get an example code file
+// make a macro that loops through all files in examples/, each one gets a unit test to do compile check
+
 #[test]
 fn arithmetic() {
     let src = r#"

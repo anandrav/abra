@@ -1,0 +1,7 @@
+fn blah() -> result<int, string> {
+  result.err("this is an error")?
+}
+match blah() {
+    .ok(_) -> panic("should be err")
+    .err(s) -> s
+}

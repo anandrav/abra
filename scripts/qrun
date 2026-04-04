@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+export DEBUG_LOG=1
+export RUSTFLAGS="-A warnings"
+
 # Only build the CLI (and core), not native modules
 cargo build -p abra_cli
 # Run debug build of abra cli
