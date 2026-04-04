@@ -160,6 +160,8 @@ fn get_files(ctx: &mut StaticsContext, roots: &[&str]) -> Result<Vec<Rc<FileAst>
     };
 
     // main file
+    // NOTE: the first file in file_asts is implicitly considered the main file by bytecode translator.
+    //       therefore, the main file is first inserted here, even before the prelude.
     for root in roots {
         let main_file_data = match ctx.file_provider.search_for_file(Path::new(root), true) {
             Err(e) => {
