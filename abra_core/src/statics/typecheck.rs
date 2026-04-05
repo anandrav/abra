@@ -1747,14 +1747,6 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
             }
 
             for f in &iface_impl.methods {
-                // if let Some((first_arg_identifier, _)) = f.args.first()
-                //     && first_arg_identifier.v == "self"
-                // {
-                //     let nominal_ty = impl_ty.clone();
-                //     let ty_first_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
-                //     constrain(ctx, &ty_first_arg, &nominal_ty);
-                // }
-
                 let method_name = &f.name.v;
                 if let Some((_, interface_method)) = iface_def.get_method_by_name(method_name) {
                     generate_constraints_func_decl(
@@ -1963,6 +1955,16 @@ fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: &Rc<Inter
         if node_ty.is_locked() {
             // Interface declaration method types have already been computed.
             break;
+        }
+        if let Some((first_arg_identifier, _)) = method.args.first()
+            && first_arg_identifier.v == "self"
+        {
+            let nominal_ty = TypeVar::make_poly(
+                Reason::Node(first_arg_identifier.node()),
+                PolytypeDeclaration::InterfaceSelf(iface_def.clone()),
+            );
+            let ty_first_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+            constrain(ctx, &ty_first_arg, &nominal_ty);
         }
         generate_constraints_func_decl(
             ctx,
