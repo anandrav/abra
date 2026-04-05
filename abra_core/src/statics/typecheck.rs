@@ -1747,6 +1747,14 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
             }
 
             for f in &iface_impl.methods {
+                if let Some((first_arg_identifier, _)) = f.args.first()
+                    && first_arg_identifier.v == "self"
+                {
+                    let nominal_ty = impl_ty.clone();
+                    let ty_first_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+                    constrain(ctx, &ty_first_arg, &nominal_ty);
+                }
+
                 let method_name = &f.name.v;
                 if let Some((_, interface_method)) = iface_def.get_method_by_name(method_name) {
                     generate_constraints_func_decl(

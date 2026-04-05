@@ -90,7 +90,7 @@ implement Unwrap for option<T> {
 }
 
 implement Unwrap for result<T, E> {
-    fn unwrap(self: result<T, E>) -> T { // TODO: self shouldn't need to be annotated here
+    fn unwrap(self) -> T {
         match self {
             .ok(x) -> x
             .err(_) -> panic("cannot unwrap result.err")
@@ -115,7 +115,7 @@ interface Try {
 type ControlFlow<B, C> = Break(B) | Continue(C)
 
 implement Try for option<T> {
-    fn branch(self: option<T>) -> ControlFlow<void, T> {
+    fn branch(self) -> ControlFlow<void, T> {
         match self {
             .some(x) -> .Continue(x)
             .none -> .Break(nil)
