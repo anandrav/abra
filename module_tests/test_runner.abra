@@ -1,7 +1,7 @@
 use core/colors
 
 fn check(cond: bool, msg: string) -> result<void, string> {
-    if cond { result.ok(nil) } else { result.err(msg) }
+    if cond { .ok(nil) } else { .err(msg) }
 }
 
 type TestRunner = {
@@ -15,8 +15,8 @@ extend TestRunner {
     fn run(self, name: string, r: result<void, E ToString>) {
         print("test " .. self.prefix .. "::" .. name .. " ... ")
         match r {
-            result.ok(_) -> println(green("ok"))
-            result.err(e) -> { println(red("FAILED: ") .. e); self.failed = self.failed + 1 }
+            .ok(_) -> println(green("ok"))
+            .err(e) -> { println(red("FAILED: ") .. e); self.failed = self.failed + 1 }
         }
     }
 

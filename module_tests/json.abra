@@ -25,7 +25,7 @@ t.finish()
 fn test_parse_null() -> result<void, string> {
     let v = parse("null")?
     check(v.is_null(), "null should be null")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_bool() -> result<void, string> {
@@ -33,7 +33,7 @@ fn test_parse_bool() -> result<void, string> {
     check(t.as_bool()! == true, "true")?
     let f = parse("false")?
     check(f.as_bool()! == false, "false")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_number() -> result<void, string> {
@@ -47,7 +47,7 @@ fn test_parse_number() -> result<void, string> {
     check(exp.as_number()! == 1000.0, "exponent")?
     let zero = parse("0")?
     check(zero.as_number()! == 0.0, "zero")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_string() -> result<void, string> {
@@ -55,7 +55,7 @@ fn test_parse_string() -> result<void, string> {
     check(s.as_string()! == "hello", "basic string")?
     let empty = parse("\"\"")?
     check(empty.as_string()! == "", "empty string")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_array() -> result<void, string> {
@@ -66,7 +66,7 @@ fn test_parse_array() -> result<void, string> {
     check(items[2].as_number()! == 3.0, "third element")?
     let empty = parse("[]")?
     check(empty.as_array()!.len() == 0, "empty array")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_object() -> result<void, string> {
@@ -75,7 +75,7 @@ fn test_parse_object() -> result<void, string> {
     check(obj.get("b").as_number()! == 2.0, "key b")?
     let empty = parse("{}")?
     check(empty.as_object()!.len() == 0, "empty object")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_nested() -> result<void, string> {
@@ -85,13 +85,13 @@ fn test_parse_nested() -> result<void, string> {
     check(items[0].as_number()! == 1.0, "nested array first")?
     check(items[1].get("nested").as_bool()! == true, "deeply nested bool")?
     check(v.get("ok").is_null(), "null value in object")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_whitespace() -> result<void, string> {
     let v = parse("  \n  { \"key\" :  \"value\"  }  \n")?
     check(v.get("key").as_string()! == "value", "whitespace handling")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_escapes() -> result<void, string> {
@@ -103,7 +103,7 @@ fn test_parse_escapes() -> result<void, string> {
     check(v3.as_string()! == "quote\"here", "quote escape")?
     let v4 = parse("\"back\\\\slash\"")?
     check(v4.as_string()! == "back\\slash", "backslash escape")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_parse_errors() -> result<void, string> {
@@ -113,7 +113,7 @@ fn test_parse_errors() -> result<void, string> {
     check(parse("tru").is_err(), "truncated keyword")?
     check(parse("\"unclosed").is_err(), "unclosed string")?
     check(parse("42 extra").is_err(), "trailing chars")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_stringify_primitives() -> result<void, string> {
@@ -124,7 +124,7 @@ fn test_stringify_primitives() -> result<void, string> {
     check(stringify(.Number(3.14)) == "3.14", "float number")?
     check(stringify(.Str("hello")) == "\"hello\"", "string")?
     check(stringify(.Str("")) == "\"\"", "empty string")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_stringify_array() -> result<void, string> {
@@ -136,7 +136,7 @@ fn test_stringify_array() -> result<void, string> {
     check(s == "[1,true,\"x\"]", "mixed array: got " .. s)?
     let empty: array<JsonValue> = []
     check(stringify(.Array(empty)) == "[]", "empty array")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_stringify_object() -> result<void, string> {
@@ -145,7 +145,7 @@ fn test_stringify_object() -> result<void, string> {
     m.insert("key", .Str("val"))
     let s = stringify(.Object(m))
     check(s == "{\"key\":\"val\"}", "single-key object: got " .. s)?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_stringify_pretty() -> result<void, string> {
@@ -155,7 +155,7 @@ fn test_stringify_pretty() -> result<void, string> {
     let s = stringify_pretty(.Array(arr))
     check(s.contains("\n"), "pretty has newlines")?
     check(s.contains("  "), "pretty has indentation")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_roundtrip() -> result<void, string> {
@@ -170,7 +170,7 @@ fn test_roundtrip() -> result<void, string> {
     let vals = reparsed.get("values").as_array()!
     check(vals.len() == 3, "roundtrip array length")?
     check(vals[0].as_number()! == 1.0, "roundtrip array val")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_accessors() -> result<void, string> {
@@ -179,5 +179,5 @@ fn test_accessors() -> result<void, string> {
     check(v.get("a").at(1).as_number()! == 20.0, "chained get/at second")?
     check(v.try_get("missing").is_none(), "try_get missing")?
     check(v.try_get("a").is_some(), "try_get present")?
-    result.ok(nil)
+    .ok(nil)
 }

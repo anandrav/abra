@@ -165,21 +165,21 @@ fn test_error_handling() -> result<void, string> {
     let r2: result<void, FsError> = remove("_test_err_nonexistent.txt")
     match r2 {
         .ok(_) -> return .err("expected error from remove")
-        .err(FsError.NotFound(_)) -> nil
+        .err(.NotFound(_)) -> nil
         .err(_) -> return .err("wrong error kind from remove")
     }
 
     let r3: result<void, FsError> = mkdir("_test_err_dir/nested/deep")
     match r3 {
         .ok(_) -> return .err("expected error from mkdir")
-        .err(FsError.NotFound(_)) -> nil
+        .err(.NotFound(_)) -> nil
         .err(_) -> return .err("wrong error kind from mkdir")
     }
 
     let r4: result<string, FsError> = read("_test_err_no_such_file.txt")
     match r4 {
         .ok(_) -> return .err("expected error from read")
-        .err(FsError.NotFound(_)) -> nil
+        .err(.NotFound(_)) -> nil
         .err(_) -> return .err("wrong error kind from read")
     }
 

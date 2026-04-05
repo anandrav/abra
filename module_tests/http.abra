@@ -22,7 +22,7 @@ fn test_get_basic() -> result<void, string> {
     let resp = get("https://httpbin.org/get").map_err(str_err)?
     check(resp.ok(), "status should be 2xx, got: " .. resp.status)?
     check(resp.body.len() > 0, "body should not be empty")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_get_headers() -> result<void, string> {
@@ -30,21 +30,21 @@ fn test_get_headers() -> result<void, string> {
     let ct = resp.header("content-type")
     check(ct.is_some(), "should have content-type header")?
     check(ct!.contains("json"), "content-type should contain json")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_get_404() -> result<void, string> {
     let resp = get("https://httpbin.org/status/404").map_err(str_err)?
     check(resp.status == 404, "status should be 404, got: " .. resp.status)?
     check(not resp.ok(), "ok() should be false for 404")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_post_basic() -> result<void, string> {
     let resp = post("https://httpbin.org/post", "hello world").map_err(str_err)?
     check(resp.ok(), "status should be 2xx, got: " .. resp.status)?
     check(resp.body.contains("hello world"), "response should echo the body")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_request_builder() -> result<void, string> {
@@ -54,7 +54,7 @@ fn test_request_builder() -> result<void, string> {
         .map_err(str_err)?
     check(resp.ok(), "status should be 2xx")?
     check(resp.body.contains("test-value"), "response should include custom header value")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_response_json() -> result<void, string> {
@@ -63,7 +63,7 @@ fn test_response_json() -> result<void, string> {
     let url = json.get("url").as_string()
     check(url.is_some(), "json should have url field")?
     check(url!.contains("httpbin.org"), "url should contain httpbin.org")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_post_json() -> result<void, string> {
@@ -75,7 +75,7 @@ fn test_post_json() -> result<void, string> {
     let json = resp.json()?
     let ct = json.get("headers").get("Content-Type").as_string()!
     check(ct.contains("application/json"), "content-type should be json, got: " .. ct)?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_request_json_body() -> result<void, string> {
@@ -89,11 +89,11 @@ fn test_request_json_body() -> result<void, string> {
     let json = resp.json()?
     let ct = json.get("headers").get("Content-Type").as_string()!
     check(ct.contains("application/json"), "content-type should be json")?
-    result.ok(nil)
+    .ok(nil)
 }
 
 fn test_connection_error() -> result<void, string> {
     let r = get("http://localhost:1")
     check(r.is_err(), "should fail to connect")?
-    result.ok(nil)
+    .ok(nil)
 }
