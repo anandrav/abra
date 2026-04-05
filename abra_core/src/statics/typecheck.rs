@@ -1917,59 +1917,33 @@ pub(crate) fn get_substitution_of_typ(
 // TODO: duplicated with above
 // TODO: return Option<Substitution> instead of returning empty substitution
 pub(crate) fn get_substitution_of_typ2(
-    ctx: &StaticsContext,
+    _ctx: &StaticsContext,
     original: &TypeVar,
     actual: &TypeVar,
 ) -> Substitution {
     let mut subst = Substitution::default();
     let Some(actual_potential_ty) = actual.single() else {
-        panic!();
         return subst;
     };
     let Some(original_potential_ty) = original.single() else {
-        panic!();
         return subst;
     };
     let PotentialType::Nominal(_, _, original_params) = &original_potential_ty else {
-        panic!();
         return subst;
     };
     let PotentialType::Nominal(_, _, actual_params) = &actual_potential_ty else {
-        panic!();
         return subst;
     };
     for (original_arg, actual_arg) in original_params.iter().zip(actual_params) {
         dlog!("actual_arg: {}", actual_arg);
         let Some(original_arg_potential_ty) = original_arg.single() else {
-            panic!();
             continue;
         };
         let PotentialType::Poly(_, decl) = original_arg_potential_ty else {
-            panic!();
             continue;
         };
         subst.insert(decl, actual_arg.clone());
     }
-    // let mut args: Vec<PolytypeDeclaration> = vec![];
-    // for arg in original_params {
-    //     let Some(arg_potential_ty) = arg.single() else {
-    //         continue;
-    //     };
-    //     let TypeKind::Poly(poly) = &*arg.kind else {
-    //         continue;
-    //     };
-    //     let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id)
-    //     else {
-    //         continue;
-    //     };
-    //     args.push(poly_decl.clone());
-    // }
-    // if args.len() != params.len() {
-    //     return subst;
-    // }
-    // for (arg, param) in args.iter().zip(params) {
-    //     subst.insert(arg.clone(), param.clone());
-    // }
     subst
 }
 
@@ -3473,7 +3447,18 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                     constrain(ctx, &ty_pat, &enum_ty);
 
                     if let Some(data) = data {
-                        generate_constraints_pat(ctx, Mode::ana(ty_data), data)
+                        if let Mode::Ana { expected, .. } = &mode {
+                            generate_constraints_pat_ana_variant_data(
+                                ctx,
+                                &enum_def,
+                                pat,
+                                expected,
+                                data,
+                                variant_data_ty,
+                            );
+                        } else {
+                            generate_constraints_pat(ctx, Mode::ana(ty_data), data)
+                        }
                     };
                 } else {
                     ty_pat.set_flag_missing_info();
@@ -3509,20 +3494,14 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                     constrain(ctx, &ty_pat, &def_type);
 
                     if let Some(data) = data {
-                        // result<T, E>
-                        let original_ty = TypeVar::make_nominal_original(
+                        generate_constraints_pat_ana_variant_data(
                             ctx,
-                            Reason::Node(pat.node()),
-                            Nominal::Enum(enum_def.clone()),
+                            &enum_def,
+                            pat,
+                            expected,
+                            data,
+                            variant_data_ty,
                         );
-                        // result<void, FsError>
-                        let actual_ty = expected;
-                        // T = void, E = FsError
-                        let subst = get_substitution_of_typ2(ctx, &original_ty, &actual_ty);
-                        // if variant_data_ty = E
-                        // then expected_data_ty = FsError by substitution
-                        let expected_data_ty = variant_data_ty.subst(&subst);
-                        generate_constraints_pat(ctx, Mode::ana(expected_data_ty), data);
                     };
                 } else {
                     ctx.errors
@@ -3567,6 +3546,29 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
     }
     let ty_pat = TypeVar::from_node(ctx, pat.node());
     handle_ana(ctx, mode, ty_pat);
+}
+
+fn generate_constraints_pat_ana_variant_data(
+    ctx: &mut StaticsContext,
+    enum_def: &Rc<EnumDef>,
+    parent: &Rc<Pat>,
+    parent_expected_ty: &TypeVar,
+    data: &Rc<Pat>,
+    data_ty: TypeVar,
+) {
+    // result<T, E>
+    let original_ty = TypeVar::make_nominal_original(
+        ctx,
+        Reason::Node(parent.node()),
+        Nominal::Enum(enum_def.clone()),
+    );
+    // result<void, FsError>
+    // T = void, E = FsError
+    let subst = get_substitution_of_typ2(ctx, &original_ty, parent_expected_ty);
+    // if variant_data_ty = E
+    // then expected_data_ty = FsError by substitution
+    let expected_data_ty = data_ty.subst(&subst);
+    generate_constraints_pat(ctx, Mode::ana(expected_data_ty), data);
 }
 
 fn handle_ana(ctx: &mut StaticsContext, mode: Mode, node_ty: TypeVar) {
