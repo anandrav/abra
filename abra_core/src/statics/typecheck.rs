@@ -3491,21 +3491,22 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
 
                     let Mode::Ana { expected, .. } = &mode else { unreachable!() };
 
-                    // // TODO: this seems redundant. TWO rounds of substitution.... Should be consolidated.
-                    //
-                    // let (def_type, substitution) = TypeVar::make_nominal_and_substitution(
-                    //     ctx,
-                    //     Reason::Node(pat.node()),
-                    //     Nominal::Enum(enum_def.clone()),
-                    //     pat.node(),
-                    // );
-                    constrain(ctx, &ty_pat, &expected);
+                    let (def_type, substitution) = TypeVar::make_nominal_and_substitution(
+                        ctx,
+                        Reason::Node(pat.node()),
+                        Nominal::Enum(enum_def.clone()),
+                        pat.node(),
+                    );
 
                     let variant_def = &enum_def.variants[idx];
                     let variant_data_ty = match &variant_def.data {
                         None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
                         Some(ty) => ty.to_typevar(ctx),
                     };
+                    let variant_data_ty_instantiated = variant_data_ty.clone().subst(&substitution);
+                    constrain(ctx, &ty_data, &variant_data_ty_instantiated);
+
+                    constrain(ctx, &ty_pat, &def_type);
 
                     if let Some(data) = data {
                         // result<T, E>
@@ -3517,12 +3518,12 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         // result<void, FsError>
                         let actual_ty = expected;
                         // T = void, E = FsError
-                        let subst = get_substitution_of_typ2(ctx, &original_ty, &expected);
+                        let subst = get_substitution_of_typ2(ctx, &original_ty, &actual_ty);
                         // if variant_data_ty = E
                         // then expected_data_ty = FsError by substitution
                         let expected_data_ty = variant_data_ty.subst(&subst);
                         generate_constraints_pat(ctx, Mode::ana(expected_data_ty), data);
-                    }
+                    };
                 } else {
                     ctx.errors
                         .push(Error::UnqualifiedEnumNeedsAnnotation { node: pat.node() });
