@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{
-    _print_node, Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments,
-    InterfaceDef, Polytype, PolytypeDeclaration, StaticsContext, StructDef,
+    Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments, InterfaceDef,
+    Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
@@ -21,7 +21,6 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -1935,7 +1934,6 @@ pub(crate) fn get_substitution_of_typ2(
         return subst;
     };
     for (original_arg, actual_arg) in original_params.iter().zip(actual_params) {
-        dlog!("actual_arg: {}", actual_arg);
         let Some(original_arg_potential_ty) = original_arg.single() else {
             continue;
         };
@@ -3171,8 +3169,6 @@ impl StaticsContext {
 }
 
 fn infer_enum(mode: &Mode, variant_name: &str) -> Option<(Rc<EnumDef>, usize)> {
-    dlog!("mode = {:#?}", mode);
-    dlog!("variant name = {variant_name}");
     let expected_ty = mode.get_expected();
     if let Some(expected_ty) = expected_ty
         && let Some(PotentialType::Nominal(_, Nominal::Enum(enum_def), _)) = expected_ty.single()
@@ -3181,10 +3177,8 @@ fn infer_enum(mode: &Mode, variant_name: &str) -> Option<(Rc<EnumDef>, usize)> {
             .iter()
             .position(|v| v.ctor.v == variant_name)
     {
-        dlog!("succeeded.");
         Some((enum_def, idx))
     } else {
-        dlog!("failed.");
         None
     }
 }
@@ -3416,8 +3410,6 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(prefixes, tag, data) => {
-            dlog!("--- ANALYZING VARIANT ---");
-            _print_node(ctx, pat.node());
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.node()),
                 None => TypeVar::make_void(Reason::VariantNoData(pat.node())),
