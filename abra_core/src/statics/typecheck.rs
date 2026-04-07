@@ -3138,7 +3138,7 @@ fn generate_constraints_expr(
                 }
             } else {
                 ctx.errors
-                    .push(Error::UnwrapNeedsAnnotation { node: expr.node() });
+                    .push(Error::TryNeedsAnnotation { node: expr.node() });
             }
         }
     }

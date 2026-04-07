@@ -224,7 +224,14 @@ impl Error {
             }
             Error::UnwrapNeedsAnnotation { node } => {
                 diagnostic = diagnostic.with_message(
-                    "Can't perform unwrap without knowing type. Try adding a type annotation.",
+                    "Can't perform unwrap `!` without knowing type. Try adding a type annotation.",
+                );
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+            }
+            Error::TryNeedsAnnotation { node } => {
+                diagnostic = diagnostic.with_message(
+                    "Can't perform try `?` without knowing type. Try adding a type annotation.",
                 );
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));

@@ -379,6 +379,9 @@ pub(crate) enum Error {
     UnwrapNeedsAnnotation {
         node: AstNode,
     },
+    TryNeedsAnnotation {
+        node: AstNode,
+    },
     MemberAccessNeedsStruct {
         node: AstNode,
     },

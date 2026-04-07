@@ -17,7 +17,7 @@ t.run("error_handling", test_error_handling())
 t.finish()
 
 fn test_read_write() -> result<void, string> {
-    write("_test_rw.txt", "hello world").map_err(str_err)?
+    write("_test_rw.txt", "hello world").map_err(ToString.str)?
     let contents = read("_test_rw.txt").map_err(str_err)?
     check(contents == "hello world", "read after write")?
 
