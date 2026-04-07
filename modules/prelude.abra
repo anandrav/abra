@@ -362,6 +362,25 @@ fn format_append(s1: T1 ToString, s2: T2 ToString) {
     concat_strings(ToString.str(s1), ToString.str(s2))
 }
 
+interface Index {
+    outputtype Idx
+    outputtype Output
+
+    fn get_(self, index: Idx) -> Output
+
+    fn set_(self, index: Idx, val: Output) -> void
+}
+
+implement Index for array<T> {
+    fn get_(self, index: int) -> T {
+        self[index]
+    }
+
+    fn set_(self, index: int, val: T) -> void {
+        self[index] = val
+    }
+}
+
 interface Iterable {
     outputtype IterableItem
     outputtype Iter impl Iterator<IteratorItem=IterableItem> // TODO: are you just able to remove the <IteratorItem=IterableItem>? Should that be allowed??
