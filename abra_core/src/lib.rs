@@ -90,6 +90,17 @@ fn compile_bytecode_(
     Ok(translator.translate())
 }
 
+pub fn check2(
+    main_file_name: &str,
+    file_provider: Box<dyn FileProvider>,
+) -> Result<(), ErrorSummary> {
+    let roots = vec![main_file_name];
+    let mut ctx = StaticsContext::new(file_provider);
+    let file_asts = get_files(&mut ctx, &roots)?;
+    statics::analyze(&mut ctx, &file_asts)?;
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct ErrorSummary {
     msg: String,

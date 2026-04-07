@@ -15,6 +15,7 @@ struct Args {
     file: String,
     modules: Option<String>,
     import_dir: Option<String>,
+    check: bool,
     assembly: bool,
     abra_program_args: Vec<String>,
 }
@@ -26,6 +27,7 @@ impl Args {
         let mut file = None;
         let mut modules = None;
         let mut import_dir = None;
+        let mut check = false;
         let mut assembly = false;
         let mut abra_program_args = Vec::new();
         let mut parser = lexopt::Parser::from_env();
@@ -37,6 +39,9 @@ impl Args {
                 }
                 Short('i') | Long("import-dir") => {
                     import_dir = Some(parser.value()?.parse()?);
+                }
+                Short('c') | Long("check") => {
+                    check = true;
                 }
                 Short('a') | Long("assembly") => {
                     assembly = true;
@@ -66,6 +71,7 @@ impl Args {
             file,
             modules,
             import_dir,
+            check,
             assembly,
             abra_program_args,
         })
@@ -95,7 +101,8 @@ fn print_help() {
 
 {title}{bold}Options:{reset}
     {cyan}--standard-modules <DIRECTORY>{reset}     Override the default standard modules directory
-    {cyan}-i, --import-dir <DIRECTORY>{reset}        Provide an import directory
+    {cyan}-i, --import-dir <DIRECTORY>{reset}       Provide an import directory
+    {cyan}-c, --check{reset}                        Check for errors without compiling and running
     {cyan}-a, --assembly{reset}                     Print the assembly for the Abra program
     {cyan}-h, --help{reset}                         Print help"
     );
@@ -149,6 +156,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         OsFileProvider::new(main_file_dir.into(), standard_modules_dir, import_dirs);
 
     let main_file_name = main_file_path.file_name().unwrap().to_str().unwrap();
+
+    if args.check {
+        match abra_core::check2(main_file_name, file_provider) {
+            Ok(_) => {
+                let green = c("\x1b[38;2;100;230;100m");
+                let reset = c("\x1b[0m");
+                eprintln!("{green}Passed{reset}\n");
+                return Ok(());
+            }
+            Err(err) => {
+                err.emit();
+                exit(1);
+            }
+        }
+    }
 
     if args.assembly {
         match abra_core::compile_and_dump_assembly(main_file_name, file_provider) {
