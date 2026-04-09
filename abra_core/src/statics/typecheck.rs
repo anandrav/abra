@@ -712,8 +712,7 @@ impl TypeVar {
             | PotentialType::Int(_)
             | PotentialType::Float(_)
             | PotentialType::Bool(_)
-            | PotentialType::String(_)
-            | PotentialType::InterfaceOutput(..) => {
+            | PotentialType::String(_) => {
                 ty // noop
             }
             PotentialType::Poly(_, ref decl) => {
@@ -730,6 +729,7 @@ impl TypeVar {
                     ty // noop
                 }
             }
+            PotentialType::InterfaceOutput(_, iface_output_type) => {}
             PotentialType::Nominal(reasons, ident, params) => {
                 let params = params
                     .into_iter()
@@ -2689,22 +2689,25 @@ fn generate_constraints_expr(
                             // example: Clone.clone(my_struct)
                             //          ^^^^^
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                            let impl_ty = match args.first() {
-                                Some(arg) => {
-                                    generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, arg);
-                                    Some(TypeVar::from_node(ctx, arg.node()))
-                                }
-                                None => None,
-                            };
+                            // let impl_ty = match args.first() {
+                            //     Some(arg) => {
+                            //         generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, arg);
+                            //         Some(TypeVar::from_node(ctx, arg.node()))
+                            //     }
+                            //     None => None,
+                            // };
 
-                            let memfn_decl_ty = tyvar_of_iface_method(
-                                ctx,
-                                &iface_def,
-                                method,
-                                impl_ty,
-                                polyvar_scope,
-                                fname.node(),
-                            );
+                            // let memfn_decl_ty = tyvar_of_iface_method(
+                            //     ctx,
+                            //     &iface_def,
+                            //     method,
+                            //     impl_ty,
+                            //     polyvar_scope,
+                            //     fname.node(),
+                            // );
+                            let memfn_decl_ty =
+                                TypeVar::from_node(ctx, iface_def.methods[method].name.node())
+                                    .instantiate(ctx, polyvar_scope, fname.node());
                             constrain(ctx, &memfn_node_ty, &memfn_decl_ty);
 
                             generate_constraints_expr_funcap_helper(

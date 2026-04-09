@@ -165,3 +165,13 @@ extend map<K Hash Equal, V> {
         }
     }
 }
+
+implement Index for map<K Hash Equal, V> {
+    fn get_(self, index: int) -> T {
+        self.get(index)
+    }
+
+    fn set_(self, index: int, val: T) -> void {
+        self.insert(index, val)
+    }
+}
