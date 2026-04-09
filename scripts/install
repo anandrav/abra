@@ -143,13 +143,6 @@ install_abra_vscode_extension() {
   fi
 
   popd > /dev/null
-
-  printf "  - Reloading VS Code... "
-  if code --command workbench.action.reloadWindow > /dev/null 2>&1; then
-    printf "Done\n"
-  else
-    printf "Skipped (no active window)\n"
-  fi
 }
 
 install_abra_intellij_plugin() {
