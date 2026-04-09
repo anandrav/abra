@@ -444,6 +444,7 @@ pub(crate) enum Prov {
     InstantiateUdtParam(AstNode, u8),
     InstantiatePoly(PolyInstantiationId, PolytypeDeclaration),
     InstantiateInterfaceOutputType(Rc<InterfaceImpl>, Rc<InterfaceOutputType>), // some Interface implementation's instance of an output type
+    InstantiateInterfaceOutputTypeWithoutImpl(PolyInstantiationId, Rc<InterfaceOutputType>),
     FuncArg(AstNode, u8), // u8 represents the index of the argument
     FuncOut(AstNode),     // u8 represents how many arguments before this output
     ListElem(AstNode),
@@ -924,6 +925,86 @@ impl TypeVar {
         TypeVar(UnionFindNode::new(data_instantiated))
     }
 
+    fn instantiate_iface_output_types_without_impl(
+        self,
+        ctx: &mut StaticsContext,
+        node: AstNode,
+    ) -> TypeVar {
+        let id = PolyInstantiationId::new();
+        self.instantiate_iface_output_types_without_impl_(ctx, node, id)
+    }
+
+    fn instantiate_iface_output_types_without_impl_(
+        self,
+        ctx: &mut StaticsContext,
+        node: AstNode,
+        id: PolyInstantiationId,
+    ) -> TypeVar {
+        let Some(ty) = self.single() else {
+            return self;
+        };
+        let data = self.0.clone_data();
+
+        let ty = match ty {
+            PotentialType::Void(_)
+            | PotentialType::Never(_)
+            | PotentialType::Int(_)
+            | PotentialType::Float(_)
+            | PotentialType::Bool(_)
+            | PotentialType::String(_)
+            | PotentialType::Poly(_, _) => {
+                ty // noop
+            }
+            PotentialType::InterfaceOutput(_, ref output_type) => {
+                let prov = Prov::InstantiateInterfaceOutputTypeWithoutImpl(id, output_type.clone());
+                let ret = TypeVar::fresh(ctx, prov.clone());
+                let ifaces = output_type.interfaces(ctx);
+                for constraint in &ifaces {
+                    constrain_to_iface(ctx, &ret, node.clone(), constraint);
+                }
+                return ret; // instantiation occurs here
+            }
+            PotentialType::Nominal(reasons, ident, params) => {
+                let params = params
+                    .into_iter()
+                    .map(|ty| {
+                        ty.instantiate_iface_output_types_without_impl_(ctx, node.clone(), id)
+                    })
+                    .collect();
+                PotentialType::Nominal(reasons, ident, params)
+            }
+            PotentialType::Function(reasons, args, out) => {
+                let args = args
+                    .into_iter()
+                    .map(|ty| {
+                        ty.instantiate_iface_output_types_without_impl_(ctx, node.clone(), id)
+                    })
+                    .collect();
+                let out = out.instantiate_iface_output_types_without_impl_(ctx, node, id);
+                PotentialType::Function(reasons, args, out)
+            }
+            PotentialType::Tuple(reasons, elems) => {
+                let elems = elems
+                    .into_iter()
+                    .map(|ty| {
+                        ty.instantiate_iface_output_types_without_impl_(ctx, node.clone(), id)
+                    })
+                    .collect();
+                PotentialType::Tuple(reasons, elems)
+            }
+        };
+        let mut types = HashMap::default();
+        types.insert(ty.key(), ty);
+        let data_instantiated = TypeVarData {
+            types,
+            locked: data.locked,
+            missing_info: data.missing_info,
+            iface_constraints: data.iface_constraints,
+            id: data.id,
+        };
+        TypeVar(UnionFindNode::new(data_instantiated))
+    }
+
     pub(crate) fn from_node(ctx: &mut StaticsContext, node: AstNode) -> TypeVar {
         let prov = Prov::Node(node);
         Self::fresh(ctx, prov)
@@ -1151,11 +1232,9 @@ fn tyvar_of_iface_method(
         let f = &imp.methods[method];
         return TypeVar::from_node(ctx, f.name.node()).instantiate(ctx, polyvar_scope, node);
     }
-    TypeVar::from_node(ctx, iface_def.methods[method].name.node()).instantiate(
-        ctx,
-        polyvar_scope,
-        node,
-    )
+    TypeVar::from_node(ctx, iface_def.methods[method].name.node())
+        .instantiate_iface_output_types_without_impl(ctx, node.clone())
+        .instantiate(ctx, polyvar_scope, node)
 }
 
 impl AstType {
