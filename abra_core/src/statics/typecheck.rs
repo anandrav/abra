@@ -21,6 +21,7 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -1233,8 +1234,8 @@ fn tyvar_of_iface_method(
         return TypeVar::from_node(ctx, f.name.node()).instantiate(ctx, polyvar_scope, node);
     }
     TypeVar::from_node(ctx, iface_def.methods[method].name.node())
+        .instantiate(ctx, polyvar_scope, node.clone())
         .instantiate_iface_output_types_without_impl(ctx, node.clone())
-        .instantiate(ctx, polyvar_scope, node)
 }
 
 impl AstType {
@@ -2850,6 +2851,7 @@ fn generate_constraints_expr(
                                         } => {
                                             let impl_ty =
                                                 TypeVar::from_node(ctx, receiver_expr.node());
+                                            dlog!("impl_ty: {}", impl_ty);
                                             let memfn_decl_ty = tyvar_of_iface_method(
                                                 ctx,
                                                 &iface_def,
@@ -2858,11 +2860,14 @@ fn generate_constraints_expr(
                                                 polyvar_scope,
                                                 fname.node(),
                                             );
+                                            dlog!("memfn_decl_ty: {}", memfn_decl_ty);
                                             constrain(ctx, &memfn_node_ty, &memfn_decl_ty);
                                         }
                                         _ => unreachable!(),
                                     }
 
+                                    let blah = TypeVar::from_node(ctx, fname.node());
+                                    dlog!("blah: {}", blah);
                                     generate_constraints_expr_funcap_helper(
                                         ctx,
                                         polyvar_scope,
