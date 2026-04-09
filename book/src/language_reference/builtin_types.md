@@ -56,7 +56,7 @@ let arr = [1, 2, 3, 4]  // create an array containing some ints
 arr.push(5)             // arr == [1, 2, 3, 4, 5]
 let n = arr.len()       // 5
 let n = arr[2]          // 3
-arr[2] = 49            // arr == [1, 2, 49, 4, 5]
+arr[2] = 49             // arr == [1, 2, 49, 4, 5]
 let n = arr[2]          // 49
 arr.pop()               // arr == [1, 2, 49, 4]
 ```
