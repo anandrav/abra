@@ -1222,16 +1222,20 @@ fn tyvar_of_iface_method(
     ctx: &mut StaticsContext,
     iface_def: &Rc<InterfaceDef>,
     method: usize,
-    desired_impl_ty: Option<TypeVar>,
+    actual_impl_ty: Option<TypeVar>,
     polyvar_scope: &PolyvarScope,
     node: AstNode,
 ) -> TypeVar {
-    if let Some(desired_impl_ty) = desired_impl_ty
-        && let Some(desired_impl_ty) = desired_impl_ty.solution()
-        && let Some(imp) = desired_impl_ty.get_iface_impls(ctx, iface_def)
+    // TODO: silent failure then fallback isn't great!
+    if let Some(actual_impl_ty) = actual_impl_ty
+        && let Some(desired_impl_ty) = actual_impl_ty.single()
+        && let Some(imp) = ctx.get_iface_impl_for_type(&desired_impl_ty.key(), iface_def)
     {
+        let subst = get_substitution_of_typ(ctx, &imp.typ, &actual_impl_ty);
         let f = &imp.methods[method];
-        return TypeVar::from_node(ctx, f.name.node()).instantiate(ctx, polyvar_scope, node);
+        return TypeVar::from_node(ctx, f.name.node())
+            .subst(&subst)
+            .instantiate(ctx, polyvar_scope, node);
     }
     TypeVar::from_node(ctx, iface_def.methods[method].name.node())
         .instantiate(ctx, polyvar_scope, node.clone())

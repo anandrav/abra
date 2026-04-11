@@ -2354,3 +2354,53 @@ n
     let top = vm.top();
     assert_eq!(top.get_int(&vm), 10);
 }
+
+#[test]
+fn map_key_value_inference() {
+    let src = r#"
+type map<K, V> = {
+    buckets: array<int>
+}
+
+extend map<K, V> {
+    fn new() -> map<K, V> {
+        map(
+            [], // buckets
+        )
+    }
+}
+
+extend map<K Hash Equal, V> {
+    fn insert(self, key: K, value: V) -> void {
+        panic("stub")
+    }
+
+    fn get(self, key: K) -> V {
+        panic("stub")
+    }
+}
+
+implement Index for map<K Hash Equal, V> {
+    fn get_(self, index: K) -> V {
+        self.get(index)
+    }
+
+    fn set_(self, index: K, val: V) -> void {
+        self.insert(index, val)
+    }
+}
+
+let m = map.new()
+m.set_(0, 42)
+m.get_(0)
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 42);
+}
