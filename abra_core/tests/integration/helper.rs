@@ -6,7 +6,6 @@
 
 use abra_core::vm::{AbraFloat, AbraInt, Value, Vm};
 use abra_core::{ErrorSummary, MockFileProvider, compile_bytecode};
-use std::fmt::Debug;
 
 pub fn unwrap_or_panic<T>(result: Result<T, ErrorSummary>) -> T {
     match result {
@@ -18,34 +17,34 @@ pub fn unwrap_or_panic<T>(result: Result<T, ErrorSummary>) -> T {
 }
 
 pub trait ExpectedValue {
-    fn get_from_vm(vm: &mut Vm, val: Value) -> Self;
+    fn check(self, vm: &mut Vm, val: Value);
 }
 
 impl ExpectedValue for AbraInt {
-    fn get_from_vm(vm: &mut Vm, val: Value) -> AbraInt {
-        val.get_int(vm)
+    fn check(self, vm: &mut Vm, val: Value) {
+        assert_eq!(val.get_int(vm), self);
     }
 }
 
 impl ExpectedValue for AbraFloat {
-    fn get_from_vm(vm: &mut Vm, val: Value) -> AbraFloat {
-        val.get_float(vm)
+    fn check(self, vm: &mut Vm, val: Value) {
+        assert_eq!(val.get_float(vm), self);
     }
 }
 
 impl ExpectedValue for bool {
-    fn get_from_vm(vm: &mut Vm, val: Value) -> bool {
-        val.get_bool(vm)
+    fn check(self, vm: &mut Vm, val: Value) {
+        assert_eq!(val.get_bool(vm), self);
     }
 }
 
-impl ExpectedValue for String {
-    fn get_from_vm(vm: &mut Vm, val: Value) -> String {
-        val.view_string(vm).to_string()
+impl ExpectedValue for &str {
+    fn check(self, vm: &mut Vm, val: Value) {
+        assert_eq!(val.view_string(vm), self);
     }
 }
 
-pub fn expect_value<T: Into<Value> + ExpectedValue + PartialEq + Debug>(src: &str, val: T) {
+pub fn expect_value<T: ExpectedValue>(src: &str, val: T) {
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
         MockFileProvider::single_file(src),
@@ -53,7 +52,7 @@ pub fn expect_value<T: Into<Value> + ExpectedValue + PartialEq + Debug>(src: &st
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(T::get_from_vm(&mut vm, top), val);
+    val.check(&mut vm, top);
 }
 
 pub fn should_fail(src: &str) {

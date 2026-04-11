@@ -897,14 +897,7 @@ match blah() {
     .err(s) -> s
 }
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "this is an error");
+    expect_value(src, "this is an error");
 }
 
 #[test]
