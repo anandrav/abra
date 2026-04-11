@@ -1726,8 +1726,8 @@ impl Vm {
                 s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::GetIndex(reg1, reg2) => {
-                let val = self.load_offset_or_top(reg2);
-                let idx = self.load_offset_or_top(reg1).get_int(self);
+                let idx = self.load_offset_or_top(reg2).get_int(self);
+                let val = self.load_offset_or_top(reg1);
                 let arr = val.get_array(self);
                 if idx as usize >= arr.data.len() || idx < 0 {
                     self.error = Some(self.make_error(VmErrorKind::ArrayOutOfBounds).into());

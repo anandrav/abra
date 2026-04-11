@@ -8,7 +8,8 @@ macro_rules! dlog {
         // Must be debug build *and* the DEBUG_LOG global must be enabled
         if cfg!(debug_assertions) {
             if $crate::log::DEBUG_LOG.load(::std::sync::atomic::Ordering::Relaxed) {
-                println!($($arg)*)
+                print!("[abra debug] ");
+                println!($($arg)*);
             }
         }
     }};

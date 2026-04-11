@@ -867,8 +867,8 @@ impl Translator {
                 self.emit(st, Instr::ConstructArray(exprs.len() as u16));
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index, offset_table, mono, st);
                 self.translate_expr(array, offset_table, mono, st);
+                self.translate_expr(index, offset_table, mono, st);
                 self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
             }
             ExprKind::Match(expr, arms) => {
@@ -1991,8 +1991,8 @@ impl Translator {
                             // array assignment
                             ExprKind::IndexAccess(array, index) => {
                                 // load from array at index
-                                self.translate_expr(index, offset_table, mono, st);
                                 self.translate_expr(array, offset_table, mono, st);
+                                self.translate_expr(index, offset_table, mono, st);
                                 self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
                                 // add number
                                 self.translate_expr(rvalue, offset_table, mono, st);

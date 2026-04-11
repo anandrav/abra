@@ -373,11 +373,11 @@ interface Index {
 
 implement Index for array<T> {
     fn index_get(self, index: int) -> T {
-        self[index]
+        array_get(self, index)
     }
 
     fn index_set(self, index: int, val: T) -> void {
-        self[index] = val
+        array_set(self, index, val)
     }
 }
 
