@@ -1737,9 +1737,9 @@ impl Vm {
                 self.push(field);
             }
             Instr::SetIndex(reg1, reg2) => {
-                let val = self.load_offset_or_top(reg2);
+                let rvalue = self.load_offset_or_top(reg2);
                 let idx = self.load_offset_or_top(reg1).get_int(self);
-                let rvalue = self.pop();
+                let val = self.pop();
                 let arr = unsafe { val.get_array_mut(self) };
                 if idx as usize >= arr.data.len() || idx < 0 {
                     self.error = Some(self.make_error(VmErrorKind::ArrayOutOfBounds).into());

@@ -1879,9 +1879,9 @@ impl Translator {
                                 }
                                 // array assignment
                                 ExprKind::IndexAccess(array, index) => {
-                                    self.translate_expr(rvalue, offset_table, mono, st);
-                                    self.translate_expr(index, offset_table, mono, st);
                                     self.translate_expr(array, offset_table, mono, st);
+                                    self.translate_expr(index, offset_table, mono, st);
+                                    self.translate_expr(rvalue, offset_table, mono, st);
                                     self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
                                 }
                                 _ => unreachable!(),
@@ -1990,16 +1990,17 @@ impl Translator {
                             }
                             // array assignment
                             ExprKind::IndexAccess(array, index) => {
-                                // load from array at index
+                                // args
+                                self.translate_expr(array, offset_table, mono, st);
+                                self.translate_expr(index, offset_table, mono, st);
+                                // calculate the number being stored
+                                // by loading from array at index and perform operation
                                 self.translate_expr(array, offset_table, mono, st);
                                 self.translate_expr(index, offset_table, mono, st);
                                 self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
-                                // add number
                                 self.translate_expr(rvalue, offset_table, mono, st);
                                 perform_op(st);
                                 // store in array at index
-                                self.translate_expr(index, offset_table, mono, st);
-                                self.translate_expr(array, offset_table, mono, st);
                                 self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
                             }
                             // TODO: allow tuples on LHS of assignment
