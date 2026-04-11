@@ -369,7 +369,10 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &[Rc<FileAst>]) {
     }
     for (i, file) in file_asts.iter().enumerate() {
         for item in file.items.iter() {
-            resolve_names_item_stmt(ctx, &symbol_tables[i], item);
+            resolve_names_function_bodies(ctx, &symbol_tables[i], item);
+        }
+        for item in file.items.iter() {
+            resolve_names_toplevel_stmt(ctx, &symbol_tables[i], item);
         }
     }
 
@@ -731,7 +734,11 @@ fn try_add_member_function(
     }
 }
 
-fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt: &Rc<Item>) {
+fn resolve_names_function_bodies(
+    ctx: &mut StaticsContext,
+    symbol_table: &SymbolTable,
+    stmt: &Rc<Item>,
+) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
             let symbol_table = symbol_table.new_scope();
@@ -757,6 +764,23 @@ fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                 resolve_names_func_helper(ctx, &symbol_table, &f.args, &f.body, &f.ret_type);
             }
         }
+        ItemKind::Stmt(_) => {}
+    }
+}
+
+fn resolve_names_toplevel_stmt(
+    ctx: &mut StaticsContext,
+    symbol_table: &SymbolTable,
+    stmt: &Rc<Item>,
+) {
+    match &*stmt.kind {
+        ItemKind::FuncDef(_) => {}
+        ItemKind::FuncDecl { .. }
+        | ItemKind::InterfaceDef(..)
+        | ItemKind::InterfaceImpl(..)
+        | ItemKind::Import(..)
+        | ItemKind::TypeDef(..) => {}
+        ItemKind::Extension(_) => {}
         ItemKind::Stmt(stmt) => {
             resolve_names_stmt(ctx, symbol_table, stmt);
         }

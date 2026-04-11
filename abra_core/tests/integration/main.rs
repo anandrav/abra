@@ -4,4 +4,5 @@
 
 mod e2e_bytecode;
 mod helper;
+mod resolve;
 mod typecheck;
