@@ -17,6 +17,7 @@ struct Args {
     import_dir: Option<String>,
     check: bool,
     assembly: bool,
+    debug_log: bool,
     abra_program_args: Vec<String>,
 }
 
@@ -29,6 +30,7 @@ impl Args {
         let mut import_dir = None;
         let mut check = false;
         let mut assembly = false;
+        let mut debug_log = false;
         let mut abra_program_args = Vec::new();
         let mut parser = lexopt::Parser::from_env();
 
@@ -45,6 +47,9 @@ impl Args {
                 }
                 Short('a') | Long("assembly") => {
                     assembly = true;
+                }
+                Long("debug-log") => {
+                    debug_log = true;
                 }
                 Short('h') | Long("help") => {
                     print_help();
@@ -73,6 +78,7 @@ impl Args {
             import_dir,
             check,
             assembly,
+            debug_log,
             abra_program_args,
         })
     }
@@ -100,11 +106,14 @@ fn print_help() {
     {cyan}[ARGS]{reset}    Arguments for the Abra program
 
 {title}{bold}Options:{reset}
-    {cyan}--standard-modules <DIRECTORY>{reset}     Override the default standard modules directory
-    {cyan}-i, --import-dir <DIRECTORY>{reset}       Provide an import directory
+    {cyan}-h, --help{reset}                         Print help
     {cyan}-c, --check{reset}                        Check for errors without compiling and running
+    {cyan}-i, --import-dir <DIRECTORY>{reset}       Provide an import directory
+
+{title}{bold}Additional options:{reset}
+    {cyan}--standard-modules <DIRECTORY>{reset}     Override the default standard modules directory
     {cyan}-a, --assembly{reset}                     Print the assembly for the Abra program
-    {cyan}-h, --help{reset}                         Print help"
+    {cyan}--debug-log{reset}                        Enable internal debug logging (debug builds only)"
     );
 }
 
@@ -121,6 +130,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             exit(1);
         }
     };
+
+    utils::log::DEBUG_LOG.store(args.debug_log, std::sync::atomic::Ordering::Relaxed);
 
     let mut source_files = Vec::new();
 
