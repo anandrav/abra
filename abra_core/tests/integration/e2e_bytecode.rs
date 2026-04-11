@@ -14,8 +14,7 @@ use std::path::PathBuf;
 
 #[test]
 fn arithmetic() {
-    expect_value(
-        r#"
+    let src = r#"
 fn sub(x, y) {
   x - y
 }
@@ -24,9 +23,8 @@ let y = 4
 let z = sub(x, y)
 let h = sub(z, 1)
 h
-"#,
-        -2,
-    );
+"#;
+    expect_value(src, -2);
 }
 
 #[test]
@@ -39,14 +37,7 @@ let z = {
 }
 z + x + y
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    expect_value(src, 10);
 }
 
 #[test]
@@ -63,14 +54,7 @@ let z = sub(
            )
 z
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), -1);
+    expect_value(src, -1);
 }
 
 #[test]
@@ -81,14 +65,7 @@ fn newlines_within_expression() {
 4 \
 - 1
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    expect_value(src, 5);
 }
 
 #[test]
@@ -109,14 +86,7 @@ h /= 2
 h %= 5
 h
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    expect_value(src, 2);
 }
 
 #[test]
@@ -181,14 +151,7 @@ let j2 = 2.0 != 4.0
 let k = a and b and c and d and e and e2 and f and g and h and i and j and j2
 k
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_bool(&vm), true);
+    expect_value(src, true);
 }
 
 #[test]
@@ -199,14 +162,7 @@ let b = (3, 2)
 
 a < b
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_bool(&vm), false);
+    expect_value(src, false);
 }
 
 #[test]
@@ -220,14 +176,7 @@ let p = mk_pair(n)
 let (x, y) = p
 x + y
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    expect_value(src, 6);
 }
 
 #[test]
@@ -239,14 +188,7 @@ if false {
   4
 }
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
+    expect_value(src, 4);
 }
 
 #[test]
@@ -260,14 +202,7 @@ if false {
 }
 x
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    expect_value(src, 2);
 }
 
 #[test]
@@ -279,14 +214,7 @@ if true {
 }
 x
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    expect_value(src, 6);
 }
 
 #[test]
@@ -391,14 +319,7 @@ x.age = 2 * 3 * 6
 x.age += 2
 x.age
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 38);
+    expect_value(src, 38);
 }
 
 #[test]
@@ -410,14 +331,7 @@ arr[2] = 33
 arr[2] += 2
 arr[2]
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 35);
+    expect_value(src, 35);
 }
 
 #[test]
@@ -440,14 +354,7 @@ let body = snake.body
 let first = body[0]
 first.x
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 20);
+    expect_value(src, 20);
 }
 
 #[test]
@@ -466,14 +373,7 @@ let snake = Snake([Point(10,10)], 0)
 snake.body[0].x = 20
 snake.body[0].x
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 20);
+    expect_value(src, 20);
 }
 
 #[test]
@@ -486,14 +386,7 @@ match n {
     _ -> 2,
 }
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 1);
+    expect_value(src, 1);
 }
 
 #[test]
@@ -506,14 +399,7 @@ match n {
     _ -> 99
 }
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 99);
+    expect_value(src, 99);
 }
 
 #[test]
@@ -525,14 +411,7 @@ match n {
     _ -> 99,
 }
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 99);
+    expect_value(src, 99);
 }
 
 #[test]
@@ -551,14 +430,7 @@ let two = match b {
 let sum = one + two
 sum
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
+    expect_value(src, 3);
 }
 
 #[test]
@@ -570,14 +442,7 @@ match triplet {
       (1, 2) -> 101
       _ -> 102
 }"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 100);
+    expect_value(src, 100);
 }
 
 #[test]
@@ -589,14 +454,7 @@ match pair {
       (1, 2) -> 101
       _ -> 102
 }"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 101);
+    expect_value(src, 101);
 }
 
 #[test]
@@ -608,14 +466,7 @@ match pair {
       (1, 2) -> 101
       _ -> 102
 }"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 102);
+    expect_value(src, 102);
 }
 
 #[test]
@@ -627,14 +478,7 @@ match quintuple {
       (true, false, true, true, false) -> 101
       _ -> 102
 }"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 101);
+    expect_value(src, 101);
 }
 
 #[test]
@@ -646,14 +490,7 @@ match triplet {
       (1, (2, 3), 4) -> 101
       _ -> 102
 }"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 101);
+    expect_value(src, 101);
 }
 
 #[test]
@@ -663,14 +500,7 @@ let xs = (1, (2, 3))
 match xs {
       (x, (y, z)) -> y
 }"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    expect_value(src, 2);
 }
 
 #[test]
@@ -684,14 +514,7 @@ fn r(n) {
 }
 r(2)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    expect_value(src, 2);
 }
 
 #[test]
@@ -706,14 +529,7 @@ fn fib(n) {
 }
 fib(10)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 55);
+    expect_value(src, 55);
 }
 
 #[test]
@@ -722,14 +538,7 @@ fn lambda1() {
 let double: int -> int = x -> x + x
 double(5)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    expect_value(src, 10);
 }
 
 #[test]
@@ -738,14 +547,7 @@ fn lambda2() {
 let add: (int,int) -> int = (x, y) -> x + y
 add(2, 3)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    expect_value(src, 5);
 }
 
 #[test]
@@ -761,14 +563,7 @@ f(6)
 
 arr[arr.len()-2] + arr[arr.len()-1]
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 48);
+    expect_value(src, 48);
 }
 
 #[test]
@@ -795,14 +590,7 @@ let arr = [1, 2, 3, 4, 5]
 arr.push(6)
 arr[5]
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    expect_value(src, 6);
 }
 
 #[test]
@@ -811,14 +599,7 @@ fn array_len_old() {
 let arr = [1, 2, 3, 4, 5]
 array_length(arr)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    expect_value(src, 5);
 }
 
 #[test]
@@ -827,14 +608,7 @@ fn array_len() {
 let arr = [1, 2, 3, 4, 5]
 arr.len()
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    expect_value(src, 5);
 }
 
 #[test]
@@ -844,14 +618,7 @@ let arr = [1, 2, 3, 4, 5]
 arr.pop()
 arr.len()
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
+    expect_value(src, 4);
 }
 
 #[test]
@@ -919,14 +686,7 @@ fn not() {
 let b = true
 not b
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_bool(&vm), false);
+    expect_value(src, false);
 }
 
 #[test]
@@ -1012,14 +772,7 @@ arr.sort_by_key( (p: Person) -> { p.age } )
 
 arr[0].age
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 21);
+    expect_value(src, 21);
 }
 
 #[test]
@@ -1031,14 +784,7 @@ fn local_in_while_scope() {
     }
     5
     "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    expect_value(src, 5);
 }
 
 #[test]
@@ -1054,14 +800,7 @@ fn continue_and_break() {
     }
     i
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    expect_value(src, 10);
 }
 
 #[test]
@@ -1073,17 +812,10 @@ fn fib(n) {
     }
     return fib(n - 2) + fib(n - 1)
 }
-  
+
 fib(10)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 55);
+    expect_value(src, 55);
 }
 
 #[test]
@@ -1093,14 +825,7 @@ let m: option<int> = option.some(3)
 let n: int = m!
 n
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
+    expect_value(src, 3);
 }
 
 #[test]
@@ -1126,14 +851,7 @@ let m: result<int, string> = result.ok(3)
 let n: int = m!
 n
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
+    expect_value(src, 3);
 }
 
 #[test]
@@ -1161,14 +879,7 @@ fn blah() -> option<int> {
 }
 blah()!
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    expect_value(src, 10);
 }
 
 #[test]
@@ -1182,14 +893,7 @@ match blah() {
     .none -> 10
 }
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    expect_value(src, 10);
 }
 
 #[test]
@@ -1201,14 +905,7 @@ fn blah() -> result<int, string> {
 }
 blah()!
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
+    expect_value(src, 3);
 }
 
 #[test]
@@ -1277,14 +974,7 @@ match test_early_exit() {
   _ -> panic("did not work"),
 }
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    expect_value(src, 10);
 }
 
 // TODO: re-enable
@@ -1677,14 +1367,7 @@ fn equal_string() {
     let src = r#"
 "helloworld" == "hello" .. "world"
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_bool(&vm), true);
+    expect_value(src, true);
 }
 
 #[test]
@@ -1701,14 +1384,7 @@ fn compare_strings() {
         (r#" "a" >= "a" "#, true),
     ];
     for (src, expected) in cases {
-        let program = unwrap_or_panic(compile_bytecode(
-            "main.abra",
-            MockFileProvider::single_file(src),
-        ));
-        let mut vm = Vm::new(program);
-        vm.run();
-        let top = vm.top();
-        assert_eq!(top.get_bool(&vm), expected, "failed for: {}", src);
+        expect_value(src, expected);
     }
 }
 
@@ -1720,14 +1396,7 @@ fn comments() {
 /* multi-line
 comment */
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
+    expect_value(src, 4);
 }
 
 #[test]
@@ -1960,15 +1629,7 @@ let n = f(5, 3)
 n
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    let s = top.get_int(&vm);
-    assert_eq!(s, 2);
+    expect_value(src, 2);
 }
 
 #[test]
@@ -2013,14 +1674,7 @@ fn lambda_in_block() {
     let src = r#"
 { x -> x + 2 }(3)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    expect_value(src, 5);
 }
 
 #[test]
@@ -2066,14 +1720,7 @@ blerp.pop()
 
 blah.len()
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    expect_value(src, 5);
 }
 
 #[test]
@@ -2096,14 +1743,7 @@ let p2 = Point(2, 3)
 p1 == p2
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert!(top.get_bool(&vm))
+    expect_value(src, true);
 }
 
 #[test]
@@ -2124,14 +1764,7 @@ while true {
 sum
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6)
+    expect_value(src, 6);
 }
 
 #[test]
@@ -2152,14 +1785,7 @@ for n in arr {
 last
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4)
+    expect_value(src, 4);
 }
 
 #[test]
@@ -2174,14 +1800,7 @@ for n in arr {
 sum
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6)
+    expect_value(src, 6);
 }
 
 #[test]
@@ -2195,14 +1814,7 @@ for n in 4 {
 sum
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6)
+    expect_value(src, 6);
 }
 
 #[test]
@@ -2231,14 +1843,7 @@ fn blar(a: int, c: int, e: int) -> int {
 
 blar(1, 2, 3)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    expect_value(src, 6);
 }
 
 #[test]
@@ -2250,14 +1855,7 @@ fn blar(a: int, b: void, c: int, d: void, e: int) -> int {
 
 blar(1, nil, 2, nil, 3)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    expect_value(src, 6);
 }
 
 #[test]
@@ -2311,14 +1909,7 @@ let n = match person {
 }
 n
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 1);
+    expect_value(src, 1);
 }
 
 #[test]
@@ -2342,14 +1933,7 @@ n = n + match glib {
 n
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    expect_value(src, 10);
 }
 
 #[test]
@@ -2392,12 +1976,5 @@ m.set_(0, 42)
 m.get_(0)
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 42);
+    expect_value(src, 42);
 }
