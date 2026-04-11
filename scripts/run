@@ -5,8 +5,21 @@ set -euo pipefail
 export DEBUG_LOG=1
 export RUSTFLAGS="-A warnings"
 
+# Parse options
+args=()
+for arg in "$@"; do
+    case "$arg" in
+        --no-debug-log)
+            unset DEBUG_LOG
+            ;;
+        *)
+            args+=("$arg")
+            ;;
+    esac
+done
+
 # Build everything in the project, including native modules
 cargo build --quiet
 # Run debug build of abra cli
-cargo run --quiet --bin  abra -- --standard-modules modules "$@"
+cargo run --quiet --bin  abra -- --standard-modules modules "${args[@]}"
 

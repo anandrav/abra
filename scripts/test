@@ -18,7 +18,7 @@ run_module_tests() {
   for f in module_tests/*.abra; do
     [ "$(basename "$f")" = "test_runner.abra" ] && continue
     # TODO: ./scripts/run has an annoying initial delay because it's compiling release version every time
-    ./scripts/run "$f"
+    ./scripts/run --no-debug-log "$f"
   done
 }
 
