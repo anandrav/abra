@@ -45,7 +45,7 @@ impl ExpectedValue for String {
     }
 }
 
-pub fn expect_value<T: Into<Value> + ExpectedValue + Eq + Debug>(src: &str, val: T) {
+pub fn expect_value<T: Into<Value> + ExpectedValue + PartialEq + Debug>(src: &str, val: T) {
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
         MockFileProvider::single_file(src),

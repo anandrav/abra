@@ -104,14 +104,7 @@ g /= 4.0
 g *= 3.0
 g
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_float(&vm), -15.0);
+    expect_value(src, -15.0);
 }
 
 // TODO: this and most other tests should be way more concise. A one-liner. Basically assert_eq!(run("atan2(-1.0, -1.0)").get_float(&vm), -2.3561944901923449)
@@ -120,14 +113,7 @@ fn trig() {
     let src = r#"
 atan2(-1.0, -1.0)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_float(&vm), -2.356_194_490_192_345);
+    expect_value(src, -2.356_194_490_192_345);
 }
 
 #[test]
@@ -572,14 +558,7 @@ let f = 4.0
 let g = sqrt(f)
 g
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_float(&vm), 2.0);
+    expect_value(src, 2.0);
 }
 
 #[test]
