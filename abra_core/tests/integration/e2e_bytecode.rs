@@ -107,7 +107,6 @@ g
     expect_value(src, -15.0);
 }
 
-// TODO: this and most other tests should be way more concise. A one-liner. Basically assert_eq!(run("atan2(-1.0, -1.0)").get_float(&vm), -2.3561944901923449)
 #[test]
 fn trig() {
     let src = r#"
