@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# this also lints test code
+cargo clippy --all-targets "$@"

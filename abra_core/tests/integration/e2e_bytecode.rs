@@ -236,14 +236,7 @@ let one = ToString.str(one)
 let two = first(("one", "two"))
 one .. two
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "1one");
+    expect_value(src, "1one");
 }
 
 #[test]
@@ -259,14 +252,7 @@ let one = ToString.str(one)
 let two = first(("one", "two"))
 one .. two
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "1one");
+    expect_value(src, "1one");
 }
 
 #[test]
@@ -281,14 +267,7 @@ x.name = "Bob"
 x.age = 2 * 3 * 6
 x.name
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "Bob");
+    expect_value(src, "Bob");
 }
 
 #[test]
@@ -618,16 +597,9 @@ s = s .. arr
 
 s
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(
-        top.view_string(&vm),
-        "[ nil, nil, nil ][ nil, nil, nil, nil, nil ][ nil, nil ]"
+    expect_value(
+        src,
+        "[ nil, nil, nil ][ nil, nil, nil, nil, nil ][ nil, nil ]",
     );
 }
 
@@ -673,14 +645,7 @@ fn concat_strings() {
 let s = "hello " .. "world"
 s
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "hello world");
+    expect_value(src, "hello world");
 }
 
 #[test]
@@ -688,14 +653,7 @@ fn monomorphize_to_string_int() {
     let src = r#"
 ToString.str(123)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "123");
+    expect_value(src, "123");
 }
 
 #[test]
@@ -704,14 +662,7 @@ fn monomorphize_to_string_float() {
 ToString.str(123)
 ToString.str(123.456)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "123.456");
+    expect_value(src, "123.456");
 }
 
 #[test]
@@ -720,14 +671,7 @@ fn monomorphize_to_string_tuple_ints() {
 let nums = (1, 2, 3)
 ToString.str(nums)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "(1, 2, 3)");
+    expect_value(src, "(1, 2, 3)");
 }
 
 #[test]
@@ -1308,14 +1252,7 @@ fn format_append() {
     let src = r#"
 format_append(format_append(123, true), false)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "123truefalse");
+    expect_value(src, "123truefalse");
 }
 
 #[test]
@@ -1323,14 +1260,7 @@ fn ampersand() {
     let src = r#"
 123 .. true .. false
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "123truefalse");
+    expect_value(src, "123truefalse");
 }
 
 #[test]
@@ -1449,14 +1379,7 @@ let c: Color = Color.Red
 p.fullname() .. " " .. c.shout()
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "Anand Dukkipati red!");
+    expect_value(src, "Anand Dukkipati red!");
 }
 
 #[test]
@@ -1493,14 +1416,7 @@ let c: Color = Color.Red
 p.fullname() .. " " .. c.fullname()
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "Anand Dukkipati red!");
+    expect_value(src, "Anand Dukkipati red!");
 }
 
 #[test]
@@ -1536,14 +1452,7 @@ let p: Person = Person("Anand", "Dukkipati", 26)
 Person.fullname(p) .. " " .. Color.shout(Color.Red)
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "Anand Dukkipati red!");
+    expect_value(src, "Anand Dukkipati red!");
 }
 
 #[test]
@@ -1561,15 +1470,7 @@ g(arr, 5)
 f(123) .. arr.str()
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    let s = top.view_string(&vm);
-    assert_eq!(s, "123[ 1, 2, 3, 4, 5 ]");
+    expect_value(src, "123[ 1, 2, 3, 4, 5 ]");
 }
 
 #[test]
@@ -1581,15 +1482,7 @@ let s = f(123)
 s
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    let s = top.view_string(&vm);
-    assert_eq!(s, "123");
+    expect_value(src, "123");
 }
 
 #[test]
@@ -1629,15 +1522,7 @@ s = s .. arr
 s
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    let s = top.view_string(&vm);
-    assert_eq!(s, "[ 1, 2, 3, 4 ][ 1, 2, 3 ][ nil ][  ]");
+    expect_value(src, "[ 1, 2, 3, 4 ][ 1, 2, 3 ][ nil ][  ]");
 }
 
 #[test]
@@ -1654,14 +1539,7 @@ fn interface_method_fully_qualified() {
 let blah = 12345
 ToString.str(blah)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "12345");
+    expect_value(src, "12345");
 }
 
 #[test]
@@ -1670,14 +1548,7 @@ fn interface_method_dot_syntax() {
 let blah = 12345
 blah.str()
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "12345");
+    expect_value(src, "12345");
 }
 
 #[test]
@@ -1795,14 +1666,7 @@ let arr = array.filled(true, 3)
 arr.str()
 
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "[ true, true, true ]")
+    expect_value(src, "[ true, true, true ]");
 }
 
 #[test]
@@ -1842,14 +1706,7 @@ x.name = "Bob"
 x.age = 2 * 3 * 6
 x.name ..  " " .. x.age
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "Bob 36");
+    expect_value(src, "Bob 36");
 }
 
 #[test]
@@ -1859,14 +1716,7 @@ let person = ("Alice", nil, 30)
 let (name, blah, age) = person
 name ..  " " .. age
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "Alice 30");
+    expect_value(src, "Alice 30");
 }
 
 #[test]
