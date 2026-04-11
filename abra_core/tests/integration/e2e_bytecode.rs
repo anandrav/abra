@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::helper::ExpectedValue;
 use crate::helper::expect_value;
 use crate::helper::unwrap_or_panic;
 use abra_core::MockFileProvider;
@@ -128,7 +127,7 @@ atan2(-1.0, -1.0)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_float(&vm), -2.3561944901923449);
+    assert_eq!(top.get_float(&vm), -2.356_194_490_192_345);
 }
 
 #[test]

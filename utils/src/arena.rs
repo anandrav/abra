@@ -85,7 +85,7 @@ mod tests {
 
         assert_eq!(*a, 123);
         assert_eq!(*b, 456);
-        assert_eq!(*c, true);
+        assert!(*c);
     }
 
     #[test]
@@ -111,10 +111,7 @@ mod tests {
         let arena = Arena::new();
         let a = arena.alloc(123);
 
-        let mut my_refs = vec![];
-        my_refs.push(a);
-
-        assert_eq!(*my_refs[0], 123);
+        assert_eq!(*a, 123);
     }
 
     fn identity(n: Ar<i32>) -> Ar<i32> {

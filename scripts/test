@@ -28,7 +28,7 @@ if [[ "${1-}" == "--modules" ]]; then
 fi
 
 cargo fmt
-cargo clippy
+./scripts/lint
 
 cargo test "$@"
 

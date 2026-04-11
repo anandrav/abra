@@ -3,9 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::helper::should_fail;
-use crate::helper::unwrap_or_panic;
-use abra_core::MockFileProvider;
-use abra_core::compile_bytecode;
 
 // POSITIVE TESTS
 // Name resolution should succeed.
