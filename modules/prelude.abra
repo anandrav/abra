@@ -366,17 +366,17 @@ interface Index {
     outputtype Idx
     outputtype Output
 
-    fn get_(self, index: Idx) -> Output
+    fn index_get(self, index: Idx) -> Output
 
-    fn set_(self, index: Idx, val: Output) -> void
+    fn index_set(self, index: Idx, val: Output) -> void
 }
 
 implement Index for array<T> {
-    fn get_(self, index: int) -> T {
+    fn index_get(self, index: int) -> T {
         self[index]
     }
 
-    fn set_(self, index: int, val: T) -> void {
+    fn index_set(self, index: int, val: T) -> void {
         self[index] = val
     }
 }

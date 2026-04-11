@@ -1782,18 +1782,18 @@ extend map<K Hash Equal, V> {
 }
 
 implement Index for map<K Hash Equal, V> {
-    fn get_(self, index: K) -> V {
+    fn index_get(self, index: K) -> V {
         self.get(index)
     }
 
-    fn set_(self, index: K, val: V) -> void {
+    fn index_set(self, index: K, val: V) -> void {
         self.insert(index, val)
     }
 }
 
 let m = map.new()
-m.set_(0, 42)
-m.get_(0)
+m.index_set(0, 42)
+m.index_get(0)
 
 "#;
     expect_value(src, 42);
