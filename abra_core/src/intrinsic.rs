@@ -81,6 +81,8 @@ pub enum IntrinsicOperation {
     StringNthByte,
     StringCountBytes,
 
+    ArrayGet,
+    ArraySet,
     ArrayPush,
     ArrayLength,
     ArrayPop,
@@ -231,6 +233,38 @@ impl IntrinsicOperation {
                 TypeVar::make_int(reason.clone()),
                 reason.clone(),
             ),
+
+            IntrinsicOperation::ArrayGet => {
+                let a = TypeVar::make_poly(
+                    reason.clone(),
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()),
+                );
+                // fn(array<T>, int) -> T
+                TypeVar::make_func(
+                    vec![
+                        TypeVar::make_nominal(reason.clone(), Nominal::Array, vec![a.clone()]),
+                        TypeVar::make_int(reason.clone()),
+                    ],
+                    a.clone(),
+                    reason.clone(),
+                )
+            }
+            IntrinsicOperation::ArraySet => {
+                let a = TypeVar::make_poly(
+                    reason.clone(),
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()),
+                );
+                // fn(array<T>, int, T) -> void
+                TypeVar::make_func(
+                    vec![
+                        TypeVar::make_nominal(reason.clone(), Nominal::Array, vec![a.clone()]),
+                        TypeVar::make_int(reason.clone()),
+                        a.clone(),
+                    ],
+                    TypeVar::make_void(reason.clone()),
+                    reason.clone(),
+                )
+            }
 
             IntrinsicOperation::ArrayPush => {
                 let a = TypeVar::make_poly(

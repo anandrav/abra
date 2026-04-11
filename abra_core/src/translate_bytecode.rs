@@ -1402,6 +1402,17 @@ impl Translator {
             IntrinsicOperation::ConcatStrings => 2,
             IntrinsicOperation::StringNthByte => 2,
             IntrinsicOperation::StringCountBytes => 1,
+            IntrinsicOperation::ArrayGet => 2,
+            IntrinsicOperation::ArraySet => {
+                // TODO: code duplication, see inlining of array.push()
+                let Some(SolvedType::Function(args, _)) = self.get_ty(mono, func_node.clone())
+                else {
+                    unreachable!()
+                };
+                // second arg is element being pushed
+                let arg_ty = &args[2];
+                if *arg_ty == SolvedType::Void { 2 } else { 3 }
+            }
             IntrinsicOperation::ArrayPush => {
                 // TODO: code duplication, see inlining of array.push()
                 let Some(SolvedType::Function(args, _)) = self.get_ty(mono, func_node.clone())
@@ -1582,6 +1593,12 @@ impl Translator {
             }
             IntrinsicOperation::StringCountBytes => {
                 self.emit(st, Instr::StringCountBytes(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::ArrayGet => {
+                self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
+            }
+            IntrinsicOperation::ArraySet => {
+                self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::ArrayPush => {
                 // TODO: code duplication, see inlining of array.push()
