@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::helper::ExpectedValue;
+use crate::helper::expect_value;
 use crate::helper::unwrap_or_panic;
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
@@ -12,7 +14,8 @@ use std::path::PathBuf;
 
 #[test]
 fn arithmetic() {
-    let src = r#"
+    expect_value(
+        r#"
 fn sub(x, y) {
   x - y
 }
@@ -21,15 +24,9 @@ let y = 4
 let z = sub(x, y)
 let h = sub(z, 1)
 h
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), -2);
+"#,
+        -2,
+    );
 }
 
 #[test]

@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::helper::should_fail;
 use crate::helper::unwrap_or_panic;
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
@@ -27,11 +28,6 @@ use abra_core::compile_bytecode;
 
 // NEGATIVE TESTS
 // Name resolution should catch an error.
-
-// TODO: this is duplicated, move to helper.rs
-fn should_fail(src: &str) {
-    compile_bytecode("main.abra", MockFileProvider::single_file(src)).unwrap_err();
-}
 
 #[test]
 fn toplevel_var_referenced_by_func() {
