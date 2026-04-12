@@ -5,15 +5,16 @@ let t = TestRunner.new("map")
 t.run("resize_many", test_resize_many())
 t.finish()
 
-fn test_resize_many() -> result<int, string> {
+fn test_resize_many() -> result<void, string> {
     let m: map<int, int> = map.new()
-    for i in 30 {
-        m.insert(i, i * i)
-    }
-    check(m.len() == 30, "len is 30 after 30 inserts")?
-    // TODO: THIS FAILS DUE TO A BUG, FAILURE OCCURS BELOW:
+    m.insert(0, 0)
     for i in 1 {
+        /*
+            NOTE: REMOVING THE QUESTION MARK GETS RID OF THE CRASH
+                - only happens with result<void, string> not result<int, string>
+                - some nasty interaction with ? operator and result<void, _>
+        */
         check(m.get(i) == i * i, "value preserved across resizes")?
     }
-    .ok(0)
+    .ok(nil)
 }
