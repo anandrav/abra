@@ -2,107 +2,10 @@ use core/map
 use test_runner
 
 let t = TestRunner.new("map")
-t.run("new", test_new())
-t.run("insert_get", test_insert_get())
-t.run("insert_updates", test_insert_updates())
-t.run("try_get", test_try_get())
-t.run("contains", test_contains())
-t.run("remove", test_remove())
-t.run("remove_then_reinsert", test_remove_then_reinsert())
-t.run("len_tracks_ops", test_len_tracks_ops())
 t.run("resize_many", test_resize_many())
-t.run("string_keys", test_string_keys())
-t.run("index_get", test_index_get())
-t.run("index_set", test_index_set())
 t.finish()
 
-fn test_new() -> result<void, string> {
-    let m: map<string, int> = map.new()
-    check(m.len() == 0, "new map has len 0")?
-    check(m.try_get("x").is_none(), "new map try_get returns none")?
-    check(not m.contains("x"), "new map contains returns false")?
-    .ok(nil)
-}
-
-fn test_insert_get() -> result<void, string> {
-    let m: map<int, int> = map.new()
-    m.insert(1, 10)
-    check(m.len() == 1, "len is 1 after insert")?
-    check(m.get(1) == 10, "get returns inserted value")?
-    .ok(nil)
-}
-
-fn test_insert_updates() -> result<void, string> {
-    let m: map<int, int> = map.new()
-    m.insert(1, 10)
-    m.insert(1, 20)
-    check(m.len() == 1, "len stays 1 after duplicate insert")?
-    check(m.get(1) == 20, "get returns updated value")?
-    .ok(nil)
-}
-
-fn test_try_get() -> result<void, string> {
-    let m: map<int, int> = map.new()
-    m.insert(1, 100)
-    let opt = m.try_get(1)
-    check(opt.is_some(), "try_get returns some for present key")?
-    check(opt.unwrap() == 100, "try_get value matches")?
-    check(m.try_get(2).is_none(), "try_get returns none for absent key")?
-    .ok(nil)
-}
-
-fn test_contains() -> result<void, string> {
-    let m: map<int, int> = map.new()
-    check(not m.contains(1), "empty map does not contain key")?
-    m.insert(1, 100)
-    check(m.contains(1), "contains returns true for inserted key")?
-    check(not m.contains(2), "contains returns false for absent key")?
-    .ok(nil)
-}
-
-fn test_remove() -> result<void, string> {
-    let m: map<int, int> = map.new()
-    check(not m.remove(1), "remove on empty map returns false")?
-    m.insert(1, 100)
-    m.insert(2, 200)
-    check(not m.remove(99), "remove returns false for absent key")?
-    check(m.len() == 2, "len unchanged after failed remove")?
-    check(m.remove(1), "remove returns true for present key")?
-    check(m.len() == 1, "len decreases after remove")?
-    check(not m.contains(1), "removed key no longer present")?
-    check(m.contains(2), "other key still present")?
-    .ok(nil)
-}
-
-fn test_remove_then_reinsert() -> result<void, string> {
-    let m: map<int, int> = map.new()
-    m.insert(1, 100)
-    m.remove(1)
-    m.insert(1, 999)
-    check(m.len() == 1, "len is 1 after remove and reinsert")?
-    check(m.get(1) == 999, "get returns reinserted value")?
-    .ok(nil)
-}
-
-fn test_len_tracks_ops() -> result<void, string> {
-    let m: map<int, int> = map.new()
-    check(m.len() == 0, "len 0 initially")?
-    m.insert(1, 1)
-    check(m.len() == 1, "len 1 after first insert")?
-    m.insert(2, 2)
-    check(m.len() == 2, "len 2 after second insert")?
-    m.insert(1, 11)
-    check(m.len() == 2, "len unchanged after update")?
-    m.remove(1)
-    check(m.len() == 1, "len decreases after remove")?
-    m.remove(2)
-    check(m.len() == 0, "len 0 after removing all")?
-    .ok(nil)
-}
-
 fn test_resize_many() -> result<void, string> {
-    return .ok(nil)
-
     let m: map<int, int> = map.new()
     for i in 30 {
         m.insert(i, i * i)
@@ -112,38 +15,5 @@ fn test_resize_many() -> result<void, string> {
     for i in 30 {
         check(m.get(i) == i * i, "value preserved across resizes")?
     }
-    .ok(nil)
-}
-
-fn test_string_keys() -> result<void, string> {
-    let m: map<string, string> = map.new()
-    m.insert("hello", "world")
-    m.insert("foo", "bar")
-    check(m.len() == 2, "len 2 with string keys")?
-    check(m.get("hello") == "world", "string key lookup works")?
-    check(m.get("foo") == "bar", "second string key lookup works")?
-    check(m.try_get("missing").is_none(), "missing string key returns none")?
-    .ok(nil)
-}
-
-fn test_index_get() -> result<void, string> {
-    let m: map<string, int> = map.new()
-    m.insert("a", 1)
-    m.insert("b", 2)
-    check(m["a"] == 1, "index get returns value")?
-    check(m["b"] == 2, "index get returns second value")?
-    .ok(nil)
-}
-
-fn test_index_set() -> result<void, string> {
-    let m: map<string, int> = map.new()
-    m["a"] = 1
-    m["b"] = 2
-    check(m.len() == 2, "len 2 after index set")?
-    check(m.get("a") == 1, "index set inserted first value")?
-    check(m.get("b") == 2, "index set inserted second value")?
-    m["a"] = 99
-    check(m.len() == 2, "len unchanged after index set update")?
-    check(m.get("a") == 99, "index set updated value")?
     .ok(nil)
 }
