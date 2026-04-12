@@ -212,9 +212,6 @@ impl Error {
                     let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
-                ConstraintReason::IndexAccess => {
-                    notes.push("type conflict due to array index is int".to_string());
-                }
             },
             Error::MemberAccessNeedsAnnotation { node } => {
                 diagnostic = diagnostic
@@ -436,9 +433,6 @@ fn handle_reason(
         }
         Reason::VariantNoData(_prov) => {
             notes.push("the data of some enum variant".to_string());
-        }
-        Reason::IndexAccess => {
-            notes.push("array index access".to_string());
         }
         Reason::IfWithoutElse(node) => {
             let (file, range) = node.get_file_and_range();

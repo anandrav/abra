@@ -475,7 +475,6 @@ pub(crate) enum Reason {
     BinopLeft(AstNode),
     BinopRight(AstNode),
     BinopOut(AstNode),
-    IndexAccess,
     VariantNoData(AstNode), // the type of the data of a variant with no data, always Void.
     IfWithoutElse(AstNode), // an if-else expression without an else body, always Void (effectively an if statement).
 }
@@ -494,8 +493,6 @@ pub(crate) enum ConstraintReason {
     // bool
     Condition,
     BinaryOperandBool(AstNode),
-    // int
-    IndexAccess,
 }
 
 type Substitution = HashMap<PolytypeDeclaration, TypeVar>;
@@ -2176,7 +2173,7 @@ fn generate_constraints_stmt(
                             &InterfaceConstraint::new(index_iface_decl.clone(), vec![]),
                         );
 
-                        let Some(accessed_potential_ty) = accessed_ty.single() else {
+                        if accessed_ty.single().is_none() {
                             ctx.errors.push(Error::Generic {
                                 msg: "Can't index expression without knowing type".to_string(),
                                 node: accessed.node(),
@@ -2816,6 +2813,9 @@ fn generate_constraints_expr(
                             // example: Clone.clone(my_struct)
                             //          ^^^^^
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
+                            // TODO: if the first argument of the method is of type Self, that should influence what we do here.
+                            //  map.new() does not apply
+                            //  but Clone.clone() it does apply!
                             let impl_ty = match args.first() {
                                 Some(arg) => {
                                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, arg);
@@ -3143,7 +3143,7 @@ fn generate_constraints_expr(
                 &InterfaceConstraint::new(index_iface_decl.clone(), vec![]),
             );
 
-            let Some(accessed_potential_ty) = accessed_ty.single() else {
+            if accessed_ty.single().is_none() {
                 ctx.errors.push(Error::Generic {
                     msg: "Can't index expression without knowing type".to_string(),
                     node: accessed.node(),
