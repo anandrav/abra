@@ -877,7 +877,19 @@ impl Translator {
                     }
                     _ => {
                         // interface method Index::index_get()
-                        unimplemented!()
+                        self.translate_expr(array, offset_table, mono, st);
+                        self.translate_expr(index, offset_table, mono, st);
+
+                        let index_iface_decl = self.statics.get_iface_decl("prelude.Index");
+                        let fn_index_get_ty =
+                            self.statics.index_get_types[&expr.id].solution().unwrap();
+                        self.translate_iface_method_call_helper(
+                            st,
+                            mono,
+                            &index_iface_decl,
+                            0,
+                            &fn_index_get_ty,
+                        );
                     }
                 }
             }
@@ -1900,7 +1912,23 @@ impl Translator {
                                         }
                                         _ => {
                                             // interface method Index::index_set()
-                                            unimplemented!()
+                                            self.translate_expr(array, offset_table, mono, st);
+                                            self.translate_expr(index, offset_table, mono, st);
+                                            self.translate_expr(rvalue, offset_table, mono, st);
+
+                                            let index_iface_decl =
+                                                self.statics.get_iface_decl("prelude.Index");
+                                            let fn_index_set_ty = self.statics.index_set_types
+                                                [&stmt.id]
+                                                .solution()
+                                                .unwrap();
+                                            self.translate_iface_method_call_helper(
+                                                st,
+                                                mono,
+                                                &index_iface_decl,
+                                                1,
+                                                &fn_index_set_ty,
+                                            );
                                         }
                                     }
                                 }

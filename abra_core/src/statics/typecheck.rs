@@ -2196,11 +2196,14 @@ fn generate_constraints_stmt(
                             ctx,
                             polyvar_scope,
                             &[accessed.clone(), index.clone(), rhs.clone()],
-                            memfn_instance_ty,
+                            memfn_instance_ty.clone(),
                             lhs.node(), // TODO: this is supposed to be the function node but the function doesn't *have* a node in this case... it's used in Prov::FuncArg. FIX!
                             lhs.node(),
                             node_ty.clone(),
                         );
+
+                        ctx.index_set_types
+                            .insert(stmt.id, memfn_instance_ty.clone());
                     } else {
                         let ty_lhs = TypeVar::from_node(ctx, lhs.node());
                         generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
@@ -3165,11 +3168,14 @@ fn generate_constraints_expr(
                 ctx,
                 polyvar_scope,
                 &[accessed.clone(), index.clone()],
-                memfn_instance_ty,
+                memfn_instance_ty.clone(),
                 expr.node(), // TODO: this is supposed to be the function node but the function doesn't *have* a node in this case... it's used in Prov::FuncArg. FIX!
                 expr.node(),
                 node_ty.clone(),
             );
+
+            ctx.index_get_types
+                .insert(expr.id, memfn_instance_ty.clone());
         }
         ExprKind::Unwrap(expr_inner) => {
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr_inner);
