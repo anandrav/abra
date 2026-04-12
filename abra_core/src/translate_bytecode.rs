@@ -867,9 +867,19 @@ impl Translator {
                 self.emit(st, Instr::ConstructArray(exprs.len() as u16));
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(array, offset_table, mono, st);
-                self.translate_expr(index, offset_table, mono, st);
-                self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
+                let lhs_ty = self.get_ty(mono, array.node()).unwrap();
+                match lhs_ty {
+                    SolvedType::Nominal(Nominal::Array, _) => {
+                        // shortcut, just inline the array access code
+                        self.translate_expr(array, offset_table, mono, st);
+                        self.translate_expr(index, offset_table, mono, st);
+                        self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
+                    }
+                    _ => {
+                        // interface method Index::index_get()
+                        unimplemented!()
+                    }
+                }
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.get_ty(mono, expr.node()).unwrap();
@@ -1879,10 +1889,20 @@ impl Translator {
                                 }
                                 // array assignment
                                 ExprKind::IndexAccess(array, index) => {
-                                    self.translate_expr(array, offset_table, mono, st);
-                                    self.translate_expr(index, offset_table, mono, st);
-                                    self.translate_expr(rvalue, offset_table, mono, st);
-                                    self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                                    let lhs_ty = self.get_ty(mono, array.node()).unwrap();
+                                    match lhs_ty {
+                                        SolvedType::Nominal(Nominal::Array, _) => {
+                                            // shortcut, just inline the array access code
+                                            self.translate_expr(array, offset_table, mono, st);
+                                            self.translate_expr(index, offset_table, mono, st);
+                                            self.translate_expr(rvalue, offset_table, mono, st);
+                                            self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                                        }
+                                        _ => {
+                                            // interface method Index::index_set()
+                                            unimplemented!()
+                                        }
+                                    }
                                 }
                                 _ => unreachable!(),
                             }
@@ -1990,18 +2010,27 @@ impl Translator {
                             }
                             // array assignment
                             ExprKind::IndexAccess(array, index) => {
-                                // args
-                                self.translate_expr(array, offset_table, mono, st);
-                                self.translate_expr(index, offset_table, mono, st);
-                                // calculate the number being stored
-                                // by loading from array at index and perform operation
-                                self.translate_expr(array, offset_table, mono, st);
-                                self.translate_expr(index, offset_table, mono, st);
-                                self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
-                                self.translate_expr(rvalue, offset_table, mono, st);
-                                perform_op(st);
-                                // store in array at index
-                                self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                                let lhs_ty = self.get_ty(mono, array.node()).unwrap();
+                                match lhs_ty {
+                                    SolvedType::Nominal(Nominal::Array, _) => {
+                                        // args
+                                        self.translate_expr(array, offset_table, mono, st);
+                                        self.translate_expr(index, offset_table, mono, st);
+                                        // calculate the number being stored
+                                        // by loading from array at index and perform operation
+                                        self.translate_expr(array, offset_table, mono, st);
+                                        self.translate_expr(index, offset_table, mono, st);
+                                        self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
+                                        self.translate_expr(rvalue, offset_table, mono, st);
+                                        perform_op(st);
+                                        // store in array at index
+                                        self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
+                                    }
+                                    _ => {
+                                        // interface method Index::index_set()
+                                        unimplemented!()
+                                    }
+                                }
                             }
                             // TODO: allow tuples on LHS of assignment
                             _ => unreachable!(),
