@@ -1009,6 +1009,13 @@ impl Translator {
                 let return_nargs = *st.return_stack.last().unwrap();
                 self.emit(st, Instr::Return(return_nargs));
                 self.emit(st, tag_success_label);
+
+                let SolvedType::Function(args, out) = fn_branch_ty else { unreachable!() };
+                let SolvedType::Nominal(_control_flow, args) = &**out else { unreachable!() };
+                let output_ty = &args[1];
+                if output_ty == &SolvedType::Void {
+                    self.emit(st, Instr::Pop);
+                }
             }
         }
     }
