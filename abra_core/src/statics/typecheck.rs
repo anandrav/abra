@@ -2165,14 +2165,55 @@ fn generate_constraints_stmt(
         StmtKind::Assign(lhs, assign_op, rhs) => {
             match assign_op {
                 AssignOperator::Equal => {
-                    let ty_lhs = TypeVar::from_node(ctx, lhs.node());
-                    generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
-                    generate_constraints_expr(
-                        ctx,
-                        polyvar_scope,
-                        Mode::ana_reason(ty_lhs, ConstraintReason::LetSetLhsRhs),
-                        rhs,
-                    );
+                    if let ExprKind::IndexAccess(accessed, index) = &*lhs.kind {
+                        generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, accessed);
+                        let accessed_ty = TypeVar::from_node(ctx, accessed.node());
+                        let index_iface_decl = ctx.get_iface_decl("prelude.Index");
+                        constrain_to_iface(
+                            ctx,
+                            &accessed_ty,
+                            lhs.node(),
+                            &InterfaceConstraint::new(index_iface_decl.clone(), vec![]),
+                        );
+
+                        let Some(accessed_potential_ty) = accessed_ty.single() else {
+                            ctx.errors.push(Error::Generic {
+                                msg: "Can't index expression without knowing type".to_string(),
+                                node: accessed.node(),
+                            });
+                            return;
+                        };
+
+                        let (index_get_method, _) =
+                            index_iface_decl.get_method_by_name("index_set").unwrap();
+                        let memfn_instance_ty = tyvar_of_iface_method(
+                            ctx,
+                            &index_iface_decl,
+                            index_get_method,
+                            Some(accessed_ty),
+                            polyvar_scope,
+                            lhs.node(),
+                        );
+
+                        generate_constraints_expr_funcap_helper(
+                            ctx,
+                            polyvar_scope,
+                            &[accessed.clone(), index.clone(), rhs.clone()],
+                            memfn_instance_ty,
+                            lhs.node(), // TODO: this is supposed to be the function node but the function doesn't *have* a node in this case... it's used in Prov::FuncArg. FIX!
+                            lhs.node(),
+                            node_ty.clone(),
+                        );
+                    } else {
+                        let ty_lhs = TypeVar::from_node(ctx, lhs.node());
+                        generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, lhs);
+                        generate_constraints_expr(
+                            ctx,
+                            polyvar_scope,
+                            Mode::ana_reason(ty_lhs, ConstraintReason::LetSetLhsRhs),
+                            rhs,
+                        );
+                    }
                 }
                 AssignOperator::PlusEq
                 | AssignOperator::MinusEq
