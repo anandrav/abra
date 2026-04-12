@@ -1010,7 +1010,7 @@ impl Translator {
                 self.emit(st, Instr::Return(return_nargs));
                 self.emit(st, tag_success_label);
 
-                let SolvedType::Function(args, out) = fn_branch_ty else { unreachable!() };
+                let SolvedType::Function(_, out) = fn_branch_ty else { unreachable!() };
                 let SolvedType::Nominal(_control_flow, args) = &**out else { unreachable!() };
                 let output_ty = &args[1];
                 if output_ty == &SolvedType::Void {
@@ -1292,16 +1292,20 @@ impl Translator {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_call_helper(f, f_fully_qualified_name, func_node, mono, st);
             }
-            Declaration::Struct(def) => {
+            Declaration::Struct(_) => {
+                // TODO: logic is duplicated for enums below
                 let mut nargs = 0;
-                for field in &*def.fields {
-                    // TODO: duplicated logic
-                    let field_ty = field.ty.to_solved_type(&self.statics).unwrap().subst(mono);
-                    if let SolvedType::InterfaceOutput(_) | SolvedType::Poly(_) = field_ty {
-                        unreachable!();
-                    }
-                    if field_ty != SolvedType::Void {
-                        nargs += 1;
+                let SolvedType::Function(args, _) = self.get_ty(mono, func_node).unwrap() else {
+                    unreachable!()
+                };
+                for arg_ty in args {
+                    match arg_ty {
+                        SolvedType::Void => {}
+                        SolvedType::Poly(_) => unreachable!(),
+                        SolvedType::InterfaceOutput(_) => unreachable!(),
+                        _ => {
+                            nargs += 1;
+                        }
                     }
                 }
                 self.emit(st, Instr::ConstructStruct(nargs));
