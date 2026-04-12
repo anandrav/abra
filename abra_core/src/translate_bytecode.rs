@@ -28,7 +28,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use utils::hash::HashMap;
 use utils::hash::HashSet;
 use utils::id_set::IdSet;
-use utils::swrite;
+use utils::{dlog, swrite};
 
 type OffsetTable = HashMap<NodeId, i16>;
 type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
@@ -1290,6 +1290,9 @@ impl Translator {
                 for field in &*def.fields {
                     // TODO: duplicated logic
                     let field_ty = field.ty.to_solved_type(&self.statics).unwrap().subst(mono);
+                    if let SolvedType::InterfaceOutput(_) | SolvedType::Poly(_) = field_ty {
+                        unreachable!();
+                    }
                     if field_ty != SolvedType::Void {
                         nargs += 1;
                     }
@@ -1300,26 +1303,46 @@ impl Translator {
                 e: enum_def,
                 variant,
             } => {
-                let nargs = match &enum_def.variants[*variant].data {
-                    Some(data_ty) => {
-                        let data_ty = data_ty.to_solved_type(&self.statics).unwrap().subst(mono);
-                        match data_ty {
-                            SolvedType::Tuple(elems) => {
-                                // TODO: duplicated logic
-                                let mut nargs = 0;
-                                for elem in elems {
-                                    if elem != SolvedType::Void {
-                                        nargs += 1;
-                                    }
-                                }
-                                nargs
-                            }
-                            SolvedType::Void => 0,
-                            _ => 1,
+                let mut nargs = 0;
+                let SolvedType::Function(args, _) = self.get_ty(mono, func_node).unwrap() else {
+                    unreachable!()
+                };
+                for arg_ty in args {
+                    match arg_ty {
+                        SolvedType::Void => {}
+                        SolvedType::Poly(_) => unreachable!(),
+                        SolvedType::InterfaceOutput(_) => unreachable!(),
+                        _ => {
+                            nargs += 1;
                         }
                     }
-                    None => 0,
-                };
+                }
+                dlog!("enum name = {}, variant = {}", enum_def.name.v, variant);
+                // dlog!("func_ty: {}", func_ty);
+                // let nargs = match &enum_def.variants[*variant].data {
+                //     Some(data_ty) => {
+                //         let data_ty = data_ty.to_solved_type(&self.statics).unwrap().subst(mono);
+                //         dlog!("data_ty: {}", data_ty);
+                //         match data_ty {
+                //             SolvedType::Tuple(elems) => {
+                //                 // TODO: duplicated logic
+                //                 let mut nargs = 0;
+                //                 for elem in elems {
+                //                     if elem != SolvedType::Void {
+                //                         nargs += 1;
+                //                     }
+                //                 }
+                //                 nargs
+                //             }
+                //             SolvedType::Void => 0,
+                //             SolvedType::Poly(_) => unreachable!(),
+                //             SolvedType::InterfaceOutput(_) => unreachable!(),
+                //             _ => 1,
+                //         }
+                //     }
+                //     None => 0,
+                // };
+                dlog!("nargs = {}", nargs);
                 if nargs > 1 {
                     self.emit(st, Instr::ConstructStruct(nargs));
                 }
