@@ -101,14 +101,11 @@ fn test_len_tracks_ops() -> result<void, string> {
 }
 
 fn test_resize_many() -> result<void, string> {
-    return .ok(nil)
-
     let m: map<int, int> = map.new()
     for i in 30 {
         m.insert(i, i * i)
     }
     check(m.len() == 30, "len is 30 after 30 inserts")?
-    // TODO: THIS FAILS DUE TO A BUG, FAILURE OCCURS BELOW:
     for i in 30 {
         check(m.get(i) == i * i, "value preserved across resizes")?
     }
