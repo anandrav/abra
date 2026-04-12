@@ -2731,10 +2731,12 @@ fn generate_constraints_expr(
                         );
                         constrain(ctx, &func_identifier_node_ty, &func_instance_ty);
 
+                        let func_ty = TypeVar::from_node(ctx, fname.node().clone());
                         generate_constraints_expr_funcap_helper(
                             ctx,
                             polyvar_scope,
                             args,
+                            func_ty,
                             fname.node(),
                             expr.node(),
                             node_ty.clone(),
@@ -2781,7 +2783,7 @@ fn generate_constraints_expr(
                                 None => None,
                             };
 
-                            let memfn_decl_ty = tyvar_of_iface_method(
+                            let memfn_instance_ty = tyvar_of_iface_method(
                                 ctx,
                                 &iface_def,
                                 method,
@@ -2789,12 +2791,14 @@ fn generate_constraints_expr(
                                 polyvar_scope,
                                 fname.node(),
                             );
-                            constrain(ctx, &memfn_node_ty, &memfn_decl_ty);
+                            constrain(ctx, &memfn_node_ty, &memfn_instance_ty);
 
+                            let func_ty = TypeVar::from_node(ctx, fname.node().clone());
                             generate_constraints_expr_funcap_helper(
                                 ctx,
                                 polyvar_scope,
                                 args,
+                                func_ty,
                                 fname.node(),
                                 expr.node(),
                                 node_ty.clone(),
@@ -2856,7 +2860,7 @@ fn generate_constraints_expr(
                                             let impl_ty =
                                                 TypeVar::from_node(ctx, receiver_expr.node());
                                             dlog!("impl_ty: {}", impl_ty);
-                                            let memfn_decl_ty = tyvar_of_iface_method(
+                                            let memfn_instance_ty = tyvar_of_iface_method(
                                                 ctx,
                                                 &iface_def,
                                                 method,
@@ -2864,14 +2868,15 @@ fn generate_constraints_expr(
                                                 polyvar_scope,
                                                 fname.node(),
                                             );
-                                            dlog!("memfn_decl_ty: {}", memfn_decl_ty);
-                                            constrain(ctx, &memfn_node_ty, &memfn_decl_ty);
+                                            dlog!("memfn_instance_ty: {}", memfn_instance_ty);
+                                            constrain(ctx, &memfn_node_ty, &memfn_instance_ty);
                                         }
                                         _ => unreachable!(),
                                     }
 
                                     let blah = TypeVar::from_node(ctx, fname.node());
                                     dlog!("blah: {}", blah);
+                                    let func_ty = TypeVar::from_node(ctx, fname.node().clone());
                                     generate_constraints_expr_funcap_helper(
                                         ctx,
                                         polyvar_scope,
@@ -2879,6 +2884,7 @@ fn generate_constraints_expr(
                                             .chain(args)
                                             .cloned()
                                             .collect::<Vec<_>>(),
+                                        func_ty,
                                         fname.node(),
                                         expr.node(),
                                         node_ty.clone(),
@@ -2936,10 +2942,12 @@ fn generate_constraints_expr(
                 _ => {
                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, func);
 
+                    let func_ty = TypeVar::from_node(ctx, func.node().clone());
                     generate_constraints_expr_funcap_helper(
                         ctx,
                         polyvar_scope,
                         args,
+                        func_ty,
                         func.node(),
                         expr.node(),
                         node_ty,
@@ -3085,29 +3093,42 @@ fn generate_constraints_expr(
         }
         ExprKind::IndexAccess(accessed, index) => {
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, accessed);
-
-            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(accessed.node()));
             let accessed_ty = TypeVar::from_node(ctx, accessed.node());
-            constrain(
+            let index_iface_decl = ctx.get_iface_decl("prelude.Index");
+            constrain_to_iface(
                 ctx,
                 &accessed_ty,
-                &TypeVar::make_nominal(
-                    Reason::Node(accessed.node()),
-                    Nominal::Array,
-                    vec![elem_ty.clone()],
-                ),
-            );
-            generate_constraints_expr(
-                ctx,
-                polyvar_scope,
-                Mode::ana_reason(
-                    TypeVar::make_int(Reason::IndexAccess),
-                    ConstraintReason::IndexAccess,
-                ),
-                index,
+                expr.node(),
+                &InterfaceConstraint::new(index_iface_decl.clone(), vec![]),
             );
 
-            constrain(ctx, &node_ty, &elem_ty);
+            let Some(accessed_potential_ty) = accessed_ty.single() else {
+                ctx.errors.push(Error::Generic {
+                    msg: "Can't index expression without knowing type".to_string(),
+                    node: accessed.node(),
+                });
+                return;
+            };
+
+            let (index_get_method, _) = index_iface_decl.get_method_by_name("index_get").unwrap();
+            let memfn_instance_ty = tyvar_of_iface_method(
+                ctx,
+                &index_iface_decl,
+                index_get_method,
+                Some(accessed_ty),
+                polyvar_scope,
+                expr.node(),
+            );
+
+            generate_constraints_expr_funcap_helper(
+                ctx,
+                polyvar_scope,
+                &[accessed.clone(), index.clone()],
+                memfn_instance_ty,
+                expr.node(), // TODO: this is supposed to be the function node but the function doesn't *have* a node in this case... it's used in Prov::FuncArg. FIX!
+                expr.node(),
+                node_ty.clone(),
+            );
         }
         ExprKind::Unwrap(expr_inner) => {
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr_inner);
@@ -3314,10 +3335,12 @@ fn enum_ctor_helper(
     let func_node_ty = TypeVar::from_node(ctx, func_node.clone());
     constrain(ctx, &func_ty, &func_node_ty);
 
+    let func_ty = TypeVar::from_node(ctx, func_node.clone());
     generate_constraints_expr_funcap_helper(
         ctx,
         polyvar_scope,
         args,
+        func_ty,
         func_node,
         funcap_node,
         def_type.clone(),
@@ -3423,12 +3446,11 @@ fn generate_constraints_expr_funcap_helper(
     ctx: &mut StaticsContext,
     polyvar_scope: &PolyvarScope,
     args: &[Rc<Expr>],
+    ty_func: TypeVar,
     func_node: AstNode,
     expr_node: AstNode,
     node_ty: TypeVar,
 ) {
-    let ty_func = TypeVar::from_node(ctx, func_node.clone());
-
     if let Some(PotentialType::Function(_, func_ty_args, _)) = ty_func.single() {
         args.iter().zip(func_ty_args).for_each(|(arg, expected)| {
             generate_constraints_expr(ctx, polyvar_scope, Mode::ana(expected), arg);
