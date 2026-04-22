@@ -2555,15 +2555,15 @@ impl Translator {
                 let SolvedType::Function(arg_tys, _) = overload_ty else { unreachable!() };
                 for (i, arg_ty) in arg_tys.iter().enumerate().rev() {
                     if *arg_ty != SolvedType::Void {
-                        arg_ids.push(args[i].0.node());
+                        arg_ids.push(args[i].name.node());
                     }
                 }
             }
             None => {
                 for (i, arg) in args.iter().enumerate().rev() {
-                    let arg_ty = self.get_ty(mono, arg.0.node()).unwrap();
+                    let arg_ty = self.get_ty(mono, arg.name.node()).unwrap();
                     if arg_ty != SolvedType::Void {
-                        arg_ids.push(args[i].0.node())
+                        arg_ids.push(args[i].name.node())
                     }
                 }
             }

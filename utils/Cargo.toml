@@ -7,4 +7,4 @@ license = "MPL-2.0"
 publish = false
 
 [dependencies]
-rustc-hash = "2.1.1"
+rustc-hash = "2.1.2"

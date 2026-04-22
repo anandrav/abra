@@ -540,8 +540,8 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
         ItemKind::FuncDecl(f) => {
             let symbol_table = symbol_table.new_scope();
             for arg in &f.args {
-                resolve_names_fn_arg(&symbol_table, &arg.0);
-                if let Some(annot) = &arg.1 {
+                resolve_names_fn_arg(&symbol_table, &arg.name);
+                if let Some(annot) = &arg.ty {
                     resolve_names_typ(ctx, &symbol_table, annot, true);
                 }
             }
@@ -560,8 +560,8 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             for f in &iface_def.methods {
                 let symbol_table = symbol_table.new_scope();
                 for arg in &f.args {
-                    resolve_names_fn_arg(&symbol_table, &arg.0);
-                    if let Some(annot) = &arg.1 {
+                    resolve_names_fn_arg(&symbol_table, &arg.name);
+                    if let Some(annot) = &arg.ty {
                         resolve_names_typ(ctx, &symbol_table, annot, true);
                     }
                 }
@@ -1048,8 +1048,8 @@ fn resolve_names_func_helper_decl_only(
     ret_type: &Option<Rc<Type>>,
 ) {
     for arg in args {
-        resolve_names_fn_arg(symbol_table, &arg.0);
-        if let Some(ty_annot) = &arg.1 {
+        resolve_names_fn_arg(symbol_table, &arg.name);
+        if let Some(ty_annot) = &arg.ty {
             resolve_names_typ(ctx, symbol_table, ty_annot, true);
         }
     }
@@ -1067,8 +1067,8 @@ fn resolve_names_func_helper(
     ret_type: &Option<Rc<Type>>,
 ) {
     for arg in args {
-        resolve_names_fn_arg(symbol_table, &arg.0);
-        if let Some(ty_annot) = &arg.1 {
+        resolve_names_fn_arg(symbol_table, &arg.name);
+        if let Some(ty_annot) = &arg.ty {
             resolve_names_typ(ctx, symbol_table, ty_annot, true);
         }
     }

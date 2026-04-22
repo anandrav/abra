@@ -94,7 +94,7 @@ pub enum HostFunction {
             } else {
                 let mut s = "(".to_string();
                 for (i, arg) in f.args.iter().enumerate() {
-                    let ty = arg.1.clone().unwrap();
+                    let ty = arg.ty.clone().unwrap();
                     if i != 0 {
                         s.push_str(", ");
                     }
@@ -125,7 +125,7 @@ pub enum HostFunction {
         swrite!(output, "{i} => {{");
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         for (i, arg) in f.args.iter().enumerate().rev() {
-            let ty = arg.1.clone().unwrap();
+            let ty = arg.ty.clone().unwrap();
             let tyname = name_of_ty(&ty);
             swrite!(
                 output,

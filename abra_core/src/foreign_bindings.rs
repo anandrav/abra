@@ -557,8 +557,8 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
 
                 output.push_str("let _vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
-                for (name, ty) in f.args.iter().rev() {
-                    let Some(ty) = ty else { panic!() };
+                for arg in f.args.iter().rev() {
+                    let Some(ty) = &arg.ty else { panic!() };
                     if matches!(&*ty.kind, TypeKind::Void) {
                         //                         output.push_str(
                         //                             r#"(vm_funcs.pop_nil)(vm);
@@ -570,7 +570,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                             output,
                             r#"let {} = <{}>::from_vm_unsafe(_vm, _vm_funcs);
 "#,
-                            name.v,
+                            arg.name.v,
                             tyname
                         );
                     }
@@ -590,12 +590,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                     );
                 }
 
-                for (name, typ) in f.args.iter() {
-                    let Some(typ) = typ else { panic!() };
+                for arg in f.args.iter() {
+                    let Some(typ) = &arg.ty else { panic!() };
                     if matches!(&*typ.kind, TypeKind::Void) {
                         output.push_str("(),");
                     } else {
-                        swrite!(output, "{},", name.v);
+                        swrite!(output, "{},", arg.name.v);
                     }
                 }
                 output.push_str(");");

@@ -1759,11 +1759,11 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
         }
         ItemKind::Extension(ext) => {
             for f in &ext.methods {
-                if let Some((first_arg_identifier, _)) = f.args.first()
-                    && first_arg_identifier.v == "self"
+                if let Some(first_arg) = f.args.first()
+                    && first_arg.name.v == "self"
                 {
                     let nominal_ty = ext.typ.to_typevar(ctx);
-                    let ty_first_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+                    let ty_first_arg = TypeVar::from_node(ctx, first_arg.name.node());
                     constrain(ctx, &ty_first_arg, &nominal_ty);
                 }
                 generate_constraints_func_decl(ctx, f.name.node(), &f.args, f.ret_type.as_ref());
@@ -2037,14 +2037,14 @@ fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: &Rc<Inter
             // Interface declaration method types have already been computed.
             break;
         }
-        if let Some((first_arg_identifier, _)) = method.args.first()
-            && first_arg_identifier.v == "self"
+        if let Some(first_arg) = method.args.first()
+            && first_arg.name.v == "self"
         {
             let nominal_ty = TypeVar::make_poly(
-                Reason::Node(first_arg_identifier.node()),
+                Reason::Node(first_arg.name.node()),
                 PolytypeDeclaration::InterfaceSelf(iface_def.clone()),
             );
-            let ty_first_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+            let ty_first_arg = TypeVar::from_node(ctx, first_arg.name.node());
             constrain(ctx, &ty_first_arg, &nominal_ty);
         }
         generate_constraints_func_decl(
@@ -2108,7 +2108,7 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: &
             for f in &ext.methods {
                 let polyvar_scope = PolyvarScope::empty();
                 if let Some(first_arg) = f.args.first() {
-                    let first_arg_ty = TypeVar::from_node(ctx, first_arg.0.node());
+                    let first_arg_ty = TypeVar::from_node(ctx, first_arg.name.node());
                     polyvar_scope.add_polys(&first_arg_ty);
                 }
                 generate_constraints_func_def(ctx, &polyvar_scope, f, f.name.node());
@@ -3472,17 +3472,17 @@ fn generate_constraints_func_args(
     args: &[ArgMaybeAnnotated],
 ) -> Vec<TypeVar> {
     args.iter()
-        .map(|(arg, arg_annot)| {
-            let ty_pat = TypeVar::from_node(ctx, arg.node());
-            match arg_annot {
+        .map(|arg| {
+            let ty_pat = TypeVar::from_node(ctx, arg.name.node());
+            match &arg.ty {
                 Some(arg_annot) => {
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.node());
                     let arg_annot = arg_annot.to_typevar(ctx);
                     constrain(ctx, &ty_annot, &arg_annot);
                     polyvar_scope.add_polys(&arg_annot);
-                    generate_constraints_fn_arg(ctx, Mode::ana(ty_annot), arg)
+                    generate_constraints_fn_arg(ctx, Mode::ana(ty_annot), &arg.name)
                 }
-                None => generate_constraints_fn_arg(ctx, Mode::Syn, arg),
+                None => generate_constraints_fn_arg(ctx, Mode::Syn, &arg.name),
             }
             ty_pat
         })

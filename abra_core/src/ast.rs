@@ -384,7 +384,11 @@ pub(crate) enum StmtKind {
     ForLoop(Rc<Pat>, Rc<Expr>, Vec<Rc<Stmt>>),
 }
 
-pub(crate) type ArgMaybeAnnotated = (Rc<Identifier>, Option<Rc<Type>>);
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct ArgMaybeAnnotated {
+    pub(crate) name: Rc<Identifier>,
+    pub(crate) ty: Option<Rc<Type>>,
+}
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
@@ -756,9 +760,9 @@ fn find_in_func_def_body(func_def: &Rc<FuncDef>, offset: usize) -> Option<AstNod
     if func_def.name.loc.contains_offset(offset) {
         return Some(func_def.name.node());
     }
-    for (arg_name, _) in &func_def.args {
-        if arg_name.loc.contains_offset(offset) {
-            return Some(arg_name.node());
+    for arg in &func_def.args {
+        if arg.name.loc.contains_offset(offset) {
+            return Some(arg.name.node());
         }
     }
     find_in_expr(&func_def.body, offset)
@@ -904,9 +908,9 @@ fn find_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
             Some(expr.node())
         }
         ExprKind::AnonymousFunction(args, _, body) => {
-            for (arg_name, _) in args {
-                if arg_name.loc.contains_offset(offset) {
-                    return Some(arg_name.node());
+            for arg in args {
+                if arg.name.loc.contains_offset(offset) {
+                    return Some(arg.name.node());
                 }
             }
             find_in_expr(body, offset).or(Some(expr.node()))
@@ -1006,11 +1010,11 @@ fn find_ident_in_func_signature(
     ret_type: Option<&Rc<Type>>,
     offset: usize,
 ) -> Option<AstNode> {
-    for (arg_name, arg_type) in args {
-        if arg_name.loc.contains_offset(offset) {
-            return Some(arg_name.node());
+    for arg in args {
+        if arg.name.loc.contains_offset(offset) {
+            return Some(arg.name.node());
         }
-        if let Some(ty) = arg_type
+        if let Some(ty) = &arg.ty
             && let Some(node) = find_ident_in_type(ty, offset)
         {
             return Some(node);

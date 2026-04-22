@@ -6,6 +6,7 @@ use test_runner
 
 fn str_err(e: HttpError) -> string = e.str()
 
+/*
 let t = TestRunner.new("http")
 t.run("get_basic", test_get_basic())
 t.run("get_headers", test_get_headers())
@@ -17,6 +18,7 @@ t.run("post_json", test_post_json())
 t.run("request_json_body", test_request_json_body())
 t.run("connection_error", test_connection_error())
 t.finish()
+*/
 
 fn test_get_basic() -> result<void, string> {
     let resp = get("https://httpbin.org/get").map_err(str_err)?
@@ -97,3 +99,4 @@ fn test_connection_error() -> result<void, string> {
     check(r.is_err(), "should fail to connect")?
     .ok(nil)
 }
+

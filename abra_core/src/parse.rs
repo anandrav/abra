@@ -671,12 +671,12 @@ impl Parser {
 
     fn parse_func_arg(&mut self) -> Result<ArgMaybeAnnotated, Box<Error>> {
         let name = self.expect_ident()?;
-        let mut typ = None;
+        let mut ty = None;
         if self.current_token().tag() == TokenTag::Colon {
             self.consume_token();
-            typ = Some(self.parse_type()?);
+            ty = Some(self.parse_type()?);
         }
-        Ok((name, typ))
+        Ok(ArgMaybeAnnotated { name, ty })
     }
 
     // TODO: is this helper necessary now?
