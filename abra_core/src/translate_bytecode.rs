@@ -740,7 +740,7 @@ impl Translator {
                 match &*func.kind {
                     ExprKind::Variable(_) => {
                         for arg in args {
-                            self.translate_expr(arg, offset_table, mono, st);
+                            self.translate_expr(&arg.val, offset_table, mono, st);
                         }
                         let decl = &self.statics.resolution_map[&func.id];
                         self.translate_func_call(decl, func.node(), offset_table, mono, st);
@@ -748,7 +748,7 @@ impl Translator {
                     ExprKind::MemberAccess(receiver_expr, fname) => {
                         self.translate_expr(receiver_expr, offset_table, mono, st);
                         for arg in args {
-                            self.translate_expr(arg, offset_table, mono, st);
+                            self.translate_expr(&arg.val, offset_table, mono, st);
                         }
 
                         let decl = &self.statics.resolution_map[&fname.id];
@@ -756,7 +756,7 @@ impl Translator {
                     }
                     ExprKind::MemberAccessLeadingDot(fname) => {
                         for arg in args {
-                            self.translate_expr(arg, offset_table, mono, st);
+                            self.translate_expr(&arg.val, offset_table, mono, st);
                         }
 
                         let decl = &self.statics.resolution_map[&fname.id];
@@ -784,7 +784,7 @@ impl Translator {
                     | ExprKind::FuncCall(..)
                     | ExprKind::AnonymousFunction(..) => {
                         for arg in args {
-                            self.translate_expr(arg, offset_table, mono, st);
+                            self.translate_expr(&arg.val, offset_table, mono, st);
                         }
                         self.translate_expr(func, offset_table, mono, st);
                         self.translate_lambda_call(st, mono, func.node());
@@ -2398,7 +2398,7 @@ impl Translator {
             ExprKind::FuncCall(func, args) => {
                 self.collect_locals_expr(func, locals, mono);
                 for arg in args {
-                    self.collect_locals_expr(arg, locals, mono);
+                    self.collect_locals_expr(&arg.val, locals, mono);
                 }
             }
 
@@ -2611,7 +2611,7 @@ impl Translator {
             ExprKind::FuncCall(func, args) => {
                 self.collect_captures_expr(func, captures, mono);
                 for arg in args {
-                    self.collect_captures_expr(arg, captures, mono);
+                    self.collect_captures_expr(&arg.val, captures, mono);
                 }
             }
             ExprKind::AnonymousFunction(..)

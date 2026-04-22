@@ -6,9 +6,9 @@ use super::{
     Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
-    ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
-    InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, Stmt, StmtKind, Type as AstType,
-    TypeDefKind, TypeKind,
+    ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncCallArg, Identifier,
+    Interface, InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, Stmt, StmtKind,
+    Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::environment::Environment;
@@ -2772,7 +2772,7 @@ fn generate_constraints_expr(
                         constrain(ctx, &func_identifier_node_ty, &func_instance_ty);
 
                         let func_ty = TypeVar::from_node(ctx, fname.node().clone());
-                        generate_constraints_expr_funcap_helper(
+                        generate_constraints_expr_funcap_helper_named_args(
                             ctx,
                             polyvar_scope,
                             args,
@@ -2820,8 +2820,13 @@ fn generate_constraints_expr(
                             //  but Clone.clone() it does apply!
                             let impl_ty = match args.first() {
                                 Some(arg) => {
-                                    generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, arg);
-                                    Some(TypeVar::from_node(ctx, arg.node()))
+                                    generate_constraints_expr(
+                                        ctx,
+                                        polyvar_scope,
+                                        Mode::Syn,
+                                        &arg.val,
+                                    );
+                                    Some(TypeVar::from_node(ctx, arg.val.node()))
                                 }
                                 None => None,
                             };
@@ -2837,7 +2842,7 @@ fn generate_constraints_expr(
                             constrain(ctx, &memfn_node_ty, &memfn_instance_ty);
 
                             let func_ty = TypeVar::from_node(ctx, fname.node().clone());
-                            generate_constraints_expr_funcap_helper(
+                            generate_constraints_expr_funcap_helper_named_args(
                                 ctx,
                                 polyvar_scope,
                                 args,
@@ -2916,13 +2921,16 @@ fn generate_constraints_expr(
                                     }
 
                                     let func_ty = TypeVar::from_node(ctx, fname.node().clone());
-                                    generate_constraints_expr_funcap_helper(
+                                    generate_constraints_expr_funcap_helper_named_args(
                                         ctx,
                                         polyvar_scope,
-                                        &std::iter::once(receiver_expr)
-                                            .chain(args)
-                                            .cloned()
-                                            .collect::<Vec<_>>(),
+                                        &std::iter::once(&FuncCallArg {
+                                            name: None,
+                                            val: receiver_expr.clone(),
+                                        })
+                                        .chain(args)
+                                        .cloned()
+                                        .collect::<Vec<_>>(),
                                         func_ty,
                                         fname.node(),
                                         expr.node(),
@@ -2982,7 +2990,7 @@ fn generate_constraints_expr(
                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, func);
 
                     let func_ty = TypeVar::from_node(ctx, func.node().clone());
-                    generate_constraints_expr_funcap_helper(
+                    generate_constraints_expr_funcap_helper_named_args(
                         ctx,
                         polyvar_scope,
                         args,
@@ -3349,7 +3357,7 @@ fn enum_ctor_helper(
     polyvar_scope: &PolyvarScope,
     enum_def: &Rc<EnumDef>,
     variant: usize,
-    args: &[Rc<Expr>],
+    args: &[FuncCallArg],
     func_node: AstNode,
     funcap_node: AstNode,
 ) {
@@ -3378,7 +3386,7 @@ fn enum_ctor_helper(
     constrain(ctx, &func_ty, &func_node_ty);
 
     let func_ty = TypeVar::from_node(ctx, func_node.clone());
-    generate_constraints_expr_funcap_helper(
+    generate_constraints_expr_funcap_helper_named_args(
         ctx,
         polyvar_scope,
         args,
@@ -3506,6 +3514,48 @@ fn generate_constraints_expr_funcap_helper(
         .map(|(n, arg)| {
             let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
             let arg_ty = TypeVar::from_node(ctx, arg.node());
+            constrain(ctx, &unknown, &arg_ty);
+            unknown
+        })
+        .collect();
+
+    // body
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func_node));
+    constrain(ctx, &ty_body, &node_ty);
+
+    // function type
+    let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr_node.clone()));
+
+    constrain_because(
+        ctx,
+        &ty_args_and_body,
+        &ty_func,
+        ConstraintReason::FuncCall(expr_node),
+    );
+}
+
+fn generate_constraints_expr_funcap_helper_named_args(
+    ctx: &mut StaticsContext,
+    polyvar_scope: &PolyvarScope,
+    args: &[FuncCallArg],
+    ty_func: TypeVar,
+    func_node: AstNode,
+    expr_node: AstNode,
+    node_ty: TypeVar,
+) {
+    if let Some(PotentialType::Function(_, func_ty_args, _)) = ty_func.single() {
+        args.iter().zip(func_ty_args).for_each(|(arg, expected)| {
+            generate_constraints_expr(ctx, polyvar_scope, Mode::ana(expected), &arg.val);
+        });
+    }
+
+    // arguments
+    let tys_args: Vec<TypeVar> = args
+        .iter()
+        .enumerate()
+        .map(|(n, arg)| {
+            let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
+            let arg_ty = TypeVar::from_node(ctx, arg.val.node());
             constrain(ctx, &unknown, &arg_ty);
             unknown
         })

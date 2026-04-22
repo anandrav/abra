@@ -790,7 +790,7 @@ impl Parser {
     ) -> Result<(), Box<Error>> {
         match op {
             PostfixOp::FuncCall => {
-                let args = self.parse_parenthesized_expression_list()?;
+                let args = self.parse_func_call_args()?;
                 *lhs = Rc::new(Expr {
                     kind: ExprKind::FuncCall(lhs.clone(), args).into(),
                     loc: self.location(lo),
@@ -933,6 +933,16 @@ impl Parser {
         } else {
             Ok(None)
         }
+    }
+
+    fn parse_func_call_arg(&mut self) -> Result<FuncCallArg, Box<Error>> {
+        self.skip_newlines();
+        let ret = self.parse_expr_bp(0)?;
+        let func_call_arg = FuncCallArg {
+            name: None,
+            val: ret,
+        };
+        Ok(func_call_arg)
     }
 
     fn parse_expr_term(&mut self) -> Result<Rc<Expr>, Box<Error>> {
@@ -1178,9 +1188,13 @@ impl Parser {
         }))
     }
 
-    fn parse_parenthesized_expression_list(&mut self) -> Result<Vec<Rc<Expr>>, Box<Error>> {
+    fn parse_func_call_args(&mut self) -> Result<Vec<FuncCallArg>, Box<Error>> {
         self.expect_token(TokenTag::OpenParen);
-        self.parse_delimited_list(TokenTag::CloseParen, TokenTag::Comma, Self::parse_expr)
+        self.parse_delimited_list(
+            TokenTag::CloseParen,
+            TokenTag::Comma,
+            Self::parse_func_call_arg,
+        )
     }
 
     fn parse_match_arm(&mut self) -> Result<Rc<MatchArm>, Box<Error>> {

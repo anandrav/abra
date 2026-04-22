@@ -136,7 +136,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
         ExprKind::FuncCall(func, args) => {
             check_pattern_exhaustiveness_expr(statics, func);
             for arg in args {
-                check_pattern_exhaustiveness_expr(statics, arg);
+                check_pattern_exhaustiveness_expr(statics, &arg.val);
             }
         }
         ExprKind::Tuple(exprs) => {

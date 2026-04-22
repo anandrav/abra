@@ -902,7 +902,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         ExprKind::FuncCall(func, args) => {
             resolve_names_expr(ctx, symbol_table, func);
             for arg in args {
-                resolve_names_expr(ctx, symbol_table, arg);
+                // TODO: resolve arg.name
+                resolve_names_expr(ctx, symbol_table, &arg.val);
             }
         }
         ExprKind::MemberAccess(expr, field) => {
