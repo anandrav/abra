@@ -935,8 +935,43 @@ impl Parser {
         }
     }
 
+    fn try_parse_named_func_call_arg(&mut self) -> Result<Option<FuncCallArg>, Box<Error>> {
+        let Ok(name) = self.expect_ident() else {
+            return Ok(None);
+        };
+
+        if self.current_token().tag() == TokenTag::Eq {
+            // It must be a named arg
+            self.consume_token();
+            let val = self.parse_expr()?;
+            Ok(Some(FuncCallArg {
+                name: Some(name),
+                val,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn parse_func_call_arg(&mut self) -> Result<FuncCallArg, Box<Error>> {
         self.skip_newlines();
+
+        let checkpoint = self.index;
+        let mut checkpoint_errors = mem::take(&mut self.errors);
+
+        if let Some(lambda_expr) = self.try_parse_named_func_call_arg()? {
+            // restore
+            checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
+            self.errors = checkpoint_errors;
+            return Ok(lambda_expr);
+        }
+
+        // rollback
+        self.index = checkpoint;
+        self.errors = checkpoint_errors;
+
+        // It's not a named arg
+
         let ret = self.parse_expr_bp(0)?;
         let func_call_arg = FuncCallArg {
             name: None,
