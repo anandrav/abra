@@ -550,6 +550,18 @@ pub(crate) enum ExprKind {
     Try(Rc<Expr>),
 }
 
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub struct FuncCallArg {
+    pub(crate) name: Option<Rc<Identifier>>,
+    pub(crate) val: Rc<Expr>,
+}
+
+impl FuncCallArg {
+    pub fn is_named(&self) -> bool {
+        self.name.is_some()
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Copy)]
 pub enum BinaryOperator {
     // comparison
