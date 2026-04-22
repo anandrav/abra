@@ -21,7 +21,6 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -2916,7 +2915,6 @@ fn generate_constraints_expr(
                                         _ => unreachable!(),
                                     }
 
-                                    let blah = TypeVar::from_node(ctx, fname.node());
                                     let func_ty = TypeVar::from_node(ctx, fname.node().clone());
                                     generate_constraints_expr_funcap_helper(
                                         ctx,

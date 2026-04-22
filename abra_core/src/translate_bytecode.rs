@@ -1310,10 +1310,7 @@ impl Translator {
                 }
                 self.emit(st, Instr::ConstructStruct(nargs));
             }
-            Declaration::EnumVariant {
-                e: enum_def,
-                variant,
-            } => {
+            Declaration::EnumVariant { e: _, variant } => {
                 let mut nargs = 0;
                 let SolvedType::Function(args, _) = self.get_ty(mono, func_node).unwrap() else {
                     unreachable!()
