@@ -2903,7 +2903,6 @@ fn generate_constraints_expr(
                                         } => {
                                             let impl_ty =
                                                 TypeVar::from_node(ctx, receiver_expr.node());
-                                            dlog!("impl_ty: {}", impl_ty);
                                             let memfn_instance_ty = tyvar_of_iface_method(
                                                 ctx,
                                                 &iface_def,
@@ -2912,14 +2911,12 @@ fn generate_constraints_expr(
                                                 polyvar_scope,
                                                 fname.node(),
                                             );
-                                            dlog!("memfn_instance_ty: {}", memfn_instance_ty);
                                             constrain(ctx, &memfn_node_ty, &memfn_instance_ty);
                                         }
                                         _ => unreachable!(),
                                     }
 
                                     let blah = TypeVar::from_node(ctx, fname.node());
-                                    dlog!("blah: {}", blah);
                                     let func_ty = TypeVar::from_node(ctx, fname.node().clone());
                                     generate_constraints_expr_funcap_helper(
                                         ctx,
