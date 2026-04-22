@@ -676,7 +676,11 @@ impl Parser {
             self.consume_token();
             ty = Some(self.parse_type()?);
         }
-        Ok(ArgMaybeAnnotated { name, ty })
+        Ok(ArgMaybeAnnotated {
+            name,
+            ty,
+            default_val: None,
+        })
     }
 
     // TODO: is this helper necessary now?

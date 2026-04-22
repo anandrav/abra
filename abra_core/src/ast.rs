@@ -388,6 +388,7 @@ pub(crate) enum StmtKind {
 pub(crate) struct ArgMaybeAnnotated {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty: Option<Rc<Type>>,
+    pub(crate) default_val: Option<Rc<Expr>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
