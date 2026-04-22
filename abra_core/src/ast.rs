@@ -541,7 +541,7 @@ pub(crate) enum ExprKind {
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
     Unop(PrefixOp, Rc<Expr>),
-    FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
+    FuncCall(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
     MemberAccess(Rc<Expr>, Rc<Identifier>),
     MemberAccessLeadingDot(Rc<Identifier>),
@@ -851,7 +851,7 @@ fn find_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
             .or_else(|| find_in_expr(rhs, offset))
             .or(Some(expr.node())),
         ExprKind::Unop(_, operand) => find_in_expr(operand, offset).or(Some(expr.node())),
-        ExprKind::FuncAp(func, args) => {
+        ExprKind::FuncCall(func, args) => {
             if let Some(node) = find_in_expr(func, offset) {
                 return Some(node);
             }
@@ -1125,7 +1125,7 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
             find_ident_in_expr(lhs, offset).or_else(|| find_ident_in_expr(rhs, offset))
         }
         ExprKind::Unop(_, operand) => find_ident_in_expr(operand, offset),
-        ExprKind::FuncAp(func, args) => {
+        ExprKind::FuncCall(func, args) => {
             if let Some(node) = find_ident_in_expr(func, offset) {
                 return Some(node);
             }
@@ -1263,7 +1263,7 @@ fn collect_vars_in_expr(expr: &Rc<Expr>, name: &str, out: &mut Vec<AstNode>) {
             collect_vars_in_expr(rhs, name, out);
         }
         ExprKind::Unop(_, operand) => collect_vars_in_expr(operand, name, out),
-        ExprKind::FuncAp(func, args) => {
+        ExprKind::FuncCall(func, args) => {
             collect_vars_in_expr(func, name, out);
             for arg in args {
                 collect_vars_in_expr(arg, name, out);

@@ -792,7 +792,7 @@ impl Parser {
             PostfixOp::FuncCall => {
                 let args = self.parse_parenthesized_expression_list()?;
                 *lhs = Rc::new(Expr {
-                    kind: ExprKind::FuncAp(lhs.clone(), args).into(),
+                    kind: ExprKind::FuncCall(lhs.clone(), args).into(),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 })

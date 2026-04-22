@@ -736,7 +736,7 @@ impl Translator {
                     }
                 }
             }
-            ExprKind::FuncAp(func, args) => {
+            ExprKind::FuncCall(func, args) => {
                 match &*func.kind {
                     ExprKind::Variable(_) => {
                         for arg in args {
@@ -781,7 +781,7 @@ impl Translator {
                     | ExprKind::Match(..)
                     | ExprKind::Block(..)
                     | ExprKind::IndexAccess(..)
-                    | ExprKind::FuncAp(..)
+                    | ExprKind::FuncCall(..)
                     | ExprKind::AnonymousFunction(..) => {
                         for arg in args {
                             self.translate_expr(arg, offset_table, mono, st);
@@ -2395,7 +2395,7 @@ impl Translator {
             ExprKind::Try(expr) => {
                 self.collect_locals_expr(expr, locals, mono);
             }
-            ExprKind::FuncAp(func, args) => {
+            ExprKind::FuncCall(func, args) => {
                 self.collect_locals_expr(func, locals, mono);
                 for arg in args {
                     self.collect_locals_expr(arg, locals, mono);
@@ -2608,7 +2608,7 @@ impl Translator {
             ExprKind::Try(expr) => {
                 self.collect_captures_expr(expr, captures, mono);
             }
-            ExprKind::FuncAp(func, args) => {
+            ExprKind::FuncCall(func, args) => {
                 self.collect_captures_expr(func, captures, mono);
                 for arg in args {
                     self.collect_captures_expr(arg, captures, mono);

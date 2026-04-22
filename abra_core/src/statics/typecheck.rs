@@ -2759,7 +2759,7 @@ fn generate_constraints_expr(
                 }
             }
         }
-        ExprKind::FuncAp(func, args) => {
+        ExprKind::FuncCall(func, args) => {
             match &*func.kind {
                 ExprKind::MemberAccess(receiver_expr, fname) => {
                     let helper = |ctx: &mut StaticsContext, node: AstNode| {

@@ -899,7 +899,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 resolve_names_expr(ctx, symbol_table, expr);
             }
         }
-        ExprKind::FuncAp(func, args) => {
+        ExprKind::FuncCall(func, args) => {
             resolve_names_expr(ctx, symbol_table, func);
             for arg in args {
                 resolve_names_expr(ctx, symbol_table, arg);
