@@ -676,10 +676,15 @@ impl Parser {
             self.consume_token();
             ty = Some(self.parse_type()?);
         }
+        let mut default_val = None;
+        if self.current_token().tag() == TokenTag::Eq {
+            self.consume_token();
+            default_val = Some(self.parse_expr()?);
+        }
         Ok(ArgMaybeAnnotated {
             name,
             ty,
-            default_val: None,
+            default_val,
         })
     }
 
