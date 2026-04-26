@@ -45,6 +45,10 @@ pub(crate) struct StaticsContext {
     // order-independent manner.
     pub(crate) interface_namespaces: HashMap<Rc<InterfaceDef>, Rc<Namespace>>,
 
+    // This maps from some function definition to its namespace. used to resolve argument names
+    // for function calls with named arguments.
+    pub(crate) function_namespaces: HashMap<Rc<FuncDef>, Rc<Namespace>>,
+
     pub(crate) try_operator_constraints: Vec<(TypeVar, AstNode, TypeKey, TypeVar)>,
 
     // BOOKKEEPING
@@ -99,6 +103,7 @@ impl StaticsContext {
             resolution_map: Default::default(),
             fully_qualified_names: Default::default(),
             interface_namespaces: Default::default(),
+            function_namespaces: Default::default(),
 
             try_operator_constraints: Default::default(),
 
@@ -260,6 +265,37 @@ pub(crate) enum Declaration {
     Polytype(PolytypeDeclaration),
     Namespace(Rc<Namespace>, AstNode),
 }
+
+// impl std::hash::Hash for Declaration {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         let id = match self {
+//             Declaration::FreeFunction(FuncResolutionKind::Host(f)) => f.name.id,
+//             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => f.name.id,
+//             Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => decl.name.id,
+//             Declaration::MemberFunction(f) => f.name.id,
+//             Declaration::InterfaceDef(iface_def) => iface_def.name.id,
+//             Declaration::InterfaceMethod { iface, method_index } => iface.methods[*method_index].name.id,
+//             Declaration::InterfaceOutputType { iface, ty, } => ty.id,
+//             Declaration::Enum(enum_def) => enum_def.id,
+//             Declaration::Struct(struct_def) => struct_def.id,
+//             Declaration::EnumVariant { e, variant } => e.variants[*variant].id,
+//             Declaration::Var(node) => node.id(),
+//             Declaration::Polytype(polyty_decl) => {
+//                 match polyty_decl {
+//                     PolytypeDeclaration::Ordinary(polyty) => polyty.name.id,
+//                     PolytypeDeclaration::ArrayArg => unimplemented!(),
+//                     PolytypeDeclaration::IntrinsicOperation(intrinsic, string) => unimplemented!(),
+//                     PolytypeDeclaration::InterfaceSelf(_) => unimplemented!(),
+//                 }
+//             }
+//             Declaration::Namespace(_, _) => {}
+//
+//             Declaration::BuiltinType(builtin_type) => unimplemented!(), // TODO: this should be implemented... somehow...
+//             Declaration::Intrinsic(intrinsic) => unimplemented!(), // TODO: this should be implemented... somehow...
+//         };
+//         id.hash(state);
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum FuncResolutionKind {

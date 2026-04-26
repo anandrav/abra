@@ -145,7 +145,6 @@ fn gather_declarations_item(
         ItemKind::FuncDef(f) => {
             let func_name = f.name.v.clone();
             let fully_qualified_name = fullname(&qualifiers, &func_name);
-
             ctx.fully_qualified_names
                 .insert(f.name.id, fully_qualified_name);
 
@@ -154,6 +153,12 @@ fn gather_declarations_item(
                 func_name,
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f.clone())),
             );
+
+            let mut ns = Namespace::new();
+            for arg in &f.args {
+                ns.add_declaration(ctx, arg.name.v.clone(), Declaration::Var(arg.name.node()));
+            }
+            ctx.function_namespaces.insert(f.clone(), ns.into());
         }
         ItemKind::FuncDecl(func_decl) => {
             let foreign = func_decl.is_foreign();
@@ -901,8 +906,21 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         }
         ExprKind::FuncCall(func, args) => {
             resolve_names_expr(ctx, symbol_table, func);
+
+            let named_args_symbol_table = SymbolTable::empty();
+            if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def))) =
+                ctx.resolution_map.get(&func.id)
+            {
+                let ns = &ctx.function_namespaces[func_def];
+                for (name, decl) in ns.declarations.iter() {
+                    named_args_symbol_table.extend_declaration(name.clone(), decl.clone());
+                }
+            };
+
             for arg in args {
-                // TODO: resolve arg.name
+                if let Some(name) = &arg.name {
+                    resolve_identifier(ctx, &named_args_symbol_table, name);
+                }
                 resolve_names_expr(ctx, symbol_table, &arg.val);
             }
         }
