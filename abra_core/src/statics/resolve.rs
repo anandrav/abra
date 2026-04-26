@@ -16,7 +16,7 @@ use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;
-use utils::hash::HashMap;
+use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
@@ -917,9 +917,17 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 }
             };
 
+            let mut seen_named_args = HashSet::default();
             for arg in args {
                 if let Some(name) = &arg.name {
                     resolve_identifier(ctx, &named_args_symbol_table, name);
+                    if seen_named_args.contains(&name.v) {
+                        ctx.errors.push(Error::Generic {
+                            msg: "Can't specify a named argument more than once".to_string(),
+                            node: name.node(),
+                        });
+                    }
+                    seen_named_args.insert(name.v.clone());
                 }
                 resolve_names_expr(ctx, symbol_table, &arg.val);
             }
