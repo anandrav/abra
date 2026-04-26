@@ -924,13 +924,17 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 func_arg_info = Some(ctx.function_arg_info[func_def].clone()); // TODO: don't clone here
             };
 
-            let mut seen_named_args = HashSet::default();
-            let mut missing_arg_names = HashSet::default();
+            if args.iter().any(|a| a.name.is_some()) && func_arg_info.is_none() {
+                ctx.errors.push(Error::Generic {
+                    msg: "Can't use named arguments because can't determine original function definition".to_string(),
+                    node: expr.node(),
+                })
+            };
             if let Some(func_arg_info) = &func_arg_info {
-                missing_arg_names = func_arg_info.arg_indices.iter().cloned().collect();
-            }
-            for (i, arg) in args.iter().enumerate() {
-                if let Some(func_arg_info) = &func_arg_info {
+                let mut seen_named_args = HashSet::default();
+                let mut missing_arg_names: HashSet<String> =
+                    func_arg_info.arg_indices.iter().cloned().collect();
+                for (i, arg) in args.iter().enumerate() {
                     if let Some(name) = &arg.name {
                         resolve_identifier(ctx, &func_arg_info.symbol_table, name);
                         if seen_named_args.contains(&name.v) {
@@ -946,25 +950,27 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                         missing_arg_names.remove(name);
                     }
                 }
-                resolve_names_expr(ctx, symbol_table, &arg.val);
-            }
-            if !missing_arg_names.is_empty() {
-                let mut msg = String::new();
-                if missing_arg_names.len() > 1 {
-                    swrite!(&mut msg, "Missing arguments: ");
-                } else {
-                    swrite!(&mut msg, "Missing argument: ");
-                }
-                for (i, missing_arg_name) in missing_arg_names.iter().enumerate() {
-                    if i != 0 {
-                        swrite!(&mut msg, ", ");
+                if !missing_arg_names.is_empty() {
+                    let mut msg = String::new();
+                    if missing_arg_names.len() > 1 {
+                        swrite!(&mut msg, "Missing arguments: ");
+                    } else {
+                        swrite!(&mut msg, "Missing argument: ");
                     }
-                    swrite!(&mut msg, "{missing_arg_name}");
+                    for (i, missing_arg_name) in missing_arg_names.iter().enumerate() {
+                        if i != 0 {
+                            swrite!(&mut msg, ", ");
+                        }
+                        swrite!(&mut msg, "{missing_arg_name}");
+                    }
+                    ctx.errors.push(Error::Generic {
+                        msg,
+                        node: expr.node(),
+                    })
                 }
-                ctx.errors.push(Error::Generic {
-                    msg,
-                    node: expr.node(),
-                })
+            }
+            for arg in args {
+                resolve_names_expr(ctx, symbol_table, &arg.val);
             }
         }
         ExprKind::MemberAccess(expr, field) => {
