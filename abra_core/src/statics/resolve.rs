@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    Declaration, Error, FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
+    Declaration, Error, FuncArgInfo, FuncResolutionKind, Namespace, PolytypeDeclaration,
+    StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportKind,
@@ -17,6 +18,8 @@ use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::{HashMap, HashSet};
+use utils::id_set::IdSet;
+use utils::swrite;
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
@@ -154,11 +157,18 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f.clone())),
             );
 
-            let mut ns = Namespace::new();
+            let mut arg_indices = IdSet::new();
+            let symbol_table = SymbolTable::empty();
             for arg in &f.args {
-                ns.add_declaration(ctx, arg.name.v.clone(), Declaration::Var(arg.name.node()));
+                symbol_table
+                    .extend_declaration(arg.name.v.clone(), Declaration::Var(arg.name.node()));
+                arg_indices.insert(arg.name.v.clone());
             }
-            ctx.function_namespaces.insert(f.clone(), ns.into());
+            let func_arg_info = FuncArgInfo {
+                symbol_table,
+                arg_indices,
+            };
+            ctx.function_arg_info.insert(f.clone(), func_arg_info);
         }
         ItemKind::FuncDecl(func_decl) => {
             let foreign = func_decl.is_foreign();
@@ -277,7 +287,7 @@ fn gather_declarations_item(
 // Map identifiers to (1) declarations and (2) namespaces
 // and supports nested scopes
 #[derive(Clone, Debug)]
-struct SymbolTable {
+pub(crate) struct SymbolTable {
     base: Rc<RefCell<SymbolTableBase>>,
 }
 
@@ -907,29 +917,54 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         ExprKind::FuncCall(func, args) => {
             resolve_names_expr(ctx, symbol_table, func);
 
-            let named_args_symbol_table = SymbolTable::empty();
+            let mut func_arg_info = None;
             if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def))) =
                 ctx.resolution_map.get(&func.id)
             {
-                let ns = &ctx.function_namespaces[func_def];
-                for (name, decl) in ns.declarations.iter() {
-                    named_args_symbol_table.extend_declaration(name.clone(), decl.clone());
-                }
+                func_arg_info = Some(ctx.function_arg_info[func_def].clone()); // TODO: don't clone here
             };
 
             let mut seen_named_args = HashSet::default();
-            for arg in args {
-                if let Some(name) = &arg.name {
-                    resolve_identifier(ctx, &named_args_symbol_table, name);
-                    if seen_named_args.contains(&name.v) {
-                        ctx.errors.push(Error::Generic {
-                            msg: "Can't specify a named argument more than once".to_string(),
-                            node: name.node(),
-                        });
+            let mut missing_arg_names = HashSet::default();
+            if let Some(func_arg_info) = &func_arg_info {
+                missing_arg_names = func_arg_info.arg_indices.iter().cloned().collect();
+            }
+            for (i, arg) in args.iter().enumerate() {
+                if let Some(func_arg_info) = &func_arg_info {
+                    if let Some(name) = &arg.name {
+                        resolve_identifier(ctx, &func_arg_info.symbol_table, name);
+                        if seen_named_args.contains(&name.v) {
+                            ctx.errors.push(Error::Generic {
+                                msg: "Can't specify a named argument more than once".to_string(),
+                                node: name.node(),
+                            });
+                        }
+                        seen_named_args.insert(name.v.clone());
+                        missing_arg_names.remove(&name.v);
+                    } else {
+                        let name = &func_arg_info.arg_indices[i as u32];
+                        missing_arg_names.remove(name);
                     }
-                    seen_named_args.insert(name.v.clone());
                 }
                 resolve_names_expr(ctx, symbol_table, &arg.val);
+            }
+            if !missing_arg_names.is_empty() {
+                let mut msg = String::new();
+                if missing_arg_names.len() > 1 {
+                    swrite!(&mut msg, "Missing arguments: ");
+                } else {
+                    swrite!(&mut msg, "Missing argument: ");
+                }
+                for (i, missing_arg_name) in missing_arg_names.iter().enumerate() {
+                    if i != 0 {
+                        swrite!(&mut msg, ", ");
+                    }
+                    swrite!(&mut msg, "{missing_arg_name}");
+                }
+                ctx.errors.push(Error::Generic {
+                    msg,
+                    node: expr.node(),
+                })
             }
         }
         ExprKind::MemberAccess(expr, field) => {

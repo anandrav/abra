@@ -45,9 +45,10 @@ pub(crate) struct StaticsContext {
     // order-independent manner.
     pub(crate) interface_namespaces: HashMap<Rc<InterfaceDef>, Rc<Namespace>>,
 
+    // TODO: move these to a single struct
     // This maps from some function definition to its namespace. used to resolve argument names
     // for function calls with named arguments.
-    pub(crate) function_namespaces: HashMap<Rc<FuncDef>, Rc<Namespace>>,
+    pub(crate) function_arg_info: HashMap<Rc<FuncDef>, FuncArgInfo>,
 
     pub(crate) try_operator_constraints: Vec<(TypeVar, AstNode, TypeKey, TypeVar)>,
 
@@ -103,7 +104,7 @@ impl StaticsContext {
             resolution_map: Default::default(),
             fully_qualified_names: Default::default(),
             interface_namespaces: Default::default(),
-            function_namespaces: Default::default(),
+            function_arg_info: Default::default(),
 
             try_operator_constraints: Default::default(),
 
@@ -360,6 +361,12 @@ impl Declaration {
     }
 }
 
+#[derive(Clone)] // TODO: don't clone this thing
+pub(crate) struct FuncArgInfo {
+    symbol_table: SymbolTable,
+    arg_indices: IdSet<String>,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum Error {
     Generic {
@@ -514,6 +521,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext) -> Result<(), ErrorSummary> {
 }
 
 use crate::parse::Span;
+use crate::statics::resolve::SymbolTable;
 use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
 use utils::dlog;
