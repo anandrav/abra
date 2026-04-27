@@ -917,6 +917,11 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         ExprKind::FuncCall(func, args) => {
             resolve_names_expr(ctx, symbol_table, func);
 
+            for arg in args {
+                resolve_names_expr(ctx, symbol_table, &arg.val);
+            }
+
+            // Logic below pertains to named function arguments
             let mut func_arg_info = None;
             if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def))) =
                 ctx.resolution_map.get(&func.id)
@@ -968,9 +973,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                         node: expr.node(),
                     })
                 }
-            }
-            for arg in args {
-                resolve_names_expr(ctx, symbol_table, &arg.val);
             }
         }
         ExprKind::MemberAccess(expr, field) => {
