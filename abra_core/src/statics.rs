@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDef,
+    AstNode, EnumDef, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDef,
     InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype, StructDef, Type as AstType,
     TypeKind,
 };
@@ -45,10 +45,10 @@ pub(crate) struct StaticsContext {
     // order-independent manner.
     pub(crate) interface_namespaces: HashMap<Rc<InterfaceDef>, Rc<Namespace>>,
 
-    // TODO: move these to a single struct
     // This maps from some function definition to its namespace. used to resolve argument names
     // for function calls with named arguments.
     pub(crate) function_arg_info: HashMap<Rc<FuncDef>, FuncArgInfo>,
+    pub(crate) function_call_arg_order: HashMap<NodeId, Vec<Rc<Expr>>>,
 
     pub(crate) try_operator_constraints: Vec<(TypeVar, AstNode, TypeKey, TypeVar)>,
 
@@ -105,6 +105,7 @@ impl StaticsContext {
             fully_qualified_names: Default::default(),
             interface_namespaces: Default::default(),
             function_arg_info: Default::default(),
+            function_call_arg_order: Default::default(),
 
             try_operator_constraints: Default::default(),
 

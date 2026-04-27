@@ -7,8 +7,8 @@ use super::{
     StaticsContext,
 };
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportKind,
-    InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
+    ImportKind, InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type,
     TypeDefKind, TypeKind,
 };
 #[cfg(feature = "ffi")]
@@ -19,7 +19,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::{HashMap, HashSet};
 use utils::id_set::IdSet;
-use utils::swrite;
+use utils::{dlog, swrite};
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
@@ -933,7 +933,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 ctx.errors.push(Error::Generic {
                     msg: "Can't use named arguments because can't determine original function definition".to_string(),
                     node: expr.node(),
-                })
+                });
+                return;
             };
             if let Some(func_arg_info) = &func_arg_info {
                 let mut named_encountered = false;
@@ -983,8 +984,11 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                     ctx.errors.push(Error::Generic {
                         msg,
                         node: expr.node(),
-                    })
+                    });
+                    return;
                 }
+                ctx.function_call_arg_order
+                    .insert(expr.id, calculate_named_arg_order(func_arg_info, args));
             }
         }
         ExprKind::MemberAccess(expr, field) => {
@@ -1011,6 +1015,21 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             resolve_names_expr(ctx, symbol_table, expr);
         }
     }
+}
+
+fn calculate_named_arg_order(func_arg_info: &FuncArgInfo, args: &[FuncCallArg]) -> Vec<Rc<Expr>> {
+    let mut reordered_args: Vec<Option<Rc<Expr>>> = vec![None; args.len()];
+    for (i, arg) in args.iter().enumerate() {
+        let index = if let Some(name) = &arg.name {
+            func_arg_info.arg_indices.get_id(&name.v) as usize
+        } else {
+            i
+        };
+        dlog!("index: {}", index);
+        reordered_args[index] = Some(arg.val.clone());
+    }
+    let reordered_args: Vec<_> = reordered_args.iter().flatten().cloned().collect();
+    reordered_args
 }
 
 fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field: &Rc<Identifier>) {
