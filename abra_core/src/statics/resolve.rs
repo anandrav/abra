@@ -1025,7 +1025,6 @@ fn calculate_named_arg_order(func_arg_info: &FuncArgInfo, args: &[FuncCallArg]) 
         } else {
             i
         };
-        dlog!("index: {}", index);
         reordered_args[index] = Some(arg.val.clone());
     }
     let reordered_args: Vec<_> = reordered_args.iter().flatten().cloned().collect();

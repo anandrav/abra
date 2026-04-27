@@ -739,10 +739,20 @@ impl Translator {
             ExprKind::FuncCall(func, args) => {
                 match &*func.kind {
                     ExprKind::Variable(_) => {
-                        for arg in args {
-                            self.translate_expr(&arg.val, offset_table, mono, st);
-                        }
                         let decl = &self.statics.resolution_map[&func.id];
+                        if let Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) =
+                            decl
+                            && let Some(reordered_args) =
+                                self.statics.function_call_arg_order.get(&expr.id).cloned()
+                        {
+                            for arg_val in reordered_args {
+                                self.translate_expr(&arg_val, offset_table, mono, st);
+                            }
+                        } else {
+                            for arg in args {
+                                self.translate_expr(&arg.val, offset_table, mono, st);
+                            }
+                        }
                         self.translate_func_call(decl, func.node(), offset_table, mono, st);
                     }
                     ExprKind::MemberAccess(receiver_expr, fname) => {
