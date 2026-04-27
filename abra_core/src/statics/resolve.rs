@@ -936,11 +936,14 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 })
             };
             if let Some(func_arg_info) = &func_arg_info {
+                let mut named_encountered = false;
                 let mut seen_named_args = HashSet::default();
                 let mut missing_arg_names: HashSet<String> =
                     func_arg_info.arg_indices.iter().cloned().collect();
+                // TODO: still need to account for: can't put unnamed args after the first named arg.
                 for (i, arg) in args.iter().enumerate() {
                     if let Some(name) = &arg.name {
+                        named_encountered = true;
                         resolve_identifier(ctx, &func_arg_info.symbol_table, name);
                         if seen_named_args.contains(&name.v) {
                             ctx.errors.push(Error::Generic {
@@ -951,8 +954,17 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                         seen_named_args.insert(name.v.clone());
                         missing_arg_names.remove(&name.v);
                     } else {
-                        let name = &func_arg_info.arg_indices[i as u32];
-                        missing_arg_names.remove(name);
+                        if named_encountered {
+                            ctx.errors.push(Error::Generic {
+                                msg:
+                                    "Can't use unnamed argument after named arguments, only before"
+                                        .to_string(),
+                                node: arg.val.node(),
+                            });
+                        } else if i < func_arg_info.arg_indices.len() {
+                            let name = &func_arg_info.arg_indices[i as u32];
+                            missing_arg_names.remove(name);
+                        }
                     }
                 }
                 if !missing_arg_names.is_empty() {
