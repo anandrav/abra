@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{
-    Declaration, EnumDef, Error, FuncArgInfo, FuncDef, FuncResolutionKind, InterfaceArguments,
-    InterfaceDef, Polytype, PolytypeDeclaration, StaticsContext, StructDef,
+    Declaration, EnumDef, Error, FuncDef, FuncResolutionKind, InterfaceArguments, InterfaceDef,
+    Polytype, PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncCallArg, Identifier,
@@ -21,7 +21,6 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
