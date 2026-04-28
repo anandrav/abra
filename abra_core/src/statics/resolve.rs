@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    Declaration, Error, FuncArgInfo, FuncResolutionKind, Namespace, PolytypeDeclaration,
-    StaticsContext,
+    Declaration, Error, FuncArgNamesAndDefaultValues, FuncArgNamesAndDefaultValuesKey,
+    FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
@@ -103,9 +103,14 @@ fn gather_declarations_item(
                 .insert(iface.clone(), iface_namespace);
         }
         ItemKind::InterfaceImpl(_) => {}
-        ItemKind::Extension(_) => {
+        ItemKind::Extension(ext) => {
             // defer gathering declarations of member functions until declarations are gathered for type definitions
             // (the type being extended must be resolved before proceeding)
+
+            // only update function arg info
+            for f in &ext.methods {
+                update_function_arg_info(ctx, f);
+            }
         }
         ItemKind::TypeDef(typdefkind) => match typdefkind {
             // TypeDefKind::Alias(_ident, _) => {
@@ -157,33 +162,7 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f.clone())),
             );
 
-            // TODO LAST HERE. Do this in more places. Wrap it in a helper function
-            let mut arg_indices = IdSet::new();
-            let symbol_table = SymbolTable::empty();
-            let mut required_args: HashSet<String> = HashSet::default();
-            let mut default_args: HashMap<usize, Rc<Expr>> = HashMap::default();
-            for (i, arg) in f.args.iter().enumerate() {
-                symbol_table
-                    .extend_declaration(arg.name.v.clone(), Declaration::Var(arg.name.node()));
-                arg_indices.insert(arg.name.v.clone());
-                match &arg.default_val {
-                    Some(default_arg) => {
-                        default_args.insert(i, default_arg.clone());
-                    }
-                    None => {
-                        required_args.insert(arg.name.v.clone());
-                    }
-                }
-            }
-            let nargs = required_args.len() + default_args.len();
-            let func_arg_info = FuncArgInfo {
-                symbol_table,
-                arg_indices,
-                required_args,
-                default_args,
-                nargs,
-            };
-            ctx.function_arg_info.insert(f.clone(), func_arg_info);
+            update_function_arg_info(ctx, f);
         }
         ItemKind::FuncDecl(func_decl) => {
             let foreign = func_decl.is_foreign();
@@ -297,6 +276,37 @@ fn gather_declarations_item(
         }
         ItemKind::Import(..) => {}
     }
+}
+
+fn update_function_arg_info(ctx: &mut StaticsContext, f: &Rc<FuncDef>) {
+    let mut arg_indices = IdSet::new();
+    let symbol_table = SymbolTable::empty();
+    let mut required_args: HashSet<String> = HashSet::default();
+    let mut default_args: HashMap<usize, Rc<Expr>> = HashMap::default();
+    for (i, arg) in f.args.iter().enumerate() {
+        symbol_table.extend_declaration(arg.name.v.clone(), Declaration::Var(arg.name.node()));
+        arg_indices.insert(arg.name.v.clone());
+        match &arg.default_val {
+            Some(default_arg) => {
+                default_args.insert(i, default_arg.clone());
+            }
+            None => {
+                required_args.insert(arg.name.v.clone());
+            }
+        }
+    }
+    let nargs = required_args.len() + default_args.len();
+    let func_arg_info = FuncArgNamesAndDefaultValues {
+        symbol_table,
+        arg_indices,
+        required_args,
+        default_args,
+        nargs,
+    };
+    ctx.function_arg_names_and_default_values.insert(
+        FuncArgNamesAndDefaultValuesKey::FuncDef(f.clone()),
+        func_arg_info,
+    );
 }
 
 // Map identifiers to (1) declarations and (2) namespaces
@@ -937,11 +947,19 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             }
 
             // Logic below pertains to named function arguments
-            let mut func_arg_info = None;
-            if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def))) =
-                ctx.resolution_map.get(&func.id)
+            // let mut func_arg_info = None;
+            // if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def))) =
+            //     ctx.resolution_map.get(&func.id)
+            // {
+            //     func_arg_info = Some(ctx.function_arg_names_and_default_values[func_def].clone()); // TODO: don't clone here
+            // };
+
+            let func_arg_info = if let Some(decl) = ctx.resolution_map.get(&func.id)
+                && let Ok(key) = FuncArgNamesAndDefaultValuesKey::try_from(decl)
             {
-                func_arg_info = Some(ctx.function_arg_info[func_def].clone()); // TODO: don't clone here
+                ctx.function_arg_names_and_default_values.get(&key).cloned()
+            } else {
+                None
             };
 
             if args.iter().any(|a| a.name.is_some()) && func_arg_info.is_none() {
@@ -1032,7 +1050,10 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
     }
 }
 
-fn calculate_named_arg_order(func_arg_info: &FuncArgInfo, args: &[FuncCallArg]) -> Vec<Rc<Expr>> {
+fn calculate_named_arg_order(
+    func_arg_info: &FuncArgNamesAndDefaultValues,
+    args: &[FuncCallArg],
+) -> Vec<Rc<Expr>> {
     let mut reordered_args: Vec<Option<Rc<Expr>>> = vec![None; func_arg_info.nargs];
     for (i, arg) in args.iter().enumerate() {
         let index = if let Some(name) = &arg.name {
