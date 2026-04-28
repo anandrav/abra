@@ -964,6 +964,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                             });
                         } else if i < func_arg_info.arg_indices.len() {
                             let name = &func_arg_info.arg_indices[i as u32];
+                            seen_named_args.insert(name.clone());
                             missing_arg_names.remove(name);
                         }
                     }

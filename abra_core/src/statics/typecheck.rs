@@ -2793,11 +2793,9 @@ fn generate_constraints_expr(
 
                         let func_ty = TypeVar::from_node(ctx, fname.node().clone());
 
-                        if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(
-                            func_def,
-                        ))) = ctx.resolution_map.get(&func.id)
-                            && let Some(reordered_args) =
-                                ctx.function_call_arg_order.get(&expr.id).cloned()
+                        // TODO: this can be even shorter
+                        if let Some(reordered_args) =
+                            ctx.function_call_arg_order.get(&expr.id).cloned()
                         {
                             generate_constraints_expr_funcap_helper(
                                 ctx,
@@ -3025,11 +3023,9 @@ fn generate_constraints_expr(
 
                     let func_ty = TypeVar::from_node(ctx, func.node().clone());
 
-                    // TODO: kinda duplicated above
-                    if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def))) =
-                        ctx.resolution_map.get(&func.id)
-                        && let Some(reordered_args) =
-                            ctx.function_call_arg_order.get(&expr.id).cloned()
+                    // TODO: duplicated above
+                    // TODO: this can be even shorter
+                    if let Some(reordered_args) = ctx.function_call_arg_order.get(&expr.id).cloned()
                     {
                         generate_constraints_expr_funcap_helper(
                             ctx,
