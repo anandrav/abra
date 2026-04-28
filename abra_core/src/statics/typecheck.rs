@@ -3531,9 +3531,23 @@ fn generate_constraints_func_args(
                     let arg_annot = arg_annot.to_typevar(ctx);
                     constrain(ctx, &ty_annot, &arg_annot);
                     polyvar_scope.add_polys(&arg_annot);
-                    generate_constraints_fn_arg(ctx, Mode::ana(ty_annot), &arg.name)
+                    generate_constraints_fn_arg(ctx, Mode::ana(ty_annot.clone()), &arg.name);
+
+                    if let Some(default_val) = &arg.default_val {
+                        generate_constraints_expr(
+                            ctx,
+                            polyvar_scope,
+                            Mode::ana(ty_annot),
+                            default_val,
+                        );
+                    }
                 }
-                None => generate_constraints_fn_arg(ctx, Mode::Syn, &arg.name),
+                None => {
+                    generate_constraints_fn_arg(ctx, Mode::Syn, &arg.name);
+                    if let Some(default_val) = &arg.default_val {
+                        generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, default_val);
+                    }
+                }
             }
             ty_pat
         })

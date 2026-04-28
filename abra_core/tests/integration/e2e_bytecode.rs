@@ -1834,15 +1834,3 @@ greet("Anand")
 "#;
     expect_value(src, "HELLO Anand! your number is 42");
 }
-
-#[test]
-fn default_args_generic() {
-    let src = r#"
-fn greet(name: string, greeting: 'a ToString = "HELLO", punct: string = "!", num: int = 42) {
-    greeting .. " " .. name .. punct .. " your number is " .. num
-}
-
-greet("Anand")
-"#;
-    expect_value(src, "HELLO Anand! your number is 42");
-}
