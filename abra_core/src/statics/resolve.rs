@@ -944,15 +944,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 resolve_names_expr(ctx, symbol_table, &arg.val);
             }
 
-            // Logic below pertains to named function arguments
-            // let mut func_arg_info = None;
-            // if let Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def))) =
-            //     ctx.resolution_map.get(&func.id)
-            // {
-            //     func_arg_info = Some(ctx.function_arg_names_and_default_values[func_def].clone()); // TODO: don't clone here
-            // };
-
-            let func_arg_info = if let Some(decl) = ctx.resolution_map.get(&func.id)
+            let func_arg_details = if let Some(decl) = ctx.resolution_map.get(&func.id)
                 && let Ok(key) = FuncArgDetailsKey::try_from(decl)
             {
                 ctx.func_arg_details.get(&key).cloned()
@@ -960,14 +952,14 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 None
             };
 
-            if args.iter().any(|a| a.name.is_some()) && func_arg_info.is_none() {
+            if args.iter().any(|a| a.name.is_some()) && func_arg_details.is_none() {
                 ctx.errors.push(Error::Generic {
                     msg: "Can't use named arguments because can't determine original function definition".to_string(),
                     node: expr.node(),
                 });
                 return;
             };
-            if let Some(func_arg_info) = &func_arg_info {
+            if let Some(func_arg_info) = &func_arg_details {
                 let mut named_encountered = false;
                 let mut seen_named_args = HashSet::default();
                 let mut missing_arg_names: HashSet<String> = func_arg_info.required_args.clone();
