@@ -35,18 +35,39 @@ fn check_pattern_exhaustiveness_item(statics: &mut StaticsContext, stmt: &Item) 
         ItemKind::Import(..) => {}
         ItemKind::InterfaceDef(..) => {}
         ItemKind::TypeDef(..) => {}
-        ItemKind::FuncDecl { .. } => {}
+        ItemKind::FuncDecl(f) => {
+            for arg in &f.args {
+                if let Some(default_arg) = &arg.default_val {
+                    check_pattern_exhaustiveness_expr(statics, default_arg);
+                }
+            }
+        }
         ItemKind::InterfaceImpl(iface_impl) => {
             for f in &iface_impl.methods {
+                for arg in &f.args {
+                    if let Some(default_arg) = &arg.default_val {
+                        check_pattern_exhaustiveness_expr(statics, default_arg);
+                    }
+                }
                 check_pattern_exhaustiveness_expr(statics, &f.body);
             }
         }
         ItemKind::Extension(ext) => {
             for f in &ext.methods {
+                for arg in &f.args {
+                    if let Some(default_arg) = &arg.default_val {
+                        check_pattern_exhaustiveness_expr(statics, default_arg);
+                    }
+                }
                 check_pattern_exhaustiveness_expr(statics, &f.body);
             }
         }
         ItemKind::FuncDef(f) => {
+            for arg in &f.args {
+                if let Some(default_arg) = &arg.default_val {
+                    check_pattern_exhaustiveness_expr(statics, default_arg);
+                }
+            }
             check_pattern_exhaustiveness_expr(statics, &f.body);
         }
         ItemKind::Stmt(stmt) => {
