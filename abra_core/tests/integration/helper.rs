@@ -26,9 +26,21 @@ impl ExpectedValue for AbraInt {
     }
 }
 
+impl ExpectedValue for i32 {
+    fn check(self, vm: &mut Vm, val: Value) {
+        assert_eq!(val.get_int(vm), self as AbraInt);
+    }
+}
+
 impl ExpectedValue for AbraFloat {
     fn check(self, vm: &mut Vm, val: Value) {
         assert_eq!(val.get_float(vm), self);
+    }
+}
+
+impl ExpectedValue for f32 {
+    fn check(self, vm: &mut Vm, val: Value) {
+        assert_eq!(val.get_float(vm), self as AbraFloat);
     }
 }
 

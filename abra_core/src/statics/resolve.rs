@@ -1042,7 +1042,9 @@ fn calculate_named_arg_order(func_arg_info: &FuncArgInfo, args: &[FuncCallArg]) 
         reordered_args[index] = Some(arg.val.clone());
     }
     for (i, default_val) in &func_arg_info.default_args {
-        reordered_args[*i] = Some(default_val.clone());
+        if reordered_args[*i].is_none() {
+            reordered_args[*i] = Some(default_val.clone());
+        }
     }
     let reordered_args: Vec<_> = reordered_args.iter().flatten().cloned().collect();
     reordered_args

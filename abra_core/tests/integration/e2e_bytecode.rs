@@ -1798,3 +1798,39 @@ m.index_get(0)
 "#;
     expect_value(src, 42);
 }
+
+#[test]
+fn named_args() {
+    let src = r#"
+fn greet(name: string, greeting: string = "HELLO", punct: string = "!", num: int = 42) {
+    greeting .. " " .. name .. punct .. " your number is " .. num
+}
+
+greet("Anand", greeting = "hello", punct = ",", num = 123)
+"#;
+    expect_value(src, "hello Anand, your number is 123");
+}
+
+#[test]
+fn named_args_out_of_order() {
+    let src = r#"
+fn greet(name: string, greeting: string = "HELLO", punct: string = "!", num: int = 42) {
+    greeting .. " " .. name .. punct .. " your number is " .. num
+}
+
+greet("Anand", num = 123, punct = ",", greeting = "hello")
+"#;
+    expect_value(src, "hello Anand, your number is 123");
+}
+
+#[test]
+fn default_args() {
+    let src = r#"
+fn greet(name: string, greeting: string = "HELLO", punct: string = "!", num: int = 42) {
+    greeting .. " " .. name .. punct .. " your number is " .. num
+}
+
+greet("Anand")
+"#;
+    expect_value(src, "HELLO Anand! your number is 42");
+}
