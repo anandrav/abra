@@ -366,6 +366,9 @@ impl Declaration {
 pub(crate) struct FuncArgInfo {
     symbol_table: SymbolTable,
     arg_indices: IdSet<String>,
+    required_args: HashSet<String>,
+    default_args: HashMap<usize, Rc<Expr>>,
+    nargs: usize,
 }
 
 #[derive(Debug, Clone)]

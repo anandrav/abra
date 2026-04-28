@@ -159,14 +159,28 @@ fn gather_declarations_item(
 
             let mut arg_indices = IdSet::new();
             let symbol_table = SymbolTable::empty();
-            for arg in &f.args {
+            let mut required_args: HashSet<String> = HashSet::default();
+            let mut default_args: HashMap<usize, Rc<Expr>> = HashMap::default();
+            for (i, arg) in f.args.iter().enumerate() {
                 symbol_table
                     .extend_declaration(arg.name.v.clone(), Declaration::Var(arg.name.node()));
                 arg_indices.insert(arg.name.v.clone());
+                match &arg.default_val {
+                    Some(default_arg) => {
+                        default_args.insert(i, default_arg.clone());
+                    }
+                    None => {
+                        required_args.insert(arg.name.v.clone());
+                    }
+                }
             }
+            let nargs = required_args.len() + default_args.len();
             let func_arg_info = FuncArgInfo {
                 symbol_table,
                 arg_indices,
+                required_args,
+                default_args,
+                nargs,
             };
             ctx.function_arg_info.insert(f.clone(), func_arg_info);
         }
@@ -939,8 +953,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             if let Some(func_arg_info) = &func_arg_info {
                 let mut named_encountered = false;
                 let mut seen_named_args = HashSet::default();
-                let mut missing_arg_names: HashSet<String> =
-                    func_arg_info.arg_indices.iter().cloned().collect();
+                let mut missing_arg_names: HashSet<String> = func_arg_info.required_args.clone();
                 // TODO: still need to account for: can't put unnamed args after the first named arg.
                 for (i, arg) in args.iter().enumerate() {
                     if let Some(name) = &arg.name {
@@ -1019,7 +1032,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
 }
 
 fn calculate_named_arg_order(func_arg_info: &FuncArgInfo, args: &[FuncCallArg]) -> Vec<Rc<Expr>> {
-    let mut reordered_args: Vec<Option<Rc<Expr>>> = vec![None; args.len()];
+    let mut reordered_args: Vec<Option<Rc<Expr>>> = vec![None; func_arg_info.nargs];
     for (i, arg) in args.iter().enumerate() {
         let index = if let Some(name) = &arg.name {
             func_arg_info.arg_indices.get_id(&name.v) as usize
@@ -1027,6 +1040,9 @@ fn calculate_named_arg_order(func_arg_info: &FuncArgInfo, args: &[FuncCallArg]) 
             i
         };
         reordered_args[index] = Some(arg.val.clone());
+    }
+    for (i, default_val) in &func_arg_info.default_args {
+        reordered_args[*i] = Some(default_val.clone());
     }
     let reordered_args: Vec<_> = reordered_args.iter().flatten().cloned().collect();
     reordered_args
