@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    Declaration, Error, FuncArgNamesAndDefaultValues, FuncArgNamesAndDefaultValuesKey,
-    FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
+    Declaration, Error, FuncArgDetails, FuncArgDetailsKey, FuncResolutionKind, Namespace,
+    PolytypeDeclaration, StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
@@ -296,17 +296,15 @@ fn update_function_arg_info(ctx: &mut StaticsContext, f: &Rc<FuncDef>) {
         }
     }
     let nargs = required_args.len() + default_args.len();
-    let func_arg_info = FuncArgNamesAndDefaultValues {
+    let func_arg_info = FuncArgDetails {
         symbol_table,
         arg_indices,
         required_args,
         default_args,
         nargs,
     };
-    ctx.function_arg_names_and_default_values.insert(
-        FuncArgNamesAndDefaultValuesKey::FuncDef(f.clone()),
-        func_arg_info,
-    );
+    ctx.func_arg_details
+        .insert(FuncArgDetailsKey::FuncDef(f.clone()), func_arg_info);
 }
 
 // Map identifiers to (1) declarations and (2) namespaces
@@ -955,9 +953,9 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             // };
 
             let func_arg_info = if let Some(decl) = ctx.resolution_map.get(&func.id)
-                && let Ok(key) = FuncArgNamesAndDefaultValuesKey::try_from(decl)
+                && let Ok(key) = FuncArgDetailsKey::try_from(decl)
             {
-                ctx.function_arg_names_and_default_values.get(&key).cloned()
+                ctx.func_arg_details.get(&key).cloned()
             } else {
                 None
             };
@@ -1051,7 +1049,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
 }
 
 fn calculate_named_arg_order(
-    func_arg_info: &FuncArgNamesAndDefaultValues,
+    func_arg_info: &FuncArgDetails,
     args: &[FuncCallArg],
 ) -> Vec<Rc<Expr>> {
     let mut reordered_args: Vec<Option<Rc<Expr>>> = vec![None; func_arg_info.nargs];

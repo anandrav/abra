@@ -47,8 +47,7 @@ pub(crate) struct StaticsContext {
 
     // This maps from some function definition to its namespace. used to resolve argument names
     // for function calls with named arguments.
-    pub(crate) function_arg_names_and_default_values:
-        HashMap<FuncArgNamesAndDefaultValuesKey, FuncArgNamesAndDefaultValues>,
+    pub(crate) func_arg_details: HashMap<FuncArgDetailsKey, FuncArgDetails>,
     pub(crate) function_call_arg_order: HashMap<NodeId, Vec<Rc<Expr>>>,
 
     pub(crate) try_operator_constraints: Vec<(TypeVar, AstNode, TypeKey, TypeVar)>,
@@ -105,7 +104,7 @@ impl StaticsContext {
             resolution_map: Default::default(),
             fully_qualified_names: Default::default(),
             interface_namespaces: Default::default(),
-            function_arg_names_and_default_values: Default::default(),
+            func_arg_details: Default::default(),
             function_call_arg_order: Default::default(),
 
             try_operator_constraints: Default::default(),
@@ -364,7 +363,7 @@ impl Declaration {
 }
 
 #[derive(Clone)] // TODO: don't clone this thing
-pub(crate) struct FuncArgNamesAndDefaultValues {
+pub(crate) struct FuncArgDetails {
     symbol_table: SymbolTable,
     arg_indices: IdSet<String>,
     required_args: HashSet<String>,
@@ -373,27 +372,23 @@ pub(crate) struct FuncArgNamesAndDefaultValues {
 }
 
 #[derive(PartialEq, Eq, Hash)]
-pub(crate) enum FuncArgNamesAndDefaultValuesKey {
+pub(crate) enum FuncArgDetailsKey {
     FuncDef(Rc<FuncDef>),
     FuncDecl(Rc<FuncDecl>),
 }
 
-impl TryFrom<&Declaration> for FuncArgNamesAndDefaultValuesKey {
+impl TryFrom<&Declaration> for FuncArgDetailsKey {
     type Error = ();
 
     fn try_from(value: &Declaration) -> Result<Self, Self::Error> {
         match value {
             Declaration::FreeFunction(kind) => match kind {
-                FuncResolutionKind::Ordinary(f) => {
-                    Ok(FuncArgNamesAndDefaultValuesKey::FuncDef(f.clone()))
-                }
+                FuncResolutionKind::Ordinary(f) => Ok(FuncArgDetailsKey::FuncDef(f.clone())),
                 FuncResolutionKind::Host(decl) | FuncResolutionKind::_Foreign { decl, .. } => {
-                    Ok(FuncArgNamesAndDefaultValuesKey::FuncDecl(decl.clone()))
+                    Ok(FuncArgDetailsKey::FuncDecl(decl.clone()))
                 }
             },
-            Declaration::MemberFunction(f) => {
-                Ok(FuncArgNamesAndDefaultValuesKey::FuncDef(f.clone()))
-            }
+            Declaration::MemberFunction(f) => Ok(FuncArgDetailsKey::FuncDef(f.clone())),
 
             Declaration::EnumVariant { .. } => Err(()),
             Declaration::Struct(_) => Err(()),
