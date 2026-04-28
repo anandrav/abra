@@ -157,6 +157,7 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f.clone())),
             );
 
+            // TODO LAST HERE. Do this in more places. Wrap it in a helper function
             let mut arg_indices = IdSet::new();
             let symbol_table = SymbolTable::empty();
             let mut required_args: HashSet<String> = HashSet::default();
