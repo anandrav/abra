@@ -2762,27 +2762,7 @@ fn generate_constraints_expr(
         ExprKind::FuncCall(func, args) => {
             match &*func.kind {
                 ExprKind::MemberAccess(receiver_expr, fname) => {
-                    let helper = |ctx: &mut StaticsContext, node: AstNode| {
-                        let func_identifier_node_ty = TypeVar::from_node(ctx, fname.node());
-                        let func_instance_ty = TypeVar::from_node(ctx, node).instantiate(
-                            ctx,
-                            polyvar_scope,
-                            fname.node(),
-                        );
-                        constrain(ctx, &func_identifier_node_ty, &func_instance_ty);
-
-                        let func_ty = TypeVar::from_node(ctx, fname.node().clone());
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope,
-                            &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
-                            func_ty,
-                            fname.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
-                    };
-                    let helper_reorder_named_args =
+                    let helper =
                         |ctx: &mut StaticsContext,
                          node: AstNode,
                          receiver_expr: Option<Rc<Expr>>| {
@@ -2902,21 +2882,21 @@ fn generate_constraints_expr(
                             // fully qualified struct/enum method
                             // example: Person.fullname(my_person)
                             //          ^^^^^
-                            helper(ctx, func.name.node());
+                            helper(ctx, func.name.node(), None);
                         }
                         Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func))) => {
                             // namespaced function
                             // example: term.enable_raw_mode()
-                            helper_reorder_named_args(ctx, func.name.node(), None);
+                            helper(ctx, func.name.node(), None);
                         }
                         Some(Declaration::FreeFunction(FuncResolutionKind::Host(func))) => {
-                            helper(ctx, func.name.node());
+                            helper(ctx, func.name.node(), None);
                         }
                         Some(Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                             decl: func,
                             ..
                         })) => {
-                            helper(ctx, func.name.node());
+                            helper(ctx, func.name.node(), None);
                         }
                         _ => {
                             // potentially a member function call.
@@ -2970,11 +2950,7 @@ fn generate_constraints_expr(
                                         _ => unreachable!(),
                                     }
 
-                                    helper_reorder_named_args(
-                                        ctx,
-                                        fname.node(),
-                                        Some(receiver_expr.clone()),
-                                    );
+                                    helper(ctx, fname.node(), Some(receiver_expr.clone()));
                                 } else {
                                     // failed to resolve member function
                                     ctx.errors.push(Error::UnresolvedMemberFunction {
