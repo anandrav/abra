@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    Declaration, Error, FuncArgDetails, FuncArgDetailsKey, FuncResolutionKind, Namespace,
-    PolytypeDeclaration, StaticsContext,
+    _print_node, Declaration, Error, FuncArgDetails, FuncArgDetailsKey, FuncResolutionKind,
+    Namespace, PolytypeDeclaration, StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
@@ -19,7 +19,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::{HashMap, HashSet};
 use utils::id_set::IdSet;
-use utils::swrite;
+use utils::{dlog, swrite};
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
@@ -938,85 +938,23 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             }
         }
         ExprKind::FuncCall(func, args) => {
+            _print_node(ctx, func.node());
             resolve_names_expr(ctx, symbol_table, func);
 
             for arg in args {
                 resolve_names_expr(ctx, symbol_table, &arg.val);
             }
 
-            let func_arg_details = if let Some(decl) = ctx.resolution_map.get(&func.id)
-                && let Ok(key) = FuncArgDetailsKey::try_from(decl)
-            {
-                ctx.func_arg_details.get(&key).cloned()
-            } else {
-                None
-            };
-
-            if args.iter().any(|a| a.name.is_some()) && func_arg_details.is_none() {
-                ctx.errors.push(Error::Generic {
-                    msg: "Can't use named arguments because can't determine original function definition".to_string(),
-                    node: expr.node(),
-                });
-                return;
-            };
-            if let Some(func_arg_info) = &func_arg_details {
-                let mut named_encountered = false;
-                let mut seen_named_args = HashSet::default();
-                let mut missing_arg_names: HashSet<String> = func_arg_info.required_args.clone();
-                // TODO: still need to account for: can't put unnamed args after the first named arg.
-                for (i, arg) in args.iter().enumerate() {
-                    if let Some(name) = &arg.name {
-                        named_encountered = true;
-                        resolve_identifier(ctx, &func_arg_info.symbol_table, name);
-                        if seen_named_args.contains(&name.v) {
-                            ctx.errors.push(Error::Generic {
-                                msg: "Can't specify a named argument more than once".to_string(),
-                                node: name.node(),
-                            });
-                        }
-                        seen_named_args.insert(name.v.clone());
-                        missing_arg_names.remove(&name.v);
-                    } else {
-                        if named_encountered {
-                            ctx.errors.push(Error::Generic {
-                                msg:
-                                    "Can't use unnamed argument after named arguments, only before"
-                                        .to_string(),
-                                node: arg.val.node(),
-                            });
-                        } else if i < func_arg_info.arg_indices.len() {
-                            let name = &func_arg_info.arg_indices[i as u32];
-                            seen_named_args.insert(name.clone());
-                            missing_arg_names.remove(name);
-                        }
-                    }
-                }
-                if !missing_arg_names.is_empty() {
-                    let mut msg = String::new();
-                    if missing_arg_names.len() > 1 {
-                        swrite!(&mut msg, "Missing arguments: ");
-                    } else {
-                        swrite!(&mut msg, "Missing argument: ");
-                    }
-                    for (i, missing_arg_name) in missing_arg_names.iter().enumerate() {
-                        if i != 0 {
-                            swrite!(&mut msg, ", ");
-                        }
-                        swrite!(&mut msg, "{missing_arg_name}");
-                    }
-                    ctx.errors.push(Error::Generic {
-                        msg,
-                        node: expr.node(),
-                    });
-                    return;
-                }
-                ctx.function_call_arg_order
-                    .insert(expr.id, calculate_named_arg_order(func_arg_info, args));
-            }
+            calculate_func_call_order(ctx, func, args, expr);
         }
-        ExprKind::MemberAccess(expr, field) => {
-            resolve_names_expr(ctx, symbol_table, expr);
-            resolve_names_member_helper(ctx, expr, field);
+        ExprKind::MemberAccess(accessed_expr, field) => {
+            dlog!("MemberAccess");
+            resolve_names_expr(ctx, symbol_table, accessed_expr);
+            let decl = resolve_names_member_helper(ctx, accessed_expr, field);
+            if let Some(decl) = decl {
+                dlog!("helper returned Some(_)");
+                ctx.resolution_map.insert(expr.id, decl);
+            }
         }
         ExprKind::MemberAccessLeadingDot(_ident) => {
             // do nothing
@@ -1037,6 +975,90 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         ExprKind::Try(expr) => {
             resolve_names_expr(ctx, symbol_table, expr);
         }
+    }
+}
+
+pub(crate) fn calculate_func_call_order(
+    ctx: &mut StaticsContext,
+    func: &Rc<Expr>,
+    args: &[FuncCallArg],
+    expr: &Rc<Expr>,
+) {
+    dlog!("let's do this");
+    let decl = ctx.resolution_map.get(&func.id);
+    if decl.is_some() {
+        dlog!("decl: {:#?}", decl.unwrap());
+    }
+    let key = decl.and_then(|decl| FuncArgDetailsKey::try_from(decl).ok());
+    if key.is_some() {
+        dlog!("key is some");
+    }
+    let func_arg_details = key.and_then(|key| ctx.func_arg_details.get(&key).cloned());
+    if func_arg_details.is_some() {
+        dlog!("func_arg_details is some");
+    }
+
+    if args.iter().any(|a| a.name.is_some()) && func_arg_details.is_none() {
+        panic!();
+        ctx.errors.push(Error::Generic {
+            msg: "Can't use named arguments because can't determine original function definition"
+                .to_string(),
+            node: expr.node(),
+        });
+        return;
+    };
+    if let Some(func_arg_info) = &func_arg_details {
+        let mut named_encountered = false;
+        let mut seen_named_args = HashSet::default();
+        let mut missing_arg_names: HashSet<String> = func_arg_info.required_args.clone();
+        // TODO: still need to account for: can't put unnamed args after the first named arg.
+        for (i, arg) in args.iter().enumerate() {
+            if let Some(name) = &arg.name {
+                named_encountered = true;
+                resolve_identifier(ctx, &func_arg_info.symbol_table, name);
+                if seen_named_args.contains(&name.v) {
+                    ctx.errors.push(Error::Generic {
+                        msg: "Can't specify a named argument more than once".to_string(),
+                        node: name.node(),
+                    });
+                }
+                seen_named_args.insert(name.v.clone());
+                missing_arg_names.remove(&name.v);
+            } else {
+                if named_encountered {
+                    ctx.errors.push(Error::Generic {
+                        msg: "Can't use unnamed argument after named arguments, only before"
+                            .to_string(),
+                        node: arg.val.node(),
+                    });
+                } else if i < func_arg_info.arg_indices.len() {
+                    let name = &func_arg_info.arg_indices[i as u32];
+                    seen_named_args.insert(name.clone());
+                    missing_arg_names.remove(name);
+                }
+            }
+        }
+        if !missing_arg_names.is_empty() {
+            let mut msg = String::new();
+            if missing_arg_names.len() > 1 {
+                swrite!(&mut msg, "Missing arguments: ");
+            } else {
+                swrite!(&mut msg, "Missing argument: ");
+            }
+            for (i, missing_arg_name) in missing_arg_names.iter().enumerate() {
+                if i != 0 {
+                    swrite!(&mut msg, ", ");
+                }
+                swrite!(&mut msg, "{missing_arg_name}");
+            }
+            ctx.errors.push(Error::Generic {
+                msg,
+                node: expr.node(),
+            });
+            return;
+        }
+        ctx.function_call_arg_order
+            .insert(expr.id, calculate_named_arg_order(func_arg_info, args));
     }
 }
 
@@ -1062,7 +1084,11 @@ fn calculate_named_arg_order(
     reordered_args
 }
 
-fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field: &Rc<Identifier>) {
+fn resolve_names_member_helper(
+    ctx: &mut StaticsContext,
+    expr: &Rc<Expr>,
+    field: &Rc<Identifier>,
+) -> Option<Declaration> {
     if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
         match decl {
             Declaration::FreeFunction { .. }
@@ -1087,6 +1113,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 };
                 if let Some((decl, _)) = ctx.member_functions.get(&(type_key, field.v.clone())) {
                     ctx.resolution_map.insert(field.id, decl.clone());
+                    return Some(decl.clone());
                 } else {
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
@@ -1095,6 +1122,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
             Declaration::Namespace(ns, _) => match ns.declarations.get(&field.v) {
                 Some(decl) => {
                     ctx.resolution_map.insert(field.id, decl.clone());
+                    return Some(decl.clone());
                 }
                 None => {
                     ctx.errors
@@ -1102,23 +1130,18 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                 }
             },
             Declaration::InterfaceDef(iface_def) => {
-                let mut found = false;
                 for (idx, method) in iface_def.methods.iter().enumerate() {
                     if method.name.v == field.v {
-                        ctx.resolution_map.insert(
-                            field.id,
-                            Declaration::InterfaceMethod {
-                                iface: iface_def.clone(),
-                                method_index: idx,
-                            },
-                        );
-                        found = true;
+                        let decl = Declaration::InterfaceMethod {
+                            iface: iface_def.clone(),
+                            method_index: idx,
+                        };
+                        ctx.resolution_map.insert(field.id, decl.clone());
+                        return Some(decl.clone());
                     }
                 }
-                if !found {
-                    ctx.errors
-                        .push(Error::UnresolvedIdentifier { node: field.node() });
-                }
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: field.node() });
             }
             Declaration::Struct(struct_def) => {
                 if let Some((decl, _)) = ctx
@@ -1126,38 +1149,34 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
                     .get(&(TypeKey::TyApp(Nominal::Struct(struct_def)), field.v.clone()))
                 {
                     ctx.resolution_map.insert(field.id, decl.clone());
+                    return Some(decl.clone());
                 } else {
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }
             }
             Declaration::Enum(enum_def) => {
-                let mut found = false;
                 if let Some((decl, _)) = ctx.member_functions.get(&(
                     TypeKey::TyApp(Nominal::Enum(enum_def.clone())),
                     field.v.clone(),
                 )) {
                     ctx.resolution_map.insert(field.id, decl.clone());
-                    found = true;
+                    return Some(decl.clone());
                 } else {
                     for (idx, variant) in enum_def.variants.iter().enumerate() {
                         if variant.ctor.v == field.v {
                             let enum_def = enum_def.clone();
-                            ctx.resolution_map.insert(
-                                field.id,
-                                Declaration::EnumVariant {
-                                    e: enum_def,
-                                    variant: idx,
-                                },
-                            );
-                            found = true;
+                            let decl = Declaration::EnumVariant {
+                                e: enum_def,
+                                variant: idx,
+                            };
+                            ctx.resolution_map.insert(field.id, decl.clone());
+                            return Some(decl.clone());
                         }
                     }
                 }
-                if !found {
-                    ctx.errors
-                        .push(Error::UnresolvedIdentifier { node: field.node() });
-                }
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: field.node() });
             }
             Declaration::Var(_) => {
                 // do nothing
@@ -1170,6 +1189,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field:
             }
         }
     }
+    None
 }
 
 fn resolve_names_func_helper_decl_only(

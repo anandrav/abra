@@ -2782,42 +2782,52 @@ fn generate_constraints_expr(
                             node_ty.clone(),
                         );
                     };
-                    let helper_reorder_named_args = |ctx: &mut StaticsContext, node: AstNode| {
-                        let func_identifier_node_ty = TypeVar::from_node(ctx, fname.node());
-                        let func_instance_ty = TypeVar::from_node(ctx, node).instantiate(
-                            ctx,
-                            polyvar_scope,
-                            fname.node(),
-                        );
-                        constrain(ctx, &func_identifier_node_ty, &func_instance_ty);
-
-                        let func_ty = TypeVar::from_node(ctx, fname.node().clone());
-
-                        // TODO: this can be even shorter
-                        if let Some(reordered_args) =
-                            ctx.function_call_arg_order.get(&expr.id).cloned()
-                        {
-                            generate_constraints_expr_funcap_helper(
+                    let helper_reorder_named_args =
+                        |ctx: &mut StaticsContext,
+                         node: AstNode,
+                         receiver_expr: Option<Rc<Expr>>| {
+                            let func_identifier_node_ty = TypeVar::from_node(ctx, fname.node());
+                            let func_instance_ty = TypeVar::from_node(ctx, node).instantiate(
                                 ctx,
                                 polyvar_scope,
-                                &reordered_args,
-                                func_ty,
                                 fname.node(),
-                                expr.node(),
-                                node_ty.clone(),
                             );
-                        } else {
-                            generate_constraints_expr_funcap_helper(
-                                ctx,
-                                polyvar_scope,
-                                &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
-                                func_ty,
-                                func.node(),
-                                expr.node(),
-                                node_ty.clone(),
-                            );
-                        }
-                    };
+                            constrain(ctx, &func_identifier_node_ty, &func_instance_ty);
+
+                            let func_ty = TypeVar::from_node(ctx, fname.node().clone());
+
+                            let mut actual_args = vec![];
+                            if let Some(reciever_expr) = receiver_expr {
+                                actual_args.push(reciever_expr);
+                            }
+
+                            // TODO: this can be even shorter
+                            if let Some(reordered_args) =
+                                ctx.function_call_arg_order.get(&expr.id).cloned()
+                            {
+                                actual_args.extend(reordered_args);
+                                generate_constraints_expr_funcap_helper(
+                                    ctx,
+                                    polyvar_scope,
+                                    &actual_args,
+                                    func_ty,
+                                    fname.node(),
+                                    expr.node(),
+                                    node_ty.clone(),
+                                );
+                            } else {
+                                actual_args.extend(args.iter().cloned().map(|a| a.val));
+                                generate_constraints_expr_funcap_helper(
+                                    ctx,
+                                    polyvar_scope,
+                                    &actual_args,
+                                    func_ty,
+                                    func.node(),
+                                    expr.node(),
+                                    node_ty.clone(),
+                                );
+                            }
+                        };
                     let receiver_is_namespace = matches!(
                         ctx.resolution_map.get(&receiver_expr.id),
                         Some(Declaration::Struct(_))
@@ -2897,7 +2907,7 @@ fn generate_constraints_expr(
                         Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func))) => {
                             // namespaced function
                             // example: term.enable_raw_mode()
-                            helper_reorder_named_args(ctx, func.name.node());
+                            helper_reorder_named_args(ctx, func.name.node(), None);
                         }
                         Some(Declaration::FreeFunction(FuncResolutionKind::Host(func))) => {
                             helper(ctx, func.name.node());
@@ -2925,6 +2935,10 @@ fn generate_constraints_expr(
                                     .cloned()
                                 {
                                     ctx.resolution_map.insert(fname.id, memfn_decl.clone());
+                                    crate::statics::resolve::calculate_func_call_order(
+                                        ctx, func, args, expr,
+                                    );
+
                                     let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                                     match memfn_decl {
                                         Declaration::MemberFunction(func) => {
@@ -2956,17 +2970,10 @@ fn generate_constraints_expr(
                                         _ => unreachable!(),
                                     }
 
-                                    let func_ty = TypeVar::from_node(ctx, fname.node().clone());
-                                    generate_constraints_expr_funcap_helper(
+                                    helper_reorder_named_args(
                                         ctx,
-                                        polyvar_scope,
-                                        &std::iter::once(receiver_expr.clone())
-                                            .chain(args.iter().cloned().map(|a| a.val))
-                                            .collect::<Vec<_>>(),
-                                        func_ty,
                                         fname.node(),
-                                        expr.node(),
-                                        node_ty.clone(),
+                                        Some(receiver_expr.clone()),
                                     );
                                 } else {
                                     // failed to resolve member function
