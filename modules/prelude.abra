@@ -1,8 +1,11 @@
-#host fn print_string(s: string) -> void
+#host
+fn print_string(s: string) -> void
 
-#host fn readline() -> string
+#host
+fn readline() -> string
 
-#host fn get_args() -> array<string>
+#host
+fn get_args() -> array<string>
 
 interface Num {
     fn add(a: Self, b: Self) -> Self
