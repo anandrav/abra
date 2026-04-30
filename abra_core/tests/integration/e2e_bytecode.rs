@@ -1843,7 +1843,7 @@ type Greeter = {
 }
 
 extend Greeter {
-    fn greet2(self, greeting: string = "Hello", punct: string = "!", num: int = 42) {
+    fn greet2(self, greeting: string = "HELLO", punct: string = "!", num: int = 42) {
         print(greeting .. " " .. self.name .. punct .. " Your number is " .. num)
     }
 }
@@ -1862,7 +1862,7 @@ type Greeter = {
 }
 
 extend Greeter {
-    fn greet2(self, greeting: string = "Hello", punct: string = "!", num: int = 42) {
+    fn greet2(self, greeting: string = "HELLO", punct: string = "!", num: int = 42) {
         print(greeting .. " " .. self.name .. punct .. " Your number is " .. num)
     }
 }
