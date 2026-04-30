@@ -273,6 +273,8 @@ fn gather_declarations_item(
                     ctx.errors.push(Error::FfiNotEnabled(item.node()));
                 }
             }
+
+            update_function_arg_info(ctx, FuncArgDetailsKey::FuncDecl(func_decl.clone()), false);
         }
         ItemKind::Import(..) => {}
     }
