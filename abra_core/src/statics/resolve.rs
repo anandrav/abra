@@ -109,7 +109,7 @@ fn gather_declarations_item(
 
             // only update function arg info
             for f in &ext.methods {
-                update_function_arg_info(ctx, f, true);
+                update_function_arg_info(ctx, FuncArgDetailsKey::FuncDef(f.clone()), true);
             }
         }
         ItemKind::TypeDef(typdefkind) => match typdefkind {
@@ -162,7 +162,7 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f.clone())),
             );
 
-            update_function_arg_info(ctx, f, false);
+            update_function_arg_info(ctx, FuncArgDetailsKey::FuncDef(f.clone()), false);
         }
         ItemKind::FuncDecl(func_decl) => {
             let foreign = func_decl.is_foreign();
@@ -278,15 +278,19 @@ fn gather_declarations_item(
     }
 }
 
-fn update_function_arg_info(ctx: &mut StaticsContext, f: &Rc<FuncDef>, skip_self_argument: bool) {
+fn update_function_arg_info(
+    ctx: &mut StaticsContext,
+    key: FuncArgDetailsKey,
+    skip_self_argument: bool,
+) {
     let mut arg_indices = IdSet::new();
     let symbol_table = SymbolTable::empty();
     let mut required_args: HashSet<String> = HashSet::default();
     let mut default_args: HashMap<usize, Rc<Expr>> = HashMap::default();
     let args_iter: Vec<(usize, ArgMaybeAnnotated)> = if skip_self_argument {
-        f.args.iter().skip(1).cloned().enumerate().collect()
+        key.args().iter().skip(1).cloned().enumerate().collect()
     } else {
-        f.args.iter().cloned().enumerate().collect()
+        key.args().iter().cloned().enumerate().collect()
     };
     for (i, arg) in args_iter {
         symbol_table.extend_declaration(arg.name.v.clone(), Declaration::Var(arg.name.node()));
@@ -308,8 +312,7 @@ fn update_function_arg_info(ctx: &mut StaticsContext, f: &Rc<FuncDef>, skip_self
         default_args,
         nargs,
     };
-    ctx.func_arg_details
-        .insert(FuncArgDetailsKey::FuncDef(f.clone()), func_arg_info);
+    ctx.func_arg_details.insert(key, func_arg_info);
 }
 
 // Map identifiers to (1) declarations and (2) namespaces

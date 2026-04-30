@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    AstNode, EnumDef, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDef,
-    InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype, StructDef, Type as AstType,
-    TypeKind,
+    ArgMaybeAnnotated, AstNode, EnumDef, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
+    InterfaceDef, InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype, StructDef,
+    Type as AstType, TypeKind,
 };
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::{ErrorSummary, FileProvider};
@@ -375,6 +375,15 @@ pub(crate) struct FuncArgDetails {
 pub(crate) enum FuncArgDetailsKey {
     FuncDef(Rc<FuncDef>),
     FuncDecl(Rc<FuncDecl>),
+}
+
+impl FuncArgDetailsKey {
+    fn args(&self) -> &[ArgMaybeAnnotated] {
+        match self {
+            FuncArgDetailsKey::FuncDef(f) => &f.args,
+            FuncArgDetailsKey::FuncDecl(f) => &f.args,
+        }
+    }
 }
 
 impl TryFrom<&Declaration> for FuncArgDetailsKey {
