@@ -1834,3 +1834,41 @@ greet("Anand")
 "#;
     expect_value(src, "HELLO Anand! your number is 42");
 }
+
+#[test]
+fn named_args_member_function() {
+    let src = r#"
+type Greeter = {
+    name: string
+}
+
+extend Greeter {
+    fn greet2(self, greeting: string = "Hello", punct: string = "!", num: int = 42) {
+        print(greeting .. " " .. self.name .. punct .. " Your number is " .. num)
+    }
+}
+
+let greeter = Greeter("Anand")
+greeter.greet2("hello", ",", num = 123)
+"#;
+    expect_value(src, "hello Anand, Your number is 123");
+}
+
+#[test]
+fn default_args_member_function() {
+    let src = r#"
+type Greeter = {
+    name: string
+}
+
+extend Greeter {
+    fn greet2(self, greeting: string = "Hello", punct: string = "!", num: int = 42) {
+        print(greeting .. " " .. self.name .. punct .. " Your number is " .. num)
+    }
+}
+
+let greeter = Greeter("Anand")
+greeter.greet2()
+"#;
+    expect_value(src, "HELLO Anand! Your number is 42");
+}

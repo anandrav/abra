@@ -14,6 +14,7 @@ use crate::ast::{BinaryOperator, Item};
 use crate::environment::Environment;
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::parse::PrefixOp;
+use crate::statics::resolve::calculate_func_call_order;
 use disjoint_sets::UnionFindNode;
 use std::borrow::Borrow;
 use std::cell::RefCell;
@@ -2914,10 +2915,11 @@ fn generate_constraints_expr(
                                     .get(&(ty_key, fname.v.clone()))
                                     .cloned()
                                 {
+                                    // used by bytecode translator
                                     ctx.resolution_map.insert(fname.id, memfn_decl.clone());
-                                    crate::statics::resolve::calculate_func_call_order(
-                                        ctx, func, args, expr,
-                                    );
+                                    // used when calculating function arg order
+                                    ctx.resolution_map.insert(func.id, memfn_decl.clone());
+                                    calculate_func_call_order(ctx, func, args, expr);
 
                                     let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                                     match memfn_decl {
@@ -3002,6 +3004,8 @@ fn generate_constraints_expr(
                     }
                 }
                 _ => {
+                    calculate_func_call_order(ctx, func, args, expr);
+
                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, func);
 
                     let func_ty = TypeVar::from_node(ctx, func.node().clone());

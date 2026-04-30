@@ -109,7 +109,7 @@ fn gather_declarations_item(
 
             // only update function arg info
             for f in &ext.methods {
-                update_function_arg_info(ctx, f);
+                update_function_arg_info(ctx, f, true);
             }
         }
         ItemKind::TypeDef(typdefkind) => match typdefkind {
@@ -162,7 +162,7 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(FuncResolutionKind::Ordinary(f.clone())),
             );
 
-            update_function_arg_info(ctx, f);
+            update_function_arg_info(ctx, f, false);
         }
         ItemKind::FuncDecl(func_decl) => {
             let foreign = func_decl.is_foreign();
@@ -278,12 +278,17 @@ fn gather_declarations_item(
     }
 }
 
-fn update_function_arg_info(ctx: &mut StaticsContext, f: &Rc<FuncDef>) {
+fn update_function_arg_info(ctx: &mut StaticsContext, f: &Rc<FuncDef>, skip_self_argument: bool) {
     let mut arg_indices = IdSet::new();
     let symbol_table = SymbolTable::empty();
     let mut required_args: HashSet<String> = HashSet::default();
     let mut default_args: HashMap<usize, Rc<Expr>> = HashMap::default();
-    for (i, arg) in f.args.iter().enumerate() {
+    let args_iter: Vec<(usize, ArgMaybeAnnotated)> = if skip_self_argument {
+        f.args.iter().skip(1).cloned().enumerate().collect()
+    } else {
+        f.args.iter().cloned().enumerate().collect()
+    };
+    for (i, arg) in args_iter {
         symbol_table.extend_declaration(arg.name.v.clone(), Declaration::Var(arg.name.node()));
         arg_indices.insert(arg.name.v.clone());
         match &arg.default_val {
@@ -944,8 +949,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             for arg in args {
                 resolve_names_expr(ctx, symbol_table, &arg.val);
             }
-
-            calculate_func_call_order(ctx, func, args, expr);
         }
         ExprKind::MemberAccess(accessed_expr, field) => {
             dlog!("MemberAccess");
@@ -986,20 +989,10 @@ pub(crate) fn calculate_func_call_order(
 ) {
     dlog!("let's do this");
     let decl = ctx.resolution_map.get(&func.id);
-    if decl.is_some() {
-        dlog!("decl: {:#?}", decl.unwrap());
-    }
     let key = decl.and_then(|decl| FuncArgDetailsKey::try_from(decl).ok());
-    if key.is_some() {
-        dlog!("key is some");
-    }
     let func_arg_details = key.and_then(|key| ctx.func_arg_details.get(&key).cloned());
-    if func_arg_details.is_some() {
-        dlog!("func_arg_details is some");
-    }
 
     if args.iter().any(|a| a.name.is_some()) && func_arg_details.is_none() {
-        panic!();
         ctx.errors.push(Error::Generic {
             msg: "Can't use named arguments because can't determine original function definition"
                 .to_string(),
