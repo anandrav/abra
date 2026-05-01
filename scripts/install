@@ -64,6 +64,16 @@ if [ -d "$VIM_DIR" ]; then
   mkdir -p "$VIM_DIR/ftdetect"
   cp ./tooling/vim/syntax.vim "$VIM_DIR/syntax/abra.vim"
   cp ./tooling/vim/ftdetect.vim "$VIM_DIR/ftdetect/abra.vim"
+  cp ./tooling/vim/scripts.vim "$VIM_DIR/scripts.vim"
+
+  VIMRC="$HOME/.vimrc"
+  MYSCRIPTSFILE_LINE='let myscriptsfile = $HOME . "/.vim/scripts.vim"'
+  if [ -f "$VIMRC" ] && grep -qF 'myscriptsfile' "$VIMRC"; then
+    : # already configured
+  else
+    echo "$MYSCRIPTSFILE_LINE" >> "$VIMRC"
+  fi
+
   printf "Done\n"
 else
   echo "Vim configuration directory not found. Skipping Vim syntax highlighting installation."
