@@ -496,7 +496,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                 }
             }
             '"' => {
-                if lexer.peek_char(1) == Some('"') && lexer.peek_char(2) == Some('"') {
+                if at_triple_quote(&lexer, 0) {
                     handle_multiline_string(&mut lexer, ctx, file_id);
                     continue;
                 }
@@ -652,6 +652,10 @@ fn at_triple_quote(lexer: &Lexer, p: usize) -> bool {
         && lexer.peek_char(p + 2) == Some('"')
 }
 
+fn is_space_or_tab_at(lexer: &Lexer, p: usize) -> bool {
+    matches!(lexer.peek_char(p), Some(' ' | '\t'))
+}
+
 // Handle a triple-quoted multiline string starting at `lexer.index` (where
 // `chars[index..][..3]` is `"""`). Two cases:
 //   B (single-line): closing `"""` appears on the same line as the opener.
@@ -676,14 +680,13 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         return;
     }
 
-    // Case A. Walk to the opener-line newline; the chars before it are the residue.
+    // Walk to the opener-line newline; the chars before it are the residue.
     let mut p = after_open;
     while lexer.peek_char(p).is_some_and(|c| c != '\n') {
         p += 1;
     }
     let opener_line_end = p;
-    let residue_is_blank =
-        (after_open..opener_line_end).all(|i| matches!(lexer.peek_char(i), Some(' ' | '\t')));
+    let residue_is_blank = (after_open..opener_line_end).all(|i| is_space_or_tab_at(lexer, i));
 
     // Walk body lines after the opener-line newline until closer or EOF. Each
     // body line is recorded as (line_start, line_end_excluding_newline).
@@ -693,7 +696,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         p += 1; // skip opener-line \n
         loop {
             let ws_start = p;
-            while matches!(lexer.peek_char(p), Some(' ' | '\t')) {
+            while is_space_or_tab_at(lexer, p) {
                 p += 1;
             }
             if at_triple_quote(lexer, p) {
@@ -713,24 +716,22 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         p
     };
 
-    // Render: residue (no strip) chained with body lines (with strip).
-    let residue = (!residue_is_blank).then_some((after_open, opener_line_end));
-    let lines = residue
-        .into_iter()
-        .map(|r| (r, false))
-        .chain(body_lines.iter().copied().map(|l| (l, true)));
-
+    // Render: residue (never stripped), then body lines (stripped by prefix).
     let mut s = String::new();
     let mut emitted = false;
-    for ((ls, le), can_strip) in lines {
+    if !residue_is_blank {
+        process_escapes_into(&mut s, lexer, after_open, opener_line_end, ctx, file_id);
+        emitted = true;
+    }
+    for &(ls, le) in &body_lines {
         if emitted {
             s.push('\n');
         }
         emitted = true;
-        if (ls..le).all(|j| matches!(lexer.peek_char(j), Some(' ' | '\t'))) {
+        if (ls..le).all(|j| is_space_or_tab_at(lexer, j)) {
             continue;
         }
-        let strip = if can_strip && !prefix.is_empty() {
+        let strip = if !prefix.is_empty() {
             let pl = prefix.len();
             let ok = le - ls >= pl
                 && (0..pl).all(|k| lexer.peek_char(ls + k) == lexer.peek_char(prefix.start + k));
