@@ -294,11 +294,6 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
-            Error::CantReturnHere { node } => {
-                diagnostic = diagnostic.with_message("Can't put a return statement here");
-                let (file, range) = node.get_file_and_range();
-                labels.push(Label::secondary(file, range));
-            }
             Error::NonexhaustiveMatch { node, missing } => {
                 diagnostic =
                     diagnostic.with_message("This match expression doesn't cover every case");

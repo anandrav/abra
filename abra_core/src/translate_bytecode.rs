@@ -351,6 +351,10 @@ impl Translator {
                     })
                     .collect::<Vec<_>>();
                 for (i, stmt) in statements.iter().enumerate() {
+                    if let StmtKind::Return(_) = &*stmt.kind {
+                        self.emit(st, Instr::Stop);
+                        continue;
+                    }
                     self.translate_stmt(stmt, i == statements.len() - 1, &offset_table, &mono, st);
                 }
 

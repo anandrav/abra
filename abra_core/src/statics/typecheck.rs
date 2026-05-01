@@ -2276,7 +2276,14 @@ fn generate_constraints_stmt(
                     );
                 }
                 None => {
-                    ctx.errors.push(Error::CantReturnHere { node: stmt.node() });
+                    // TODO: need a better reason like "ToplevelReturn"
+                    let ret_ty = TypeVar::make_void(Reason::Node(stmt.node()));
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope,
+                        Mode::ana_reason(ret_ty, ConstraintReason::ReturnValue),
+                        expr,
+                    );
                 }
             }
         }

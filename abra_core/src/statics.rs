@@ -508,10 +508,6 @@ pub(crate) enum Error {
     NotInLoop {
         node: AstNode,
     },
-    // return
-    CantReturnHere {
-        node: AstNode,
-    },
     // pattern matching exhaustiveness check
     NonexhaustiveMatch {
         node: AstNode,
