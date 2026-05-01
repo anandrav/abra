@@ -112,3 +112,12 @@ pub fn string_to_int(s: String) -> Option<AbraInt> {
 pub fn string_to_float(s: String) -> Option<AbraFloat> {
     s.parse::<AbraFloat>().ok()
 }
+
+pub fn string_from_codepoint(cp: AbraInt) -> String {
+    if !(0..=0x10FFFF).contains(&cp) {
+        return "\u{FFFD}".to_string();
+    }
+    char::from_u32(cp as u32)
+        .map(|c| c.to_string())
+        .unwrap_or_else(|| "\u{FFFD}".to_string())
+}

@@ -10,6 +10,16 @@ type JsonValue =
     | Object(map<string, JsonValue>)
 
 extend JsonValue {
+    fn object() -> JsonValue {
+        let m: map<string, JsonValue> = map.new()
+        .Object(m)
+    }
+
+    fn array() -> JsonValue {
+        let arr: array<JsonValue> = []
+        .Array(arr)
+    }
+
     fn get(self, key: string) -> JsonValue {
         match self {
             .Object(m) -> m.get(key)
@@ -70,6 +80,52 @@ extend JsonValue {
         match self {
             .Null -> true
             _ -> false
+        }
+    }
+
+    fn set(self, key: string, value: JsonValue) {
+        match self {
+            .Object(m) -> m.insert(key, value)
+            _ -> panic("json: set() called on non-object")
+        }
+    }
+
+    fn remove(self, key: string) -> bool {
+        match self {
+            .Object(m) -> m.remove(key)
+            _ -> panic("json: remove() called on non-object")
+        }
+    }
+
+    fn set_at(self, index: int, value: JsonValue) {
+        match self {
+            .Array(arr) -> {
+                arr[index] = value
+            }
+            _ -> panic("json: set_at() called on non-array")
+        }
+    }
+
+    fn push(self, value: JsonValue) {
+        match self {
+            .Array(arr) -> arr.push(value)
+            _ -> panic("json: push() called on non-array")
+        }
+    }
+
+    fn remove_at(self, index: int) {
+        match self {
+            .Array(arr) -> {
+                if index < 0 or index >= arr.len() {
+                    panic("json: remove_at() index out of bounds")
+                }
+                for i in range(index, arr.len() - 1) {
+                    arr[i] = arr[i + 1]
+                }
+                arr.pop()
+                nil
+            }
+            _ -> panic("json: remove_at() called on non-array")
         }
     }
 }
@@ -231,12 +287,8 @@ extend Parser {
                     "b" -> result_str = result_str .. ""
                     "f" -> result_str = result_str .. ""
                     "u" -> {
-                        var i = 0
-                        while i < 4 and not self.done() {
-                            self.advance()
-                            i += 1
-                        }
-                        result_str = result_str .. "?"
+                        let chunk = self.parse_unicode_escape()?
+                        result_str = result_str .. chunk
                     }
                     _ -> return .err("unknown escape sequence: \\" .. escaped)
                 }
@@ -352,6 +404,60 @@ extend Parser {
         self.expect("}")?
         let val: JsonValue = .Object(m)
         .ok(val)
+    }
+
+    fn parse_unicode_escape(self) -> result<string, string> {
+        let cp = self.parse_hex4()?
+        // 0xD800..=0xDBFF: high surrogate, must be followed by low surrogate
+        if cp >= 55296 and cp <= 56319 {
+            if self.done() or self.advance() != "\\" {
+                return .err("expected low surrogate after high surrogate")
+            }
+            if self.done() or self.advance() != "u" {
+                return .err("expected \\u for low surrogate")
+            }
+            let low = self.parse_hex4()?
+            // 0xDC00..=0xDFFF: low surrogate range
+            if low < 56320 or low > 57343 {
+                return .err("invalid low surrogate")
+            }
+            // 0x10000 + (high - 0xD800) * 0x400 + (low - 0xDC00)
+            let combined = 65536 + (cp - 55296) * 1024 + (low - 56320)
+            .ok(string_from_codepoint(combined))
+        } else if cp >= 56320 and cp <= 57343 {
+            .err("unexpected low surrogate without high surrogate")
+        } else {
+            .ok(string_from_codepoint(cp))
+        }
+    }
+
+    fn parse_hex4(self) -> result<int, string> {
+        var n = 0
+        for i in 4 {
+            if self.done() {
+                return .err("unexpected end of input in unicode escape")
+            }
+            let c = self.advance()
+            let d = hex_digit(c)?
+            n = n * 16 + d
+        }
+        .ok(n)
+    }
+}
+
+fn hex_digit(c: string) -> result<int, string> {
+    let b = string_nth_byte(c, 0)
+    // '0'-'9'
+    if b >= 48 and b <= 57 {
+        .ok(b - 48)
+    } else if b >= 97 and b <= 102 {
+        // 'a'-'f'
+        .ok(b - 87)
+    } else if b >= 65 and b <= 70 {
+        // 'A'-'F'
+        .ok(b - 55)
+    } else {
+        .err("invalid hex digit: '" .. c .. "'")
     }
 }
 

@@ -20,6 +20,11 @@ t.run("stringify_object", test_stringify_object())
 t.run("stringify_pretty", test_stringify_pretty())
 t.run("roundtrip", test_roundtrip())
 t.run("accessors", test_accessors())
+t.run("modify_object", test_modify_object())
+t.run("modify_array", test_modify_array())
+t.run("modify_nested", test_modify_nested())
+t.run("constructors", test_constructors())
+t.run("unicode_escapes", test_unicode_escapes())
 t.finish()
 
 fn test_parse_null() -> result<void, string> {
@@ -179,5 +184,90 @@ fn test_accessors() -> result<void, string> {
     check(v.get("a").at(1).as_number()! == 20.0, "chained get/at second")?
     check(v.try_get("missing").is_none(), "try_get missing")?
     check(v.try_get("a").is_some(), "try_get present")?
+    .ok(nil)
+}
+
+fn test_modify_object() -> result<void, string> {
+    let v = parse("{\"a\": 1}")?
+    v.set("b", .Number(2.0))
+    check(v.get("b").as_number()! == 2.0, "set new key")?
+    v.set("a", .Number(99.0))
+    check(v.get("a").as_number()! == 99.0, "set updates existing")?
+    check(v.remove("a"), "remove returns true for present key")?
+    check(v.try_get("a").is_none(), "remove deletes key")?
+    check(not v.remove("missing"), "remove returns false for missing key")?
+    .ok(nil)
+}
+
+fn test_modify_array() -> result<void, string> {
+    let v = parse("[1, 2, 3]")?
+    v.push(.Number(4.0))
+    check(v.as_array()!.len() == 4, "push appends")?
+    check(v.at(3).as_number()! == 4.0, "push value")?
+    v.set_at(0, .Number(99.0))
+    check(v.at(0).as_number()! == 99.0, "set_at updates")?
+    v.remove_at(1)
+    check(v.as_array()!.len() == 3, "remove_at shrinks")?
+    check(v.at(0).as_number()! == 99.0, "remove_at preserves head")?
+    check(v.at(1).as_number()! == 3.0, "remove_at preserves middle order")?
+    check(v.at(2).as_number()! == 4.0, "remove_at preserves tail")?
+    .ok(nil)
+}
+
+fn test_unicode_escapes() -> result<void, string> {
+    // ASCII
+    let a = parse("\"\\u0041\"")?
+    check(a.as_string()! == "A", "ascii unicode escape")?
+    // 2-byte UTF-8 (é = U+00E9)
+    let acute = parse("\"caf\\u00e9\"")?
+    check(acute.as_string()! == "café", "2-byte utf8 escape")?
+    // 3-byte UTF-8 (中 = U+4E2D)
+    let zhong = parse("\"\\u4e2d\"")?
+    check(zhong.as_string()! == "中", "3-byte utf8 escape")?
+    // Surrogate pair (😀 = U+1F600 → 😀)
+    let emoji = parse("\"\\uD83D\\uDE00\"")?
+    check(emoji.as_string()! == "😀", "surrogate pair")?
+    // Uppercase hex
+    let upper = parse("\"\\u0041\"")?
+    check(upper.as_string()! == "A", "uppercase hex digits")?
+    // Errors
+    check(parse("\"\\u00\"").is_err(), "truncated escape")?
+    check(parse("\"\\uD83D\"").is_err(), "lone high surrogate")?
+    check(parse("\"\\uDC00\"").is_err(), "lone low surrogate")?
+    check(parse("\"\\uD83Dx\"").is_err(), "high surrogate not followed by \\u")?
+    .ok(nil)
+}
+
+fn test_constructors() -> result<void, string> {
+    let obj = JsonValue.object()
+    check(obj.as_object()!.len() == 0, "object() is empty")?
+    obj.set("name", .Str("abra"))
+    obj.set("count", .Number(3.0))
+    check(obj.get("name").as_string()! == "abra", "set on constructed object")?
+    check(stringify(obj).contains("\"name\":\"abra\""), "stringify constructed object")?
+
+    let arr = JsonValue.array()
+    check(arr.as_array()!.len() == 0, "array() is empty")?
+    arr.push(.Number(1.0))
+    arr.push(.Bool(true))
+    check(arr.as_array()!.len() == 2, "push on constructed array")?
+    check(stringify(arr) == "[1,true]", "stringify constructed array")?
+    .ok(nil)
+}
+
+fn test_modify_nested() -> result<void, string> {
+    let v = parse("{\"items\": [1, 2], \"meta\": {\"count\": 0}}")?
+    // mutate nested object
+    v.get("meta").set("count", .Number(2.0))
+    check(v.get("meta").get("count").as_number()! == 2.0, "nested object set")?
+    // mutate nested array
+    v.get("items").push(.Number(3.0))
+    check(v.get("items").as_array()!.len() == 3, "nested array push")?
+    check(v.get("items").at(2).as_number()! == 3.0, "nested array push value")?
+    // verify changes survive stringify
+    let s = stringify(v)
+    let reparsed = parse(s)?
+    check(reparsed.get("meta").get("count").as_number()! == 2.0, "roundtrip after mutation")?
+    check(reparsed.get("items").as_array()!.len() == 3, "roundtrip array length")?
     .ok(nil)
 }

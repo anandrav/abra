@@ -167,3 +167,6 @@ fn string_to_int(s: string) -> option<int>
 
 #foreign
 fn string_to_float(s: string) -> option<float>
+
+#foreign
+fn string_from_codepoint(cp: int) -> string
