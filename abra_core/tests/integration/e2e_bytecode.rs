@@ -1872,3 +1872,117 @@ greeter.greet2()
 "#;
     expect_value(src, "HELLO Anand! Your number is 42");
 }
+
+#[test]
+fn multiline_string_strips_indent() {
+    let src = r#"
+let s = """
+    hello
+    world
+    """
+s
+"#;
+    expect_value(src, "hello\nworld");
+}
+
+#[test]
+fn multiline_string_no_indent() {
+    let src = "
+let s = \"\"\"
+hello
+world
+\"\"\"
+s
+";
+    expect_value(src, "hello\nworld");
+}
+
+#[test]
+fn multiline_string_blank_line() {
+    let src = r#"
+let s = """
+    hello
+
+    world
+    """
+s
+"#;
+    expect_value(src, "hello\n\nworld");
+}
+
+#[test]
+fn multiline_string_preserves_extra_indent() {
+    let src = r#"
+let s = """
+    hello
+        world
+    """
+s
+"#;
+    expect_value(src, "hello\n    world");
+}
+
+#[test]
+fn multiline_string_empty() {
+    let src = r#"
+let s = """
+    """
+s
+"#;
+    expect_value(src, "");
+}
+
+#[test]
+fn multiline_string_single_line_form() {
+    let src = r#"
+let s = """hello world"""
+s
+"#;
+    expect_value(src, "hello world");
+}
+
+#[test]
+fn multiline_string_opener_residue() {
+    let src = r#"
+let s = """hello
+    world
+    """
+s
+"#;
+    expect_value(src, "hello\nworld");
+}
+
+#[test]
+fn multiline_string_escapes() {
+    let src = r#"
+let s = """
+    tab\there
+    quote\"end
+    """
+s
+"#;
+    expect_value(src, "tab\there\nquote\"end");
+}
+
+#[test]
+fn multiline_string_embedded_quotes() {
+    let src = r#"
+let s = """
+    say "hi" loudly
+    """
+s
+"#;
+    expect_value(src, "say \"hi\" loudly");
+}
+
+#[test]
+fn multiline_string_insufficient_indent_errors() {
+    let src = r#"
+let s = """
+    hello
+  world
+    """
+s
+"#;
+    crate::helper::should_fail(src);
+}
