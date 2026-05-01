@@ -649,116 +649,81 @@ fn process_escapes_into(
 //      whitespace. That whitespace is the indent prefix; it is stripped from
 //      every non-blank content line. Insufficient indent → error, but the
 //      line is still included verbatim. Opener-line residue (chars between
-//      `"""` and the first newline) becomes the first content line if non-blank.
+//      `"""` and the first newline) becomes the first content line if non-blank,
+//      and is not subject to prefix stripping.
 // On EOF before a closer: emit what we have and advance to EOF.
 fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id: FileId) {
+    const TQ: [char; 3] = ['"', '"', '"'];
     let open = lexer.index;
     let after_open = open + 3;
     let n = lexer.chars.len();
+    let chars = &lexer.chars;
+    let is_hws = |c: char| matches!(c, ' ' | '\t');
 
-    if let Some(close) = scan_for_unescaped_delim(&lexer.chars, after_open, &['"', '"', '"'], true)
-    {
-        // Case B: opener and closer on the same line.
-        let after_close = close + 3;
+    // Case B: opener and closer on the same line.
+    if let Some(close) = scan_for_unescaped_delim(chars, after_open, &TQ, true) {
         let mut s = String::new();
-        process_escapes_into(&mut s, &lexer.chars, after_open, close, ctx, file_id);
-        lexer.tokens.push(Token {
-            kind: TokenKind::StringLit(s),
-            span: Span {
-                lo: open,
-                hi: after_close,
-            },
-        });
-        lexer.index = after_close;
+        process_escapes_into(&mut s, chars, after_open, close, ctx, file_id);
+        emit_string_token(lexer, s, open, close + 3);
         return;
     }
 
-    // Case A. Capture opener-line residue (chars between """ and \n).
-    let mut opener_residue_end = after_open;
-    while opener_residue_end < n && lexer.chars[opener_residue_end] != '\n' {
-        opener_residue_end += 1;
+    // Case A. Walk to the opener-line newline; the chars before it are the residue.
+    let mut p = after_open;
+    while p < n && chars[p] != '\n' {
+        p += 1;
     }
-    let opener_residue_is_blank =
-        (after_open..opener_residue_end).all(|i| matches!(lexer.chars[i], ' ' | '\t'));
-    let first_line_start = (opener_residue_end + 1).min(n);
+    let opener_line_end = p;
+    let residue_is_blank = (after_open..opener_line_end).all(|i| is_hws(chars[i]));
 
-    // Walk lines looking for closing """ preceded only by whitespace.
-    let mut line_starts: Vec<usize> = vec![first_line_start];
-    let mut close_info: Option<(usize, usize)> = None; // (prefix_end, after_close)
-    loop {
-        let ls = *line_starts.last().unwrap();
-        let mut ws_end = ls;
-        while ws_end < n && matches!(lexer.chars[ws_end], ' ' | '\t') {
-            ws_end += 1;
-        }
-        if ws_end + 2 < n
-            && lexer.chars[ws_end] == '"'
-            && lexer.chars[ws_end + 1] == '"'
-            && lexer.chars[ws_end + 2] == '"'
-        {
-            close_info = Some((ws_end, ws_end + 3));
-            break;
-        }
-        let mut p = ws_end;
-        while p < n && lexer.chars[p] != '\n' {
-            p += 1;
-        }
-        if p >= n {
-            break;
-        }
-        line_starts.push(p + 1);
-    }
-
-    let (prefix_start, prefix_len, after_close, content_line_count, last_line_end) =
-        if let Some((pe, ac)) = close_info {
-            let ps = *line_starts.last().unwrap();
-            (ps, pe - ps, ac, line_starts.len() - 1, 0)
-        } else {
-            // EOF recovery: every line in line_starts is content; find end of last.
-            let last_ls = *line_starts.last().unwrap();
-            let mut p = last_ls;
-            while p < n && lexer.chars[p] != '\n' {
+    // Walk body lines after the opener-line newline until closer or EOF. Each
+    // body line is recorded as (line_start, line_end_excluding_newline).
+    let mut body_lines: Vec<(usize, usize)> = vec![];
+    let mut prefix: std::ops::Range<usize> = 0..0;
+    let after_close = if p < n {
+        p += 1; // skip opener-line \n
+        loop {
+            let ws_start = p;
+            while p < n && is_hws(chars[p]) {
                 p += 1;
             }
-            (0, 0, n, line_starts.len(), p)
-        };
+            if chars[p..].starts_with(&TQ) {
+                prefix = ws_start..p;
+                break p + 3;
+            }
+            while p < n && chars[p] != '\n' {
+                p += 1;
+            }
+            body_lines.push((ws_start, p));
+            if p >= n {
+                break n;
+            }
+            p += 1;
+        }
+    } else {
+        n
+    };
+
+    // Render: residue (no strip) chained with body lines (with strip).
+    let residue = (!residue_is_blank).then_some((after_open, opener_line_end));
+    let lines = residue
+        .into_iter()
+        .map(|r| (r, false))
+        .chain(body_lines.iter().copied().map(|l| (l, true)));
 
     let mut s = String::new();
-    let mut emitted_any_line = false;
-    if !opener_residue_is_blank {
-        process_escapes_into(
-            &mut s,
-            &lexer.chars,
-            after_open,
-            opener_residue_end,
-            ctx,
-            file_id,
-        );
-        emitted_any_line = true;
-    }
-
-    for i in 0..content_line_count {
-        let ls = line_starts[i];
-        let le = if i + 1 < line_starts.len() {
-            line_starts[i + 1] - 1
-        } else {
-            last_line_end
-        };
-
-        if emitted_any_line {
+    let mut emitted = false;
+    for ((ls, le), can_strip) in lines {
+        if emitted {
             s.push('\n');
         }
-        emitted_any_line = true;
-
-        let is_blank = (ls..le).all(|j| matches!(lexer.chars[j], ' ' | '\t'));
-        if is_blank {
+        emitted = true;
+        if (ls..le).all(|j| is_hws(chars[j])) {
             continue;
         }
-
-        let strip = if prefix_len > 0 {
-            let line_len = le - ls;
-            let ok = line_len >= prefix_len
-                && (0..prefix_len).all(|k| lexer.chars[ls + k] == lexer.chars[prefix_start + k]);
+        let strip = if can_strip && !prefix.is_empty() {
+            let pl = prefix.len();
+            let ok = le - ls >= pl && (0..pl).all(|k| chars[ls + k] == chars[prefix.start + k]);
             if !ok {
                 ctx.errors.push(Error::InsufficientIndentation(
                     file_id,
@@ -766,23 +731,23 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
                 ));
                 0
             } else {
-                prefix_len
+                pl
             }
         } else {
             0
         };
-
-        process_escapes_into(&mut s, &lexer.chars, ls + strip, le, ctx, file_id);
+        process_escapes_into(&mut s, chars, ls + strip, le, ctx, file_id);
     }
 
+    emit_string_token(lexer, s, open, after_close);
+}
+
+fn emit_string_token(lexer: &mut Lexer, s: String, lo: usize, hi: usize) {
     lexer.tokens.push(Token {
         kind: TokenKind::StringLit(s),
-        span: Span {
-            lo: open,
-            hi: after_close,
-        },
+        span: Span { lo, hi },
     });
-    lexer.index = after_close;
+    lexer.index = hi;
 }
 
 fn start_of_ident(c: char) -> bool {
