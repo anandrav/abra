@@ -2837,7 +2837,7 @@ fn generate_constraints_expr(
                         Some(Declaration::InterfaceMethod {
                             iface: iface_def,
                             method_index: method,
-                        }) => {
+                        }) if receiver_is_namespace => {
                             // fully qualified interface method
                             // example: Clone.clone(my_struct)
                             //          ^^^^^
