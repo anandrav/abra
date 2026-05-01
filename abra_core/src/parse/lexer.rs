@@ -501,21 +501,15 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                     continue;
                 }
                 let open = lexer.index;
-                let after_open = open + 1;
-                let n = lexer.chars.len();
-                let close =
-                    scan_for_unescaped_delim(&lexer.chars, after_open, &['"'], false).unwrap_or(n);
-                let after_close = (close + 1).min(n);
+                let n_off = lexer.chars.len() - open;
+                let (content_end, after_close) =
+                    match scan_for_unescaped_delim(&lexer, 1, &['"'], false) {
+                        Some(c) => (c, c + 1),
+                        None => (n_off, n_off),
+                    };
                 let mut s = String::new();
-                process_escapes_into(&mut s, &lexer.chars, after_open, close, ctx, file_id);
-                lexer.tokens.push(Token {
-                    kind: TokenKind::StringLit(s),
-                    span: Span {
-                        lo: open,
-                        hi: after_close,
-                    },
-                });
-                lexer.index = after_close;
+                process_escapes_into(&mut s, &lexer, 1, content_end, ctx, file_id);
+                emit_string_token(&mut lexer, s, open, open + after_close);
             }
             '/' => {
                 if let Some('/') = lexer.peek_char(1) {
@@ -565,28 +559,28 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
     lexer.into_tokens()
 }
 
+// All position arguments to these helpers are offsets relative to `lexer.index`.
+
 // Scan forward from `start` for the next unescaped occurrence of `delim`.
 // `\X` is treated as an escape pair and skipped (the X is never the start of a delim).
 // Returns Some(pos) if found, None on EOF (or on '\n' if `stop_at_newline`).
 fn scan_for_unescaped_delim(
-    chars: &[char],
+    lexer: &Lexer,
     start: usize,
     delim: &[char],
     stop_at_newline: bool,
 ) -> Option<usize> {
-    let n = chars.len();
     let dl = delim.len();
     let mut p = start;
-    while p < n {
-        let c = chars[p];
+    while let Some(c) = lexer.peek_char(p) {
         if stop_at_newline && c == '\n' {
             return None;
         }
         if c == '\\' {
-            p = (p + 2).min(n);
+            p += 2;
             continue;
         }
-        if p + dl <= n && (0..dl).all(|i| chars[p + i] == delim[i]) {
+        if (0..dl).all(|i| lexer.peek_char(p + i) == Some(delim[i])) {
             return Some(p);
         }
         p += 1;
@@ -594,21 +588,25 @@ fn scan_for_unescaped_delim(
     None
 }
 
-// Process escape sequences in chars[start..end], appending decoded chars to `s`.
-// Spans pushed for errors are absolute positions in the source.
+// Process escape sequences in offsets [start..end], appending decoded chars to `s`.
 fn process_escapes_into(
     s: &mut String,
-    chars: &[char],
+    lexer: &Lexer,
     start: usize,
     end: usize,
     ctx: &mut StaticsContext,
     file_id: FileId,
 ) {
+    let base = lexer.index;
     let mut p = start;
-    while p < end {
-        let c = chars[p];
-        if c == '\\' && p + 1 < end {
-            match chars[p + 1] {
+    while p < end
+        && let Some(c) = lexer.peek_char(p)
+    {
+        if c == '\\'
+            && p + 1 < end
+            && let Some(c2) = lexer.peek_char(p + 1)
+        {
+            match c2 {
                 'n' => s.push('\n'),
                 't' => s.push('\t'),
                 'r' => s.push('\r'),
@@ -616,8 +614,9 @@ fn process_escapes_into(
                 '\\' => s.push('\\'),
                 'x' => {
                     if p + 3 < end
-                        && let Ok(byte) =
-                            u8::from_str_radix(&format!("{}{}", chars[p + 2], chars[p + 3]), 16)
+                        && let Some(d2) = lexer.peek_char(p + 2)
+                        && let Some(d3) = lexer.peek_char(p + 3)
+                        && let Ok(byte) = u8::from_str_radix(&format!("{d2}{d3}"), 16)
                     {
                         s.push(byte as char);
                         p += 4;
@@ -625,12 +624,18 @@ fn process_escapes_into(
                     }
                     ctx.errors.push(Error::UnrecognizedEscapeSequence(
                         file_id,
-                        Span { lo: p, hi: p + 1 },
+                        Span {
+                            lo: base + p,
+                            hi: base + p + 1,
+                        },
                     ));
                 }
                 _ => ctx.errors.push(Error::UnrecognizedEscapeSequence(
                     file_id,
-                    Span { lo: p, hi: p + 1 },
+                    Span {
+                        lo: base + p,
+                        hi: base + p + 1,
+                    },
                 )),
             }
             p += 2;
@@ -639,6 +644,12 @@ fn process_escapes_into(
             p += 1;
         }
     }
+}
+
+fn at_triple_quote(lexer: &Lexer, p: usize) -> bool {
+    lexer.peek_char(p) == Some('"')
+        && lexer.peek_char(p + 1) == Some('"')
+        && lexer.peek_char(p + 2) == Some('"')
 }
 
 // Handle a triple-quoted multiline string starting at `lexer.index` (where
@@ -655,53 +666,51 @@ fn process_escapes_into(
 fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id: FileId) {
     const TQ: [char; 3] = ['"', '"', '"'];
     let open = lexer.index;
-    let after_open = open + 3;
-    let n = lexer.chars.len();
-    let chars = &lexer.chars;
-    let is_hws = |c: char| matches!(c, ' ' | '\t');
+    let after_open = 3; // offset past """
 
     // Case B: opener and closer on the same line.
-    if let Some(close) = scan_for_unescaped_delim(chars, after_open, &TQ, true) {
+    if let Some(close) = scan_for_unescaped_delim(lexer, after_open, &TQ, true) {
         let mut s = String::new();
-        process_escapes_into(&mut s, chars, after_open, close, ctx, file_id);
-        emit_string_token(lexer, s, open, close + 3);
+        process_escapes_into(&mut s, lexer, after_open, close, ctx, file_id);
+        emit_string_token(lexer, s, open, open + close + 3);
         return;
     }
 
     // Case A. Walk to the opener-line newline; the chars before it are the residue.
     let mut p = after_open;
-    while p < n && chars[p] != '\n' {
+    while lexer.peek_char(p).is_some_and(|c| c != '\n') {
         p += 1;
     }
     let opener_line_end = p;
-    let residue_is_blank = (after_open..opener_line_end).all(|i| is_hws(chars[i]));
+    let residue_is_blank =
+        (after_open..opener_line_end).all(|i| matches!(lexer.peek_char(i), Some(' ' | '\t')));
 
     // Walk body lines after the opener-line newline until closer or EOF. Each
     // body line is recorded as (line_start, line_end_excluding_newline).
     let mut body_lines: Vec<(usize, usize)> = vec![];
     let mut prefix: std::ops::Range<usize> = 0..0;
-    let after_close = if p < n {
+    let after_close = if lexer.peek_char(p).is_some() {
         p += 1; // skip opener-line \n
         loop {
             let ws_start = p;
-            while p < n && is_hws(chars[p]) {
+            while matches!(lexer.peek_char(p), Some(' ' | '\t')) {
                 p += 1;
             }
-            if chars[p..].starts_with(&TQ) {
+            if at_triple_quote(lexer, p) {
                 prefix = ws_start..p;
                 break p + 3;
             }
-            while p < n && chars[p] != '\n' {
+            while lexer.peek_char(p).is_some_and(|c| c != '\n') {
                 p += 1;
             }
             body_lines.push((ws_start, p));
-            if p >= n {
-                break n;
+            if lexer.peek_char(p).is_none() {
+                break p;
             }
             p += 1;
         }
     } else {
-        n
+        p
     };
 
     // Render: residue (no strip) chained with body lines (with strip).
@@ -718,16 +727,20 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
             s.push('\n');
         }
         emitted = true;
-        if (ls..le).all(|j| is_hws(chars[j])) {
+        if (ls..le).all(|j| matches!(lexer.peek_char(j), Some(' ' | '\t'))) {
             continue;
         }
         let strip = if can_strip && !prefix.is_empty() {
             let pl = prefix.len();
-            let ok = le - ls >= pl && (0..pl).all(|k| chars[ls + k] == chars[prefix.start + k]);
+            let ok = le - ls >= pl
+                && (0..pl).all(|k| lexer.peek_char(ls + k) == lexer.peek_char(prefix.start + k));
             if !ok {
                 ctx.errors.push(Error::InsufficientIndentation(
                     file_id,
-                    Span { lo: ls, hi: le },
+                    Span {
+                        lo: open + ls,
+                        hi: open + le,
+                    },
                 ));
                 0
             } else {
@@ -736,10 +749,10 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         } else {
             0
         };
-        process_escapes_into(&mut s, chars, ls + strip, le, ctx, file_id);
+        process_escapes_into(&mut s, lexer, ls + strip, le, ctx, file_id);
     }
 
-    emit_string_token(lexer, s, open, after_close);
+    emit_string_token(lexer, s, open, open + after_close);
 }
 
 fn emit_string_token(lexer: &mut Lexer, s: String, lo: usize, hi: usize) {
