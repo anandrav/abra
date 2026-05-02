@@ -76,8 +76,8 @@ fn test_parse_array() -> result<void, string> {
 
 fn test_parse_object() -> result<void, string> {
     let obj = parse("{\"a\": 1, \"b\": 2}")?
-    check(obj.get("a").as_number()! == 1.0, "key a")?
-    check(obj.get("b").as_number()! == 2.0, "key b")?
+    check(obj["a"].as_number()! == 1.0, "key a")?
+    check(obj["b"].as_number()! == 2.0, "key b")?
     let empty = parse("{}")?
     check(empty.as_object()!.len() == 0, "empty object")?
     .ok(nil)
@@ -85,17 +85,17 @@ fn test_parse_object() -> result<void, string> {
 
 fn test_parse_nested() -> result<void, string> {
     let v = parse("{\"items\": [1, {\"nested\": true}], \"ok\": null}")?
-    let items = v.get("items").as_array()!
+    let items = v["items"].as_array()!
     check(items.len() == 2, "nested array length")?
     check(items[0].as_number()! == 1.0, "nested array first")?
-    check(items[1].get("nested").as_bool()! == true, "deeply nested bool")?
-    check(v.get("ok").is_null(), "null value in object")?
+    check(items[1]["nested"].as_bool()! == true, "deeply nested bool")?
+    check(v["ok"].is_null(), "null value in object")?
     .ok(nil)
 }
 
 fn test_parse_whitespace() -> result<void, string> {
     let v = parse("  \n  { \"key\" :  \"value\"  }  \n")?
-    check(v.get("key").as_string()! == "value", "whitespace handling")?
+    check(v["key"].as_string()! == "value", "whitespace handling")?
     .ok(nil)
 }
 
@@ -169,10 +169,10 @@ fn test_roundtrip() -> result<void, string> {
     let output = stringify(parsed)
     let reparsed = parse(output)?
     // verify key values survived roundtrip
-    check(reparsed.get("name").as_string()! == "test", "roundtrip name")?
-    check(reparsed.get("active").as_bool()! == true, "roundtrip bool")?
-    check(reparsed.get("data").is_null(), "roundtrip null")?
-    let vals = reparsed.get("values").as_array()!
+    check(reparsed["name"].as_string()! == "test", "roundtrip name")?
+    check(reparsed["active"].as_bool()! == true, "roundtrip bool")?
+    check(reparsed["data"].is_null(), "roundtrip null")?
+    let vals = reparsed["values"].as_array()!
     check(vals.len() == 3, "roundtrip array length")?
     check(vals[0].as_number()! == 1.0, "roundtrip array val")?
     .ok(nil)
@@ -180,8 +180,8 @@ fn test_roundtrip() -> result<void, string> {
 
 fn test_accessors() -> result<void, string> {
     let v = parse("{\"a\": [10, 20]}")?
-    check(v.get("a").at(0).as_number()! == 10.0, "chained get/at")?
-    check(v.get("a").at(1).as_number()! == 20.0, "chained get/at second")?
+    check(v["a"].at(0).as_number()! == 10.0, "chained index/at")?
+    check(v["a"].at(1).as_number()! == 20.0, "chained index/at second")?
     check(v.try_get("missing").is_none(), "try_get missing")?
     check(v.try_get("a").is_some(), "try_get present")?
     .ok(nil)
@@ -189,10 +189,10 @@ fn test_accessors() -> result<void, string> {
 
 fn test_modify_object() -> result<void, string> {
     let v = parse("{\"a\": 1}")?
-    v.set("b", .Number(2.0))
-    check(v.get("b").as_number()! == 2.0, "set new key")?
-    v.set("a", .Number(99.0))
-    check(v.get("a").as_number()! == 99.0, "set updates existing")?
+    v["b"] = .Number(2.0)
+    check(v["b"].as_number()! == 2.0, "index_set new key")?
+    v["a"] = .Number(99.0)
+    check(v["a"].as_number()! == 99.0, "index_set updates existing")?
     check(v.remove("a"), "remove returns true for present key")?
     check(v.try_get("a").is_none(), "remove deletes key")?
     check(not v.remove("missing"), "remove returns false for missing key")?
@@ -241,9 +241,9 @@ fn test_unicode_escapes() -> result<void, string> {
 fn test_constructors() -> result<void, string> {
     let obj = JsonValue.object()
     check(obj.as_object()!.len() == 0, "object() is empty")?
-    obj.set("name", .Str("abra"))
-    obj.set("count", .Number(3.0))
-    check(obj.get("name").as_string()! == "abra", "set on constructed object")?
+    obj["name"] = .Str("abra")
+    obj["count"] = .Number(3.0)
+    check(obj["name"].as_string()! == "abra", "index_set on constructed object")?
     check(stringify(obj).contains("\"name\":\"abra\""), "stringify constructed object")?
 
     let arr = JsonValue.array()
@@ -257,17 +257,17 @@ fn test_constructors() -> result<void, string> {
 
 fn test_modify_nested() -> result<void, string> {
     let v = parse("{\"items\": [1, 2], \"meta\": {\"count\": 0}}")?
-    // mutate nested object
-    v.get("meta").set("count", .Number(2.0))
-    check(v.get("meta").get("count").as_number()! == 2.0, "nested object set")?
+    // mutate nested object via chained index
+    v["meta"]["count"] = .Number(2.0)
+    check(v["meta"]["count"].as_number()! == 2.0, "nested object index_set")?
     // mutate nested array
-    v.get("items").push(.Number(3.0))
-    check(v.get("items").as_array()!.len() == 3, "nested array push")?
-    check(v.get("items").at(2).as_number()! == 3.0, "nested array push value")?
+    v["items"].push(.Number(3.0))
+    check(v["items"].as_array()!.len() == 3, "nested array push")?
+    check(v["items"].at(2).as_number()! == 3.0, "nested array push value")?
     // verify changes survive stringify
     let s = stringify(v)
     let reparsed = parse(s)?
-    check(reparsed.get("meta").get("count").as_number()! == 2.0, "roundtrip after mutation")?
-    check(reparsed.get("items").as_array()!.len() == 3, "roundtrip array length")?
+    check(reparsed["meta"]["count"].as_number()! == 2.0, "roundtrip after mutation")?
+    check(reparsed["items"].as_array()!.len() == 3, "roundtrip array length")?
     .ok(nil)
 }

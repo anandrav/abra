@@ -20,13 +20,6 @@ extend JsonValue {
         .Array(arr)
     }
 
-    fn get(self, key: string) -> JsonValue {
-        match self {
-            .Object(m) -> m.get(key)
-            _ -> panic("json: get() called on non-object")
-        }
-    }
-
     fn try_get(self, key: string) -> option<JsonValue> {
         match self {
             .Object(m) -> m.try_get(key)
@@ -38,6 +31,15 @@ extend JsonValue {
         match self {
             .Array(arr) -> arr[index]
             _ -> panic("json: at() called on non-array")
+        }
+    }
+
+    fn set_at(self, index: int, value: JsonValue) {
+        match self {
+            .Array(arr) -> {
+                arr[index] = value
+            }
+            _ -> panic("json: set_at() called on non-array")
         }
     }
 
@@ -83,26 +85,10 @@ extend JsonValue {
         }
     }
 
-    fn set(self, key: string, value: JsonValue) {
-        match self {
-            .Object(m) -> m.insert(key, value)
-            _ -> panic("json: set() called on non-object")
-        }
-    }
-
     fn remove(self, key: string) -> bool {
         match self {
             .Object(m) -> m.remove(key)
             _ -> panic("json: remove() called on non-object")
-        }
-    }
-
-    fn set_at(self, index: int, value: JsonValue) {
-        match self {
-            .Array(arr) -> {
-                arr[index] = value
-            }
-            _ -> panic("json: set_at() called on non-array")
         }
     }
 
@@ -126,6 +112,22 @@ extend JsonValue {
                 nil
             }
             _ -> panic("json: remove_at() called on non-array")
+        }
+    }
+}
+
+implement Index for JsonValue {
+    fn index_get(self, index: string) -> JsonValue {
+        match self {
+            .Object(m) -> m.get(index)
+            _ -> panic("json: indexed non-object")
+        }
+    }
+
+    fn index_set(self, index: string, val: JsonValue) -> void {
+        match self {
+            .Object(m) -> m.insert(index, val)
+            _ -> panic("json: indexed non-object")
         }
     }
 }
