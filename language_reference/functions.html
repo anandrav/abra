@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-ca073505.js";
+            window.path_to_searchindex_js = "../searchindex-f197b32e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -179,7 +179,7 @@
                     <main>
                         <h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
 <p>A function is a reusable piece of code that takes zero or more inputs and has a single output.</p>
-<pre><code>fn distance(x1, x2, x2, y2) {
+<pre><code>fn distance(x1, y1, x2, y2) {
     sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 }
 </code></pre>
@@ -202,7 +202,7 @@ If a function’s body doesn’t have a last expression, the function returns <c
 }
 
 fn display_message() -&gt; void {
-    for n in range(5) {     // last statement is a for loop. No return value
+    for n in 5 {            // last statement is a for loop. No return value
         println(n)
     }
 }
@@ -210,7 +210,7 @@ fn display_message() -&gt; void {
 <p>For convenience, if a function body is just a single expression, the body can be written after an equal sign <code>=</code> instead
 of
 being wrapped in a curly brace block:</p>
-<pre><code>fn distance(x1, x2, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+<pre><code>fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 </code></pre>
 
                     </main>

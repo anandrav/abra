@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-ca073505.js";
+            window.path_to_searchindex_js = "../searchindex-f197b32e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -192,11 +192,13 @@ single Rust project for every toplevel namespace that contains foreign function 
 For example, implementing a foreign function in <code>os.abra</code> (os is under the root namespace) should be done in
 <code>os/rust_project/src/os.rs</code>.
 Implementing a foreign function in <code>os/exec.abra</code>, which is under the os/ namespace, should be done in
-<code>os/rust_project/src/os/exec.abra</code> – the same Rust project.</p>
+<code>os/rust_project/src/os/exec.rs</code> – the same Rust project.</p>
 <p>os.abra</p>
-<pre><code>foreign fn fread(path: string) -&gt; string
+<pre><code>#foreign
+fn fread(path: string) -&gt; string
 
-foreign fn fwrite(path: string, contents: string) -&gt; string
+#foreign
+fn fwrite(path: string, contents: string) -&gt; string
 </code></pre>
 <p>os/rust_project/Cargo.toml</p>
 <pre><code>[package]
@@ -212,7 +214,7 @@ abra_core = { workspace = true }
 </code></pre>
 <p>os/rust_project/build.rs</p>
 <pre><code>fn main() {
-    abra_core::addons::generate_bindings_for_crate();
+    abra_core::foreign_bindings::generate_bindings_for_crate();
 }
 </code></pre>
 <p>os/rust_project/src/lib.rs (automatically generated)</p>

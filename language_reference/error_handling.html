@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-ca073505.js";
+            window.path_to_searchindex_js = "../searchindex-f197b32e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-d15d289f.js"></script>
@@ -180,11 +180,11 @@
                         <h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
 <p>It is recommended to use the <code>option</code> type defined in the standard library as a return type for functions that can fail.</p>
 <pre><code>type option&lt;T&gt; =
-  | some of T
+  | some(T)
   | none
 </code></pre>
 <pre><code>fn safe_divide(a: float, b: float) -&gt; option&lt;float&gt; {
-    if b = 0.0 {
+    if b == 0.0 {
         .none
     } else {
         .some(a / b)

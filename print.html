@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-ca073505.js";
+            window.path_to_searchindex_js = "searchindex-f197b32e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d15d289f.js"></script>
@@ -307,8 +307,8 @@ let coordinate_3d = (1.0, 2.0, -3.0)
 let name_and_age = ("Lancelot", 19)
 </code></pre>
 <h3 id="void"><a class="header" href="#void">void</a></h3>
-<p>Represents nothing and only has one value – <code>()</code>.
-This is useful as a return type for functions that donT return anything.
+<p>Represents nothing and only has one value – <code>nil</code>.
+This is useful as a return type for functions that don’t return anything.
 This is sometimes referred to as the “unit type” in other languages because it has a single value.</p>
 <h3 id="never"><a class="header" href="#never">never</a></h3>
 <p>The never type has zero values.
@@ -406,7 +406,7 @@ println(sum)
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
 <p>A function is a reusable piece of code that takes zero or more inputs and has a single output.</p>
-<pre><code>fn distance(x1, x2, x2, y2) {
+<pre><code>fn distance(x1, y1, x2, y2) {
     sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 }
 </code></pre>
@@ -429,7 +429,7 @@ If a function’s body doesn’t have a last expression, the function returns <c
 }
 
 fn display_message() -&gt; void {
-    for n in range(5) {     // last statement is a for loop. No return value
+    for n in 5 {            // last statement is a for loop. No return value
         println(n)
     }
 }
@@ -437,7 +437,7 @@ fn display_message() -&gt; void {
 <p>For convenience, if a function body is just a single expression, the body can be written after an equal sign <code>=</code> instead
 of
 being wrapped in a curly brace block:</p>
-<pre><code>fn distance(x1, x2, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+<pre><code>fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
@@ -542,8 +542,8 @@ In that case, the first argument to the function is passed in the parentheses.</
 let name = Person.fullname(p)
 
 let arr = [1, 2, 3, 4]
-array.push(arr)
-let l = array.len(arr) // 6
+array.push(arr, 5)
+let l = array.len(arr) // 5
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="interfaces"><a class="header" href="#interfaces">Interfaces</a></h1>
@@ -553,7 +553,7 @@ As an example, the <code>Num</code> interface supports the <code>add()</code>, <
 The Number interface is implemented by both the <code>int</code> and <code>float</code> built-in types.</p>
 <pre><code>// support conversion to string
 interface ToString {
-    fn str(x: self) -&gt; string
+    fn str(self) -&gt; string
 }
 
 type Person = {
@@ -564,15 +564,15 @@ type Person = {
 
 // support conversion to string for the Person type
 implement ToString for Person {
-    fn str(x: Person) -&gt; string {
-        x.first_name .. " " .. x.last_name .. ", " x.age .. " years old."
+    fn str(self) -&gt; string {
+        self.first_name .. " " .. self.last_name .. ", " .. self.age .. " years old."
     }
 }
 
 ...
 
 let p = Person("Arthur", "Pendragon", 15)
-let s = p.str() // "Arthur Pendragon 15"
+let s = p.str() // "Arthur Pendragon, 15 years old."
 
 </code></pre>
 <h3 id="standard-library-interfaces"><a class="header" href="#standard-library-interfaces">Standard library interfaces</a></h3>
@@ -593,11 +593,11 @@ let arr2 = arr.clone()
 arr2.pop()
 arr2.pop()
 arr2.pop()
-// arr = [1, 2, 3] and arr = []
+// arr = [1, 2, 3] and arr2 = []
 </code></pre>
 <h4 id="equal"><a class="header" href="#equal">Equal</a></h4>
 <p>The <code>Equal</code> interface is used to compare values for equality.
-Types which implement the <code>Equal</code> interface can be compared for equality using the <code>=</code> operator.</p>
+Types which implement the <code>Equal</code> interface can be compared for equality using the <code>==</code> operator.</p>
 <h4 id="num"><a class="header" href="#num">Num</a></h4>
 <p>The <code>Num</code> interface is used for <code>int</code> and <code>float</code>.
 Types which implement the <code>Num</code> interface can use the arithmetic operators.</p>
@@ -613,24 +613,24 @@ the <code>Iterator</code> interface. In the case of <code>array&lt;T&gt;</code>,
 <p>Output types are used when the output of an interface’s operations are determined by the type of the input.
 For instance, when implementing the <code>Iterable</code> interface, different container types will output different
 iterator types.
-For example, <code>array&lt;T&gt;</code> returns an <code>ArrayIterator&lt;T&gt;</code>, whereas a <code>hashmap&lt;K,V&gt;</code> would return a
-<code>HashmapIterator&lt;K,V&gt;</code>, which is a completely different struct.
-Similarly, a <code>StringIterator</code>, when implementing the <code>Iterator</code> interface, would always return a <code>maybe&lt;char,void&gt;</code>, so
-<code>Item</code> = <code>char</code> in that case.</p>
-<p>Without output types, interfaces like <code>Iterable</code> would have to be parameterized over <code>Item</code> and <code>Iter</code>,
+For example, <code>array&lt;T&gt;</code> returns an <code>ArrayIterator&lt;T&gt;</code>, whereas a <code>map&lt;K,V&gt;</code> would return a
+<code>MapIterator&lt;K,V&gt;</code>, which is a completely different struct.
+Similarly, a <code>StringIterator</code>, when implementing the <code>Iterator</code> interface, would always return an <code>option&lt;string&gt;</code>, so
+<code>IteratorItem</code> = <code>string</code> in that case.</p>
+<p>Without output types, interfaces like <code>Iterable</code> would have to be parameterized over <code>IterableItem</code> and <code>Iter</code>,
 which would require much more type annotations. This would also impede language features like operator overloading and
 the <code>for-in</code> loop, which lean on interfaces in the prelude such as <code>Iterable</code> and <code>Iterator</code>.</p>
 <pre><code>interface Iterable {
-    outputtype Item
-    outputtype Iter impl Iterator&lt;Item=Item&gt;
+    outputtype IterableItem
+    outputtype Iter impl Iterator&lt;IteratorItem=IterableItem&gt;
 
-    fn make_iterator: (Self) -&gt; Iter
+    fn make_iterator(self) -&gt; Iter
 }
 
 interface Iterator {
-    outputtype Item
+    outputtype IteratorItem
 
-    fn next: (Self) -&gt; maybe&lt;Item,void&gt;
+    fn next(self) -&gt; option&lt;IteratorItem&gt;
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -638,11 +638,11 @@ interface Iterator {
 <h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
 <p>It is recommended to use the <code>option</code> type defined in the standard library as a return type for functions that can fail.</p>
 <pre><code>type option&lt;T&gt; =
-  | some of T
+  | some(T)
   | none
 </code></pre>
 <pre><code>fn safe_divide(a: float, b: float) -&gt; option&lt;float&gt; {
-    if b = 0.0 {
+    if b == 0.0 {
         .none
     } else {
         .some(a / b)
@@ -762,11 +762,13 @@ single Rust project for every toplevel namespace that contains foreign function 
 For example, implementing a foreign function in <code>os.abra</code> (os is under the root namespace) should be done in
 <code>os/rust_project/src/os.rs</code>.
 Implementing a foreign function in <code>os/exec.abra</code>, which is under the os/ namespace, should be done in
-<code>os/rust_project/src/os/exec.abra</code> – the same Rust project.</p>
+<code>os/rust_project/src/os/exec.rs</code> – the same Rust project.</p>
 <p>os.abra</p>
-<pre><code>foreign fn fread(path: string) -&gt; string
+<pre><code>#foreign
+fn fread(path: string) -&gt; string
 
-foreign fn fwrite(path: string, contents: string) -&gt; string
+#foreign
+fn fwrite(path: string, contents: string) -&gt; string
 </code></pre>
 <p>os/rust_project/Cargo.toml</p>
 <pre><code>[package]
@@ -782,7 +784,7 @@ abra_core = { workspace = true }
 </code></pre>
 <p>os/rust_project/build.rs</p>
 <pre><code>fn main() {
-    abra_core::addons::generate_bindings_for_crate();
+    abra_core::foreign_bindings::generate_bindings_for_crate();
 }
 </code></pre>
 <p>os/rust_project/src/lib.rs (automatically generated)</p>
