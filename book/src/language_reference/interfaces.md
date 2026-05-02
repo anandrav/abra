@@ -1,13 +1,14 @@
 # Interfaces
 
-An interface is a set of operations supported by some type named `self`.
+An interface is a contract: a set of methods that a type can support. Once a type implements an interface, you can use it anywhere that interface is required. If you've used traits in Rust or typeclasses in Haskell, this should feel familiar.
 
-A type implements an interface if it supports all its operations.
-As an example, the `Num` interface supports the `add()`, `subtract()`, `multiply()`, `divide()`, and `power()` operations.
-The Number interface is implemented by both the `int` and `float` built-in types.
+A simple example: the `ToString` interface says "I know how to convert myself to a string". Lots of types implement it — `int`, `bool`, `array<T>`, and so on. That's why `println` and the `..` operator can take values of any of those types.
+
+### Implementing an interface
+
+Define an interface with `interface`. Implement it for a specific type with `implement`.
 
 ```
-// support conversion to string
 interface ToString {
     fn str(self) -> string
 }
@@ -18,39 +19,55 @@ type Person = {
     age: int
 }
 
-// support conversion to string for the Person type
 implement ToString for Person {
     fn str(self) -> string {
-        self.first_name .. " " .. self.last_name .. ", " .. self.age .. " years old."
+        self.first_name .. " " .. self.last_name .. ", " .. self.age
     }
 }
 
-...
-
 let p = Person("Arthur", "Pendragon", 15)
-let s = p.str() // "Arthur Pendragon, 15 years old."
-
+println(p.str())     // "Arthur Pendragon, 15"
+println("Hi, " .. p) // "Hi, Arthur Pendragon, 15" — `..` uses ToString
 ```
 
-### Standard library interfaces
+The first parameter is `self` and refers to the value the method is called on. You don't need to write its type — it's inferred to be the type you're implementing for.
 
-#### ToString
+## Interfaces in the prelude
 
-The ToString interface allows you to convert some type to a string.
-Any type which implements the ToString interface can be passed as an argument to the `..` operator.
+Abra's prelude defines a handful of interfaces that the language itself relies on. Implementing them makes your types work with familiar syntax — operators, `for` loops, indexing, and so on.
+
+### ToString
+
+Convert a value to a string. The `..` operator and `println` use this:
 
 ```
 let arr = [1, 2, 3]
-let arr_str = arr.str()         // arr_str = "[1, 2, 3]"
-let age = 23
-let name = "John"
-println(name .. " is " .. age)    // prints "John is 23"
+println("got " .. arr)         // "got [ 1, 2, 3 ]"
 ```
 
-#### Clone
+### Equal
 
-The clone interface allows you to create a deep copy of some data structure.
-For instance, cloning an array allows you to manipulate its copy without manipulating the original.
+Compare two values for equality with `==` and `!=`. Implement it on your own type to make it comparable:
+
+```
+implement Equal for Point {
+    fn equal(a, b) {
+        a.x == b.x and a.y == b.y
+    }
+}
+```
+
+### Ord
+
+Defines `<`, `<=`, `>`, `>=`. Required by methods like `array.sort()`.
+
+### Num
+
+Powers `+`, `-`, `*`, `/`, `^`. Implemented for `int` and `float`. (You usually wouldn't implement this for your own types, but you can.)
+
+### Clone
+
+Make a deep copy of a value:
 
 ```
 let arr = [1, 2, 3]
@@ -58,44 +75,33 @@ let arr2 = arr.clone()
 arr2.pop()
 arr2.pop()
 arr2.pop()
-// arr = [1, 2, 3] and arr2 = []
+// arr  = [1, 2, 3]
+// arr2 = []
 ```
 
-#### Equal
+### Hash
 
-The `Equal` interface is used to compare values for equality.
-Types which implement the `Equal` interface can be compared for equality using the `==` operator.
+Required for any type used as a map or set key.
 
-#### Num
+### Iterable and Iterator
 
-The `Num` interface is used for `int` and `float`.
-Types which implement the `Num` interface can use the arithmetic operators.
+Make your type usable in a `for` loop. `Iterable` produces an `Iterator`, which yields one value at a time. The built-in `array<T>`, `range`, and `int` all implement `Iterable` — that's why you can write `for x in [1, 2, 3]` or `for i in 5`.
 
-#### Iterator
+If you want to iterate over a custom container, implement these. See [Output types](#output-types) below for the details.
 
-The `Iterator` interface is implemented by types which traverse over some data structure's elements.
-The `Iterator` interface is used by the `Iterable` interface, but `Iterator` can also be used on its own.
+### Index
 
-#### Iterable
+Powers `x[i]` and `x[i] = v`. Implemented for `array<T>`, `map`, and `JsonValue`.
 
-The `Iterable` interface is implemented for container types in order to iterate through their values.
-Types which implement the Iterable interface can be used in a for loop. Types which implement the `Iterable` interface,
-such as `array<T>`, have an _output type_ which implements
-the `Iterator` interface. In the case of `array<T>`, that iterator type is `ArrayIterator<T>`.
+### Unwrap and Try
 
-### Output types
+Power the `!` and `?` operators. Both are implemented for `option` and `result`.
 
-Output types are used when the output of an interface's operations are determined by the type of the input.
-For instance, when implementing the `Iterable` interface, different container types will output different
-iterator types.
-For example, `array<T>` returns an `ArrayIterator<T>`, whereas a `map<K,V>` would return a
-`MapIterator<K,V>`, which is a completely different struct.
-Similarly, a `StringIterator`, when implementing the `Iterator` interface, would always return an `option<string>`, so
-`IteratorItem` = `string` in that case.
+## Output types
 
-Without output types, interfaces like `Iterable` would have to be parameterized over `IterableItem` and `Iter`,
-which would require much more type annotations. This would also impede language features like operator overloading and
-the `for-in` loop, which lean on interfaces in the prelude such as `Iterable` and `Iterator`.
+Some interfaces have a method whose return type depends on the implementing type. The `Iterable` interface is the classic case — different containers produce different kinds of iterators. An `array<T>` makes an `ArrayIterator<T>`; a hypothetical `tree<T>` would make a `TreeIterator<T>`. They're not the same type, but each one is a valid iterator.
+
+Abra handles this with **output types**. An interface declares one or more `outputtype`s, and each implementation fills them in.
 
 ```
 interface Iterable {
@@ -111,3 +117,5 @@ interface Iterator {
     fn next(self) -> option<IteratorItem>
 }
 ```
+
+Without output types, an interface like `Iterable` would have to be parameterized over both the item type and the iterator type, which would mean a lot more type annotations everywhere it's used.

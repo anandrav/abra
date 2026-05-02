@@ -1,29 +1,23 @@
 # Generics
 
-A generic type or function is one that works with many different types. Generics let you write code once and use it with any concrete type that fits.
-
-### Type variables
-
-A type variable is a placeholder that stands in for some real type. Type variables are written as a single uppercase letter, optionally followed by digits: `T`, `U`, `K`, `V`, `T2`. Identifiers like `Key` or `Item` are not type variables — they are ordinary names.
-
-### Generic functions
-
-A type variable in a function signature lets the function accept any type:
+A generic function or type works with many different types. Instead of writing one `identity` for `int` and another for `string`, write one that works for any type:
 
 ```
 fn identity(x: T) -> T {
     x
 }
 
-let a = identity(5)         // T = int
-let b = identity("hello")   // T = string
+let a = identity(5)         // T is int
+let b = identity("hello")   // T is string
 ```
 
-The type checker infers what `T` is at each call site.
+The `T` is a **type variable** — a placeholder that stands in for whatever real type the caller uses. Abra figures out what `T` should be at each call site.
+
+By convention, type variables are a single uppercase letter, optionally followed by digits: `T`, `U`, `K`, `V`, `T2`. Names like `Item` or `Key` aren't type variables — they'd be parsed as ordinary identifiers.
 
 ### Generic types
 
-Structs and enums can take type parameters in angle brackets:
+Structs and enums can take type parameters too. Put them in angle brackets after the name:
 
 ```
 type Pair<T> = {
@@ -35,25 +29,23 @@ type Either<A, B> =
     | Left(A)
     | Right(B)
 
-let p = Pair(1, 2)              // Pair<int>
+let p = Pair(1, 2)                          // Pair<int>
 let e: Either<string, int> = .Left("oops")
 ```
 
-### Interface constraints
+### Constraints
 
-A type variable can be constrained to types that implement particular interfaces. Constraints are written after the type variable, separated by spaces:
+A generic function can require its type variable to support certain operations. You spell that out with an interface constraint:
 
 ```
 fn max(a: T Ord, b: T) -> T {
     if a > b { a } else { b }
 }
-
-fn print_pair(a: T ToString, b: T) {
-    println(a .. " and " .. b)
-}
 ```
 
-Multiple constraints can be combined:
+The `T Ord` says "any type, as long as it implements `Ord`". This lets you use `>` on `a` and `b` inside the body.
+
+You can list multiple constraints:
 
 ```
 fn find_and_show(arr: array<T Equal ToString>, target: T) {
@@ -63,20 +55,20 @@ fn find_and_show(arr: array<T Equal ToString>, target: T) {
 }
 ```
 
-The constraint applies to the type variable. Once you've constrained `T` once, you don't need to repeat the constraint on every parameter that uses `T`.
+You only need to write the constraint once. Other parameters that mention the same `T` automatically get the same constraints.
 
-### Wildcard `_` in type annotations
+### Wildcards in type annotations
 
-When you only want to fix part of a generic type, write `_` for the parts the compiler should infer:
+Sometimes you only want to fix part of a generic type and let the compiler figure out the rest. Use `_` for the parts to infer:
 
 ```
 use core/map
 
-let m: map<_, string> = map.new()  // key type inferred from later usage
+let m: map<_, string> = map.new()    // key type filled in below
 m.insert(1, "hello")
 m.insert(2, "world")
 ```
 
-### Monomorphization
+### Performance
 
-Each concrete instantiation of a generic function gets its own compiled copy. There is no runtime overhead for using generics.
+Each combination of type arguments gets its own compiled copy of the function — there's no runtime cost to using generics. (This is called *monomorphization* if you want a name for it.)

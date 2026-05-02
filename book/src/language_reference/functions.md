@@ -1,6 +1,6 @@
 # Functions
 
-A function is a reusable piece of code that takes zero or more inputs and has a single output.
+A function packages up a piece of work so you can call it by name. Declare one with `fn`:
 
 ```
 fn distance(x1, y1, x2, y2) {
@@ -8,47 +8,81 @@ fn distance(x1, y1, x2, y2) {
 }
 ```
 
-Functions can be recursive.
+Calls look like in most languages:
+
+```
+let d = distance(0.0, 0.0, 3.0, 4.0)   // 5.0
+```
+
+### Parameter and return types
+
+Parameter types are usually inferred. You can annotate them when you want to be explicit, and add a return type with `->`:
+
+```
+fn double(x: int) -> int {
+    x * 2
+}
+```
+
+### Recursion
+
+Functions can call themselves:
 
 ```
 fn fibonacci(n: int) -> int {
     if n < 2 {
         n
     } else {
-        fibonacci(n-2) + fibonacci(n-1) // recursive calls to fibonacci()
+        fibonacci(n - 2) + fibonacci(n - 1)
     }
 }
 ```
 
-The last expression in the body of the function is the return value. You can also return early from a function.
-If a function's body doesn't have a last expression, the function returns `void`, which means it returns `nil` which is nothing.
+### Returning values
+
+The last expression in the body is the return value — no `return` keyword needed:
+
+```
+fn double(x: int) -> int {
+    x * 2
+}
+```
+
+Use `return` for an early exit:
 
 ```
 fn fibonacci(n: int) -> int {
     if n <= 1 {
-        return n            // early return
+        return n
     }
-    fib(n-2) + fib(n-1)     // last expression is return value
+    fibonacci(n - 2) + fibonacci(n - 1)
 }
+```
 
-fn display_message() -> void {
-    for n in 5 {            // last statement is a for loop. No return value
+A function with no final expression returns `void` (which is `nil`):
+
+```
+fn display_message() {
+    for n in 5 {
         println(n)
     }
+    // implicitly returns nil
 }
 ```
 
-For convenience, if a function body is just a single expression, the body can be written after an equal sign `=` instead
-of
-being wrapped in a curly brace block:
+### Expression-bodied functions
+
+When the whole function is a single expression, write it after `=` instead of in a block:
 
 ```
+fn square(x: int) -> int = x * x
+
 fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 ```
 
 ### Default arguments
 
-A parameter can be given a default value with `=`. Callers can omit any trailing argument that has a default.
+A parameter can have a default value. Callers can leave any trailing argument off:
 
 ```
 fn greet(name: string, greeting: string = "Hello") {
@@ -61,7 +95,7 @@ greet("Bob", "Howdy")       // "Howdy, Bob"
 
 ### Named arguments
 
-At a call site, you can pass an argument by name with `=`. This is useful when a function takes several parameters with defaults and you want to override one in the middle.
+You can pass an argument by its parameter name. This lets you skip past parameters that have defaults:
 
 ```
 fn greet(name: string, greeting: string = "Hello", excited: bool = false) {
@@ -69,8 +103,8 @@ fn greet(name: string, greeting: string = "Hello", excited: bool = false) {
     println(greeting .. ", " .. name .. punct)
 }
 
-greet("Carol", excited = true)              // "Hello, Carol!"
+greet("Carol", excited = true)                  // "Hello, Carol!"
 greet("Dave", greeting = "Hi", excited = true)
 ```
 
-Named arguments must come after all positional arguments at the call site.
+Named arguments must come after all positional arguments.

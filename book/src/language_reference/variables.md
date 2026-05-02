@@ -1,29 +1,37 @@
 # Variables
 
-Variables can be created using the `let` keyword.
+A variable holds a value. Use `let` for a constant, and `var` for a mutable variable.
 
 ```
 let x = 5
-let y = 8
+let pi = 3.14159
+let name = "Merlin"
 ```
 
-Mutable variables can be created using the `var` keyword.
-Their value can be updated using the assignment `=` operator.
+A `var` can be reassigned with `=`:
 
 ```
-var x = 5       // x = 5
-x = 6          // x = 6
-let y = x + x   // y = 12
+var score = 0
+score = 10
+score = score + 5    // 15
 ```
 
-Variables can be given type annotations. For convenience, they are often not required.
+Trying to reassign a `let` is a compile error — that's the point. Reach for `var` only when you actually need mutation.
 
-In some situations, type annotations are required, for instance when writing code with generic types, invoking member
-functions, or accessing struct fields. They also help the compiler give more tailored error messages in case you make a
-mistake.
+### Type annotations
+
+Most of the time you don't need to annotate the type — Abra figures it out from the value you assign:
+
+```
+let x = 5         // x is int
+let pi = 3.14     // pi is float
+let yes = true    // yes is bool
+```
+
+When you do want to be explicit (or when the compiler can't tell), put the type after a colon:
 
 ```
 let x: int = 2
-let y: float = 3.14
+let pi: float = 3.14
 let p: (int, int) = (1, 2)
 ```

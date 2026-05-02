@@ -1,10 +1,12 @@
 # Foreign Functions
 
-Functions implemented in Rust can be called from Abra. These are called *foreign functions*. Use them to expose system capabilities (file I/O, networking, hardware access) or performance-critical code that you'd rather write in Rust.
+Sometimes you want to do something Abra can't do on its own — talk to the file system, send a network request, or run code that needs to be as fast as possible. Foreign functions let you call Rust from Abra.
+
+The flow looks like this: you write the function signature in Abra, then write the actual implementation as a normal safe Rust function. A build script wires the two together.
 
 ## Declaring a foreign function
 
-In an Abra file, declare a foreign function using the `#foreign` attribute. The declaration has no body — the implementation lives in Rust.
+In an Abra file, mark a function with `#foreign` and leave the body off:
 
 ```
 // in os.abra
@@ -15,13 +17,11 @@ fn fread(path: string) -> string
 fn fwrite(path: string, contents: string) -> void
 ```
 
-The Abra type signature determines the Rust signature of the corresponding implementation.
+That's all the Abra side looks like. The compiler trusts that an implementation will exist at runtime.
 
 ## Project layout
 
-For each top-level namespace that has any foreign declarations, there must be a single Rust project beside the Abra modules. The project lives in a directory called `rust_project/` inside the namespace.
-
-For example, if your top-level namespace is `os`, the layout is:
+Each top-level namespace that has foreign declarations gets one Rust project, in a `rust_project/` directory next to the Abra modules. So if your top-level namespace is `os`, the layout looks like this:
 
 ```
 - os.abra
@@ -38,11 +38,11 @@ For example, if your top-level namespace is `os`, the layout is:
             - os.rs               (impl for os.abra)
 ```
 
-A foreign function declared in `os.abra` is implemented in `rust_project/src/os.rs`. A foreign function declared in `os/exec.abra` is implemented in `rust_project/src/os/exec.rs`. The Rust file path mirrors the Abra file path.
+The Rust file path mirrors the Abra file path. A foreign function in `os.abra` is implemented in `rust_project/src/os.rs`; one in `os/exec.abra` lives in `rust_project/src/os/exec.rs`.
 
 ## Cargo.toml
 
-The Rust project must be a `cdylib` so it can be loaded at runtime via `dlopen`. It depends on `abra_core` both as a normal dependency and as a build dependency.
+The Rust project produces a `cdylib` so the Abra runtime can load it dynamically. It depends on `abra_core` both as a regular dependency and as a build dependency:
 
 ```toml
 [package]
@@ -62,7 +62,7 @@ abra_core = { workspace = true }
 
 ## build.rs
 
-The build script calls into `abra_core` to generate the FFI glue (the unsafe code that pops arguments off the VM stack, calls your safe Rust function, and pushes the result back).
+The build script reads your `.abra` files, finds the `#foreign` declarations, and generates the unsafe glue code that bridges the VM to your safe Rust functions. You only need one line:
 
 ```rust
 fn main() {
@@ -70,21 +70,19 @@ fn main() {
 }
 ```
 
-This reads every `.abra` file alongside the Rust project, finds the `#foreign` declarations, and emits a `lib.rs` into the build's `OUT_DIR`.
-
 ## src/lib.rs
 
-`lib.rs` is just one line — it pulls in the generated glue:
+`lib.rs` just pulls in the generated glue:
 
 ```rust
 include!(concat!(env!("OUT_DIR"), "/lib.rs"));
 ```
 
-You should not edit this file.
+You don't edit this file.
 
-## Writing the implementations
+## Writing the implementation
 
-Implement each foreign function as an ordinary safe Rust function. The function name and parameter types must match the Abra declaration.
+Write each foreign function as an ordinary safe Rust function. The name and parameter types match the Abra declaration:
 
 ```rust
 // in src/os.rs
@@ -101,6 +99,8 @@ pub fn fwrite(path: String, contents: String) {
 
 ### Type mapping
 
+Here's how Abra types correspond to Rust types in your function signatures:
+
 | Abra type             | Rust type                                |
 |-----------------------|------------------------------------------|
 | `int`                 | `abra_core::vm::AbraInt` (i64)           |
@@ -116,7 +116,7 @@ pub fn fwrite(path: String, contents: String) {
 
 ### Foreign types
 
-You can also declare foreign types — Abra types whose representation is generated to match a Rust type. Use `#foreign` on a `type` declaration:
+You can also share a custom type between Abra and Rust. Mark a `type` declaration with `#foreign`, and the build script generates a matching Rust enum or struct:
 
 ```
 #foreign
@@ -126,7 +126,7 @@ type FsError =
     | Other(string)
 ```
 
-The build script generates a matching Rust enum. You import it from the generated module and return it from your safe Rust functions:
+Import it from the generated module and use it in your function signatures:
 
 ```rust
 use crate::ffi::core::fs::FsError;
@@ -144,8 +144,8 @@ Build the native module with cargo:
 cargo build --package abra_module_os
 ```
 
-The resulting `cdylib` is loaded at runtime when the Abra program first calls one of its foreign functions.
+The Abra runtime loads the resulting `cdylib` the first time your program calls one of its foreign functions.
 
 ## Host functions
 
-A related attribute, `#host`, marks a function as one that the embedding runtime provides directly (rather than being loaded from a `cdylib`). The prelude uses this for `print_string`, `readline`, and `get_args`. Most users don't write `#host` functions — they're a hook for programs that embed the Abra VM as a library and need to expose custom callbacks.
+There's a related attribute, `#host`, for functions provided directly by the runtime that's running your Abra program (rather than loaded from a `cdylib`). The prelude uses this for `print_string`, `readline`, and `get_args`. Most users never need to write `#host` functions — they're a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.
