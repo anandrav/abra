@@ -1,0 +1,29 @@
+use core/map
+
+type set<T> = {
+    inner: map<T, void>
+}
+
+extend set<T> {
+    fn new() -> set<T> {
+        set(map.new())
+    }
+}
+
+extend set<T Hash Equal> {
+    fn len(self) -> int {
+        self.inner.len()
+    }
+
+    fn insert(self, item: T) -> void {
+        self.inner.insert(item, nil)
+    }
+
+    fn contains(self, item: T) -> bool {
+        self.inner.contains(item)
+    }
+
+    fn remove(self, item: T) -> bool {
+        self.inner.remove(item)
+    }
+}

@@ -1,0 +1,104 @@
+use core/set
+use test_runner
+
+let t = TestRunner.new("set")
+t.run("new", test_new())
+t.run("insert_contains", test_insert_contains())
+t.run("insert_duplicate", test_insert_duplicate())
+t.run("remove", test_remove())
+t.run("remove_then_reinsert", test_remove_then_reinsert())
+t.run("len_tracks_ops", test_len_tracks_ops())
+t.run("many_items", test_many_items())
+t.run("string_items", test_string_items())
+t.finish()
+
+fn test_new() -> result<void, string> {
+    let s: set<int> = set.new()
+    check(s.len() == 0, "new set has len 0")?
+    check(not s.contains(1), "new set does not contain anything")?
+    .ok(nil)
+}
+
+fn test_insert_contains() -> result<void, string> {
+    let s: set<int> = set.new()
+    s.insert(1)
+    s.insert(2)
+    check(s.len() == 2, "len is 2 after two inserts")?
+    check(s.contains(1), "contains inserted item")?
+    check(s.contains(2), "contains second inserted item")?
+    check(not s.contains(3), "does not contain absent item")?
+    .ok(nil)
+}
+
+fn test_insert_duplicate() -> result<void, string> {
+    let s: set<int> = set.new()
+    s.insert(1)
+    s.insert(1)
+    check(s.len() == 1, "len stays 1 after duplicate insert")?
+    check(s.contains(1), "still contains item")?
+    .ok(nil)
+}
+
+fn test_remove() -> result<void, string> {
+    let s: set<int> = set.new()
+    check(not s.remove(1), "remove on empty set returns false")?
+    s.insert(1)
+    s.insert(2)
+    check(not s.remove(99), "remove returns false for absent item")?
+    check(s.len() == 2, "len unchanged after failed remove")?
+    check(s.remove(1), "remove returns true for present item")?
+    check(s.len() == 1, "len decreases after remove")?
+    check(not s.contains(1), "removed item no longer present")?
+    check(s.contains(2), "other item still present")?
+    .ok(nil)
+}
+
+fn test_remove_then_reinsert() -> result<void, string> {
+    let s: set<int> = set.new()
+    s.insert(1)
+    s.remove(1)
+    s.insert(1)
+    check(s.len() == 1, "len is 1 after remove and reinsert")?
+    check(s.contains(1), "contains reinserted item")?
+    .ok(nil)
+}
+
+fn test_len_tracks_ops() -> result<void, string> {
+    let s: set<int> = set.new()
+    check(s.len() == 0, "len 0 initially")?
+    s.insert(1)
+    check(s.len() == 1, "len 1 after first insert")?
+    s.insert(2)
+    check(s.len() == 2, "len 2 after second insert")?
+    s.insert(1)
+    check(s.len() == 2, "len unchanged after duplicate insert")?
+    s.remove(1)
+    check(s.len() == 1, "len decreases after remove")?
+    s.remove(2)
+    check(s.len() == 0, "len 0 after removing all")?
+    .ok(nil)
+}
+
+fn test_many_items() -> result<void, string> {
+    let s: set<int> = set.new()
+    for i in 30 {
+        s.insert(i)
+    }
+    check(s.len() == 30, "len is 30 after 30 inserts")?
+    for i in 30 {
+        check(s.contains(i), "contains item across resizes")?
+    }
+    check(not s.contains(30), "does not contain out-of-range item")?
+    .ok(nil)
+}
+
+fn test_string_items() -> result<void, string> {
+    let s: set<string> = set.new()
+    s.insert("hello")
+    s.insert("world")
+    check(s.len() == 2, "len 2 with string items")?
+    check(s.contains("hello"), "contains string item")?
+    check(s.contains("world"), "contains second string item")?
+    check(not s.contains("missing"), "does not contain absent string")?
+    .ok(nil)
+}
