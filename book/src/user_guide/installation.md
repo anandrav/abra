@@ -8,18 +8,17 @@ cd abra
 ./scripts/install
 ```
 
-This builds the Abra CLI in release mode and installs it via `cargo install` along with the LSP server. It also copies the standard library modules into `~/.abra/abra/`.
+This installs the Abra CLI, the LSP, and the standard library (under `~/.abra/`).
 
-### Install script options
+### Editor support
 
-The install script accepts a few flags:
+The install script can also set up syntax highlighting and language support for your editor:
 
-| Flag           | Effect                                                   |
-|----------------|----------------------------------------------------------|
-| `--quick`      | Use a debug build instead of release (faster to install) |
-| `--vim`        | Install Vim syntax highlighting and ftdetect             |
-| `--vscode`     | Build and install the VS Code extension (requires Node)  |
-| `--intellij`   | Build and install the IntelliJ plugin (requires JDK 21)  |
+| Flag           | Effect                                                  |
+|----------------|---------------------------------------------------------|
+| `--vim`        | Install Vim syntax highlighting and ftdetect            |
+| `--vscode`     | Build and install the VS Code extension (requires Node) |
+| `--intellij`   | Build and install the IntelliJ plugin (requires JDK 21) |
 
 Example:
 
@@ -48,11 +47,6 @@ Additional options:
     -a, --assembly                       Print the assembly for the Abra program
     --debug-log                          Enable internal debug logging (debug builds only)
 ```
-
-By default, `abra` searches for imported modules in:
-1. The directory containing the main file
-2. Any directory passed with `-i` / `--import-dir`
-3. The standard modules directory (`~/.abra/abra/modules` by default; override with `--standard-modules`)
 
 ## Requirements
 
