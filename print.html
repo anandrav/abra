@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-8b41fd48.js";
+            window.path_to_searchindex_js = "searchindex-73185e3e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f43184b7.js"></script>
@@ -703,19 +703,33 @@ let str_ref = Ref("hello")    // Ref&lt;string&gt;
     | Green
     | Blue
 </code></pre>
-<p>Construct a value with leading-dot syntax:</p>
-<pre><code>let c = .Red
+<p>Construct a variant by qualifying it with the enum name:</p>
+<pre><code>let c = Color.Red
 </code></pre>
+<p>When Abra can infer the enum type from context — a type annotation, a function parameter, a comparison against another value of the same enum — you can drop the prefix and write just the variant with a leading dot:</p>
+<pre><code>let c: Color = .Red
+
+fn paint(c: Color) { ... }
+paint(.Green)
+</code></pre>
+<p>If the type can’t be inferred at the call site, the leading-dot form won’t compile and you’ll need to fully qualify the variant.</p>
 <h3 id="variants-with-data"><a class="header" href="#variants-with-data">Variants with data</a></h3>
-<p>Each variant can carry its own data:</p>
+<p>Each variant can carry its own data. Construct one by passing the data as arguments, the same way you’d construct a struct:</p>
 <pre><code>type Shape =
     | Circle(float)
     | Rectangle(float, float)
     | Origin
 
-let c = .Circle(5.0)
-let r = .Rectangle(2.0, 4.0)
-let o = .Origin
+let c = Shape.Circle(5.0)
+let r = Shape.Rectangle(2.0, 4.0)
+let o = Shape.Origin
+</code></pre>
+<p>Or with leading-dot syntax when the type is known from context:</p>
+<pre><code>fn area(s: Shape) -&gt; float { ... }
+
+area(.Circle(5.0))
+area(.Rectangle(2.0, 4.0))
+area(.Origin)
 </code></pre>
 <h3 id="handling-all-the-variants"><a class="header" href="#handling-all-the-variants">Handling all the variants</a></h3>
 <p>Use <code>match</code> to do something different for each case. The compiler checks that you’ve covered every variant, so you can’t forget one:</p>
