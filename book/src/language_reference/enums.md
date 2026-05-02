@@ -9,15 +9,26 @@ type Color =
     | Blue
 ```
 
-Construct a value with leading-dot syntax:
+Construct a variant by qualifying it with the enum name:
 
 ```
-let c = .Red
+let c = Color.Red
 ```
+
+When Abra can infer the enum type from context — a type annotation, a function parameter, a comparison against another value of the same enum — you can drop the prefix and write just the variant with a leading dot:
+
+```
+let c: Color = .Red
+
+fn paint(c: Color) { ... }
+paint(.Green)
+```
+
+If the type can't be inferred at the call site, the leading-dot form won't compile and you'll need to fully qualify the variant.
 
 ### Variants with data
 
-Each variant can carry its own data:
+Each variant can carry its own data. Construct one by passing the data as arguments, the same way you'd construct a struct:
 
 ```
 type Shape =
@@ -25,9 +36,19 @@ type Shape =
     | Rectangle(float, float)
     | Origin
 
-let c = .Circle(5.0)
-let r = .Rectangle(2.0, 4.0)
-let o = .Origin
+let c = Shape.Circle(5.0)
+let r = Shape.Rectangle(2.0, 4.0)
+let o = Shape.Origin
+```
+
+Or with leading-dot syntax when the type is known from context:
+
+```
+fn area(s: Shape) -> float { ... }
+
+area(.Circle(5.0))
+area(.Rectangle(2.0, 4.0))
+area(.Origin)
 ```
 
 ### Handling all the variants
