@@ -83,7 +83,7 @@ fn is_executable(path: string) -> result<bool, FsError>
 
 // Join two path components with the platform separator
 #foreign
-fn join(base: string, child: string) -> string
+fn join_path(base: string, child: string) -> string
 // Return the parent directory of a path, or none for a root/bare name
 #foreign
 fn parent(path: string) -> option<string>

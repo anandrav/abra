@@ -126,7 +126,7 @@ pub fn is_executable(path: String) -> Result<bool, FsError> {
 
 // ── Path manipulation ──
 
-pub fn join(base: String, child: String) -> String {
+pub fn join_path(base: String, child: String) -> String {
     Path::new(&base).join(&child).to_string_lossy().to_string()
 }
 
