@@ -2431,7 +2431,13 @@ fn generate_constraints_expr(
                 ),
             );
             for expr in exprs {
-                generate_constraints_expr(ctx, polyvar_scope, Mode::ana(elem_ty.clone()), expr);
+                if let Mode::Ana { expected, .. } = &mode
+                    && let Some(PotentialType::Nominal(_, Nominal::Array, args)) = expected.single()
+                {
+                    generate_constraints_expr(ctx, polyvar_scope, Mode::ana(args[0].clone()), expr);
+                } else {
+                    generate_constraints_expr(ctx, polyvar_scope, Mode::ana(elem_ty.clone()), expr);
+                }
             }
         }
         ExprKind::Variable(_) => {
