@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-caa3623f.js";
+            window.path_to_searchindex_js = "../searchindex-a07792e4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -183,16 +183,15 @@
 cd abra
 ./scripts/install
 </code></pre>
-<p>This builds the Abra CLI in release mode and installs it via <code>cargo install</code> along with the LSP server. It also copies the standard library modules into <code>~/.abra/abra/</code>.</p>
-<h3 id="install-script-options"><a class="header" href="#install-script-options">Install script options</a></h3>
-<p>The install script accepts a few flags:</p>
+<p>This installs the Abra CLI, the LSP, and the standard library (under <code>~/.abra/</code>).</p>
+<h3 id="editor-support"><a class="header" href="#editor-support">Editor support</a></h3>
+<p>The install script can also set up syntax highlighting and language support for your editor:</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Flag</th><th>Effect</th></tr>
 </thead>
 <tbody>
-<tr><td><code>--quick</code></td><td>Use a debug build instead of release (faster to install)</td></tr>
 <tr><td><code>--vim</code></td><td>Install Vim syntax highlighting and ftdetect</td></tr>
 <tr><td><code>--vscode</code></td><td>Build and install the VS Code extension (requires Node)</td></tr>
 <tr><td><code>--intellij</code></td><td>Build and install the IntelliJ plugin (requires JDK 21)</td></tr>
@@ -220,12 +219,6 @@ Additional options:
     -a, --assembly                       Print the assembly for the Abra program
     --debug-log                          Enable internal debug logging (debug builds only)
 </code></pre>
-<p>By default, <code>abra</code> searches for imported modules in:</p>
-<ol>
-<li>The directory containing the main file</li>
-<li>Any directory passed with <code>-i</code> / <code>--import-dir</code></li>
-<li>The standard modules directory (<code>~/.abra/abra/modules</code> by default; override with <code>--standard-modules</code>)</li>
-</ol>
 <h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <h3 id="cargo"><a class="header" href="#cargo">Cargo</a></h3>
 <p>Cargo, the Rust package manager, is required to run the install script. The recommended way to get Cargo is via <a href="https://www.rust-lang.org/tools/install">rustup</a>.</p>
