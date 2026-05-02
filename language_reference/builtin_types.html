@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-1278c060.js";
+            window.path_to_searchindex_js = "../searchindex-8b41fd48.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -178,72 +178,73 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="built-in-types"><a class="header" href="#built-in-types">Built-in Types</a></h1>
+<p>Abra has a small set of built-in types. Most programs are written using these plus your own structs and enums.</p>
 <h3 id="int"><a class="header" href="#int">int</a></h3>
-<p>A 64-bit signed integer.
-Supports addition, subtraction, multiplication, division, exponentiation, and modulus operators.</p>
+<p>A 64-bit signed integer. The usual arithmetic operators all work on it.</p>
 <pre><code>let a = 5
-let b = 2 + 2   // 4
-let c = 2 * 3   // 6
-let d = 5 - 2   // 3
-let e = 12 / 3  // 4
-let f = 13 / 3  // also 4
-let g = 2 ^ 3   // 8
-let h = g % 6   // 2
-
-let n = (a + c / d) ^ 2 // 49
+let b = 2 + 3       // 5
+let c = 2 * 3       // 6
+let d = 12 / 3      // 4
+let e = 13 / 3      // also 4 — integer division truncates
+let f = 2 ^ 8       // 256 (power)
+let g = 13 % 5      // 3 (modulo)
 </code></pre>
 <h3 id="float"><a class="header" href="#float">float</a></h3>
-<p>A 64-bit signed floating point decimal number.
-Supports addition, subtraction, multiplication, division, and exponentiation operators.</p>
+<p>A 64-bit floating-point number. The same arithmetic operators apply, but you can’t mix <code>int</code> and <code>float</code> directly — convert with <code>int_to_float</code> or <code>float_to_int</code>.</p>
 <pre><code>let pi = 3.14159
-let e = 2.71828
+let area = pi * 2.0 * 2.0
+let n = float_to_int(pi)    // 3
 </code></pre>
-<h3 id="boolean"><a class="header" href="#boolean">boolean</a></h3>
+<h3 id="bool"><a class="header" href="#bool">bool</a></h3>
 <pre><code>let shield_is_equipped = true
 let sword_is_equipped = false
 </code></pre>
+<p>Combine with <code>and</code>, <code>or</code>, and <code>not</code> (see <a href="./operators.html">Operators</a>).</p>
 <h3 id="string"><a class="header" href="#string">string</a></h3>
-<p>Garbage-collected unicode text data.
-Strings can be concatenated together using the <code>..</code> operator to create a new string.</p>
+<p>A garbage-collected, immutable Unicode string. Use the <code>..</code> operator to build new strings out of existing values:</p>
 <pre><code>let name = "Merlin"
-let message = name .. " is a wizard." // "Merlin is a wizard."
+let age = 73
+let message = name .. " is " .. age .. " years old."
+// "Merlin is 73 years old."
 </code></pre>
+<p>For slicing, splitting, searching, and parsing, see the <a href="./standard_library.html#corestrings"><code>core/strings</code></a> module.</p>
 <h3 id="arrayt"><a class="header" href="#arrayt">array&lt;T&gt;</a></h3>
-<p>A built-in dynamic array data structure. Supports random access (zero-indexed), pushing, and popping elements.
-Arrays are homogenous; elements of the array must have the same type i.e. an array cannot mix <code>int</code> and <code>float</code>
-elements, for instance.</p>
-<pre><code>let arr = [1, 2, 3, 4]  // create an array containing some ints
-arr.push(5)             // arr == [1, 2, 3, 4, 5]
-let n = arr.len()       // 5
-let n = arr[2]          // 3
-arr[2] = 49             // arr == [1, 2, 49, 4, 5]
-let n = arr[2]          // 49
-arr.pop()               // arr == [1, 2, 49, 4]
+<p>A growable list of elements that all have the same type. Indexing is zero-based.</p>
+<pre><code>let arr = [1, 2, 3, 4]
+arr.push(5)        // [1, 2, 3, 4, 5]
+arr.len()          // 5
+arr[2]             // 3
+arr[2] = 49        // [1, 2, 49, 4, 5]
+arr.pop()          // [1, 2, 49, 4]
 </code></pre>
+<p>You can’t mix types in one array — <code>[1, 2.0]</code> is an error. Use a tuple if you need different types together.</p>
 <h3 id="tuples"><a class="header" href="#tuples">tuples</a></h3>
-<ul>
-<li><code>(T, U)</code></li>
-<li><code>(T, U, V)</code></li>
-<li>and so on…</li>
-</ul>
-<p>A tuple is 2 or more values grouped together.
-It is sometimes useful to group related values together.
-For instance, a tuple of three floats could be used to represent a coordinate in 3d space.
-Unlike arrays, tuples can have elements of different types.
-Unlike arrays, tuples cannot have elements added or removed.</p>
-<pre><code>let pair_of_ints = (1, 2)
-let coordinate_3d = (1.0, 2.0, -3.0)
-let name_and_age = ("Lancelot", 19)
+<p>A tuple groups a fixed number of values, possibly of different types:</p>
+<pre><code>let pair = (1, 2)
+let coordinate = (1.0, 2.0, -3.0)
+let person = ("Lancelot", 19)
 </code></pre>
+<p>Tuples are useful when you want to return a couple of related things from a function, or store a few related values together without inventing a struct.</p>
+<p>You can pull a tuple apart with destructuring (see <a href="./patterns.html">Patterns</a>):</p>
+<pre><code>let (name, age) = person
+</code></pre>
+<p>The prelude provides equality, comparison, hashing, and <code>ToString</code> for tuples up to size 4.</p>
 <h3 id="void"><a class="header" href="#void">void</a></h3>
-<p>Represents nothing and only has one value – <code>nil</code>.
-This is useful as a return type for functions that don’t return anything.
-This is sometimes referred to as the “unit type” in other languages because it has a single value.</p>
+<p>Represents nothing. Its only value is <code>nil</code>. Functions that don’t return anything meaningful return <code>void</code>:</p>
+<pre><code>fn greet(name: string) {
+    println("Hello, " .. name)
+    // implicitly returns nil
+}
+
+fn maybe_greet(name: string, should_greet: bool) {
+    if not should_greet {
+        return nil      // explicit early return
+    }
+    println("Hello, " .. name)
+}
+</code></pre>
 <h3 id="never"><a class="header" href="#never">never</a></h3>
-<p>The never type has zero values.
-This is useful as a return type for a function which should never return.
-For instance, the built-in <code>panic()</code> function, used to terminate the program in the case of an unrecoverable error, does
-not return a value.</p>
+<p>A type with zero values. It’s the return type of functions that don’t return at all — for example, <code>panic()</code> aborts the program, so its return type is <code>never</code>.</p>
 
                     </main>
 

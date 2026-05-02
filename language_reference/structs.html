@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-1278c060.js";
+            window.path_to_searchindex_js = "../searchindex-8b41fd48.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -178,27 +178,35 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
-<p>Define a <code>struct</code> to group together related pieces of data.</p>
+<p>A struct groups several named fields into one value. Use them when you have a few related pieces of data that belong together — coordinates, user records, configuration, anything where naming the fields makes the code clearer.</p>
 <pre><code>type Person = {
     first_name: string
     last_name: string
     age: int
 }
 </code></pre>
-<p>Create an instance of a struct by calling its constructor, which is a function that shares the same name as the struct.</p>
+<p>Construct an instance by calling the type name like a function. Arguments go in field order:</p>
 <pre><code>let frank = Person("Frank", "Smith", 34)
 </code></pre>
-<p>Access the fields of a struct and modify them by using dot <code>.</code> syntax.</p>
+<p>Read fields with <code>.</code>:</p>
 <pre><code>let fullname = frank.first_name .. " " .. frank.last_name
-// fullname = "Frank Smith"
-frank.age = frank.age + 1
-// age = 35
+// "Frank Smith"
 </code></pre>
-<p>Structs can have generic type arguments.</p>
+<p>And update them the same way:</p>
+<pre><code>frank.age = frank.age + 1   // 35
+</code></pre>
+<h3 id="generic-structs"><a class="header" href="#generic-structs">Generic structs</a></h3>
+<p>A struct can take a type parameter, so it works with any element type:</p>
 <pre><code>type Ref&lt;T&gt; = {
     value: T
 }
+
+let int_ref = Ref(42)         // Ref&lt;int&gt;
+let str_ref = Ref("hello")    // Ref&lt;string&gt;
 </code></pre>
+<p>See <a href="./generics.html">Generics</a> for more.</p>
+<h3 id="adding-behavior"><a class="header" href="#adding-behavior">Adding behavior</a></h3>
+<p>To attach methods to a struct, use <a href="./member_functions.html"><code>extend</code></a>. To make it work with <code>==</code>, sorting, printing, or other operators, <a href="./interfaces.html">implement an interface</a> for it.</p>
 
                     </main>
 

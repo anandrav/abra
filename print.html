@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-1278c060.js";
+            window.path_to_searchindex_js = "searchindex-8b41fd48.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f43184b7.js"></script>
@@ -274,90 +274,95 @@ Additional options:
 <p>Then run the file using the command <code>abra hello.abra</code></p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="built-in-types"><a class="header" href="#built-in-types">Built-in Types</a></h1>
+<p>Abra has a small set of built-in types. Most programs are written using these plus your own structs and enums.</p>
 <h3 id="int"><a class="header" href="#int">int</a></h3>
-<p>A 64-bit signed integer.
-Supports addition, subtraction, multiplication, division, exponentiation, and modulus operators.</p>
+<p>A 64-bit signed integer. The usual arithmetic operators all work on it.</p>
 <pre><code>let a = 5
-let b = 2 + 2   // 4
-let c = 2 * 3   // 6
-let d = 5 - 2   // 3
-let e = 12 / 3  // 4
-let f = 13 / 3  // also 4
-let g = 2 ^ 3   // 8
-let h = g % 6   // 2
-
-let n = (a + c / d) ^ 2 // 49
+let b = 2 + 3       // 5
+let c = 2 * 3       // 6
+let d = 12 / 3      // 4
+let e = 13 / 3      // also 4 — integer division truncates
+let f = 2 ^ 8       // 256 (power)
+let g = 13 % 5      // 3 (modulo)
 </code></pre>
 <h3 id="float"><a class="header" href="#float">float</a></h3>
-<p>A 64-bit signed floating point decimal number.
-Supports addition, subtraction, multiplication, division, and exponentiation operators.</p>
+<p>A 64-bit floating-point number. The same arithmetic operators apply, but you can’t mix <code>int</code> and <code>float</code> directly — convert with <code>int_to_float</code> or <code>float_to_int</code>.</p>
 <pre><code>let pi = 3.14159
-let e = 2.71828
+let area = pi * 2.0 * 2.0
+let n = float_to_int(pi)    // 3
 </code></pre>
-<h3 id="boolean"><a class="header" href="#boolean">boolean</a></h3>
+<h3 id="bool"><a class="header" href="#bool">bool</a></h3>
 <pre><code>let shield_is_equipped = true
 let sword_is_equipped = false
 </code></pre>
+<p>Combine with <code>and</code>, <code>or</code>, and <code>not</code> (see <a href="#operators">Operators</a>).</p>
 <h3 id="string"><a class="header" href="#string">string</a></h3>
-<p>Garbage-collected unicode text data.
-Strings can be concatenated together using the <code>..</code> operator to create a new string.</p>
+<p>A garbage-collected, immutable Unicode string. Use the <code>..</code> operator to build new strings out of existing values:</p>
 <pre><code>let name = "Merlin"
-let message = name .. " is a wizard." // "Merlin is a wizard."
+let age = 73
+let message = name .. " is " .. age .. " years old."
+// "Merlin is 73 years old."
 </code></pre>
+<p>For slicing, splitting, searching, and parsing, see the <a href="#corestrings"><code>core/strings</code></a> module.</p>
 <h3 id="arrayt"><a class="header" href="#arrayt">array&lt;T&gt;</a></h3>
-<p>A built-in dynamic array data structure. Supports random access (zero-indexed), pushing, and popping elements.
-Arrays are homogenous; elements of the array must have the same type i.e. an array cannot mix <code>int</code> and <code>float</code>
-elements, for instance.</p>
-<pre><code>let arr = [1, 2, 3, 4]  // create an array containing some ints
-arr.push(5)             // arr == [1, 2, 3, 4, 5]
-let n = arr.len()       // 5
-let n = arr[2]          // 3
-arr[2] = 49             // arr == [1, 2, 49, 4, 5]
-let n = arr[2]          // 49
-arr.pop()               // arr == [1, 2, 49, 4]
+<p>A growable list of elements that all have the same type. Indexing is zero-based.</p>
+<pre><code>let arr = [1, 2, 3, 4]
+arr.push(5)        // [1, 2, 3, 4, 5]
+arr.len()          // 5
+arr[2]             // 3
+arr[2] = 49        // [1, 2, 49, 4, 5]
+arr.pop()          // [1, 2, 49, 4]
 </code></pre>
+<p>You can’t mix types in one array — <code>[1, 2.0]</code> is an error. Use a tuple if you need different types together.</p>
 <h3 id="tuples"><a class="header" href="#tuples">tuples</a></h3>
-<ul>
-<li><code>(T, U)</code></li>
-<li><code>(T, U, V)</code></li>
-<li>and so on…</li>
-</ul>
-<p>A tuple is 2 or more values grouped together.
-It is sometimes useful to group related values together.
-For instance, a tuple of three floats could be used to represent a coordinate in 3d space.
-Unlike arrays, tuples can have elements of different types.
-Unlike arrays, tuples cannot have elements added or removed.</p>
-<pre><code>let pair_of_ints = (1, 2)
-let coordinate_3d = (1.0, 2.0, -3.0)
-let name_and_age = ("Lancelot", 19)
+<p>A tuple groups a fixed number of values, possibly of different types:</p>
+<pre><code>let pair = (1, 2)
+let coordinate = (1.0, 2.0, -3.0)
+let person = ("Lancelot", 19)
 </code></pre>
+<p>Tuples are useful when you want to return a couple of related things from a function, or store a few related values together without inventing a struct.</p>
+<p>You can pull a tuple apart with destructuring (see <a href="#patterns">Patterns</a>):</p>
+<pre><code>let (name, age) = person
+</code></pre>
+<p>The prelude provides equality, comparison, hashing, and <code>ToString</code> for tuples up to size 4.</p>
 <h3 id="void"><a class="header" href="#void">void</a></h3>
-<p>Represents nothing and only has one value – <code>nil</code>.
-This is useful as a return type for functions that don’t return anything.
-This is sometimes referred to as the “unit type” in other languages because it has a single value.</p>
+<p>Represents nothing. Its only value is <code>nil</code>. Functions that don’t return anything meaningful return <code>void</code>:</p>
+<pre><code>fn greet(name: string) {
+    println("Hello, " .. name)
+    // implicitly returns nil
+}
+
+fn maybe_greet(name: string, should_greet: bool) {
+    if not should_greet {
+        return nil      // explicit early return
+    }
+    println("Hello, " .. name)
+}
+</code></pre>
 <h3 id="never"><a class="header" href="#never">never</a></h3>
-<p>The never type has zero values.
-This is useful as a return type for a function which should never return.
-For instance, the built-in <code>panic()</code> function, used to terminate the program in the case of an unrecoverable error, does
-not return a value.</p>
+<p>A type with zero values. It’s the return type of functions that don’t return at all — for example, <code>panic()</code> aborts the program, so its return type is <code>never</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="variables"><a class="header" href="#variables">Variables</a></h1>
-<p>Variables can be created using the <code>let</code> keyword.</p>
+<p>A variable holds a value. Use <code>let</code> for a constant, and <code>var</code> for a mutable variable.</p>
 <pre><code>let x = 5
-let y = 8
+let pi = 3.14159
+let name = "Merlin"
 </code></pre>
-<p>Mutable variables can be created using the <code>var</code> keyword.
-Their value can be updated using the assignment <code>=</code> operator.</p>
-<pre><code>var x = 5       // x = 5
-x = 6          // x = 6
-let y = x + x   // y = 12
+<p>A <code>var</code> can be reassigned with <code>=</code>:</p>
+<pre><code>var score = 0
+score = 10
+score = score + 5    // 15
 </code></pre>
-<p>Variables can be given type annotations. For convenience, they are often not required.</p>
-<p>In some situations, type annotations are required, for instance when writing code with generic types, invoking member
-functions, or accessing struct fields. They also help the compiler give more tailored error messages in case you make a
-mistake.</p>
+<p>Trying to reassign a <code>let</code> is a compile error — that’s the point. Reach for <code>var</code> only when you actually need mutation.</p>
+<h3 id="type-annotations"><a class="header" href="#type-annotations">Type annotations</a></h3>
+<p>Most of the time you don’t need to annotate the type — Abra figures it out from the value you assign:</p>
+<pre><code>let x = 5         // x is int
+let pi = 3.14     // pi is float
+let yes = true    // yes is bool
+</code></pre>
+<p>When you do want to be explicit (or when the compiler can’t tell), put the type after a colon:</p>
 <pre><code>let x: int = 2
-let y: float = 3.14
+let pi: float = 3.14
 let p: (int, int) = (1, 2)
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -462,39 +467,32 @@ fn read_two(a: string, b: string) -&gt; result&lt;string, FsError&gt; {
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="control-flow"><a class="header" href="#control-flow">Control Flow</a></h1>
-<h3 id="if-else"><a class="header" href="#if-else">If-Else</a></h3>
-<p>If-else expressions are used to choose between two pieces of code.
-A boolean expression is given as an input. If the boolean value is true, the first piece of code is executed. If the
-boolean value is false, then the second piece of code is executed.</p>
-<pre><code>// this code prints "hello"
+<h3 id="if-else"><a class="header" href="#if-else">If-else</a></h3>
+<p><code>if</code> runs one block when a condition is true, optionally another when it’s false:</p>
+<pre><code>let is_arriving = true
 
-let is_arriving = true
 if is_arriving {
     println("hello")
 } else {
     println("good bye")
 }
-
 </code></pre>
-<p>If-else expressions can be chained in succession to check multiple conditions.</p>
-<pre><code>// this code prints "good night"
+<p>Chain conditions with <code>else if</code>:</p>
+<pre><code>let hour = 14
 
-let is_morning = false
-let is_afternoon = false
-if is_morning {
+if hour &lt; 12 {
     println("good morning")
-} else if is_afternoon {
+} else if hour &lt; 17 {
     println("good afternoon")
 } else {
     println("good night")
 }
 </code></pre>
-<p>If-else expressions always return a value.</p>
-<pre><code>let x = if true { 1 } else { 0 }    // x = 1
+<p><code>if</code> is an expression — it returns a value, so you can use it on the right side of a <code>let</code>:</p>
+<pre><code>let label = if temperature &gt; 30 { "hot" } else { "cool" }
 </code></pre>
 <h3 id="match"><a class="header" href="#match">Match</a></h3>
-<p>Match expressions test an expression against a set of patterns.
-The first pattern that matches will have its corresponding</p>
+<p><code>match</code> checks a value against a series of patterns and runs the first one that fits. It’s like a more powerful <code>if</code>/<code>else if</code> chain.</p>
 <pre><code>let n = 2
 let s = match n {
     0 -&gt; "zero"
@@ -504,68 +502,107 @@ let s = match n {
     _ -&gt; "something else"
 }
 // s = "two"
-
 </code></pre>
+<p>The <code>_</code> is a catch-all. <code>match</code> does much more than literal lookup — it can pull values out of enums and tuples in one step. See <a href="#patterns">Patterns</a> for the full picture.</p>
 <h3 id="while-loops"><a class="header" href="#while-loops">While loops</a></h3>
-<pre><code>// this code prints
-// "hellohellohello"
-
-var n = 3
+<p>Repeat as long as a condition holds:</p>
+<pre><code>var n = 3
 while n &gt; 0 {
     print("hello")
     n = n - 1
 }
+// hellohellohello
+</code></pre>
+<p>Use <code>break</code> to exit a loop early, and <code>continue</code> to skip to the next iteration:</p>
+<pre><code>var i = 0
+while true {
+    if i &gt;= 5 { break }
+    if i % 2 == 0 {
+        i += 1
+        continue
+    }
+    println(i)
+    i += 1
+}
+// 1
+// 3
 </code></pre>
 <h3 id="for-loops"><a class="header" href="#for-loops">For loops</a></h3>
-<pre><code>// this code prints "15"
-
-let arr = [1, 2, 3, 4, 5]
+<p>Iterate over anything that can be iterated. Most commonly, that’s an array or a count:</p>
+<pre><code>let arr = [1, 2, 3, 4, 5]
 var sum = 0
-
 for n in arr {
     sum = sum + n
 }
-
-println(sum)
+println(sum)    // 15
 </code></pre>
+<p>Iterating over an integer counts from <code>0</code> up to (but not including) that integer:</p>
+<pre><code>for i in 5 {
+    println(i)   // prints 0, 1, 2, 3, 4
+}
+</code></pre>
+<p>For an arbitrary range, use <code>range(begin, end)</code>:</p>
+<pre><code>for i in range(2, 6) {
+    println(i)   // prints 2, 3, 4, 5
+}
+</code></pre>
+<p><code>for</code> works on any type that implements <code>Iterable</code> (see <a href="#interfaces">Interfaces</a>), so you can write your own.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
-<p>A function is a reusable piece of code that takes zero or more inputs and has a single output.</p>
+<p>A function packages up a piece of work so you can call it by name. Declare one with <code>fn</code>:</p>
 <pre><code>fn distance(x1, y1, x2, y2) {
     sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 }
 </code></pre>
-<p>Functions can be recursive.</p>
+<p>Calls look like in most languages:</p>
+<pre><code>let d = distance(0.0, 0.0, 3.0, 4.0)   // 5.0
+</code></pre>
+<h3 id="parameter-and-return-types"><a class="header" href="#parameter-and-return-types">Parameter and return types</a></h3>
+<p>Parameter types are usually inferred. You can annotate them when you want to be explicit, and add a return type with <code>-&gt;</code>:</p>
+<pre><code>fn double(x: int) -&gt; int {
+    x * 2
+}
+</code></pre>
+<h3 id="recursion"><a class="header" href="#recursion">Recursion</a></h3>
+<p>Functions can call themselves:</p>
 <pre><code>fn fibonacci(n: int) -&gt; int {
     if n &lt; 2 {
         n
     } else {
-        fibonacci(n-2) + fibonacci(n-1) // recursive calls to fibonacci()
+        fibonacci(n - 2) + fibonacci(n - 1)
     }
 }
 </code></pre>
-<p>The last expression in the body of the function is the return value. You can also return early from a function.
-If a function’s body doesn’t have a last expression, the function returns <code>void</code>, which means it returns <code>nil</code> which is nothing.</p>
+<h3 id="returning-values"><a class="header" href="#returning-values">Returning values</a></h3>
+<p>The last expression in the body is the return value — no <code>return</code> keyword needed:</p>
+<pre><code>fn double(x: int) -&gt; int {
+    x * 2
+}
+</code></pre>
+<p>Use <code>return</code> for an early exit:</p>
 <pre><code>fn fibonacci(n: int) -&gt; int {
     if n &lt;= 1 {
-        return n            // early return
+        return n
     }
-    fib(n-2) + fib(n-1)     // last expression is return value
+    fibonacci(n - 2) + fibonacci(n - 1)
 }
-
-fn display_message() -&gt; void {
-    for n in 5 {            // last statement is a for loop. No return value
+</code></pre>
+<p>A function with no final expression returns <code>void</code> (which is <code>nil</code>):</p>
+<pre><code>fn display_message() {
+    for n in 5 {
         println(n)
     }
+    // implicitly returns nil
 }
 </code></pre>
-<p>For convenience, if a function body is just a single expression, the body can be written after an equal sign <code>=</code> instead
-of
-being wrapped in a curly brace block:</p>
-<pre><code>fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+<h3 id="expression-bodied-functions"><a class="header" href="#expression-bodied-functions">Expression-bodied functions</a></h3>
+<p>When the whole function is a single expression, write it after <code>=</code> instead of in a block:</p>
+<pre><code>fn square(x: int) -&gt; int = x * x
+
+fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 </code></pre>
 <h3 id="default-arguments"><a class="header" href="#default-arguments">Default arguments</a></h3>
-<p>A parameter can be given a default value with <code>=</code>. Callers can omit any trailing argument that has a default.</p>
+<p>A parameter can have a default value. Callers can leave any trailing argument off:</p>
 <pre><code>fn greet(name: string, greeting: string = "Hello") {
     println(greeting .. ", " .. name)
 }
@@ -574,16 +611,16 @@ greet("Alice")              // "Hello, Alice"
 greet("Bob", "Howdy")       // "Howdy, Bob"
 </code></pre>
 <h3 id="named-arguments"><a class="header" href="#named-arguments">Named arguments</a></h3>
-<p>At a call site, you can pass an argument by name with <code>=</code>. This is useful when a function takes several parameters with defaults and you want to override one in the middle.</p>
+<p>You can pass an argument by its parameter name. This lets you skip past parameters that have defaults:</p>
 <pre><code>fn greet(name: string, greeting: string = "Hello", excited: bool = false) {
     let punct = if excited { "!" } else { "." }
     println(greeting .. ", " .. name .. punct)
 }
 
-greet("Carol", excited = true)              // "Hello, Carol!"
+greet("Carol", excited = true)                  // "Hello, Carol!"
 greet("Dave", greeting = "Hi", excited = true)
 </code></pre>
-<p>Named arguments must come after all positional arguments at the call site.</p>
+<p>Named arguments must come after all positional arguments.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="lambdas"><a class="header" href="#lambdas">Lambdas</a></h1>
 <p>A lambda is an anonymous function written inline. Use lambdas to pass behavior as a value: as an argument to another function, or stored in a variable.</p>
@@ -597,7 +634,7 @@ let n = double(5)   // 10
 <pre><code>let add = (a, b) -&gt; a + b
 let s = add(3, 4)   // 7
 </code></pre>
-<h3 id="type-annotations"><a class="header" href="#type-annotations">Type annotations</a></h3>
+<h3 id="type-annotations-1"><a class="header" href="#type-annotations-1">Type annotations</a></h3>
 <p>Parameter and return types can be annotated, but are usually inferred:</p>
 <pre><code>let add = (a: int, b: int) -&gt; a + b
 </code></pre>
@@ -629,58 +666,81 @@ let p: (string) -&gt; bool = s -&gt; s.starts_with("yes")
 <p>Lambdas do not support default argument values or named-argument calls. Those features only work on named functions declared with <code>fn</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
-<p>Define a <code>struct</code> to group together related pieces of data.</p>
+<p>A struct groups several named fields into one value. Use them when you have a few related pieces of data that belong together — coordinates, user records, configuration, anything where naming the fields makes the code clearer.</p>
 <pre><code>type Person = {
     first_name: string
     last_name: string
     age: int
 }
 </code></pre>
-<p>Create an instance of a struct by calling its constructor, which is a function that shares the same name as the struct.</p>
+<p>Construct an instance by calling the type name like a function. Arguments go in field order:</p>
 <pre><code>let frank = Person("Frank", "Smith", 34)
 </code></pre>
-<p>Access the fields of a struct and modify them by using dot <code>.</code> syntax.</p>
+<p>Read fields with <code>.</code>:</p>
 <pre><code>let fullname = frank.first_name .. " " .. frank.last_name
-// fullname = "Frank Smith"
-frank.age = frank.age + 1
-// age = 35
+// "Frank Smith"
 </code></pre>
-<p>Structs can have generic type arguments.</p>
+<p>And update them the same way:</p>
+<pre><code>frank.age = frank.age + 1   // 35
+</code></pre>
+<h3 id="generic-structs"><a class="header" href="#generic-structs">Generic structs</a></h3>
+<p>A struct can take a type parameter, so it works with any element type:</p>
 <pre><code>type Ref&lt;T&gt; = {
     value: T
 }
+
+let int_ref = Ref(42)         // Ref&lt;int&gt;
+let str_ref = Ref("hello")    // Ref&lt;string&gt;
 </code></pre>
+<p>See <a href="#generics">Generics</a> for more.</p>
+<h3 id="adding-behavior"><a class="header" href="#adding-behavior">Adding behavior</a></h3>
+<p>To attach methods to a struct, use <a href="#member-functions"><code>extend</code></a>. To make it work with <code>==</code>, sorting, printing, or other operators, <a href="#interfaces">implement an interface</a> for it.</p>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="enums-1"><a href="#enums-1" class="header">Enums</a></h1>
-<h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Enums are useful for modeling data as a set of possible variants.</p>
+<h1 id="enums"><a class="header" href="#enums">Enums</a></h1>
+<p>An enum is a type whose value is one of a fixed set of variants. Use them when a value can be one of a few distinct things — a color, a direction, the result of a network request, the kind of token a parser just read.</p>
 <pre><code>type Color =
-  | Red
-  | Blue
-  | Green
+    | Red
+    | Green
+    | Blue
 </code></pre>
-<p>Data can be attached to each variant of an enum.</p>
+<p>Construct a value with leading-dot syntax:</p>
+<pre><code>let c = .Red
+</code></pre>
+<h3 id="variants-with-data"><a class="header" href="#variants-with-data">Variants with data</a></h3>
+<p>Each variant can carry its own data:</p>
 <pre><code>type Shape =
     | Circle(float)
     | Rectangle(float, float)
-    | Triangle(float, float)
-    
-let circle = Shape.Circle(5.0)
-let rect = Shape.Rectangle(2.0, 4.0)
+    | Origin
+
+let c = .Circle(5.0)
+let r = .Rectangle(2.0, 4.0)
+let o = .Origin
 </code></pre>
-<p>Match expressions are used to handle each possible case of an enum.</p>
-<pre><code>let c = Shape.Circle(5.2)
-let area = match c {
-    .Circle(radius) -&gt; radius * radius * pi,
-    .Rectangle(width, height) -&gt; width * height,
-    .Triangle(width, height) -&gt; width * height * 0.5,
+<h3 id="handling-all-the-variants"><a class="header" href="#handling-all-the-variants">Handling all the variants</a></h3>
+<p>Use <code>match</code> to do something different for each case. The compiler checks that you’ve covered every variant, so you can’t forget one:</p>
+<pre><code>let pi = 3.14159
+
+fn area(s: Shape) -&gt; float {
+    match s {
+        .Circle(r) -&gt; pi * r * r
+        .Rectangle(w, h) -&gt; w * h
+        .Origin -&gt; 0.0
+    }
 }
 </code></pre>
-<p>Enums can have generic type arguments.</p>
+<p>If you later add a new variant to <code>Shape</code>, every <code>match</code> on <code>Shape</code> will start failing to compile until you handle it. That’s exactly what you want.</p>
+<h3 id="generic-enums"><a class="header" href="#generic-enums">Generic enums</a></h3>
+<p>Enums can take type parameters too. The standard library uses this for <code>option</code> and <code>result</code>:</p>
 <pre><code>type option&lt;T&gt; =
-  | some(T)
-  | none
+    | some(T)
+    | none
+
+type result&lt;T, E&gt; =
+    | ok(T)
+    | err(E)
 </code></pre>
+<p>These two come up everywhere — see <a href="#error-handling-1">Error Handling</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="patterns"><a class="header" href="#patterns">Patterns</a></h1>
 <p>A pattern is a way to look at a piece of data and ask “is it shaped like this — and if so, can you pull these parts out for me?” Patterns let you match against a value and unpack it at the same time, in a single step.</p>
@@ -806,9 +866,8 @@ match c {
 </code></pre>
 <p>This is one of the best things about patterns: refactoring becomes much safer. If you add a new variant to an enum, every <code>match</code> on that enum will tell you it needs to be updated. Use <code>_</code> as a catch-all when you genuinely want to ignore the rest, but reach for it sparingly — explicit cases are easier to maintain.</p>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="member-functions-1"><a href="#member-functions-1" class="header">Member Functions</a></h1>
-<h2 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h2>
-<p>For convenience, you can define member functions on both user-defined and built-in types.</p>
+<h1 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h1>
+<p>A member function is a function attached to a type, callable with method syntax (<code>value.method()</code>). Add member functions to your own types — and even to built-in ones — with <code>extend</code>.</p>
 <pre><code>type Person = {
     first_name: string
     last_name: string
@@ -817,54 +876,56 @@ match c {
 
 extend Person {
     fn fullname(self) -&gt; string {
-        self.first_name .. self.last_name
+        self.first_name .. " " .. self.last_name
     }
 }
 
-...
-
 let p = Person("Arthur", "Pendragon", 15)
-let name = p.fullname() // "Arthur Pendragon"
+let name = p.fullname()    // "Arthur Pendragon"
 </code></pre>
+<p>The first parameter is named <code>self</code> and refers to the value the method is called on.</p>
+<p>You can extend built-in types the same way. This is how <code>array&lt;T&gt;</code> gets its methods:</p>
 <pre><code>extend array&lt;T&gt; {
-    fn len(self: array&lt;T&gt;) -&gt; int {
+    fn len(self) -&gt; int {
         array_length(self)
     }
 
-    fn push(self: array&lt;T&gt;, x: T) -&gt; void {
+    fn push(self, x: T) -&gt; void {
         array_push(self, x)
     }
 
-    fn pop(self: array&lt;T&gt;) -&gt; void {
+    fn pop(self) -&gt; void {
         array_pop(self)
     }
 }
 
-...
-
 let arr = [0, 1, 2, 3, 4]
 arr.push(5)
-let l = arr.len() // 6
+let l = arr.len()    // 6
 </code></pre>
-<p>In the examples above, a member function is invoked on a variable using the dot <code>.</code> operator.
-The variable is passed as the first argument to the member function.</p>
-<p>Member functions can also be invoked on the type itself.
-In that case, the first argument to the function is passed in the parentheses.</p>
-<pre><code>let p = Person("Arthur", "Pendragon", 15)
+<h3 id="two-ways-to-call"><a class="header" href="#two-ways-to-call">Two ways to call</a></h3>
+<p>When you write <code>p.fullname()</code>, the value before the dot is passed as the first argument. So these two calls do the same thing:</p>
+<pre><code>let name = p.fullname()
 let name = Person.fullname(p)
+</code></pre>
+<p>Method syntax is the more common form, but the qualified form is useful when the type isn’t obvious from context.</p>
+<h3 id="static-methods"><a class="header" href="#static-methods">Static methods</a></h3>
+<p>A member function with no <code>self</code> parameter is a static method — it’s called on the type, not an instance. This is the usual way to write constructors:</p>
+<pre><code>extend Person {
+    fn new(first: string, last: string) -&gt; Person {
+        Person(first, last, 0)
+    }
+}
 
-let arr = [1, 2, 3, 4]
-array.push(arr, 5)
-let l = array.len(arr) // 5
+let p = Person.new("Arthur", "Pendragon")
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="interfaces"><a class="header" href="#interfaces">Interfaces</a></h1>
-<p>An interface is a set of operations supported by some type named <code>self</code>.</p>
-<p>A type implements an interface if it supports all its operations.
-As an example, the <code>Num</code> interface supports the <code>add()</code>, <code>subtract()</code>, <code>multiply()</code>, <code>divide()</code>, and <code>power()</code> operations.
-The Number interface is implemented by both the <code>int</code> and <code>float</code> built-in types.</p>
-<pre><code>// support conversion to string
-interface ToString {
+<p>An interface is a contract: a set of methods that a type can support. Once a type implements an interface, you can use it anywhere that interface is required. If you’ve used traits in Rust or typeclasses in Haskell, this should feel familiar.</p>
+<p>A simple example: the <code>ToString</code> interface says “I know how to convert myself to a string”. Lots of types implement it — <code>int</code>, <code>bool</code>, <code>array&lt;T&gt;</code>, and so on. That’s why <code>println</code> and the <code>..</code> operator can take values of any of those types.</p>
+<h3 id="implementing-an-interface"><a class="header" href="#implementing-an-interface">Implementing an interface</a></h3>
+<p>Define an interface with <code>interface</code>. Implement it for a specific type with <code>implement</code>.</p>
+<pre><code>interface ToString {
     fn str(self) -&gt; string
 }
 
@@ -874,64 +935,58 @@ type Person = {
     age: int
 }
 
-// support conversion to string for the Person type
 implement ToString for Person {
     fn str(self) -&gt; string {
-        self.first_name .. " " .. self.last_name .. ", " .. self.age .. " years old."
+        self.first_name .. " " .. self.last_name .. ", " .. self.age
     }
 }
 
-...
-
 let p = Person("Arthur", "Pendragon", 15)
-let s = p.str() // "Arthur Pendragon, 15 years old."
-
+println(p.str())     // "Arthur Pendragon, 15"
+println("Hi, " .. p) // "Hi, Arthur Pendragon, 15" — `..` uses ToString
 </code></pre>
-<h3 id="standard-library-interfaces"><a class="header" href="#standard-library-interfaces">Standard library interfaces</a></h3>
-<h4 id="tostring"><a class="header" href="#tostring">ToString</a></h4>
-<p>The ToString interface allows you to convert some type to a string.
-Any type which implements the ToString interface can be passed as an argument to the <code>..</code> operator.</p>
+<p>The first parameter is <code>self</code> and refers to the value the method is called on. You don’t need to write its type — it’s inferred to be the type you’re implementing for.</p>
+<h2 id="interfaces-in-the-prelude"><a class="header" href="#interfaces-in-the-prelude">Interfaces in the prelude</a></h2>
+<p>Abra’s prelude defines a handful of interfaces that the language itself relies on. Implementing them makes your types work with familiar syntax — operators, <code>for</code> loops, indexing, and so on.</p>
+<h3 id="tostring"><a class="header" href="#tostring">ToString</a></h3>
+<p>Convert a value to a string. The <code>..</code> operator and <code>println</code> use this:</p>
 <pre><code>let arr = [1, 2, 3]
-let arr_str = arr.str()         // arr_str = "[1, 2, 3]"
-let age = 23
-let name = "John"
-println(name .. " is " .. age)    // prints "John is 23"
+println("got " .. arr)         // "got [ 1, 2, 3 ]"
 </code></pre>
-<h4 id="clone"><a class="header" href="#clone">Clone</a></h4>
-<p>The clone interface allows you to create a deep copy of some data structure.
-For instance, cloning an array allows you to manipulate its copy without manipulating the original.</p>
+<h3 id="equal"><a class="header" href="#equal">Equal</a></h3>
+<p>Compare two values for equality with <code>==</code> and <code>!=</code>. Implement it on your own type to make it comparable:</p>
+<pre><code>implement Equal for Point {
+    fn equal(a, b) {
+        a.x == b.x and a.y == b.y
+    }
+}
+</code></pre>
+<h3 id="ord"><a class="header" href="#ord">Ord</a></h3>
+<p>Defines <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>. Required by methods like <code>array.sort()</code>.</p>
+<h3 id="num"><a class="header" href="#num">Num</a></h3>
+<p>Powers <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>^</code>. Implemented for <code>int</code> and <code>float</code>. (You usually wouldn’t implement this for your own types, but you can.)</p>
+<h3 id="clone"><a class="header" href="#clone">Clone</a></h3>
+<p>Make a deep copy of a value:</p>
 <pre><code>let arr = [1, 2, 3]
 let arr2 = arr.clone()
 arr2.pop()
 arr2.pop()
 arr2.pop()
-// arr = [1, 2, 3] and arr2 = []
+// arr  = [1, 2, 3]
+// arr2 = []
 </code></pre>
-<h4 id="equal"><a class="header" href="#equal">Equal</a></h4>
-<p>The <code>Equal</code> interface is used to compare values for equality.
-Types which implement the <code>Equal</code> interface can be compared for equality using the <code>==</code> operator.</p>
-<h4 id="num"><a class="header" href="#num">Num</a></h4>
-<p>The <code>Num</code> interface is used for <code>int</code> and <code>float</code>.
-Types which implement the <code>Num</code> interface can use the arithmetic operators.</p>
-<h4 id="iterator"><a class="header" href="#iterator">Iterator</a></h4>
-<p>The <code>Iterator</code> interface is implemented by types which traverse over some data structure’s elements.
-The <code>Iterator</code> interface is used by the <code>Iterable</code> interface, but <code>Iterator</code> can also be used on its own.</p>
-<h4 id="iterable"><a class="header" href="#iterable">Iterable</a></h4>
-<p>The <code>Iterable</code> interface is implemented for container types in order to iterate through their values.
-Types which implement the Iterable interface can be used in a for loop. Types which implement the <code>Iterable</code> interface,
-such as <code>array&lt;T&gt;</code>, have an <em>output type</em> which implements
-the <code>Iterator</code> interface. In the case of <code>array&lt;T&gt;</code>, that iterator type is <code>ArrayIterator&lt;T&gt;</code>.</p>
-<h3 id="output-types"><a class="header" href="#output-types">Output types</a></h3>
-<p>Output types are used when the output of an interface’s operations are determined by the type of the input.
-For instance, when implementing the <code>Iterable</code> interface, different container types will output different
-iterator types.
-For example, <code>array&lt;T&gt;</code> returns an <code>ArrayIterator&lt;T&gt;</code>, whereas a <code>map&lt;K,V&gt;</code> would return a
-<code>MapIterator&lt;K,V&gt;</code>, which is a completely different struct.
-Similarly, a <code>StringIterator</code>, when implementing the <code>Iterator</code> interface, would always return an <code>option&lt;string&gt;</code>, so
-<code>IteratorItem</code> = <code>string</code> in that case.</p>
-<p>Without output types, interfaces like <code>Iterable</code> would have to be parameterized over <code>IterableItem</code> and <code>Iter</code>,
-which would require much more type annotations. This would also impede language features like operator overloading and
-the <code>for-in</code> loop, which lean on interfaces in the prelude such as <code>Iterable</code> and <code>Iterator</code>.</p>
+<h3 id="hash"><a class="header" href="#hash">Hash</a></h3>
+<p>Required for any type used as a map or set key.</p>
+<h3 id="iterable-and-iterator"><a class="header" href="#iterable-and-iterator">Iterable and Iterator</a></h3>
+<p>Make your type usable in a <code>for</code> loop. <code>Iterable</code> produces an <code>Iterator</code>, which yields one value at a time. The built-in <code>array&lt;T&gt;</code>, <code>range</code>, and <code>int</code> all implement <code>Iterable</code> — that’s why you can write <code>for x in [1, 2, 3]</code> or <code>for i in 5</code>.</p>
+<p>If you want to iterate over a custom container, implement these. See <a href="#output-types">Output types</a> below for the details.</p>
+<h3 id="index"><a class="header" href="#index">Index</a></h3>
+<p>Powers <code>x[i]</code> and <code>x[i] = v</code>. Implemented for <code>array&lt;T&gt;</code>, <code>map</code>, and <code>JsonValue</code>.</p>
+<h3 id="unwrap-and-try"><a class="header" href="#unwrap-and-try">Unwrap and Try</a></h3>
+<p>Power the <code>!</code> and <code>?</code> operators. Both are implemented for <code>option</code> and <code>result</code>.</p>
+<h2 id="output-types"><a class="header" href="#output-types">Output types</a></h2>
+<p>Some interfaces have a method whose return type depends on the implementing type. The <code>Iterable</code> interface is the classic case — different containers produce different kinds of iterators. An <code>array&lt;T&gt;</code> makes an <code>ArrayIterator&lt;T&gt;</code>; a hypothetical <code>tree&lt;T&gt;</code> would make a <code>TreeIterator&lt;T&gt;</code>. They’re not the same type, but each one is a valid iterator.</p>
+<p>Abra handles this with <strong>output types</strong>. An interface declares one or more <code>outputtype</code>s, and each implementation fills them in.</p>
 <pre><code>interface Iterable {
     outputtype IterableItem
     outputtype Iter impl Iterator&lt;IteratorItem=IterableItem&gt;
@@ -945,23 +1000,21 @@ interface Iterator {
     fn next(self) -&gt; option&lt;IteratorItem&gt;
 }
 </code></pre>
+<p>Without output types, an interface like <code>Iterable</code> would have to be parameterized over both the item type and the iterator type, which would mean a lot more type annotations everywhere it’s used.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="generics"><a class="header" href="#generics">Generics</a></h1>
-<p>A generic type or function is one that works with many different types. Generics let you write code once and use it with any concrete type that fits.</p>
-<h3 id="type-variables"><a class="header" href="#type-variables">Type variables</a></h3>
-<p>A type variable is a placeholder that stands in for some real type. Type variables are written as a single uppercase letter, optionally followed by digits: <code>T</code>, <code>U</code>, <code>K</code>, <code>V</code>, <code>T2</code>. Identifiers like <code>Key</code> or <code>Item</code> are not type variables — they are ordinary names.</p>
-<h3 id="generic-functions"><a class="header" href="#generic-functions">Generic functions</a></h3>
-<p>A type variable in a function signature lets the function accept any type:</p>
+<p>A generic function or type works with many different types. Instead of writing one <code>identity</code> for <code>int</code> and another for <code>string</code>, write one that works for any type:</p>
 <pre><code>fn identity(x: T) -&gt; T {
     x
 }
 
-let a = identity(5)         // T = int
-let b = identity("hello")   // T = string
+let a = identity(5)         // T is int
+let b = identity("hello")   // T is string
 </code></pre>
-<p>The type checker infers what <code>T</code> is at each call site.</p>
+<p>The <code>T</code> is a <strong>type variable</strong> — a placeholder that stands in for whatever real type the caller uses. Abra figures out what <code>T</code> should be at each call site.</p>
+<p>By convention, type variables are a single uppercase letter, optionally followed by digits: <code>T</code>, <code>U</code>, <code>K</code>, <code>V</code>, <code>T2</code>. Names like <code>Item</code> or <code>Key</code> aren’t type variables — they’d be parsed as ordinary identifiers.</p>
 <h3 id="generic-types"><a class="header" href="#generic-types">Generic types</a></h3>
-<p>Structs and enums can take type parameters in angle brackets:</p>
+<p>Structs and enums can take type parameters too. Put them in angle brackets after the name:</p>
 <pre><code>type Pair&lt;T&gt; = {
     first: T
     second: T
@@ -971,37 +1024,34 @@ type Either&lt;A, B&gt; =
     | Left(A)
     | Right(B)
 
-let p = Pair(1, 2)              // Pair&lt;int&gt;
+let p = Pair(1, 2)                          // Pair&lt;int&gt;
 let e: Either&lt;string, int&gt; = .Left("oops")
 </code></pre>
-<h3 id="interface-constraints"><a class="header" href="#interface-constraints">Interface constraints</a></h3>
-<p>A type variable can be constrained to types that implement particular interfaces. Constraints are written after the type variable, separated by spaces:</p>
+<h3 id="constraints"><a class="header" href="#constraints">Constraints</a></h3>
+<p>A generic function can require its type variable to support certain operations. You spell that out with an interface constraint:</p>
 <pre><code>fn max(a: T Ord, b: T) -&gt; T {
     if a &gt; b { a } else { b }
 }
-
-fn print_pair(a: T ToString, b: T) {
-    println(a .. " and " .. b)
-}
 </code></pre>
-<p>Multiple constraints can be combined:</p>
+<p>The <code>T Ord</code> says “any type, as long as it implements <code>Ord</code>”. This lets you use <code>&gt;</code> on <code>a</code> and <code>b</code> inside the body.</p>
+<p>You can list multiple constraints:</p>
 <pre><code>fn find_and_show(arr: array&lt;T Equal ToString&gt;, target: T) {
     if arr.contains(target) {
         println("found " .. target)
     }
 }
 </code></pre>
-<p>The constraint applies to the type variable. Once you’ve constrained <code>T</code> once, you don’t need to repeat the constraint on every parameter that uses <code>T</code>.</p>
-<h3 id="wildcard-_-in-type-annotations"><a class="header" href="#wildcard-_-in-type-annotations">Wildcard <code>_</code> in type annotations</a></h3>
-<p>When you only want to fix part of a generic type, write <code>_</code> for the parts the compiler should infer:</p>
+<p>You only need to write the constraint once. Other parameters that mention the same <code>T</code> automatically get the same constraints.</p>
+<h3 id="wildcards-in-type-annotations"><a class="header" href="#wildcards-in-type-annotations">Wildcards in type annotations</a></h3>
+<p>Sometimes you only want to fix part of a generic type and let the compiler figure out the rest. Use <code>_</code> for the parts to infer:</p>
 <pre><code>use core/map
 
-let m: map&lt;_, string&gt; = map.new()  // key type inferred from later usage
+let m: map&lt;_, string&gt; = map.new()    // key type filled in below
 m.insert(1, "hello")
 m.insert(2, "world")
 </code></pre>
-<h3 id="monomorphization"><a class="header" href="#monomorphization">Monomorphization</a></h3>
-<p>Each concrete instantiation of a generic function gets its own compiled copy. There is no runtime overhead for using generics.</p>
+<h3 id="performance"><a class="header" href="#performance">Performance</a></h3>
+<p>Each combination of type arguments gets its own compiled copy of the function — there’s no runtime cost to using generics. (This is called <em>monomorphization</em> if you want a name for it.)</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="error-handling-1"><a href="#error-handling-1" class="header">Error Handling</a></h1>
 <h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
@@ -1397,9 +1447,10 @@ flush()
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="foreign-functions"><a class="header" href="#foreign-functions">Foreign Functions</a></h1>
-<p>Functions implemented in Rust can be called from Abra. These are called <em>foreign functions</em>. Use them to expose system capabilities (file I/O, networking, hardware access) or performance-critical code that you’d rather write in Rust.</p>
+<p>Sometimes you want to do something Abra can’t do on its own — talk to the file system, send a network request, or run code that needs to be as fast as possible. Foreign functions let you call Rust from Abra.</p>
+<p>The flow looks like this: you write the function signature in Abra, then write the actual implementation as a normal safe Rust function. A build script wires the two together.</p>
 <h2 id="declaring-a-foreign-function"><a class="header" href="#declaring-a-foreign-function">Declaring a foreign function</a></h2>
-<p>In an Abra file, declare a foreign function using the <code>#foreign</code> attribute. The declaration has no body — the implementation lives in Rust.</p>
+<p>In an Abra file, mark a function with <code>#foreign</code> and leave the body off:</p>
 <pre><code>// in os.abra
 #foreign
 fn fread(path: string) -&gt; string
@@ -1407,10 +1458,9 @@ fn fread(path: string) -&gt; string
 #foreign
 fn fwrite(path: string, contents: string) -&gt; void
 </code></pre>
-<p>The Abra type signature determines the Rust signature of the corresponding implementation.</p>
+<p>That’s all the Abra side looks like. The compiler trusts that an implementation will exist at runtime.</p>
 <h2 id="project-layout"><a class="header" href="#project-layout">Project layout</a></h2>
-<p>For each top-level namespace that has any foreign declarations, there must be a single Rust project beside the Abra modules. The project lives in a directory called <code>rust_project/</code> inside the namespace.</p>
-<p>For example, if your top-level namespace is <code>os</code>, the layout is:</p>
+<p>Each top-level namespace that has foreign declarations gets one Rust project, in a <code>rust_project/</code> directory next to the Abra modules. So if your top-level namespace is <code>os</code>, the layout looks like this:</p>
 <pre><code>- os.abra
 - os/
     - exec.abra
@@ -1424,9 +1474,9 @@ fn fwrite(path: string, contents: string) -&gt; void
                 - exec.rs         (impl for os/exec.abra)
             - os.rs               (impl for os.abra)
 </code></pre>
-<p>A foreign function declared in <code>os.abra</code> is implemented in <code>rust_project/src/os.rs</code>. A foreign function declared in <code>os/exec.abra</code> is implemented in <code>rust_project/src/os/exec.rs</code>. The Rust file path mirrors the Abra file path.</p>
+<p>The Rust file path mirrors the Abra file path. A foreign function in <code>os.abra</code> is implemented in <code>rust_project/src/os.rs</code>; one in <code>os/exec.abra</code> lives in <code>rust_project/src/os/exec.rs</code>.</p>
 <h2 id="cargotoml"><a class="header" href="#cargotoml">Cargo.toml</a></h2>
-<p>The Rust project must be a <code>cdylib</code> so it can be loaded at runtime via <code>dlopen</code>. It depends on <code>abra_core</code> both as a normal dependency and as a build dependency.</p>
+<p>The Rust project produces a <code>cdylib</code> so the Abra runtime can load it dynamically. It depends on <code>abra_core</code> both as a regular dependency and as a build dependency:</p>
 <pre><code class="language-toml">[package]
 name = "abra_module_os"
 version = "0.0.0"
@@ -1442,20 +1492,19 @@ abra_core = { workspace = true }
 abra_core = { workspace = true }
 </code></pre>
 <h2 id="buildrs"><a class="header" href="#buildrs">build.rs</a></h2>
-<p>The build script calls into <code>abra_core</code> to generate the FFI glue (the unsafe code that pops arguments off the VM stack, calls your safe Rust function, and pushes the result back).</p>
+<p>The build script reads your <code>.abra</code> files, finds the <code>#foreign</code> declarations, and generates the unsafe glue code that bridges the VM to your safe Rust functions. You only need one line:</p>
 <pre class="playground"><code class="language-rust">fn main() {
     abra_core::foreign_bindings::generate_bindings_for_crate();
 }</code></pre>
-<p>This reads every <code>.abra</code> file alongside the Rust project, finds the <code>#foreign</code> declarations, and emits a <code>lib.rs</code> into the build’s <code>OUT_DIR</code>.</p>
 <h2 id="srclibrs"><a class="header" href="#srclibrs">src/lib.rs</a></h2>
-<p><code>lib.rs</code> is just one line — it pulls in the generated glue:</p>
+<p><code>lib.rs</code> just pulls in the generated glue:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>include!(concat!(env!("OUT_DIR"), "/lib.rs"));
 <span class="boring">}</span></code></pre>
-<p>You should not edit this file.</p>
-<h2 id="writing-the-implementations"><a class="header" href="#writing-the-implementations">Writing the implementations</a></h2>
-<p>Implement each foreign function as an ordinary safe Rust function. The function name and parameter types must match the Abra declaration.</p>
+<p>You don’t edit this file.</p>
+<h2 id="writing-the-implementation"><a class="header" href="#writing-the-implementation">Writing the implementation</a></h2>
+<p>Write each foreign function as an ordinary safe Rust function. The name and parameter types match the Abra declaration:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// in src/os.rs
@@ -1470,6 +1519,7 @@ pub fn fwrite(path: String, contents: String) {
 }
 <span class="boring">}</span></code></pre>
 <h3 id="type-mapping"><a class="header" href="#type-mapping">Type mapping</a></h3>
+<p>Here’s how Abra types correspond to Rust types in your function signatures:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1490,14 +1540,14 @@ pub fn fwrite(path: String, contents: String) {
 </table>
 </div>
 <h3 id="foreign-types"><a class="header" href="#foreign-types">Foreign types</a></h3>
-<p>You can also declare foreign types — Abra types whose representation is generated to match a Rust type. Use <code>#foreign</code> on a <code>type</code> declaration:</p>
+<p>You can also share a custom type between Abra and Rust. Mark a <code>type</code> declaration with <code>#foreign</code>, and the build script generates a matching Rust enum or struct:</p>
 <pre><code>#foreign
 type FsError =
     | NotFound(string)
     | PermissionDenied(string)
     | Other(string)
 </code></pre>
-<p>The build script generates a matching Rust enum. You import it from the generated module and return it from your safe Rust functions:</p>
+<p>Import it from the generated module and use it in your function signatures:</p>
 <pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use crate::ffi::core::fs::FsError;
@@ -1510,9 +1560,9 @@ pub fn read(path: String) -&gt; Result&lt;String, FsError&gt; {
 <p>Build the native module with cargo:</p>
 <pre><code>cargo build --package abra_module_os
 </code></pre>
-<p>The resulting <code>cdylib</code> is loaded at runtime when the Abra program first calls one of its foreign functions.</p>
+<p>The Abra runtime loads the resulting <code>cdylib</code> the first time your program calls one of its foreign functions.</p>
 <h2 id="host-functions"><a class="header" href="#host-functions">Host functions</a></h2>
-<p>A related attribute, <code>#host</code>, marks a function as one that the embedding runtime provides directly (rather than being loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>readline</code>, and <code>get_args</code>. Most users don’t write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and need to expose custom callbacks.</p>
+<p>There’s a related attribute, <code>#host</code>, for functions provided directly by the runtime that’s running your Abra program (rather than loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>readline</code>, and <code>get_args</code>. Most users never need to write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.</p>
 
                     </main>
 

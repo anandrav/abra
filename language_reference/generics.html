@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-1278c060.js";
+            window.path_to_searchindex_js = "../searchindex-8b41fd48.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -178,21 +178,18 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="generics"><a class="header" href="#generics">Generics</a></h1>
-<p>A generic type or function is one that works with many different types. Generics let you write code once and use it with any concrete type that fits.</p>
-<h3 id="type-variables"><a class="header" href="#type-variables">Type variables</a></h3>
-<p>A type variable is a placeholder that stands in for some real type. Type variables are written as a single uppercase letter, optionally followed by digits: <code>T</code>, <code>U</code>, <code>K</code>, <code>V</code>, <code>T2</code>. Identifiers like <code>Key</code> or <code>Item</code> are not type variables — they are ordinary names.</p>
-<h3 id="generic-functions"><a class="header" href="#generic-functions">Generic functions</a></h3>
-<p>A type variable in a function signature lets the function accept any type:</p>
+<p>A generic function or type works with many different types. Instead of writing one <code>identity</code> for <code>int</code> and another for <code>string</code>, write one that works for any type:</p>
 <pre><code>fn identity(x: T) -&gt; T {
     x
 }
 
-let a = identity(5)         // T = int
-let b = identity("hello")   // T = string
+let a = identity(5)         // T is int
+let b = identity("hello")   // T is string
 </code></pre>
-<p>The type checker infers what <code>T</code> is at each call site.</p>
+<p>The <code>T</code> is a <strong>type variable</strong> — a placeholder that stands in for whatever real type the caller uses. Abra figures out what <code>T</code> should be at each call site.</p>
+<p>By convention, type variables are a single uppercase letter, optionally followed by digits: <code>T</code>, <code>U</code>, <code>K</code>, <code>V</code>, <code>T2</code>. Names like <code>Item</code> or <code>Key</code> aren’t type variables — they’d be parsed as ordinary identifiers.</p>
 <h3 id="generic-types"><a class="header" href="#generic-types">Generic types</a></h3>
-<p>Structs and enums can take type parameters in angle brackets:</p>
+<p>Structs and enums can take type parameters too. Put them in angle brackets after the name:</p>
 <pre><code>type Pair&lt;T&gt; = {
     first: T
     second: T
@@ -202,37 +199,34 @@ type Either&lt;A, B&gt; =
     | Left(A)
     | Right(B)
 
-let p = Pair(1, 2)              // Pair&lt;int&gt;
+let p = Pair(1, 2)                          // Pair&lt;int&gt;
 let e: Either&lt;string, int&gt; = .Left("oops")
 </code></pre>
-<h3 id="interface-constraints"><a class="header" href="#interface-constraints">Interface constraints</a></h3>
-<p>A type variable can be constrained to types that implement particular interfaces. Constraints are written after the type variable, separated by spaces:</p>
+<h3 id="constraints"><a class="header" href="#constraints">Constraints</a></h3>
+<p>A generic function can require its type variable to support certain operations. You spell that out with an interface constraint:</p>
 <pre><code>fn max(a: T Ord, b: T) -&gt; T {
     if a &gt; b { a } else { b }
 }
-
-fn print_pair(a: T ToString, b: T) {
-    println(a .. " and " .. b)
-}
 </code></pre>
-<p>Multiple constraints can be combined:</p>
+<p>The <code>T Ord</code> says “any type, as long as it implements <code>Ord</code>”. This lets you use <code>&gt;</code> on <code>a</code> and <code>b</code> inside the body.</p>
+<p>You can list multiple constraints:</p>
 <pre><code>fn find_and_show(arr: array&lt;T Equal ToString&gt;, target: T) {
     if arr.contains(target) {
         println("found " .. target)
     }
 }
 </code></pre>
-<p>The constraint applies to the type variable. Once you’ve constrained <code>T</code> once, you don’t need to repeat the constraint on every parameter that uses <code>T</code>.</p>
-<h3 id="wildcard-_-in-type-annotations"><a class="header" href="#wildcard-_-in-type-annotations">Wildcard <code>_</code> in type annotations</a></h3>
-<p>When you only want to fix part of a generic type, write <code>_</code> for the parts the compiler should infer:</p>
+<p>You only need to write the constraint once. Other parameters that mention the same <code>T</code> automatically get the same constraints.</p>
+<h3 id="wildcards-in-type-annotations"><a class="header" href="#wildcards-in-type-annotations">Wildcards in type annotations</a></h3>
+<p>Sometimes you only want to fix part of a generic type and let the compiler figure out the rest. Use <code>_</code> for the parts to infer:</p>
 <pre><code>use core/map
 
-let m: map&lt;_, string&gt; = map.new()  // key type inferred from later usage
+let m: map&lt;_, string&gt; = map.new()    // key type filled in below
 m.insert(1, "hello")
 m.insert(2, "world")
 </code></pre>
-<h3 id="monomorphization"><a class="header" href="#monomorphization">Monomorphization</a></h3>
-<p>Each concrete instantiation of a generic function gets its own compiled copy. There is no runtime overhead for using generics.</p>
+<h3 id="performance"><a class="header" href="#performance">Performance</a></h3>
+<p>Each combination of type arguments gets its own compiled copy of the function — there’s no runtime cost to using generics. (This is called <em>monomorphization</em> if you want a name for it.)</p>
 
                     </main>
 

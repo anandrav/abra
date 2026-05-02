@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-1278c060.js";
+            window.path_to_searchindex_js = "../searchindex-8b41fd48.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -177,8 +177,8 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h2 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h2>
-<p>For convenience, you can define member functions on both user-defined and built-in types.</p>
+                        <h1 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h1>
+<p>A member function is a function attached to a type, callable with method syntax (<code>value.method()</code>). Add member functions to your own types — and even to built-in ones — with <code>extend</code>.</p>
 <pre><code>type Person = {
     first_name: string
     last_name: string
@@ -187,45 +187,48 @@
 
 extend Person {
     fn fullname(self) -&gt; string {
-        self.first_name .. self.last_name
+        self.first_name .. " " .. self.last_name
     }
 }
 
-...
-
 let p = Person("Arthur", "Pendragon", 15)
-let name = p.fullname() // "Arthur Pendragon"
+let name = p.fullname()    // "Arthur Pendragon"
 </code></pre>
+<p>The first parameter is named <code>self</code> and refers to the value the method is called on.</p>
+<p>You can extend built-in types the same way. This is how <code>array&lt;T&gt;</code> gets its methods:</p>
 <pre><code>extend array&lt;T&gt; {
-    fn len(self: array&lt;T&gt;) -&gt; int {
+    fn len(self) -&gt; int {
         array_length(self)
     }
 
-    fn push(self: array&lt;T&gt;, x: T) -&gt; void {
+    fn push(self, x: T) -&gt; void {
         array_push(self, x)
     }
 
-    fn pop(self: array&lt;T&gt;) -&gt; void {
+    fn pop(self) -&gt; void {
         array_pop(self)
     }
 }
 
-...
-
 let arr = [0, 1, 2, 3, 4]
 arr.push(5)
-let l = arr.len() // 6
+let l = arr.len()    // 6
 </code></pre>
-<p>In the examples above, a member function is invoked on a variable using the dot <code>.</code> operator.
-The variable is passed as the first argument to the member function.</p>
-<p>Member functions can also be invoked on the type itself.
-In that case, the first argument to the function is passed in the parentheses.</p>
-<pre><code>let p = Person("Arthur", "Pendragon", 15)
+<h3 id="two-ways-to-call"><a class="header" href="#two-ways-to-call">Two ways to call</a></h3>
+<p>When you write <code>p.fullname()</code>, the value before the dot is passed as the first argument. So these two calls do the same thing:</p>
+<pre><code>let name = p.fullname()
 let name = Person.fullname(p)
+</code></pre>
+<p>Method syntax is the more common form, but the qualified form is useful when the type isn’t obvious from context.</p>
+<h3 id="static-methods"><a class="header" href="#static-methods">Static methods</a></h3>
+<p>A member function with no <code>self</code> parameter is a static method — it’s called on the type, not an instance. This is the usual way to write constructors:</p>
+<pre><code>extend Person {
+    fn new(first: string, last: string) -&gt; Person {
+        Person(first, last, 0)
+    }
+}
 
-let arr = [1, 2, 3, 4]
-array.push(arr, 5)
-let l = array.len(arr) // 5
+let p = Person.new("Arthur", "Pendragon")
 </code></pre>
 
                     </main>

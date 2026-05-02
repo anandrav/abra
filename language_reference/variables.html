@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-1278c060.js";
+            window.path_to_searchindex_js = "../searchindex-8b41fd48.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -178,22 +178,26 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="variables"><a class="header" href="#variables">Variables</a></h1>
-<p>Variables can be created using the <code>let</code> keyword.</p>
+<p>A variable holds a value. Use <code>let</code> for a constant, and <code>var</code> for a mutable variable.</p>
 <pre><code>let x = 5
-let y = 8
+let pi = 3.14159
+let name = "Merlin"
 </code></pre>
-<p>Mutable variables can be created using the <code>var</code> keyword.
-Their value can be updated using the assignment <code>=</code> operator.</p>
-<pre><code>var x = 5       // x = 5
-x = 6          // x = 6
-let y = x + x   // y = 12
+<p>A <code>var</code> can be reassigned with <code>=</code>:</p>
+<pre><code>var score = 0
+score = 10
+score = score + 5    // 15
 </code></pre>
-<p>Variables can be given type annotations. For convenience, they are often not required.</p>
-<p>In some situations, type annotations are required, for instance when writing code with generic types, invoking member
-functions, or accessing struct fields. They also help the compiler give more tailored error messages in case you make a
-mistake.</p>
+<p>Trying to reassign a <code>let</code> is a compile error — that’s the point. Reach for <code>var</code> only when you actually need mutation.</p>
+<h3 id="type-annotations"><a class="header" href="#type-annotations">Type annotations</a></h3>
+<p>Most of the time you don’t need to annotate the type — Abra figures it out from the value you assign:</p>
+<pre><code>let x = 5         // x is int
+let pi = 3.14     // pi is float
+let yes = true    // yes is bool
+</code></pre>
+<p>When you do want to be explicit (or when the compiler can’t tell), put the type after a colon:</p>
 <pre><code>let x: int = 2
-let y: float = 3.14
+let pi: float = 3.14
 let p: (int, int) = (1, 2)
 </code></pre>
 

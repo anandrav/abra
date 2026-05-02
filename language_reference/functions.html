@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-1278c060.js";
+            window.path_to_searchindex_js = "../searchindex-8b41fd48.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -178,42 +178,60 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
-<p>A function is a reusable piece of code that takes zero or more inputs and has a single output.</p>
+<p>A function packages up a piece of work so you can call it by name. Declare one with <code>fn</code>:</p>
 <pre><code>fn distance(x1, y1, x2, y2) {
     sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 }
 </code></pre>
-<p>Functions can be recursive.</p>
+<p>Calls look like in most languages:</p>
+<pre><code>let d = distance(0.0, 0.0, 3.0, 4.0)   // 5.0
+</code></pre>
+<h3 id="parameter-and-return-types"><a class="header" href="#parameter-and-return-types">Parameter and return types</a></h3>
+<p>Parameter types are usually inferred. You can annotate them when you want to be explicit, and add a return type with <code>-&gt;</code>:</p>
+<pre><code>fn double(x: int) -&gt; int {
+    x * 2
+}
+</code></pre>
+<h3 id="recursion"><a class="header" href="#recursion">Recursion</a></h3>
+<p>Functions can call themselves:</p>
 <pre><code>fn fibonacci(n: int) -&gt; int {
     if n &lt; 2 {
         n
     } else {
-        fibonacci(n-2) + fibonacci(n-1) // recursive calls to fibonacci()
+        fibonacci(n - 2) + fibonacci(n - 1)
     }
 }
 </code></pre>
-<p>The last expression in the body of the function is the return value. You can also return early from a function.
-If a function’s body doesn’t have a last expression, the function returns <code>void</code>, which means it returns <code>nil</code> which is nothing.</p>
+<h3 id="returning-values"><a class="header" href="#returning-values">Returning values</a></h3>
+<p>The last expression in the body is the return value — no <code>return</code> keyword needed:</p>
+<pre><code>fn double(x: int) -&gt; int {
+    x * 2
+}
+</code></pre>
+<p>Use <code>return</code> for an early exit:</p>
 <pre><code>fn fibonacci(n: int) -&gt; int {
     if n &lt;= 1 {
-        return n            // early return
+        return n
     }
-    fib(n-2) + fib(n-1)     // last expression is return value
+    fibonacci(n - 2) + fibonacci(n - 1)
 }
-
-fn display_message() -&gt; void {
-    for n in 5 {            // last statement is a for loop. No return value
+</code></pre>
+<p>A function with no final expression returns <code>void</code> (which is <code>nil</code>):</p>
+<pre><code>fn display_message() {
+    for n in 5 {
         println(n)
     }
+    // implicitly returns nil
 }
 </code></pre>
-<p>For convenience, if a function body is just a single expression, the body can be written after an equal sign <code>=</code> instead
-of
-being wrapped in a curly brace block:</p>
-<pre><code>fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+<h3 id="expression-bodied-functions"><a class="header" href="#expression-bodied-functions">Expression-bodied functions</a></h3>
+<p>When the whole function is a single expression, write it after <code>=</code> instead of in a block:</p>
+<pre><code>fn square(x: int) -&gt; int = x * x
+
+fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 </code></pre>
 <h3 id="default-arguments"><a class="header" href="#default-arguments">Default arguments</a></h3>
-<p>A parameter can be given a default value with <code>=</code>. Callers can omit any trailing argument that has a default.</p>
+<p>A parameter can have a default value. Callers can leave any trailing argument off:</p>
 <pre><code>fn greet(name: string, greeting: string = "Hello") {
     println(greeting .. ", " .. name)
 }
@@ -222,16 +240,16 @@ greet("Alice")              // "Hello, Alice"
 greet("Bob", "Howdy")       // "Howdy, Bob"
 </code></pre>
 <h3 id="named-arguments"><a class="header" href="#named-arguments">Named arguments</a></h3>
-<p>At a call site, you can pass an argument by name with <code>=</code>. This is useful when a function takes several parameters with defaults and you want to override one in the middle.</p>
+<p>You can pass an argument by its parameter name. This lets you skip past parameters that have defaults:</p>
 <pre><code>fn greet(name: string, greeting: string = "Hello", excited: bool = false) {
     let punct = if excited { "!" } else { "." }
     println(greeting .. ", " .. name .. punct)
 }
 
-greet("Carol", excited = true)              // "Hello, Carol!"
+greet("Carol", excited = true)                  // "Hello, Carol!"
 greet("Dave", greeting = "Hi", excited = true)
 </code></pre>
-<p>Named arguments must come after all positional arguments at the call site.</p>
+<p>Named arguments must come after all positional arguments.</p>
 
                     </main>
 
