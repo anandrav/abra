@@ -67,3 +67,7 @@ A lambda's type is written `(ArgType, ...) -> ReturnType`:
 let f: (int, int) -> int = (a, b) -> a + b
 let p: (string) -> bool = s -> s.starts_with("yes")
 ```
+
+### Limitations
+
+Lambdas do not support default argument values or named-argument calls. Those features only work on named functions declared with `fn`.
