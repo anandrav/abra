@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Enums - The Abra Programming Language</title>
+        <title>Operators - The Abra Programming Language</title>
 
 
         <!-- Custom HTML head -->
@@ -177,45 +177,115 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Enums are useful for modeling data as a set of possible variants.</p>
-<pre><code>type Color =
-  | Red
-  | Blue
-  | Green
+                        <h1 id="operators"><a class="header" href="#operators">Operators</a></h1>
+<h3 id="arithmetic"><a class="header" href="#arithmetic">Arithmetic</a></h3>
+<p><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>, <code>^</code> work on <code>int</code> and <code>float</code>. Both operands must have the same type — Abra does not auto-convert between <code>int</code> and <code>float</code>.</p>
+<pre><code>let x = 5 + 2       // 7
+let y = 7.5 - 2.5   // 5.0
+let r = 13 % 5      // 3 (modulo)
+let p = 2 ^ 8       // 256 (power)
 </code></pre>
-<p>Data can be attached to each variant of an enum.</p>
-<pre><code>type Shape =
-    | Circle(float)
-    | Rectangle(float, float)
-    | Triangle(float, float)
-    
-let circle = Shape.Circle(5.0)
-let rect = Shape.Rectangle(2.0, 4.0)
+<p>Unary <code>-</code> negates a number:</p>
+<pre><code>let n = -5
+let f = -3.14
 </code></pre>
-<p>Match expressions are used to handle each possible case of an enum.</p>
-<pre><code>let c = Shape.Circle(5.2)
-let area = match c {
-    .Circle(radius) -&gt; radius * radius * pi,
-    .Rectangle(width, height) -&gt; width * height,
-    .Triangle(width, height) -&gt; width * height * 0.5,
+<h3 id="string-concatenation"><a class="header" href="#string-concatenation">String concatenation</a></h3>
+<p>The <code>..</code> operator concatenates two values into a string. Either operand may be any type that implements the <code>ToString</code> interface, so you can mix strings, numbers, and other values without converting them first:</p>
+<pre><code>let name = "Merlin"
+let age = 73
+let msg = name .. " is " .. age .. " years old."
+// "Merlin is 73 years old."
+</code></pre>
+<p><code>+</code> is <strong>not</strong> for string concatenation — that’s only for numbers.</p>
+<h3 id="comparison"><a class="header" href="#comparison">Comparison</a></h3>
+<p><code>==</code> and <code>!=</code> work on any type that implements <code>Equal</code>. <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> work on any type that implements <code>Ord</code>.</p>
+<pre><code>let a = 5 == 5      // true
+let b = "x" != "y"  // true
+let c = 3 &lt; 7       // true
+let d = "apple" &lt; "banana"  // true (lexicographic)
+</code></pre>
+<h3 id="logical"><a class="header" href="#logical">Logical</a></h3>
+<p><code>and</code>, <code>or</code>, <code>not</code> are keywords (not <code>&amp;&amp;</code>, <code>||</code>, <code>!</code>):</p>
+<pre><code>if x &gt; 0 and x &lt; 10 {
+    println("in range")
+}
+
+if not done {
+    keep_going()
 }
 </code></pre>
-<p>Enums can have generic type arguments.</p>
-<pre><code>type option&lt;T&gt; =
-  | some(T)
-  | none
+<p><code>and</code> and <code>or</code> short-circuit.</p>
+<h3 id="assignment"><a class="header" href="#assignment">Assignment</a></h3>
+<p>Plain assignment uses <code>=</code>. Compound assignment operators are also available:</p>
+<pre><code>var x = 0
+x = 10      // simple
+x += 5      // x = x + 5
+x -= 1      // x = x - 1
+x *= 2      // x = x * 2
+x /= 4      // x = x / 4
+x %= 3      // x = x % 3
 </code></pre>
+<p>Only <code>var</code> bindings, array elements, and struct fields can be assigned to.</p>
+<h3 id="indexing"><a class="header" href="#indexing">Indexing</a></h3>
+<p><code>arr[i]</code> and <code>arr[i] = value</code> index into arrays. The same syntax works on any type that implements the <code>Index</code> interface, including <code>map</code> and <code>JsonValue</code>:</p>
+<pre><code>let arr = [10, 20, 30]
+let first = arr[0]     // 10
+arr[1] = 99            // arr = [10, 99, 30]
+
+use core/map
+let m: map&lt;string, int&gt; = map.new()
+m["alice"] = 100        // calls Index.index_set
+let score = m["alice"]  // calls Index.index_get
+</code></pre>
+<h3 id="unwrap-"><a class="header" href="#unwrap-">Unwrap (<code>!</code>)</a></h3>
+<p>Postfix <code>!</code> extracts the value from an <code>option</code> or <code>result</code>, panicking if it’s <code>none</code> / <code>err</code>. Use it when you know the value is present:</p>
+<pre><code>let n = "42".to_int()!     // panics if not a valid int
+</code></pre>
+<h3 id="try-"><a class="header" href="#try-">Try (<code>?</code>)</a></h3>
+<p>Postfix <code>?</code> propagates <code>none</code>/<code>err</code> to the caller. The enclosing function must return a compatible <code>option</code> or <code>result</code>:</p>
+<pre><code>use core/fs
+
+fn read_two(a: string, b: string) -&gt; result&lt;string, FsError&gt; {
+    let first = read(a)?       // early-return on err
+    let second = read(b)?
+    .ok(first .. second)
+}
+</code></pre>
+<h3 id="operator-precedence"><a class="header" href="#operator-precedence">Operator precedence</a></h3>
+<p>From lowest to highest:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Precedence</th><th>Operators</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td><code>and</code>, <code>or</code></td><td>logical</td></tr>
+<tr><td>2</td><td><code>==</code>, <code>!=</code></td><td>equality</td></tr>
+<tr><td>3</td><td><code>..</code></td><td>string format/concat</td></tr>
+<tr><td>5</td><td><code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></td><td>comparison</td></tr>
+<tr><td>6</td><td><code>+</code>, <code>-</code> (binary or unary)</td><td>additive</td></tr>
+<tr><td>7</td><td><code>*</code>, <code>/</code></td><td>multiplicative</td></tr>
+<tr><td>8</td><td><code>%</code></td><td>modulo</td></tr>
+<tr><td>9</td><td><code>^</code></td><td>power</td></tr>
+<tr><td>10</td><td><code>not</code></td><td>prefix</td></tr>
+<tr><td>11</td><td><code>.field</code></td><td>member access</td></tr>
+<tr><td>12</td><td><code>[index]</code></td><td>index</td></tr>
+<tr><td>13</td><td><code>f(args)</code></td><td>function call</td></tr>
+<tr><td>14</td><td><code>!</code></td><td>unwrap</td></tr>
+<tr><td>15</td><td><code>?</code></td><td>try</td></tr>
+</tbody>
+</table>
+</div>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/structs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/variables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../language_reference/patterns.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../language_reference/control_flow.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -225,11 +295,11 @@ let area = match c {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/structs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/variables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../language_reference/patterns.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../language_reference/control_flow.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Enums - The Abra Programming Language</title>
+        <title>Patterns - The Abra Programming Language</title>
 
 
         <!-- Custom HTML head -->
@@ -177,45 +177,81 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Enums are useful for modeling data as a set of possible variants.</p>
-<pre><code>type Color =
-  | Red
-  | Blue
-  | Green
+                        <h1 id="patterns"><a class="header" href="#patterns">Patterns</a></h1>
+<p>Patterns describe the shape of a value. They appear in:</p>
+<ul>
+<li><code>match</code> expressions</li>
+<li><code>let</code> and <code>var</code> bindings (for destructuring)</li>
+<li><code>for</code> loops (for destructuring the loop variable)</li>
+</ul>
+<h3 id="wildcard"><a class="header" href="#wildcard">Wildcard</a></h3>
+<p><code>_</code> matches anything and binds nothing. Use it as a catch-all or to ignore parts of a value.</p>
+<pre><code>match n {
+    0 -&gt; "zero"
+    _ -&gt; "non-zero"
+}
 </code></pre>
-<p>Data can be attached to each variant of an enum.</p>
+<h3 id="binding"><a class="header" href="#binding">Binding</a></h3>
+<p>A bare identifier matches anything and binds the value to that name:</p>
+<pre><code>match get_score() {
+    score -&gt; println("got " .. score)
+}
+</code></pre>
+<h3 id="literal"><a class="header" href="#literal">Literal</a></h3>
+<p>Match against a specific value. Works for <code>int</code>, <code>float</code>, <code>string</code>, <code>bool</code>, and <code>nil</code>.</p>
+<pre><code>match command {
+    "quit" -&gt; exit_game()
+    "help" -&gt; show_help()
+    _ -&gt; println("unknown")
+}
+</code></pre>
+<h3 id="variant"><a class="header" href="#variant">Variant</a></h3>
+<p>Match an enum variant. Use leading-dot syntax. Variants with no data take no parentheses; variants with data destructure their fields:</p>
 <pre><code>type Shape =
     | Circle(float)
     | Rectangle(float, float)
-    | Triangle(float, float)
-    
-let circle = Shape.Circle(5.0)
-let rect = Shape.Rectangle(2.0, 4.0)
-</code></pre>
-<p>Match expressions are used to handle each possible case of an enum.</p>
-<pre><code>let c = Shape.Circle(5.2)
-let area = match c {
-    .Circle(radius) -&gt; radius * radius * pi,
-    .Rectangle(width, height) -&gt; width * height,
-    .Triangle(width, height) -&gt; width * height * 0.5,
+    | Origin
+
+match shape {
+    .Circle(r) -&gt; 3.14 * r * r
+    .Rectangle(w, h) -&gt; w * h
+    .Origin -&gt; 0.0
 }
 </code></pre>
-<p>Enums can have generic type arguments.</p>
-<pre><code>type option&lt;T&gt; =
-  | some(T)
-  | none
+<p>Patterns can be nested. Here we match a list-of-options and pull out the inner value:</p>
+<pre><code>match maybe_list {
+    .some(.cons(head, _)) -&gt; head
+    .some(.empty) -&gt; 0
+    .none -&gt; -1
+}
 </code></pre>
+<h3 id="tuple"><a class="header" href="#tuple">Tuple</a></h3>
+<p>Destructure a tuple by writing a tuple pattern. The pattern can mix wildcards, literals, bindings, and other patterns.</p>
+<pre><code>match point {
+    (0, 0) -&gt; "origin"
+    (0, _) -&gt; "on y-axis"
+    (_, 0) -&gt; "on x-axis"
+    (x, y) -&gt; "(" .. x .. ", " .. y .. ")"
+}
+</code></pre>
+<h3 id="destructuring-in-let"><a class="header" href="#destructuring-in-let">Destructuring in <code>let</code></a></h3>
+<p>You can destructure tuples directly in a binding:</p>
+<pre><code>let (x, y) = get_position()
+let (name, age) = ("Alice", 30)
+</code></pre>
+<p>This is just a special case of pattern matching.</p>
+<h3 id="match-is-exhaustive"><a class="header" href="#match-is-exhaustive">Match is exhaustive</a></h3>
+<p>The compiler checks that match expressions cover every possible value. If you forget a case, you’ll get a compile-time error pointing out which patterns are missing. Use <code>_</code> as a catch-all when you don’t want to enumerate every variant.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/structs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/enums.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../language_reference/patterns.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../language_reference/member_functions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -225,11 +261,11 @@ let area = match c {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/structs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/enums.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../language_reference/patterns.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../language_reference/member_functions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

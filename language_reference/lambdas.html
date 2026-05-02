@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Enums - The Abra Programming Language</title>
+        <title>Lambdas - The Abra Programming Language</title>
 
 
         <!-- Custom HTML head -->
@@ -177,45 +177,56 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Enums are useful for modeling data as a set of possible variants.</p>
-<pre><code>type Color =
-  | Red
-  | Blue
-  | Green
+                        <h1 id="lambdas"><a class="header" href="#lambdas">Lambdas</a></h1>
+<p>A lambda is an anonymous function written inline. Use lambdas to pass behavior as a value: as an argument to another function, or stored in a variable.</p>
+<h3 id="single-argument"><a class="header" href="#single-argument">Single argument</a></h3>
+<p>When a lambda has exactly one parameter, parentheses are optional:</p>
+<pre><code>let double = x -&gt; x * 2
+let n = double(5)   // 10
 </code></pre>
-<p>Data can be attached to each variant of an enum.</p>
-<pre><code>type Shape =
-    | Circle(float)
-    | Rectangle(float, float)
-    | Triangle(float, float)
-    
-let circle = Shape.Circle(5.0)
-let rect = Shape.Rectangle(2.0, 4.0)
+<h3 id="multiple-arguments"><a class="header" href="#multiple-arguments">Multiple arguments</a></h3>
+<p>Wrap the parameter list in parentheses:</p>
+<pre><code>let add = (a, b) -&gt; a + b
+let s = add(3, 4)   // 7
 </code></pre>
-<p>Match expressions are used to handle each possible case of an enum.</p>
-<pre><code>let c = Shape.Circle(5.2)
-let area = match c {
-    .Circle(radius) -&gt; radius * radius * pi,
-    .Rectangle(width, height) -&gt; width * height,
-    .Triangle(width, height) -&gt; width * height * 0.5,
+<h3 id="type-annotations"><a class="header" href="#type-annotations">Type annotations</a></h3>
+<p>Parameter and return types can be annotated, but are usually inferred:</p>
+<pre><code>let add = (a: int, b: int) -&gt; a + b
+</code></pre>
+<h3 id="block-body"><a class="header" href="#block-body">Block body</a></h3>
+<p>A lambda body can be a block instead of a single expression. The last expression in the block is the return value:</p>
+<pre><code>let greet = (name: string) -&gt; {
+    let msg = "Hello, " .. name
+    println(msg)
+    msg
 }
 </code></pre>
-<p>Enums can have generic type arguments.</p>
-<pre><code>type option&lt;T&gt; =
-  | some(T)
-  | none
+<h3 id="lambdas-as-arguments"><a class="header" href="#lambdas-as-arguments">Lambdas as arguments</a></h3>
+<p>Many standard library functions take lambdas. For example, <code>sort_by</code> takes a comparator:</p>
+<pre><code>let arr = [3, 1, 4, 1, 5, 9]
+arr.sort_by((a, b) -&gt; a &lt;= b)
+</code></pre>
+<h3 id="capturing-values"><a class="header" href="#capturing-values">Capturing values</a></h3>
+<p>A lambda captures the values of variables in its enclosing scope by value at the time the lambda is created. Captured values can be read inside the lambda body but cannot be reassigned.</p>
+<pre><code>let multiplier = 10
+let scale = x -&gt; x * multiplier
+let n = scale(5)   // 50
+</code></pre>
+<h3 id="lambda-types"><a class="header" href="#lambda-types">Lambda types</a></h3>
+<p>A lambda’s type is written <code>(ArgType, ...) -&gt; ReturnType</code>:</p>
+<pre><code>let f: (int, int) -&gt; int = (a, b) -&gt; a + b
+let p: (string) -&gt; bool = s -&gt; s.starts_with("yes")
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/structs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/functions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../language_reference/patterns.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../language_reference/structs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -225,11 +236,11 @@ let area = match c {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/structs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/functions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../language_reference/patterns.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../language_reference/structs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

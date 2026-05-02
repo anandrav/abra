@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Enums - The Abra Programming Language</title>
+        <title>Standard Library - The Abra Programming Language</title>
 
 
         <!-- Custom HTML head -->
@@ -177,45 +177,296 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Enums are useful for modeling data as a set of possible variants.</p>
-<pre><code>type Color =
-  | Red
-  | Blue
-  | Green
+                        <h1 id="standard-library"><a class="header" href="#standard-library">Standard Library</a></h1>
+<p>Abra ships with a small collection of modules under <code>core/</code> and <code>ard/</code>. Bring a module into scope with <code>use</code>:</p>
+<pre><code>use core/strings
+use core/map
+use ard/term
 </code></pre>
-<p>Data can be attached to each variant of an enum.</p>
-<pre><code>type Shape =
-    | Circle(float)
-    | Rectangle(float, float)
-    | Triangle(float, float)
-    
-let circle = Shape.Circle(5.0)
-let rect = Shape.Rectangle(2.0, 4.0)
+<p>Some functions, types, and interfaces are always available without <code>use</code>. These come from the <strong>prelude</strong>, which is implicitly imported into every Abra file.</p>
+<h2 id="prelude"><a class="header" href="#prelude">Prelude</a></h2>
+<p>The prelude defines the most fundamental types and operations. You don’t need to import any of these.</p>
+<h3 id="functions"><a class="header" href="#functions">Functions</a></h3>
+<pre><code>print(x)                  // print without newline
+println(x)                // print with newline
+panic(msg)                // abort the program with an error
+assert(cond, msg)         // panic if condition is false
+readline()                // read a line from stdin
+get_args()                // command-line arguments as array&lt;string&gt;
+range_inclusive(begin, end)   // an inclusive range [begin, end]
 </code></pre>
-<p>Match expressions are used to handle each possible case of an enum.</p>
-<pre><code>let c = Shape.Circle(5.2)
-let area = match c {
-    .Circle(radius) -&gt; radius * radius * pi,
-    .Rectangle(width, height) -&gt; width * height,
-    .Triangle(width, height) -&gt; width * height * 0.5,
-}
+<h3 id="types"><a class="header" href="#types">Types</a></h3>
+<pre><code>type option&lt;T&gt; = some(T) | none
+type result&lt;T, E&gt; = ok(T) | err(E)
+type range = { begin: int, end: int }
+type ControlFlow&lt;B, C&gt; = Break(B) | Continue(C)
 </code></pre>
-<p>Enums can have generic type arguments.</p>
-<pre><code>type option&lt;T&gt; =
-  | some(T)
-  | none
+<h3 id="interfaces"><a class="header" href="#interfaces">Interfaces</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Interface</th><th>Purpose</th><th>Operators it powers</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Num</code></td><td>arithmetic</td><td><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>^</code></td></tr>
+<tr><td><code>Equal</code></td><td>equality</td><td><code>==</code>, <code>!=</code></td></tr>
+<tr><td><code>Ord</code></td><td>ordering</td><td><code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></td></tr>
+<tr><td><code>Hash</code></td><td>hashing</td><td>(used by map/set keys)</td></tr>
+<tr><td><code>Clone</code></td><td>deep copy</td><td></td></tr>
+<tr><td><code>ToString</code></td><td>conversion to string</td><td><code>..</code> and <code>print</code>/<code>println</code></td></tr>
+<tr><td><code>Unwrap</code></td><td>extract value from container</td><td><code>!</code></td></tr>
+<tr><td><code>Try</code></td><td>early-return on failure</td><td><code>?</code></td></tr>
+<tr><td><code>Index</code></td><td>bracket-syntax access</td><td><code>x[i]</code> and <code>x[i] = v</code></td></tr>
+<tr><td><code>Iterable</code></td><td>for-loop support</td><td><code>for x in y</code></td></tr>
+<tr><td><code>Iterator</code></td><td>iteration protocol</td><td></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="array-methods"><a class="header" href="#array-methods">Array methods</a></h3>
+<p>Arrays implement many methods directly in the prelude:</p>
+<pre><code>arr.len()
+arr.is_empty()
+arr.push(x)
+arr.pop()
+arr.swap(i, j)
+arr.remove(i)              // swap with last, then pop
+arr.clear()
+arr.bounds()               // range(0, len)
+
+array.filled(x, n)         // create an array of n copies (requires Clone)
+
+arr.find(x)                // option&lt;int&gt;; requires Equal
+arr.contains(x)            // bool;        requires Equal
+
+arr.sort()                 // requires Ord
+arr.sort_by(cmp)           // cmp: (T, T) -&gt; bool   (less-than-or-equal)
+arr.sort_by_key(key_fn)    // key_fn: T -&gt; U Ord
+</code></pre>
+<h2 id="modules"><a class="header" href="#modules">Modules</a></h2>
+<h3 id="corestrings"><a class="header" href="#corestrings"><code>core/strings</code></a></h3>
+<p>Adds methods to the <code>string</code> type and provides <code>join</code>:</p>
+<pre><code>s.len()
+s.chars()                  // array&lt;string&gt;, one char per element
+s.lines()                  // split by newlines
+s.slice(begin, end)        // substring [begin, end)
+s.split(delim)             // array&lt;string&gt;
+s.trim()
+s.trim_start()
+s.trim_end()
+s.starts_with(p)
+s.ends_with(suf)
+s.contains(sub)
+s.find(sub)                // option&lt;int&gt;
+s.replace(old, new)
+s.repeat(n)
+s.pad_left(width, pad)
+s.pad_right(width, pad)
+s.to_upper()
+s.to_lower()
+s.to_int()                 // option&lt;int&gt;
+s.to_float()               // option&lt;float&gt;
+s.is_alphabetic()
+s.is_alphanumeric()
+s.is_numeric()
+
+join(arr, sep)             // join an array&lt;string&gt; into one string
+</code></pre>
+<h3 id="coremap"><a class="header" href="#coremap"><code>core/map</code></a></h3>
+<p>Hash map. Keys must implement <code>Hash</code> and <code>Equal</code>.</p>
+<pre><code>let m: map&lt;string, int&gt; = map.new()
+m.insert(k, v)
+m.get(k)            // panics if missing
+m.try_get(k)        // option&lt;V&gt;
+m.contains(k)
+m.remove(k)         // bool
+m.len()
+</code></pre>
+<p><code>map</code> also implements <code>Index</code>, so <code>m["alice"] = 100</code> and <code>m["alice"]</code> work.</p>
+<h3 id="coreset"><a class="header" href="#coreset"><code>core/set</code></a></h3>
+<p>Hash set built on top of <code>core/map</code>. Element type must implement <code>Hash</code> and <code>Equal</code>.</p>
+<pre><code>let s: set&lt;int&gt; = set.new()
+s.insert(item)
+s.contains(item)
+s.remove(item)      // bool
+s.len()
+</code></pre>
+<h3 id="coremath"><a class="header" href="#coremath"><code>core/math</code></a></h3>
+<pre><code>n.abs()             // works on int and float
+int_max()
+int_min()
+max(a, b)           // generic; requires Ord
+min(a, b)
+</code></pre>
+<h3 id="corelinked_list"><a class="header" href="#corelinked_list"><code>core/linked_list</code></a></h3>
+<p>An immutable singly-linked list, useful for recursive algorithms.</p>
+<pre><code>type list&lt;T&gt; = empty | cons(T, list&lt;T&gt;)
+
+list.from_array(a)
+l.fold(f, acc)
+l.map(f)
+l.for_each(f)
+l.filter(f)
+l.reverse()
+</code></pre>
+<h3 id="corefs"><a class="header" href="#corefs"><code>core/fs</code></a></h3>
+<p>File system operations. Most functions return <code>result&lt;T, FsError&gt;</code>.</p>
+<pre><code>read(path)
+write(path, contents)
+append(path, contents)
+copy(src, dest)
+rename(old, new)
+remove(path)
+exists(path)
+
+mkdir(path)
+mkdir_all(path)
+rmdir(path)
+rmdir_all(path)
+list_dir(path)
+
+is_file(path)
+is_dir(path)
+file_size(path)
+modified_time(path)
+
+join_path(base, child)     // NOT join — that's in core/strings
+parent(path)
+filename(path)
+extension(path)
+stem(path)
+absolute(path)
+
+glob(pattern)
+walk_dir(path)
+
+getcwd()
+temp_dir()
+temp_file()
+</code></pre>
+<h3 id="coreenv"><a class="header" href="#coreenv"><code>core/env</code></a></h3>
+<pre><code>get_var(key)
+set_var(key, value)
+</code></pre>
+<h3 id="coreexec"><a class="header" href="#coreexec"><code>core/exec</code></a></h3>
+<p>Run external processes.</p>
+<pre><code>command(s)              // returns exit code; prints stdout/stderr
+run(s)                  // splits on spaces; returns result&lt;Output, ExecError&gt;
+run_sh(s)               // runs via sh -c; supports pipes/redirects
+
+// Builder for full control:
+exec(prog).args([...]).stdin(input).pipe(prog2, [...]).run()
+</code></pre>
+<p><code>Output</code> has <code>stdout</code>, <code>stderr</code>, <code>status</code>, and <code>success()</code>.</p>
+<h3 id="corerandom"><a class="header" href="#corerandom"><code>core/random</code></a></h3>
+<pre><code>random_int(min, max)        // [min, max)
+random_float(min, max)      // [min, max)
+</code></pre>
+<h3 id="coretime"><a class="header" href="#coretime"><code>core/time</code></a></h3>
+<pre><code>get_time()                  // seconds since epoch (float)
+sleep(seconds)
+elapsed(start)              // get_time() - start
+
+// DateTime type
+now_utc()
+now_local()
+from_timestamp(t)
+make_datetime(y, mo, d, h, mi, s)   // option&lt;DateTime&gt;
+format(dt, fmt)             // strftime: %Y %m %d %H %M %S
+parse(s, fmt)
+weekday_of(dt)
+
+// DateTime methods
+dt.add_seconds(s)
+dt.add_days(n)
+dt.diff(other)
+dt.weekday()
+</code></pre>
+<h3 id="corejson"><a class="header" href="#corejson"><code>core/json</code></a></h3>
+<p>JSON parser and serializer.</p>
+<pre><code>type JsonValue =
+    | Null
+    | Bool(bool)
+    | Number(float)
+    | Str(string)
+    | Array(array&lt;JsonValue&gt;)
+    | Object(map&lt;string, JsonValue&gt;)
+
+parse(s)                // result&lt;JsonValue, string&gt;
+stringify(v)
+stringify_pretty(v)
+
+v["key"]                // via Index — panics if missing
+v.try_get(key)          // option&lt;JsonValue&gt;
+v.at(i)                 // arrays
+v.set_at(i, val)
+v.push(val)
+v.as_string()           // option&lt;string&gt;
+v.as_number()           // option&lt;float&gt;
+v.as_bool()
+v.as_array()
+v.as_object()
+v.is_null()
+
+JsonValue.object()      // empty object
+JsonValue.array()       // empty array
+</code></pre>
+<h3 id="corehttp"><a class="header" href="#corehttp"><code>core/http</code></a></h3>
+<p>HTTP client.</p>
+<pre><code>get(url)
+post(url, body)
+post_json(url, value)
+
+// Builder:
+request(method, url).header(k, v).body(s).json_body(v).send()
+
+// Response
+resp.ok()               // 200-299
+resp.json()             // result&lt;JsonValue, string&gt;
+resp.header(name)       // option&lt;string&gt;
+</code></pre>
+<h3 id="coreregex"><a class="header" href="#coreregex"><code>core/regex</code></a></h3>
+<p>Regex matching, replace, split, captures.</p>
+<pre><code>matches(s, pattern)
+find(s, pattern)            // option&lt;Match&gt;
+find_all(s, pattern)
+replace(s, pattern, repl)   // $1, $2 for captures
+replace_first(s, pattern, repl)
+split(s, pattern)
+captures(s, pattern)        // option&lt;array&lt;option&lt;string&gt;&gt;&gt;
+named_captures(s, pattern)
+</code></pre>
+<h3 id="corecolors"><a class="header" href="#corecolors"><code>core/colors</code></a></h3>
+<p>ANSI color and style helpers. Each takes any value that implements <code>ToString</code>.</p>
+<pre><code>red(s)  green(s)  yellow(s)  blue(s)  magenta(s)  cyan(s)  white(s)
+bold(s) dim(s)  underline(s)
+</code></pre>
+<h3 id="ardterm"><a class="header" href="#ardterm"><code>ard/term</code></a></h3>
+<p>Build text-based interactive programs in the terminal.</p>
+<pre><code>enable_raw_mode()
+disable_raw_mode()
+clear()
+flush()                 // call after drawing to update display
+hide_cursor()
+show_cursor()
+mark(s, x, y)           // place a string at the given position
+poll_key_event(ms)      // bool — true if a key event is queued
+get_key_event()         // KeyCode enum
+get_size()              // option&lt;(int, int)&gt;: (width, height)
+
+type KeyCode =
+    | Left | Right | Up | Down
+    | Char(string) | Esc | Space | Other
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/structs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/namespaces.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../language_reference/patterns.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../language_reference/foreign_functions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -225,11 +476,11 @@ let area = match c {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/structs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/namespaces.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../language_reference/patterns.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../language_reference/foreign_functions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

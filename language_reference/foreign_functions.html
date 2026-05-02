@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-f197b32e.js";
+            window.path_to_searchindex_js = "../searchindex-caa3623f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-d15d289f.js"></script>
+        <script src="../toc-f43184b7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,93 +178,128 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="foreign-functions"><a class="header" href="#foreign-functions">Foreign Functions</a></h1>
-<p>Functions implemented in Rust can be called from Abra.
-Foreign functions must be declared ahead of time in an Abra file, so that the compiler knows they exist.
-The compiler will search for a directory with the same name as the Abra file which contains a Rust project.
-That Rust project should use crate-type “cdylib” so that it can be loaded at runtime. It must take <code>abra_core</code> as a
-dependency. It is recommended to take <code>abra_core</code> as a build-dependency as well and to invoke
-<code>generate_bindings_for_crate()</code> in the project’s <code>build.rs</code>. This will automatically generate the necessary unsafe glue
-code that corresponds with the foreign function declarations. Then, you can implement those foreign functions using safe
-Rust.</p>
-<p>In order to avoid creating a Rust project (and therefore a cdylib) for every Abra file with a foreign function
-declaration, there should be a
-single Rust project for every toplevel namespace that contains foreign function declarations.
-For example, implementing a foreign function in <code>os.abra</code> (os is under the root namespace) should be done in
-<code>os/rust_project/src/os.rs</code>.
-Implementing a foreign function in <code>os/exec.abra</code>, which is under the os/ namespace, should be done in
-<code>os/rust_project/src/os/exec.rs</code> – the same Rust project.</p>
-<p>os.abra</p>
-<pre><code>#foreign
+<p>Functions implemented in Rust can be called from Abra. These are called <em>foreign functions</em>. Use them to expose system capabilities (file I/O, networking, hardware access) or performance-critical code that you’d rather write in Rust.</p>
+<h2 id="declaring-a-foreign-function"><a class="header" href="#declaring-a-foreign-function">Declaring a foreign function</a></h2>
+<p>In an Abra file, declare a foreign function using the <code>#foreign</code> attribute. The declaration has no body — the implementation lives in Rust.</p>
+<pre><code>// in os.abra
+#foreign
 fn fread(path: string) -&gt; string
 
 #foreign
-fn fwrite(path: string, contents: string) -&gt; string
+fn fwrite(path: string, contents: string) -&gt; void
 </code></pre>
-<p>os/rust_project/Cargo.toml</p>
-<pre><code>[package]
+<p>The Abra type signature determines the Rust signature of the corresponding implementation.</p>
+<h2 id="project-layout"><a class="header" href="#project-layout">Project layout</a></h2>
+<p>For each top-level namespace that has any foreign declarations, there must be a single Rust project beside the Abra modules. The project lives in a directory called <code>rust_project/</code> inside the namespace.</p>
+<p>For example, if your top-level namespace is <code>os</code>, the layout is:</p>
+<pre><code>- os.abra
+- os/
+    - exec.abra
+    - rust_project/
+        - Cargo.toml
+        - build.rs
+        - src/
+            - lib.rs              (one-liner — see below)
+            - os/
+                - mod.rs
+                - exec.rs         (impl for os/exec.abra)
+            - os.rs               (impl for os.abra)
+</code></pre>
+<p>A foreign function declared in <code>os.abra</code> is implemented in <code>rust_project/src/os.rs</code>. A foreign function declared in <code>os/exec.abra</code> is implemented in <code>rust_project/src/os/exec.rs</code>. The Rust file path mirrors the Abra file path.</p>
+<h2 id="cargotoml"><a class="header" href="#cargotoml">Cargo.toml</a></h2>
+<p>The Rust project must be a <code>cdylib</code> so it can be loaded at runtime via <code>dlopen</code>. It depends on <code>abra_core</code> both as a normal dependency and as a build dependency.</p>
+<pre><code class="language-toml">[package]
 name = "abra_module_os"
+version = "0.0.0"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
+
 [dependencies]
 abra_core = { workspace = true }
 
 [build-dependencies]
 abra_core = { workspace = true }
 </code></pre>
-<p>os/rust_project/build.rs</p>
-<pre><code>fn main() {
+<h2 id="buildrs"><a class="header" href="#buildrs">build.rs</a></h2>
+<p>The build script calls into <code>abra_core</code> to generate the FFI glue (the unsafe code that pops arguments off the VM stack, calls your safe Rust function, and pushes the result back).</p>
+<pre class="playground"><code class="language-rust">fn main() {
     abra_core::foreign_bindings::generate_bindings_for_crate();
-}
-</code></pre>
-<p>os/rust_project/src/lib.rs (automatically generated)</p>
-<pre><code>use abra_core::vm::Vm;
+}</code></pre>
+<p>This reads every <code>.abra</code> file alongside the Rust project, finds the <code>#foreign</code> declarations, and emits a <code>lib.rs</code> into the build’s <code>OUT_DIR</code>.</p>
+<h2 id="srclibrs"><a class="header" href="#srclibrs">src/lib.rs</a></h2>
+<p><code>lib.rs</code> is just one line — it pulls in the generated glue:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>include!(concat!(env!("OUT_DIR"), "/lib.rs"));
+<span class="boring">}</span></code></pre>
+<p>You should not edit this file.</p>
+<h2 id="writing-the-implementations"><a class="header" href="#writing-the-implementations">Writing the implementations</a></h2>
+<p>Implement each foreign function as an ordinary safe Rust function. The function name and parameter types must match the Abra declaration.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// in src/os.rs
 use std::fs;
 
-#[no_mangle]
-pub unsafe extern "C" fn fread(vm: *mut Vm) {
-    let string_view = vm_view_string(vm);
-    let path = string_view.to_owned();
-    vm_pop(vm);
-
-    let content = fs::read_to_string(path).expect("Unable to read from file");
-
-    let string_view = StringView::from_string(&amp;content);
-    vm_push_string(vm, string_view);
+pub fn fread(path: String) -&gt; String {
+    fs::read_to_string(path).expect("Unable to read file")
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn fwrite(vm: *mut Vm) {
-    let string_view = vm_view_string(vm);
-    let content = string_view.to_owned();
-    vm_pop(vm);
-
-    // TODO: make a macro for this called get_string!
-    let string_view = vm_view_string(vm);
-    let path = string_view.to_owned();
-    vm_pop(vm);
-
-    fs::write(path, content).expect("Unable to write to file");
+pub fn fwrite(path: String, contents: String) {
+    fs::write(path, contents).expect("Unable to write file");
 }
+<span class="boring">}</span></code></pre>
+<h3 id="type-mapping"><a class="header" href="#type-mapping">Type mapping</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Abra type</th><th>Rust type</th></tr>
+</thead>
+<tbody>
+<tr><td><code>int</code></td><td><code>abra_core::vm::AbraInt</code> (i64)</td></tr>
+<tr><td><code>float</code></td><td><code>f64</code></td></tr>
+<tr><td><code>bool</code></td><td><code>bool</code></td></tr>
+<tr><td><code>string</code></td><td><code>String</code></td></tr>
+<tr><td><code>void</code></td><td><code>()</code></td></tr>
+<tr><td><code>option&lt;T&gt;</code></td><td><code>Option&lt;T&gt;</code></td></tr>
+<tr><td><code>result&lt;T, E&gt;</code></td><td><code>Result&lt;T, E&gt;</code></td></tr>
+<tr><td><code>array&lt;T&gt;</code></td><td><code>Vec&lt;T&gt;</code></td></tr>
+<tr><td><code>(T, U)</code></td><td><code>(T, U)</code></td></tr>
+<tr><td><code>#foreign type Foo</code></td><td>a generated Rust struct/enum named <code>Foo</code></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="foreign-types"><a class="header" href="#foreign-types">Foreign types</a></h3>
+<p>You can also declare foreign types — Abra types whose representation is generated to match a Rust type. Use <code>#foreign</code> on a <code>type</code> declaration:</p>
+<pre><code>#foreign
+type FsError =
+    | NotFound(string)
+    | PermissionDenied(string)
+    | Other(string)
 </code></pre>
-<p>os/rust_project/src/os.rs</p>
-<pre><code>use std::fs::self;
-use std::io::Write;
+<p>The build script generates a matching Rust enum. You import it from the generated module and return it from your safe Rust functions:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use crate::ffi::core::fs::FsError;
 
-pub fn fread(path: String) -&gt; Result&lt;String, String&gt; {
-    fs::read_to_string(path).map_err(|e| e.to_string())
+pub fn read(path: String) -&gt; Result&lt;String, FsError&gt; {
+    std::fs::read_to_string(&amp;path).map_err(|e| FsError::Other(e.to_string()))
 }
-
-pub fn fwrite(path: String, content: String) {
-    fs::write(path, content).expect("Unable to write to file");
-}
+<span class="boring">}</span></code></pre>
+<h2 id="building"><a class="header" href="#building">Building</a></h2>
+<p>Build the native module with cargo:</p>
+<pre><code>cargo build --package abra_module_os
 </code></pre>
+<p>The resulting <code>cdylib</code> is loaded at runtime when the Abra program first calls one of its foreign functions.</p>
+<h2 id="host-functions"><a class="header" href="#host-functions">Host functions</a></h2>
+<p>A related attribute, <code>#host</code>, marks a function as one that the embedding runtime provides directly (rather than being loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>readline</code>, and <code>get_args</code>. Most users don’t write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and need to expose custom callbacks.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/namespaces.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/standard_library.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -275,7 +310,7 @@ pub fn fwrite(path: String, content: String) {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/namespaces.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/standard_library.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

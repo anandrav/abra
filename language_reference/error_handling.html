@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-f197b32e.js";
+            window.path_to_searchindex_js = "../searchindex-caa3623f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-d15d289f.js"></script>
+        <script src="../toc-f43184b7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,7 +178,9 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
-<p>It is recommended to use the <code>option</code> type defined in the standard library as a return type for functions that can fail.</p>
+<p>Abra uses two prelude types to represent operations that can fail: <code>option</code> (for “value or nothing”) and <code>result</code> (for “value or error”).</p>
+<h3 id="option"><a class="header" href="#option">option</a></h3>
+<p>Use <code>option&lt;T&gt;</code> when the only failure mode is “no value”:</p>
 <pre><code>type option&lt;T&gt; =
   | some(T)
   | none
@@ -191,23 +193,63 @@
     }
 }
 </code></pre>
-<p>For convenience, you can use the unwrap operator <code>!</code> to forcibly get the value from the <code>some</code> case, or invoke <code>panic()</code>
-if it’s the <code>none</code> case. This is useful if you know that the result is guaranteed to be a success.
-The <code>!</code> operator is syntactic sugar for calling <code>.unwrap()</code> on some value.</p>
-<pre><code>// assume string_to_int: string -&gt; option&lt;int&gt;
-
-let a = "10".to_int()!
-let b = "5".to_int()!
-println(a + b)
-
-// prints "15"
+<h3 id="result"><a class="header" href="#result">result</a></h3>
+<p>Use <code>result&lt;T, E&gt;</code> when failure carries information about what went wrong:</p>
+<pre><code>type result&lt;T, E&gt; =
+  | ok(T)
+  | err(E)
 </code></pre>
+<p>Most standard library functions that can fail return a <code>result</code>. For example, <code>core/fs::read</code> returns <code>result&lt;string, FsError&gt;</code>:</p>
+<pre><code>use core/fs
+
+match read("greeting.txt") {
+    .ok(contents) -&gt; println(contents)
+    .err(e) -&gt; println("could not read: " .. e)
+}
+</code></pre>
+<h3 id="unwrap-"><a class="header" href="#unwrap-">Unwrap (<code>!</code>)</a></h3>
+<p>The unwrap operator <code>!</code> extracts the value from a <code>some</code> or <code>ok</code>, panicking if it’s a <code>none</code> or <code>err</code>. Use it when you know the value is present.</p>
+<pre><code>let a = "10".to_int()!     // panics if not a valid int
+let b = "5".to_int()!
+println(a + b)             // prints "15"
+</code></pre>
+<p><code>!</code> is syntactic sugar for the <code>Unwrap</code> interface, which is implemented for both <code>option</code> and <code>result</code>.</p>
+<h3 id="try-"><a class="header" href="#try-">Try (<code>?</code>)</a></h3>
+<p>The try operator <code>?</code> propagates a <code>none</code> or <code>err</code> to the caller, returning early. The enclosing function must return a compatible type.</p>
+<pre><code>use core/fs
+
+fn concat_files(a: string, b: string) -&gt; result&lt;string, FsError&gt; {
+    let first = read(a)?       // early-return if read fails
+    let second = read(b)?
+    .ok(first .. second)
+}
+</code></pre>
+<p>If <code>read(a)</code> returns <code>.err(e)</code>, <code>concat_files</code> returns <code>.err(e)</code> immediately and the rest of the function does not run.</p>
+<p><code>?</code> works with <code>option</code> too, but the enclosing function must return an <code>option</code>:</p>
+<pre><code>fn first_two_chars(s: string) -&gt; option&lt;string&gt; {
+    let chars = s.chars()
+    if chars.len() &lt; 2 {
+        return .none
+    }
+    .some(chars[0] .. chars[1])
+}
+</code></pre>
+<h3 id="converting-between-error-types"><a class="header" href="#converting-between-error-types">Converting between error types</a></h3>
+<p>When you want to bubble up an error but the error types don’t match, use <code>result.map_err</code> to convert:</p>
+<pre><code>use core/fs
+
+fn run() -&gt; result&lt;string, string&gt; {
+    let contents = read("file.txt").map_err(e -&gt; e.str())?
+    .ok(contents)
+}
+</code></pre>
+<p>Here <code>read</code> returns <code>result&lt;string, FsError&gt;</code> but <code>run</code> returns <code>result&lt;string, string&gt;</code>, so we convert <code>FsError</code> to <code>string</code> before propagating.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/interfaces.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/generics.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -221,7 +263,7 @@ println(a + b)
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/interfaces.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/generics.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

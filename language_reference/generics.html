@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Enums - The Abra Programming Language</title>
+        <title>Generics - The Abra Programming Language</title>
 
 
         <!-- Custom HTML head -->
@@ -177,45 +177,72 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Enums are useful for modeling data as a set of possible variants.</p>
-<pre><code>type Color =
-  | Red
-  | Blue
-  | Green
+                        <h1 id="generics"><a class="header" href="#generics">Generics</a></h1>
+<p>A generic type or function is one that works with many different types. Generics let you write code once and use it with any concrete type that fits.</p>
+<h3 id="type-variables"><a class="header" href="#type-variables">Type variables</a></h3>
+<p>A type variable is a placeholder that stands in for some real type. Type variables are written as a single uppercase letter, optionally followed by digits: <code>T</code>, <code>U</code>, <code>K</code>, <code>V</code>, <code>T2</code>. Identifiers like <code>Key</code> or <code>Item</code> are not type variables — they are ordinary names.</p>
+<h3 id="generic-functions"><a class="header" href="#generic-functions">Generic functions</a></h3>
+<p>A type variable in a function signature lets the function accept any type:</p>
+<pre><code>fn identity(x: T) -&gt; T {
+    x
+}
+
+let a = identity(5)         // T = int
+let b = identity("hello")   // T = string
 </code></pre>
-<p>Data can be attached to each variant of an enum.</p>
-<pre><code>type Shape =
-    | Circle(float)
-    | Rectangle(float, float)
-    | Triangle(float, float)
-    
-let circle = Shape.Circle(5.0)
-let rect = Shape.Rectangle(2.0, 4.0)
+<p>The type checker infers what <code>T</code> is at each call site.</p>
+<h3 id="generic-types"><a class="header" href="#generic-types">Generic types</a></h3>
+<p>Structs and enums can take type parameters in angle brackets:</p>
+<pre><code>type Pair&lt;T&gt; = {
+    first: T
+    second: T
+}
+
+type Either&lt;A, B&gt; =
+    | Left(A)
+    | Right(B)
+
+let p = Pair(1, 2)              // Pair&lt;int&gt;
+let e: Either&lt;string, int&gt; = .Left("oops")
 </code></pre>
-<p>Match expressions are used to handle each possible case of an enum.</p>
-<pre><code>let c = Shape.Circle(5.2)
-let area = match c {
-    .Circle(radius) -&gt; radius * radius * pi,
-    .Rectangle(width, height) -&gt; width * height,
-    .Triangle(width, height) -&gt; width * height * 0.5,
+<h3 id="interface-constraints"><a class="header" href="#interface-constraints">Interface constraints</a></h3>
+<p>A type variable can be constrained to types that implement particular interfaces. Constraints are written after the type variable, separated by spaces:</p>
+<pre><code>fn max(a: T Ord, b: T) -&gt; T {
+    if a &gt; b { a } else { b }
+}
+
+fn print_pair(a: T ToString, b: T) {
+    println(a .. " and " .. b)
 }
 </code></pre>
-<p>Enums can have generic type arguments.</p>
-<pre><code>type option&lt;T&gt; =
-  | some(T)
-  | none
+<p>Multiple constraints can be combined:</p>
+<pre><code>fn find_and_show(arr: array&lt;T Equal ToString&gt;, target: T) {
+    if arr.contains(target) {
+        println("found " .. target)
+    }
+}
 </code></pre>
+<p>The constraint applies to the type variable. Once you’ve constrained <code>T</code> once, you don’t need to repeat the constraint on every parameter that uses <code>T</code>.</p>
+<h3 id="wildcard-_-in-type-annotations"><a class="header" href="#wildcard-_-in-type-annotations">Wildcard <code>_</code> in type annotations</a></h3>
+<p>When you only want to fix part of a generic type, write <code>_</code> for the parts the compiler should infer:</p>
+<pre><code>use core/map
+
+let m: map&lt;_, string&gt; = map.new()  // key type inferred from later usage
+m.insert(1, "hello")
+m.insert(2, "world")
+</code></pre>
+<h3 id="monomorphization"><a class="header" href="#monomorphization">Monomorphization</a></h3>
+<p>Each concrete instantiation of a generic function gets its own compiled copy. There is no runtime overhead for using generics.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/structs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/interfaces.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../language_reference/patterns.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../language_reference/error_handling.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -225,11 +252,11 @@ let area = match c {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/structs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/interfaces.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../language_reference/patterns.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../language_reference/error_handling.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
