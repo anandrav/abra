@@ -40,8 +40,15 @@ type Greeter = {
     excited: bool = false
 }
 
-let g1 = Greeter("Alice")               // greeting = "Hello", excited = false
-let g2 = Greeter("Bob", "Howdy")        // excited = false
+extend Greeter {
+    fn greet(self) {
+        let punct = if self.excited { "!" } else { "." }
+        println(self.greeting .. ", " .. self.name .. punct)
+    }
+}
+
+Greeter("Alice").greet()                         // "Hello, Alice."
+Greeter("Bob", "Howdy").greet()                  // "Howdy, Bob."
 ```
 
 ### Named field arguments
@@ -49,8 +56,8 @@ let g2 = Greeter("Bob", "Howdy")        // excited = false
 You can also pass a field by name, which lets you skip past fields that have defaults:
 
 ```
-let g3 = Greeter("Carol", excited = true)                  // greeting still "Hello"
-let g4 = Greeter("Dave", greeting = "Hi", excited = true)
+Greeter("Carol", excited = true).greet()                       // "Hello, Carol!"
+Greeter("Dave", greeting = "Hi", excited = true).greet()       // "Hi, Dave!"
 ```
 
 Named arguments must come after all positional arguments.

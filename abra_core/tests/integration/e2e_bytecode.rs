@@ -1883,8 +1883,13 @@ type Greeter = {
     num: int = 42
 }
 
-let g = Greeter("Anand")
-g.greeting .. " " .. g.name .. g.punct .. " your number is " .. g.num
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand").greet()
 "#;
     expect_value(src, "HELLO Anand! your number is 42");
 }
@@ -1899,8 +1904,13 @@ type Greeter = {
     num: int = 42
 }
 
-let g = Greeter("Anand", greeting = "hello", punct = ",", num = 123)
-g.greeting .. " " .. g.name .. g.punct .. " your number is " .. g.num
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand", greeting = "hello", punct = ",", num = 123).greet()
 "#;
     expect_value(src, "hello Anand, your number is 123");
 }
@@ -1915,8 +1925,13 @@ type Greeter = {
     num: int = 42
 }
 
-let g = Greeter("Anand", num = 123, punct = ",", greeting = "hello")
-g.greeting .. " " .. g.name .. g.punct .. " your number is " .. g.num
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand", num = 123, punct = ",", greeting = "hello").greet()
 "#;
     expect_value(src, "hello Anand, your number is 123");
 }
@@ -1931,8 +1946,13 @@ type Greeter = {
     num: int = 42
 }
 
-let g = Greeter("Anand", num = 7)
-g.greeting .. " " .. g.name .. g.punct .. " your number is " .. g.num
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand", num = 7).greet()
 "#;
     expect_value(src, "HELLO Anand! your number is 7");
 }
