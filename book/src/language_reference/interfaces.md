@@ -9,7 +9,7 @@ The Number interface is implemented by both the `int` and `float` built-in types
 ```
 // support conversion to string
 interface ToString {
-    fn str(x: self) -> string
+    fn str(self) -> string
 }
 
 type Person = {
@@ -20,15 +20,15 @@ type Person = {
 
 // support conversion to string for the Person type
 implement ToString for Person {
-    fn str(x: Person) -> string {
-        x.first_name .. " " .. x.last_name .. ", " x.age .. " years old."
+    fn str(self) -> string {
+        self.first_name .. " " .. self.last_name .. ", " .. self.age .. " years old."
     }
 }
 
 ...
 
 let p = Person("Arthur", "Pendragon", 15)
-let s = p.str() // "Arthur Pendragon 15"
+let s = p.str() // "Arthur Pendragon, 15 years old."
 
 ```
 
@@ -58,13 +58,13 @@ let arr2 = arr.clone()
 arr2.pop()
 arr2.pop()
 arr2.pop()
-// arr = [1, 2, 3] and arr = []
+// arr = [1, 2, 3] and arr2 = []
 ```
 
 #### Equal
 
 The `Equal` interface is used to compare values for equality.
-Types which implement the `Equal` interface can be compared for equality using the `=` operator.
+Types which implement the `Equal` interface can be compared for equality using the `==` operator.
 
 #### Num
 
@@ -88,26 +88,26 @@ the `Iterator` interface. In the case of `array<T>`, that iterator type is `Arra
 Output types are used when the output of an interface's operations are determined by the type of the input.
 For instance, when implementing the `Iterable` interface, different container types will output different
 iterator types.
-For example, `array<T>` returns an `ArrayIterator<T>`, whereas a `hashmap<K,V>` would return a
-`HashmapIterator<K,V>`, which is a completely different struct.
-Similarly, a `StringIterator`, when implementing the `Iterator` interface, would always return a `maybe<char,void>`, so
-`Item` = `char` in that case.
+For example, `array<T>` returns an `ArrayIterator<T>`, whereas a `map<K,V>` would return a
+`MapIterator<K,V>`, which is a completely different struct.
+Similarly, a `StringIterator`, when implementing the `Iterator` interface, would always return an `option<string>`, so
+`IteratorItem` = `string` in that case.
 
-Without output types, interfaces like `Iterable` would have to be parameterized over `Item` and `Iter`,
+Without output types, interfaces like `Iterable` would have to be parameterized over `IterableItem` and `Iter`,
 which would require much more type annotations. This would also impede language features like operator overloading and
 the `for-in` loop, which lean on interfaces in the prelude such as `Iterable` and `Iterator`.
 
 ```
 interface Iterable {
-    outputtype Item
-    outputtype Iter impl Iterator<Item=Item>
+    outputtype IterableItem
+    outputtype Iter impl Iterator<IteratorItem=IterableItem>
 
-    fn make_iterator: (Self) -> Iter
+    fn make_iterator(self) -> Iter
 }
 
 interface Iterator {
-    outputtype Item
+    outputtype IteratorItem
 
-    fn next: (Self) -> maybe<Item,void>
+    fn next(self) -> option<IteratorItem>
 }
 ```

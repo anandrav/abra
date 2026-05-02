@@ -4,13 +4,13 @@ It is recommended to use the `option` type defined in the standard library as a 
 
 ```
 type option<T> =
-  | some of T
+  | some(T)
   | none
 ```
 
 ```
 fn safe_divide(a: float, b: float) -> option<float> {
-    if b = 0.0 {
+    if b == 0.0 {
         .none
     } else {
         .some(a / b)

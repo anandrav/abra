@@ -3,7 +3,7 @@
 A function is a reusable piece of code that takes zero or more inputs and has a single output.
 
 ```
-fn distance(x1, x2, x2, y2) {
+fn distance(x1, y1, x2, y2) {
     sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 }
 ```
@@ -32,7 +32,7 @@ fn fibonacci(n: int) -> int {
 }
 
 fn display_message() -> void {
-    for n in range(5) {     // last statement is a for loop. No return value
+    for n in 5 {            // last statement is a for loop. No return value
         println(n)
     }
 }
@@ -43,5 +43,5 @@ of
 being wrapped in a curly brace block:
 
 ```
-fn distance(x1, x2, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+fn distance(x1, y1, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 ```

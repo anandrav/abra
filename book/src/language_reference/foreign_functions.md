@@ -15,14 +15,16 @@ single Rust project for every toplevel namespace that contains foreign function 
 For example, implementing a foreign function in `os.abra` (os is under the root namespace) should be done in
 `os/rust_project/src/os.rs`.
 Implementing a foreign function in `os/exec.abra`, which is under the os/ namespace, should be done in
-`os/rust_project/src/os/exec.abra` -- the same Rust project.
+`os/rust_project/src/os/exec.rs` -- the same Rust project.
 
 os.abra
 
 ```
-foreign fn fread(path: string) -> string
+#foreign
+fn fread(path: string) -> string
 
-foreign fn fwrite(path: string, contents: string) -> string
+#foreign
+fn fwrite(path: string, contents: string) -> string
 ```
 
 os/rust_project/Cargo.toml
@@ -44,7 +46,7 @@ os/rust_project/build.rs
 
 ```
 fn main() {
-    abra_core::addons::generate_bindings_for_crate();
+    abra_core::foreign_bindings::generate_bindings_for_crate();
 }
 ```
 

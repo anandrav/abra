@@ -54,6 +54,6 @@ let p = Person("Arthur", "Pendragon", 15)
 let name = Person.fullname(p)
 
 let arr = [1, 2, 3, 4]
-array.push(arr)
-let l = array.len(arr) // 6
+array.push(arr, 5)
+let l = array.len(arr) // 5
 ```

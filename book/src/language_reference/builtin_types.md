@@ -81,8 +81,8 @@ let name_and_age = ("Lancelot", 19)
 
 ### void
 
-Represents nothing and only has one value -- `()`.
-This is useful as a return type for functions that donT return anything.
+Represents nothing and only has one value -- `nil`.
+This is useful as a return type for functions that don't return anything.
 This is sometimes referred to as the "unit type" in other languages because it has a single value.
 
 ### never
