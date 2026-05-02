@@ -537,9 +537,15 @@ impl Parser {
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::Colon);
         let ty = self.parse_type()?;
+        let mut default_val = None;
+        if self.current_token().tag() == TokenTag::Eq {
+            self.consume_token();
+            default_val = Some(self.parse_expr()?);
+        }
         Ok(Rc::new(StructField {
             name,
             ty,
+            default_val,
             loc: self.location(lo),
             id: NodeId::new(),
         }))

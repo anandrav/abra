@@ -29,6 +29,32 @@ And update them the same way:
 frank.age = frank.age + 1   // 35
 ```
 
+### Default field values
+
+A field can have a default value. When constructing the struct, callers can leave any trailing field off:
+
+```
+type Greeter = {
+    name: string
+    greeting: string = "Hello"
+    excited: bool = false
+}
+
+let g1 = Greeter("Alice")               // greeting = "Hello", excited = false
+let g2 = Greeter("Bob", "Howdy")        // excited = false
+```
+
+### Named field arguments
+
+You can also pass a field by name, which lets you skip past fields that have defaults:
+
+```
+let g3 = Greeter("Carol", excited = true)                  // greeting still "Hello"
+let g4 = Greeter("Dave", greeting = "Hi", excited = true)
+```
+
+Named arguments must come after all positional arguments.
+
 ### Generic structs
 
 A struct can take a type parameter, so it works with any element type:
