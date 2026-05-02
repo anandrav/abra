@@ -239,6 +239,14 @@ pub fn generate_bindings_for_crate() {
     toplevel_abra_file.pop();
     toplevel_abra_file = toplevel_abra_file.join(format!("{package_name}.abra"));
 
+    // Declare the .abra files this build script reads as cargo inputs.
+    // Without these, cargo only watches the package source (rust_project/)
+    // and serves stale generated bindings when only .abra files change.
+    // The package_dir watch covers rust_project/ too, preserving the
+    // default rerun-on-source-change behavior.
+    println!("cargo:rerun-if-changed={}", toplevel_abra_file.display());
+    println!("cargo:rerun-if-changed={}", package_dir.display());
+
     let file_provider = MockFileProvider::new(Default::default());
 
     let output = &mut String::new();
@@ -669,6 +677,7 @@ fn find_abra_files(
         } else if let Some(ext) = path.extension() {
             // Check if the extension is "abra".
             if ext == "abra" {
+                println!("cargo:rerun-if-changed={}", path.display());
                 let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
 
                 let no_extension = &file_name[0..(file_name.len() - ".abra".len())];
