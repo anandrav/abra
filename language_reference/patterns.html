@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-a07792e4.js";
+            window.path_to_searchindex_js = "../searchindex-1278c060.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -178,70 +178,128 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="patterns"><a class="header" href="#patterns">Patterns</a></h1>
-<p>Patterns describe the shape of a value. They appear in:</p>
-<ul>
-<li><code>match</code> expressions</li>
-<li><code>let</code> and <code>var</code> bindings (for destructuring)</li>
-<li><code>for</code> loops (for destructuring the loop variable)</li>
-</ul>
-<h3 id="wildcard"><a class="header" href="#wildcard">Wildcard</a></h3>
-<p><code>_</code> matches anything and binds nothing. Use it as a catch-all or to ignore parts of a value.</p>
-<pre><code>match n {
-    0 -&gt; "zero"
-    _ -&gt; "non-zero"
-}
-</code></pre>
-<h3 id="binding"><a class="header" href="#binding">Binding</a></h3>
-<p>A bare identifier matches anything and binds the value to that name:</p>
-<pre><code>match get_score() {
-    score -&gt; println("got " .. score)
-}
-</code></pre>
-<h3 id="literal"><a class="header" href="#literal">Literal</a></h3>
-<p>Match against a specific value. Works for <code>int</code>, <code>float</code>, <code>string</code>, <code>bool</code>, and <code>nil</code>.</p>
+<p>A pattern is a way to look at a piece of data and ask “is it shaped like this — and if so, can you pull these parts out for me?” Patterns let you match against a value and unpack it at the same time, in a single step.</p>
+<p>You’ve already seen patterns if you’ve used a <code>match</code> expression. Here’s a small one:</p>
 <pre><code>match command {
     "quit" -&gt; exit_game()
     "help" -&gt; show_help()
-    _ -&gt; println("unknown")
+    _ -&gt; println("unknown command")
 }
 </code></pre>
-<h3 id="variant"><a class="header" href="#variant">Variant</a></h3>
-<p>Match an enum variant. Use leading-dot syntax. Variants with no data take no parentheses; variants with data destructure their fields:</p>
+<p>Each line on the left side of <code>-&gt;</code> is a pattern. The first pattern that matches <code>command</code> wins, and its right side runs.</p>
+<h2 id="where-patterns-appear"><a class="header" href="#where-patterns-appear">Where patterns appear</a></h2>
+<p>Three places in Abra accept patterns:</p>
+<ol>
+<li><strong><code>match</code> expressions</strong> — choose a branch based on the shape of a value.</li>
+<li><strong><code>let</code> and <code>var</code> bindings</strong> — pull values apart while binding them to names.</li>
+<li><strong><code>for</code> loops</strong> — pull apart each item as you iterate.</li>
+</ol>
+<h2 id="the-kinds-of-patterns"><a class="header" href="#the-kinds-of-patterns">The kinds of patterns</a></h2>
+<h3 id="match-a-specific-value"><a class="header" href="#match-a-specific-value">Match a specific value</a></h3>
+<p>A literal pattern matches one specific value. Useful for small lookups:</p>
+<pre><code>fn day_name(day: int) -&gt; string {
+    match day {
+        1 -&gt; "Monday"
+        2 -&gt; "Tuesday"
+        3 -&gt; "Wednesday"
+        4 -&gt; "Thursday"
+        5 -&gt; "Friday"
+        _ -&gt; "weekend"
+    }
+}
+</code></pre>
+<p>Literals can be <code>int</code>, <code>float</code>, <code>string</code>, <code>bool</code>, or <code>nil</code>.</p>
+<h3 id="catch-everything-else"><a class="header" href="#catch-everything-else">Catch everything else</a></h3>
+<p>The wildcard <code>_</code> matches any value but doesn’t bind it to a name. It’s how you write “anything else”:</p>
+<pre><code>match user_input {
+    "yes" -&gt; proceed()
+    "no" -&gt; stop()
+    _ -&gt; println("please answer yes or no")
+}
+</code></pre>
+<h3 id="bind-a-value-to-a-name"><a class="header" href="#bind-a-value-to-a-name">Bind a value to a name</a></h3>
+<p>A bare identifier matches anything and binds the value to that name. Use it when you want to do something with the value, not just check what it is:</p>
+<pre><code>match get_age() {
+    0 -&gt; println("just born!")
+    age -&gt; println("age is " .. age)
+}
+</code></pre>
+<p>In the second arm, <code>age</code> is a fresh variable that holds whatever <code>get_age()</code> returned.</p>
+<h3 id="pull-data-out-of-an-enum"><a class="header" href="#pull-data-out-of-an-enum">Pull data out of an enum</a></h3>
+<p>If a value is an enum variant, you can match the variant and bind the data it carries in one step. Use leading-dot syntax to name the variant:</p>
 <pre><code>type Shape =
     | Circle(float)
     | Rectangle(float, float)
     | Origin
 
-match shape {
-    .Circle(r) -&gt; 3.14 * r * r
-    .Rectangle(w, h) -&gt; w * h
-    .Origin -&gt; 0.0
+fn area(s: Shape) -&gt; float {
+    match s {
+        .Circle(r) -&gt; 3.14 * r * r
+        .Rectangle(w, h) -&gt; w * h
+        .Origin -&gt; 0.0
+    }
 }
 </code></pre>
-<p>Patterns can be nested. Here we match a list-of-options and pull out the inner value:</p>
-<pre><code>match maybe_list {
-    .some(.cons(head, _)) -&gt; head
-    .some(.empty) -&gt; 0
-    .none -&gt; -1
+<p><code>.Circle(r)</code> says “if <code>s</code> is a <code>Circle</code>, run this branch — and let me call its inner float <code>r</code>”.</p>
+<p>This is the most common use of patterns. It’s how you handle <code>option</code> and <code>result</code>:</p>
+<pre><code>match read("config.txt") {
+    .ok(text) -&gt; println(text)
+    .err(e) -&gt; println("oops: " .. e)
+}
+
+match user.try_get("nickname") {
+    .some(name) -&gt; println("hi, " .. name)
+    .none -&gt; println("hi, anonymous")
 }
 </code></pre>
-<h3 id="tuple"><a class="header" href="#tuple">Tuple</a></h3>
-<p>Destructure a tuple by writing a tuple pattern. The pattern can mix wildcards, literals, bindings, and other patterns.</p>
+<h3 id="pull-tuples-apart"><a class="header" href="#pull-tuples-apart">Pull tuples apart</a></h3>
+<p>Tuple patterns destructure tuples by writing one. You can mix wildcards, literals, and bindings:</p>
 <pre><code>match point {
-    (0, 0) -&gt; "origin"
-    (0, _) -&gt; "on y-axis"
-    (_, 0) -&gt; "on x-axis"
-    (x, y) -&gt; "(" .. x .. ", " .. y .. ")"
+    (0, 0) -&gt; "at the origin"
+    (0, y) -&gt; "on the y-axis at height " .. y
+    (x, 0) -&gt; "on the x-axis at position " .. x
+    (x, y) -&gt; "somewhere at (" .. x .. ", " .. y .. ")"
 }
 </code></pre>
-<h3 id="destructuring-in-let"><a class="header" href="#destructuring-in-let">Destructuring in <code>let</code></a></h3>
-<p>You can destructure tuples directly in a binding:</p>
+<p>Tuple destructuring is the most common form of pattern in <code>let</code>:</p>
 <pre><code>let (x, y) = get_position()
 let (name, age) = ("Alice", 30)
+
+let pairs = [(1, "one"), (2, "two"), (3, "three")]
+for pair in pairs {
+    let (number, word) = pair
+    println(number .. " = " .. word)
+}
 </code></pre>
-<p>This is just a special case of pattern matching.</p>
-<h3 id="match-is-exhaustive"><a class="header" href="#match-is-exhaustive">Match is exhaustive</a></h3>
-<p>The compiler checks that match expressions cover every possible value. If you forget a case, you’ll get a compile-time error pointing out which patterns are missing. Use <code>_</code> as a catch-all when you don’t want to enumerate every variant.</p>
+<h3 id="combine-patterns-inside-other-patterns"><a class="header" href="#combine-patterns-inside-other-patterns">Combine patterns inside other patterns</a></h3>
+<p>Patterns nest. You can put a variant pattern inside a tuple pattern, a tuple pattern inside a variant pattern, and so on. This is useful when you want to handle several pieces of state together:</p>
+<pre><code>// Both players have to be ready before the game starts
+match (player1.status, player2.status) {
+    (.Ready, .Ready) -&gt; start_game()
+    (.Ready, _) -&gt; println("waiting for player 2")
+    (_, .Ready) -&gt; println("waiting for player 1")
+    _ -&gt; println("waiting for both players")
+}
+</code></pre>
+<p>You can also peer into nested enums:</p>
+<pre><code>// Walk a linked list and pull out the head if it exists
+match maybe_list {
+    .some(.cons(head, _)) -&gt; "first element is " .. head
+    .some(.empty) -&gt; "list is empty"
+    .none -&gt; "no list"
+}
+</code></pre>
+<h2 id="exhaustiveness--the-compiler-has-your-back"><a class="header" href="#exhaustiveness--the-compiler-has-your-back">Exhaustiveness — the compiler has your back</a></h2>
+<p>When you write a <code>match</code>, the compiler checks that you’ve covered every possible value. If you forget a variant, you get a clear error pointing at what’s missing.</p>
+<pre><code>type Color = Red | Green | Blue
+
+// Compile error: missing pattern .Blue
+match c {
+    .Red -&gt; "stop"
+    .Green -&gt; "go"
+}
+</code></pre>
+<p>This is one of the best things about patterns: refactoring becomes much safer. If you add a new variant to an enum, every <code>match</code> on that enum will tell you it needs to be updated. Use <code>_</code> as a catch-all when you genuinely want to ignore the rest, but reach for it sparingly — explicit cases are easier to maintain.</p>
 
                     </main>
 

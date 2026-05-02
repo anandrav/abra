@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-a07792e4.js";
+            window.path_to_searchindex_js = "searchindex-1278c060.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f43184b7.js"></script>
@@ -625,6 +625,8 @@ let n = scale(5)   // 50
 <pre><code>let f: (int, int) -&gt; int = (a, b) -&gt; a + b
 let p: (string) -&gt; bool = s -&gt; s.starts_with("yes")
 </code></pre>
+<h3 id="limitations"><a class="header" href="#limitations">Limitations</a></h3>
+<p>Lambdas do not support default argument values or named-argument calls. Those features only work on named functions declared with <code>fn</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
 <p>Define a <code>struct</code> to group together related pieces of data.</p>
@@ -681,70 +683,128 @@ let area = match c {
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="patterns"><a class="header" href="#patterns">Patterns</a></h1>
-<p>Patterns describe the shape of a value. They appear in:</p>
-<ul>
-<li><code>match</code> expressions</li>
-<li><code>let</code> and <code>var</code> bindings (for destructuring)</li>
-<li><code>for</code> loops (for destructuring the loop variable)</li>
-</ul>
-<h3 id="wildcard"><a class="header" href="#wildcard">Wildcard</a></h3>
-<p><code>_</code> matches anything and binds nothing. Use it as a catch-all or to ignore parts of a value.</p>
-<pre><code>match n {
-    0 -&gt; "zero"
-    _ -&gt; "non-zero"
-}
-</code></pre>
-<h3 id="binding"><a class="header" href="#binding">Binding</a></h3>
-<p>A bare identifier matches anything and binds the value to that name:</p>
-<pre><code>match get_score() {
-    score -&gt; println("got " .. score)
-}
-</code></pre>
-<h3 id="literal"><a class="header" href="#literal">Literal</a></h3>
-<p>Match against a specific value. Works for <code>int</code>, <code>float</code>, <code>string</code>, <code>bool</code>, and <code>nil</code>.</p>
+<p>A pattern is a way to look at a piece of data and ask “is it shaped like this — and if so, can you pull these parts out for me?” Patterns let you match against a value and unpack it at the same time, in a single step.</p>
+<p>You’ve already seen patterns if you’ve used a <code>match</code> expression. Here’s a small one:</p>
 <pre><code>match command {
     "quit" -&gt; exit_game()
     "help" -&gt; show_help()
-    _ -&gt; println("unknown")
+    _ -&gt; println("unknown command")
 }
 </code></pre>
-<h3 id="variant"><a class="header" href="#variant">Variant</a></h3>
-<p>Match an enum variant. Use leading-dot syntax. Variants with no data take no parentheses; variants with data destructure their fields:</p>
+<p>Each line on the left side of <code>-&gt;</code> is a pattern. The first pattern that matches <code>command</code> wins, and its right side runs.</p>
+<h2 id="where-patterns-appear"><a class="header" href="#where-patterns-appear">Where patterns appear</a></h2>
+<p>Three places in Abra accept patterns:</p>
+<ol>
+<li><strong><code>match</code> expressions</strong> — choose a branch based on the shape of a value.</li>
+<li><strong><code>let</code> and <code>var</code> bindings</strong> — pull values apart while binding them to names.</li>
+<li><strong><code>for</code> loops</strong> — pull apart each item as you iterate.</li>
+</ol>
+<h2 id="the-kinds-of-patterns"><a class="header" href="#the-kinds-of-patterns">The kinds of patterns</a></h2>
+<h3 id="match-a-specific-value"><a class="header" href="#match-a-specific-value">Match a specific value</a></h3>
+<p>A literal pattern matches one specific value. Useful for small lookups:</p>
+<pre><code>fn day_name(day: int) -&gt; string {
+    match day {
+        1 -&gt; "Monday"
+        2 -&gt; "Tuesday"
+        3 -&gt; "Wednesday"
+        4 -&gt; "Thursday"
+        5 -&gt; "Friday"
+        _ -&gt; "weekend"
+    }
+}
+</code></pre>
+<p>Literals can be <code>int</code>, <code>float</code>, <code>string</code>, <code>bool</code>, or <code>nil</code>.</p>
+<h3 id="catch-everything-else"><a class="header" href="#catch-everything-else">Catch everything else</a></h3>
+<p>The wildcard <code>_</code> matches any value but doesn’t bind it to a name. It’s how you write “anything else”:</p>
+<pre><code>match user_input {
+    "yes" -&gt; proceed()
+    "no" -&gt; stop()
+    _ -&gt; println("please answer yes or no")
+}
+</code></pre>
+<h3 id="bind-a-value-to-a-name"><a class="header" href="#bind-a-value-to-a-name">Bind a value to a name</a></h3>
+<p>A bare identifier matches anything and binds the value to that name. Use it when you want to do something with the value, not just check what it is:</p>
+<pre><code>match get_age() {
+    0 -&gt; println("just born!")
+    age -&gt; println("age is " .. age)
+}
+</code></pre>
+<p>In the second arm, <code>age</code> is a fresh variable that holds whatever <code>get_age()</code> returned.</p>
+<h3 id="pull-data-out-of-an-enum"><a class="header" href="#pull-data-out-of-an-enum">Pull data out of an enum</a></h3>
+<p>If a value is an enum variant, you can match the variant and bind the data it carries in one step. Use leading-dot syntax to name the variant:</p>
 <pre><code>type Shape =
     | Circle(float)
     | Rectangle(float, float)
     | Origin
 
-match shape {
-    .Circle(r) -&gt; 3.14 * r * r
-    .Rectangle(w, h) -&gt; w * h
-    .Origin -&gt; 0.0
+fn area(s: Shape) -&gt; float {
+    match s {
+        .Circle(r) -&gt; 3.14 * r * r
+        .Rectangle(w, h) -&gt; w * h
+        .Origin -&gt; 0.0
+    }
 }
 </code></pre>
-<p>Patterns can be nested. Here we match a list-of-options and pull out the inner value:</p>
-<pre><code>match maybe_list {
-    .some(.cons(head, _)) -&gt; head
-    .some(.empty) -&gt; 0
-    .none -&gt; -1
+<p><code>.Circle(r)</code> says “if <code>s</code> is a <code>Circle</code>, run this branch — and let me call its inner float <code>r</code>”.</p>
+<p>This is the most common use of patterns. It’s how you handle <code>option</code> and <code>result</code>:</p>
+<pre><code>match read("config.txt") {
+    .ok(text) -&gt; println(text)
+    .err(e) -&gt; println("oops: " .. e)
+}
+
+match user.try_get("nickname") {
+    .some(name) -&gt; println("hi, " .. name)
+    .none -&gt; println("hi, anonymous")
 }
 </code></pre>
-<h3 id="tuple"><a class="header" href="#tuple">Tuple</a></h3>
-<p>Destructure a tuple by writing a tuple pattern. The pattern can mix wildcards, literals, bindings, and other patterns.</p>
+<h3 id="pull-tuples-apart"><a class="header" href="#pull-tuples-apart">Pull tuples apart</a></h3>
+<p>Tuple patterns destructure tuples by writing one. You can mix wildcards, literals, and bindings:</p>
 <pre><code>match point {
-    (0, 0) -&gt; "origin"
-    (0, _) -&gt; "on y-axis"
-    (_, 0) -&gt; "on x-axis"
-    (x, y) -&gt; "(" .. x .. ", " .. y .. ")"
+    (0, 0) -&gt; "at the origin"
+    (0, y) -&gt; "on the y-axis at height " .. y
+    (x, 0) -&gt; "on the x-axis at position " .. x
+    (x, y) -&gt; "somewhere at (" .. x .. ", " .. y .. ")"
 }
 </code></pre>
-<h3 id="destructuring-in-let"><a class="header" href="#destructuring-in-let">Destructuring in <code>let</code></a></h3>
-<p>You can destructure tuples directly in a binding:</p>
+<p>Tuple destructuring is the most common form of pattern in <code>let</code>:</p>
 <pre><code>let (x, y) = get_position()
 let (name, age) = ("Alice", 30)
+
+let pairs = [(1, "one"), (2, "two"), (3, "three")]
+for pair in pairs {
+    let (number, word) = pair
+    println(number .. " = " .. word)
+}
 </code></pre>
-<p>This is just a special case of pattern matching.</p>
-<h3 id="match-is-exhaustive"><a class="header" href="#match-is-exhaustive">Match is exhaustive</a></h3>
-<p>The compiler checks that match expressions cover every possible value. If you forget a case, you’ll get a compile-time error pointing out which patterns are missing. Use <code>_</code> as a catch-all when you don’t want to enumerate every variant.</p>
+<h3 id="combine-patterns-inside-other-patterns"><a class="header" href="#combine-patterns-inside-other-patterns">Combine patterns inside other patterns</a></h3>
+<p>Patterns nest. You can put a variant pattern inside a tuple pattern, a tuple pattern inside a variant pattern, and so on. This is useful when you want to handle several pieces of state together:</p>
+<pre><code>// Both players have to be ready before the game starts
+match (player1.status, player2.status) {
+    (.Ready, .Ready) -&gt; start_game()
+    (.Ready, _) -&gt; println("waiting for player 2")
+    (_, .Ready) -&gt; println("waiting for player 1")
+    _ -&gt; println("waiting for both players")
+}
+</code></pre>
+<p>You can also peer into nested enums:</p>
+<pre><code>// Walk a linked list and pull out the head if it exists
+match maybe_list {
+    .some(.cons(head, _)) -&gt; "first element is " .. head
+    .some(.empty) -&gt; "list is empty"
+    .none -&gt; "no list"
+}
+</code></pre>
+<h2 id="exhaustiveness--the-compiler-has-your-back"><a class="header" href="#exhaustiveness--the-compiler-has-your-back">Exhaustiveness — the compiler has your back</a></h2>
+<p>When you write a <code>match</code>, the compiler checks that you’ve covered every possible value. If you forget a variant, you get a clear error pointing at what’s missing.</p>
+<pre><code>type Color = Red | Green | Blue
+
+// Compile error: missing pattern .Blue
+match c {
+    .Red -&gt; "stop"
+    .Green -&gt; "go"
+}
+</code></pre>
+<p>This is one of the best things about patterns: refactoring becomes much safer. If you add a new variant to an enum, every <code>match</code> on that enum will tell you it needs to be updated. Use <code>_</code> as a catch-all when you genuinely want to ignore the rest, but reach for it sparingly — explicit cases are easier to maintain.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="member-functions-1"><a href="#member-functions-1" class="header">Member Functions</a></h1>
 <h2 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h2>
@@ -1104,279 +1164,236 @@ polearm.stab()          // halberd.stab
 use core/map
 use ard/term
 </code></pre>
-<p>Some functions, types, and interfaces are always available without <code>use</code>. These come from the <strong>prelude</strong>, which is implicitly imported into every Abra file.</p>
+<p>A few things — the most fundamental types, interfaces, and functions — are always available without <code>use</code>. These come from the <strong>prelude</strong>, which is implicitly imported into every Abra file.</p>
 <h2 id="prelude"><a class="header" href="#prelude">Prelude</a></h2>
-<p>The prelude defines the most fundamental types and operations. You don’t need to import any of these.</p>
-<h3 id="functions-1"><a class="header" href="#functions-1">Functions</a></h3>
-<pre><code>print(x)                  // print without newline
-println(x)                // print with newline
-panic(msg)                // abort the program with an error
-assert(cond, msg)         // panic if condition is false
-readline()                // read a line from stdin
-get_args()                // command-line arguments as array&lt;string&gt;
-range_inclusive(begin, end)   // an inclusive range [begin, end]
+<h3 id="built-in-functions"><a class="header" href="#built-in-functions">Built-in functions</a></h3>
+<p>The prelude provides basic I/O and program control:</p>
+<pre><code>println("hello")             // print with newline (also: print, panic, assert)
+let line = readline()        // read a line from stdin
+let args = get_args()        // command-line arguments as array&lt;string&gt;
 </code></pre>
-<h3 id="types"><a class="header" href="#types">Types</a></h3>
-<pre><code>type option&lt;T&gt; = some(T) | none
-type result&lt;T, E&gt; = ok(T) | err(E)
-type range = { begin: int, end: int }
-type ControlFlow&lt;B, C&gt; = Break(B) | Continue(C)
+<h3 id="built-in-types-1"><a class="header" href="#built-in-types-1">Built-in types</a></h3>
+<p><code>option&lt;T&gt;</code> represents a value that might be missing; <code>result&lt;T, E&gt;</code> represents a value that might be an error. Both are heavily used by the standard library:</p>
+<pre><code>let n: option&lt;int&gt; = "42".to_int()    // .some(42) or .none
+let r: result&lt;string, FsError&gt; = read("file.txt")
 </code></pre>
-<h3 id="interfaces-1"><a class="header" href="#interfaces-1">Interfaces</a></h3>
+<p><code>range</code> is a half-open numeric interval, used in <code>for</code> loops and slicing:</p>
+<pre><code>for i in range(1, 10) { println(i) }   // 1 through 9
+</code></pre>
+<h3 id="built-in-interfaces"><a class="header" href="#built-in-interfaces">Built-in interfaces</a></h3>
+<p>These power most of Abra’s operators. You’ll usually use them implicitly, by writing <code>+</code> or <code>==</code>. To make your own type work with these operators, implement the corresponding interface.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Interface</th><th>Purpose</th><th>Operators it powers</th></tr>
+<tr><th>Interface</th><th>Powers</th><th>Notes</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Num</code></td><td>arithmetic</td><td><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>^</code></td></tr>
-<tr><td><code>Equal</code></td><td>equality</td><td><code>==</code>, <code>!=</code></td></tr>
-<tr><td><code>Ord</code></td><td>ordering</td><td><code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></td></tr>
-<tr><td><code>Hash</code></td><td>hashing</td><td>(used by map/set keys)</td></tr>
-<tr><td><code>Clone</code></td><td>deep copy</td><td></td></tr>
-<tr><td><code>ToString</code></td><td>conversion to string</td><td><code>..</code> and <code>print</code>/<code>println</code></td></tr>
-<tr><td><code>Unwrap</code></td><td>extract value from container</td><td><code>!</code></td></tr>
-<tr><td><code>Try</code></td><td>early-return on failure</td><td><code>?</code></td></tr>
-<tr><td><code>Index</code></td><td>bracket-syntax access</td><td><code>x[i]</code> and <code>x[i] = v</code></td></tr>
-<tr><td><code>Iterable</code></td><td>for-loop support</td><td><code>for x in y</code></td></tr>
-<tr><td><code>Iterator</code></td><td>iteration protocol</td><td></td></tr>
+<tr><td><code>Num</code></td><td><code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code></td><td>Implemented for <code>int</code> and <code>float</code></td></tr>
+<tr><td><code>Equal</code></td><td><code>==</code> <code>!=</code></td><td></td></tr>
+<tr><td><code>Ord</code></td><td><code>&lt;</code> <code>&lt;=</code> <code>&gt;</code> <code>&gt;=</code></td><td></td></tr>
+<tr><td><code>Hash</code></td><td>(used by map and set keys)</td><td></td></tr>
+<tr><td><code>Clone</code></td><td></td><td>Deep-copy a value</td></tr>
+<tr><td><code>ToString</code></td><td><code>..</code> and <code>print</code>/<code>println</code></td><td>Convert any value to a string</td></tr>
+<tr><td><code>Unwrap</code></td><td><code>!</code></td><td>Pull value out of <code>option</code> or <code>result</code></td></tr>
+<tr><td><code>Try</code></td><td><code>?</code></td><td>Early-return on <code>none</code> / <code>err</code></td></tr>
+<tr><td><code>Index</code></td><td><code>x[i]</code> and <code>x[i] = v</code></td><td>Bracket access for arrays, maps, etc.</td></tr>
+<tr><td><code>Iterable</code></td><td><code>for x in y</code></td><td>Lets a type be used in a <code>for</code> loop</td></tr>
 </tbody>
 </table>
 </div>
 <h3 id="array-methods"><a class="header" href="#array-methods">Array methods</a></h3>
-<p>Arrays implement many methods directly in the prelude:</p>
-<pre><code>arr.len()
-arr.is_empty()
-arr.push(x)
-arr.pop()
-arr.swap(i, j)
-arr.remove(i)              // swap with last, then pop
-arr.clear()
-arr.bounds()               // range(0, len)
+<p>Arrays come with a useful set of methods built in. Most are obvious from their names:</p>
+<pre><code>let xs = [3, 1, 4, 1, 5, 9, 2, 6]
 
-array.filled(x, n)         // create an array of n copies (requires Clone)
+xs.len()                  // 8
+xs.contains(4)            // true
+xs.find(5)                // .some(4) — index of first match
+xs.sort()                 // in-place, requires Ord
+xs.push(7)
+xs.pop()
 
-arr.find(x)                // option&lt;int&gt;; requires Equal
-arr.contains(x)            // bool;        requires Equal
-
-arr.sort()                 // requires Ord
-arr.sort_by(cmp)           // cmp: (T, T) -&gt; bool   (less-than-or-equal)
-arr.sort_by_key(key_fn)    // key_fn: T -&gt; U Ord
+let zeros = array.filled(0, 5)         // [0, 0, 0, 0, 0]
+xs.sort_by((a, b) -&gt; a &gt; b)            // sort descending
 </code></pre>
-<h2 id="modules"><a class="header" href="#modules">Modules</a></h2>
-<h3 id="corestrings"><a class="header" href="#corestrings"><code>core/strings</code></a></h3>
-<p>Adds methods to the <code>string</code> type and provides <code>join</code>:</p>
-<pre><code>s.len()
-s.chars()                  // array&lt;string&gt;, one char per element
-s.lines()                  // split by newlines
-s.slice(begin, end)        // substring [begin, end)
-s.split(delim)             // array&lt;string&gt;
-s.trim()
-s.trim_start()
-s.trim_end()
-s.starts_with(p)
-s.ends_with(suf)
-s.contains(sub)
-s.find(sub)                // option&lt;int&gt;
-s.replace(old, new)
-s.repeat(n)
-s.pad_left(width, pad)
-s.pad_right(width, pad)
-s.to_upper()
-s.to_lower()
-s.to_int()                 // option&lt;int&gt;
-s.to_float()               // option&lt;float&gt;
-s.is_alphabetic()
-s.is_alphanumeric()
-s.is_numeric()
+<h2 id="corestrings"><a class="header" href="#corestrings">core/strings</a></h2>
+<p>String manipulation: slicing, splitting, searching, trimming, case conversion, and parsing numbers.</p>
+<pre><code>use core/strings
 
-join(arr, sep)             // join an array&lt;string&gt; into one string
+let csv = "  alice, bob, carol  "
+let names = csv.trim().split(",")
+for name in names {
+    println(name.trim().to_upper())
+}
+// ALICE
+// BOB
+// CAROL
+
+let n = "42".to_int()!     // parse as int
 </code></pre>
-<h3 id="coremap"><a class="header" href="#coremap"><code>core/map</code></a></h3>
-<p>Hash map. Keys must implement <code>Hash</code> and <code>Equal</code>.</p>
-<pre><code>let m: map&lt;string, int&gt; = map.new()
-m.insert(k, v)
-m.get(k)            // panics if missing
-m.try_get(k)        // option&lt;V&gt;
-m.contains(k)
-m.remove(k)         // bool
-m.len()
+<h2 id="coremap"><a class="header" href="#coremap">core/map</a></h2>
+<p>Hash map with separate chaining. Keys must implement <code>Hash</code> and <code>Equal</code>. Bracket syntax (<code>m[k]</code>, <code>m[k] = v</code>) works in addition to <code>insert</code>/<code>get</code>.</p>
+<pre><code>use core/map
+
+let counts: map&lt;string, int&gt; = map.new()
+for word in ["apple", "banana", "apple", "cherry", "apple"] {
+    let n = match counts.try_get(word) {
+        .some(c) -&gt; c
+        .none -&gt; 0
+    }
+    counts[word] = n + 1
+}
+println(counts["apple"])   // 3
 </code></pre>
-<p><code>map</code> also implements <code>Index</code>, so <code>m["alice"] = 100</code> and <code>m["alice"]</code> work.</p>
-<h3 id="coreset"><a class="header" href="#coreset"><code>core/set</code></a></h3>
-<p>Hash set built on top of <code>core/map</code>. Element type must implement <code>Hash</code> and <code>Equal</code>.</p>
-<pre><code>let s: set&lt;int&gt; = set.new()
-s.insert(item)
-s.contains(item)
-s.remove(item)      // bool
-s.len()
+<h2 id="coreset"><a class="header" href="#coreset">core/set</a></h2>
+<p>Hash set built on <code>core/map</code>. Useful for fast membership checks and deduplication. Element type must implement <code>Hash</code> and <code>Equal</code>.</p>
+<pre><code>use core/set
+
+let seen: set&lt;int&gt; = set.new()
+let unique = []
+for n in [1, 2, 2, 3, 1, 4] {
+    if not seen.contains(n) {
+        seen.insert(n)
+        unique.push(n)
+    }
+}
+println(unique)   // [ 1, 2, 3, 4 ]
 </code></pre>
-<h3 id="coremath"><a class="header" href="#coremath"><code>core/math</code></a></h3>
-<pre><code>n.abs()             // works on int and float
-int_max()
-int_min()
-max(a, b)           // generic; requires Ord
-min(a, b)
+<h2 id="coremath"><a class="header" href="#coremath">core/math</a></h2>
+<p>Small grab-bag: absolute value, generic <code>min</code>/<code>max</code>, integer bounds.</p>
+<pre><code>use core/math
+
+let n = (-5).abs()             // 5
+let m = max(10, 20)            // 20
+let bound = int_max()          // 9223372036854775807
 </code></pre>
-<h3 id="corelinked_list"><a class="header" href="#corelinked_list"><code>core/linked_list</code></a></h3>
-<p>An immutable singly-linked list, useful for recursive algorithms.</p>
-<pre><code>type list&lt;T&gt; = empty | cons(T, list&lt;T&gt;)
+<h2 id="corelinked_list"><a class="header" href="#corelinked_list">core/linked_list</a></h2>
+<p>An immutable singly-linked list with the usual functional combinators (<code>map</code>, <code>filter</code>, <code>fold</code>, <code>reverse</code>). Useful for recursive algorithms and small functional programs.</p>
+<pre><code>use core/linked_list
 
-list.from_array(a)
-l.fold(f, acc)
-l.map(f)
-l.for_each(f)
-l.filter(f)
-l.reverse()
+let xs = list.from_array([1, 2, 3, 4, 5])
+let evens_doubled = xs.filter(x -&gt; x % 2 == 0).map(x -&gt; x * 2)
+println(evens_doubled)   // [ 4, 8 ]
 </code></pre>
-<h3 id="corefs"><a class="header" href="#corefs"><code>core/fs</code></a></h3>
-<p>File system operations. Most functions return <code>result&lt;T, FsError&gt;</code>.</p>
-<pre><code>read(path)
-write(path, contents)
-append(path, contents)
-copy(src, dest)
-rename(old, new)
-remove(path)
-exists(path)
+<h2 id="corefs"><a class="header" href="#corefs">core/fs</a></h2>
+<p>File system operations: read and write files, manage directories, query metadata. Most functions return <code>result&lt;T, FsError&gt;</code> so you can use <code>?</code> to propagate failures.</p>
+<pre><code>use core/fs
 
-mkdir(path)
-mkdir_all(path)
-rmdir(path)
-rmdir_all(path)
-list_dir(path)
-
-is_file(path)
-is_dir(path)
-file_size(path)
-modified_time(path)
-
-join_path(base, child)     // NOT join — that's in core/strings
-parent(path)
-filename(path)
-extension(path)
-stem(path)
-absolute(path)
-
-glob(pattern)
-walk_dir(path)
-
-getcwd()
-temp_dir()
-temp_file()
+fn copy_if_missing(src: string, dest: string) -&gt; result&lt;void, FsError&gt; {
+    if exists(dest)? {
+        return .ok(nil)
+    }
+    let contents = read(src)?
+    write(dest, contents)
+}
 </code></pre>
-<h3 id="coreenv"><a class="header" href="#coreenv"><code>core/env</code></a></h3>
-<pre><code>get_var(key)
-set_var(key, value)
-</code></pre>
-<h3 id="coreexec"><a class="header" href="#coreexec"><code>core/exec</code></a></h3>
-<p>Run external processes.</p>
-<pre><code>command(s)              // returns exit code; prints stdout/stderr
-run(s)                  // splits on spaces; returns result&lt;Output, ExecError&gt;
-run_sh(s)               // runs via sh -c; supports pipes/redirects
+<h2 id="coreenv"><a class="header" href="#coreenv">core/env</a></h2>
+<p>Read and write environment variables.</p>
+<pre><code>use core/env
 
-// Builder for full control:
-exec(prog).args([...]).stdin(input).pipe(prog2, [...]).run()
+let home = get_var("HOME")
+set_var("MY_FLAG", "1")
 </code></pre>
-<p><code>Output</code> has <code>stdout</code>, <code>stderr</code>, <code>status</code>, and <code>success()</code>.</p>
-<h3 id="corerandom"><a class="header" href="#corerandom"><code>core/random</code></a></h3>
-<pre><code>random_int(min, max)        // [min, max)
-random_float(min, max)      // [min, max)
+<h2 id="coreexec"><a class="header" href="#coreexec">core/exec</a></h2>
+<p>Run external processes. There are simple one-liners and a builder for more control (arguments with spaces, stdin, pipelines).</p>
+<pre><code>use core/exec
+
+// Quick: run via the shell
+let out = run_sh("ls | wc -l")!
+println(out.stdout.trim())
+
+// Builder: pipe input through a command
+let out = exec("cat").stdin("a\nb\nc\n").pipe("wc", ["-l"]).run()!
+println(out.stdout.trim())   // 3
 </code></pre>
-<h3 id="coretime"><a class="header" href="#coretime"><code>core/time</code></a></h3>
-<pre><code>get_time()                  // seconds since epoch (float)
-sleep(seconds)
-elapsed(start)              // get_time() - start
+<h2 id="corerandom"><a class="header" href="#corerandom">core/random</a></h2>
+<p>Random integers and floats over half-open ranges.</p>
+<pre><code>use core/random
 
-// DateTime type
-now_utc()
-now_local()
-from_timestamp(t)
-make_datetime(y, mo, d, h, mi, s)   // option&lt;DateTime&gt;
-format(dt, fmt)             // strftime: %Y %m %d %H %M %S
-parse(s, fmt)
-weekday_of(dt)
-
-// DateTime methods
-dt.add_seconds(s)
-dt.add_days(n)
-dt.diff(other)
-dt.weekday()
+let roll = random_int(1, 7)         // 1 through 6
+let jitter = random_float(0.0, 1.0)
 </code></pre>
-<h3 id="corejson"><a class="header" href="#corejson"><code>core/json</code></a></h3>
-<p>JSON parser and serializer.</p>
-<pre><code>type JsonValue =
-    | Null
-    | Bool(bool)
-    | Number(float)
-    | Str(string)
-    | Array(array&lt;JsonValue&gt;)
-    | Object(map&lt;string, JsonValue&gt;)
+<h2 id="coretime"><a class="header" href="#coretime">core/time</a></h2>
+<p>Wall-clock time, sleep, and a <code>DateTime</code> type with <code>strftime</code>-style formatting.</p>
+<pre><code>use core/time
 
-parse(s)                // result&lt;JsonValue, string&gt;
-stringify(v)
-stringify_pretty(v)
+let start = get_time()
+sleep(0.5)
+println("waited " .. elapsed(start) .. "s")
 
-v["key"]                // via Index — panics if missing
-v.try_get(key)          // option&lt;JsonValue&gt;
-v.at(i)                 // arrays
-v.set_at(i, val)
-v.push(val)
-v.as_string()           // option&lt;string&gt;
-v.as_number()           // option&lt;float&gt;
-v.as_bool()
-v.as_array()
-v.as_object()
-v.is_null()
-
-JsonValue.object()      // empty object
-JsonValue.array()       // empty array
+let now = now_local()
+println(format(now, "%Y-%m-%d %H:%M:%S"))
+println("today is " .. now.weekday())
 </code></pre>
-<h3 id="corehttp"><a class="header" href="#corehttp"><code>core/http</code></a></h3>
-<p>HTTP client.</p>
-<pre><code>get(url)
-post(url, body)
-post_json(url, value)
+<h2 id="corejson"><a class="header" href="#corejson">core/json</a></h2>
+<p>Parse and serialize JSON. Bracket syntax indexes into objects; <code>.try_get(key)</code> is the safe alternative.</p>
+<pre><code>use core/json
 
-// Builder:
-request(method, url).header(k, v).body(s).json_body(v).send()
+let data = parse("""{"name": "Alice", "scores": [10, 20, 30]}""")!
+println(data["name"].as_string()!)       // Alice
+println(data["scores"].at(1).as_number()!)  // 20.0
 
-// Response
-resp.ok()               // 200-299
-resp.json()             // result&lt;JsonValue, string&gt;
-resp.header(name)       // option&lt;string&gt;
+// Build a JSON value
+let out = JsonValue.object()
+out["greeting"] = .Str("hello")
+out["count"] = .Number(3.0)
+println(stringify_pretty(out))
 </code></pre>
-<h3 id="coreregex"><a class="header" href="#coreregex"><code>core/regex</code></a></h3>
-<p>Regex matching, replace, split, captures.</p>
-<pre><code>matches(s, pattern)
-find(s, pattern)            // option&lt;Match&gt;
-find_all(s, pattern)
-replace(s, pattern, repl)   // $1, $2 for captures
-replace_first(s, pattern, repl)
-split(s, pattern)
-captures(s, pattern)        // option&lt;array&lt;option&lt;string&gt;&gt;&gt;
-named_captures(s, pattern)
+<h2 id="corehttp"><a class="header" href="#corehttp">core/http</a></h2>
+<p>A small HTTP client built on top of <code>core/json</code>. Convenience functions for <code>get</code>/<code>post</code>, and a builder for full control.</p>
+<pre><code>use core/http
+use core/json
+
+let resp = get("https://api.example.com/items/42")!
+if resp.ok() {
+    let item = resp.json()!
+    println(item["name"].as_string()!)
+}
 </code></pre>
-<h3 id="corecolors"><a class="header" href="#corecolors"><code>core/colors</code></a></h3>
-<p>ANSI color and style helpers. Each takes any value that implements <code>ToString</code>.</p>
-<pre><code>red(s)  green(s)  yellow(s)  blue(s)  magenta(s)  cyan(s)  white(s)
-bold(s) dim(s)  underline(s)
+<h2 id="coreregex"><a class="header" href="#coreregex">core/regex</a></h2>
+<p>Regular expressions: testing, finding, replacing, splitting, and extracting capture groups. Uses Rust’s <code>regex</code> engine.</p>
+<pre><code>use core/regex
+
+let s = "Build #1234 on 2026-05-02"
+let m = find(s, "\\d{4}-\\d{2}-\\d{2}")!
+println(m.text)   // 2026-05-02
+
+let parts = split("foo, bar,baz , qux", "\\s*,\\s*")
+println(parts)    // [ foo, bar, baz, qux ]
 </code></pre>
-<h3 id="ardterm"><a class="header" href="#ardterm"><code>ard/term</code></a></h3>
-<p>Build text-based interactive programs in the terminal.</p>
-<pre><code>enable_raw_mode()
-disable_raw_mode()
-clear()
-flush()                 // call after drawing to update display
+<h2 id="corecolors"><a class="header" href="#corecolors">core/colors</a></h2>
+<p>ANSI escape-code helpers for coloring and styling terminal output. Each function takes any value that implements <code>ToString</code>.</p>
+<pre><code>use core/colors
+
+println(red("error: ") .. "could not connect")
+println(bold(green("Success!")))
+</code></pre>
+<h2 id="ardterm"><a class="header" href="#ardterm">ard/term</a></h2>
+<p>Build text-based interactive programs in the terminal. Provides raw-mode input, drawing primitives, and a key-event API. The example programs <code>snake.abra</code>, <code>mandelbrot.abra</code>, and <code>game_of_life.abra</code> are good starting points.</p>
+<pre><code>use ard/term
+use core/time
+
+enable_raw_mode()
 hide_cursor()
-show_cursor()
-mark(s, x, y)           // place a string at the given position
-poll_key_event(ms)      // bool — true if a key event is queued
-get_key_event()         // KeyCode enum
-get_size()              // option&lt;(int, int)&gt;: (width, height)
+clear()
 
-type KeyCode =
-    | Left | Right | Up | Down
-    | Char(string) | Esc | Space | Other
+var quit = false
+while not quit {
+    mark("press q to quit", 0, 0)
+    flush()
+    while poll_key_event(1) {
+        match get_key_event() {
+            .Char("q") -&gt; quit = true
+            .Esc -&gt; quit = true
+            _ -&gt; {}
+        }
+    }
+    sleep(0.05)
+}
+
+clear()
+disable_raw_mode()
+show_cursor()
+flush()
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="foreign-functions"><a class="header" href="#foreign-functions">Foreign Functions</a></h1>
