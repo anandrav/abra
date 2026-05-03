@@ -170,6 +170,19 @@ fn get_x(p: Point) -> int = p.x
 }
 
 #[test]
+fn def_struct_field_access_multi_field() {
+    let src = "\
+type Point = {
+    x: int
+    y: int
+}
+fn get_y(p: Point) -> int = p.y
+";
+    let q = offset_of(src, "p.y") + "p.".len();
+    assert_def_at(src, q, "y");
+}
+
+#[test]
 fn def_struct_field_access_chained() {
     let src = "\
 type Inner = { val: int }

@@ -519,7 +519,7 @@ impl Parser {
         self.expect_token(TokenTag::OpenBrace);
         let fields = self.parse_delimited_list(
             TokenTag::CloseBrace,
-            TokenTag::Newline,
+            TokenTag::Comma,
             Self::parse_struct_field,
         )?;
         Ok(Rc::new(StructDef {
