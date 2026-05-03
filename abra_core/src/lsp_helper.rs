@@ -1,8 +1,8 @@
 // --- LSP utilities: find AST nodes at a given byte offset ---
 
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Item, ItemKind, Stmt, StmtKind,
-    Type, TypeKind,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Item, ItemKind, Pat, PatKind,
+    Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::{CompletionCandidate, CompletionCandidateKind, DefinitionInfo, FileId, statics};
 use std::ops::Range;
@@ -115,6 +115,11 @@ fn find_in_func_def_body(func_def: &Rc<FuncDef>, offset: usize) -> Option<AstNod
         if arg.name.loc.contains_offset(offset) {
             return Some(arg.name.node());
         }
+        if let Some(default) = &arg.default_val
+            && let Some(node) = find_in_expr(default, offset)
+        {
+            return Some(node);
+        }
     }
     find_in_expr(&func_def.body, offset)
 }
@@ -134,6 +139,16 @@ fn find_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
         ItemKind::Extension(ext) => {
             for method in &ext.methods {
                 if let Some(node) = find_in_func_def_body(method, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        ItemKind::TypeDef(TypeDefKind::Struct(s)) => {
+            for field in &s.fields {
+                if let Some(default) = &field.default_val
+                    && let Some(node) = find_in_expr(default, offset)
+                {
                     return Some(node);
                 }
             }
@@ -352,8 +367,108 @@ fn find_ident_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
             }
             None
         }
-        _ => None,
+        ItemKind::TypeDef(typedef) => match typedef {
+            TypeDefKind::Enum(e) => {
+                if e.name.loc.contains_offset(offset) {
+                    return Some(e.name.node());
+                }
+                for ty_arg in &e.ty_args {
+                    if let Some(node) = find_ident_in_polytype(ty_arg, offset) {
+                        return Some(node);
+                    }
+                }
+                for variant in &e.variants {
+                    if variant.ctor.loc.contains_offset(offset) {
+                        return Some(variant.ctor.node());
+                    }
+                    if let Some(data) = &variant.data
+                        && let Some(node) = find_ident_in_type(data, offset)
+                    {
+                        return Some(node);
+                    }
+                }
+                None
+            }
+            TypeDefKind::Struct(s) => {
+                if s.name.loc.contains_offset(offset) {
+                    return Some(s.name.node());
+                }
+                for ty_arg in &s.ty_args {
+                    if let Some(node) = find_ident_in_polytype(ty_arg, offset) {
+                        return Some(node);
+                    }
+                }
+                for field in &s.fields {
+                    if field.name.loc.contains_offset(offset) {
+                        return Some(field.name.node());
+                    }
+                    if let Some(node) = find_ident_in_type(&field.ty, offset) {
+                        return Some(node);
+                    }
+                    if let Some(default) = &field.default_val
+                        && let Some(node) = find_ident_in_expr(default, offset)
+                    {
+                        return Some(node);
+                    }
+                }
+                None
+            }
+        },
+        ItemKind::InterfaceDef(iface) => {
+            if iface.name.loc.contains_offset(offset) {
+                return Some(iface.name.node());
+            }
+            for method in &iface.methods {
+                if method.name.loc.contains_offset(offset) {
+                    return Some(method.name.node());
+                }
+                if let Some(node) =
+                    find_ident_in_func_signature(&method.args, Some(&method.ret_type), offset)
+                {
+                    return Some(node);
+                }
+            }
+            for output_type in &iface.output_types {
+                if output_type.name.loc.contains_offset(offset) {
+                    return Some(output_type.name.node());
+                }
+                for sub_iface in &output_type.interfaces {
+                    if sub_iface.name.loc.contains_offset(offset) {
+                        return Some(sub_iface.name.node());
+                    }
+                    for (arg_name, arg_val) in &sub_iface.arguments {
+                        if arg_name.loc.contains_offset(offset) {
+                            return Some(arg_name.node());
+                        }
+                        if let Some(node) = find_ident_in_type(arg_val, offset) {
+                            return Some(node);
+                        }
+                    }
+                }
+            }
+            None
+        }
     }
+}
+
+fn find_ident_in_polytype(polyty: &Rc<crate::ast::Polytype>, offset: usize) -> Option<AstNode> {
+    if polyty.name.loc.contains_offset(offset) {
+        return Some(polyty.name.node());
+    }
+    for iface in &polyty.interfaces {
+        if iface.name.loc.contains_offset(offset) {
+            return Some(iface.name.node());
+        }
+        for (arg_name, arg_val) in &iface.arguments {
+            if arg_name.loc.contains_offset(offset) {
+                return Some(arg_name.node());
+            }
+            if let Some(node) = find_ident_in_type(arg_val, offset) {
+                return Some(node);
+            }
+        }
+    }
+    None
 }
 
 fn find_ident_in_func_signature(
@@ -367,6 +482,11 @@ fn find_ident_in_func_signature(
         }
         if let Some(ty) = &arg.ty
             && let Some(node) = find_ident_in_type(ty, offset)
+        {
+            return Some(node);
+        }
+        if let Some(default) = &arg.default_val
+            && let Some(node) = find_ident_in_expr(default, offset)
         {
             return Some(node);
         }
@@ -399,6 +519,19 @@ fn find_ident_in_type(typ: &Rc<Type>, offset: usize) -> Option<AstNode> {
             if poly.name.loc.contains_offset(offset) {
                 return Some(poly.name.node());
             }
+            for iface in &poly.interfaces {
+                if iface.name.loc.contains_offset(offset) {
+                    return Some(iface.name.node());
+                }
+                for (arg_name, arg_val) in &iface.arguments {
+                    if arg_name.loc.contains_offset(offset) {
+                        return Some(arg_name.node());
+                    }
+                    if let Some(node) = find_ident_in_type(arg_val, offset) {
+                        return Some(node);
+                    }
+                }
+            }
             None
         }
         TypeKind::Function(args, ret) => {
@@ -426,7 +559,10 @@ fn find_ident_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
         return None;
     }
     match &*stmt.kind {
-        StmtKind::Let(_, (_, type_annot), expr) => {
+        StmtKind::Let(_, (pat, type_annot), expr) => {
+            if let Some(node) = find_ident_in_pat(pat, offset) {
+                return Some(node);
+            }
             if let Some(ty) = type_annot
                 && let Some(node) = find_ident_in_type(ty, offset)
             {
@@ -450,7 +586,10 @@ fn find_ident_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
             }
             None
         }
-        StmtKind::ForLoop(_, iter, body) => {
+        StmtKind::ForLoop(pat, iter, body) => {
+            if let Some(node) = find_ident_in_pat(pat, offset) {
+                return Some(node);
+            }
             if let Some(node) = find_ident_in_expr(iter, offset) {
                 return Some(node);
             }
@@ -462,6 +601,43 @@ fn find_ident_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
             None
         }
         StmtKind::Continue | StmtKind::Break => None,
+    }
+}
+
+fn find_ident_in_pat(pat: &Rc<Pat>, offset: usize) -> Option<AstNode> {
+    if !pat.loc.contains_offset(offset) {
+        return None;
+    }
+    match &*pat.kind {
+        PatKind::Variant(prefixes, tag, data) => {
+            for prefix in prefixes {
+                if prefix.loc.contains_offset(offset) {
+                    return Some(prefix.node());
+                }
+            }
+            if tag.loc.contains_offset(offset) {
+                return Some(tag.node());
+            }
+            if let Some(data) = data {
+                return find_ident_in_pat(data, offset);
+            }
+            None
+        }
+        PatKind::Tuple(pats) => {
+            for p in pats {
+                if let Some(node) = find_ident_in_pat(p, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
+        PatKind::Wildcard
+        | PatKind::Binding(_)
+        | PatKind::Void
+        | PatKind::Int(_)
+        | PatKind::Float(_)
+        | PatKind::Bool(_)
+        | PatKind::Str(_) => None,
     }
 }
 
@@ -480,6 +656,11 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
                 return Some(node);
             }
             for arg in args {
+                if let Some(name) = &arg.name
+                    && name.loc.contains_offset(offset)
+                {
+                    return Some(name.node());
+                }
                 if let Some(node) = find_ident_in_expr(&arg.val, offset) {
                     return Some(node);
                 }
@@ -492,7 +673,7 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
             }
             find_ident_in_expr(receiver, offset)
         }
-        ExprKind::MemberAccessLeadingDot(_) => Some(expr.node()),
+        ExprKind::MemberAccessLeadingDot(ident) => Some(ident.node()),
         ExprKind::IndexAccess(arr, idx) => {
             find_ident_in_expr(arr, offset).or_else(|| find_ident_in_expr(idx, offset))
         }
@@ -522,12 +703,20 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
             }
             for arm in arms {
                 if arm.loc.contains_offset(offset) {
+                    if let Some(node) = find_ident_in_pat(&arm.pat, offset) {
+                        return Some(node);
+                    }
                     return find_ident_in_stmt(&arm.stmt, offset);
                 }
             }
             None
         }
-        ExprKind::AnonymousFunction(_, _, body) => find_ident_in_expr(body, offset),
+        ExprKind::AnonymousFunction(args, ret_ty, body) => {
+            if let Some(node) = find_ident_in_func_signature(args, ret_ty.as_ref(), offset) {
+                return Some(node);
+            }
+            find_ident_in_expr(body, offset)
+        }
         ExprKind::Array(elems) | ExprKind::Tuple(elems) => {
             for elem in elems {
                 if let Some(node) = find_ident_in_expr(elem, offset) {

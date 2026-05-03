@@ -533,7 +533,7 @@ impl Parser {
 
     fn parse_struct_field(&mut self) -> Result<Rc<StructField>, Box<Error>> {
         self.skip_newlines();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
         let name = self.expect_ident()?;
         self.expect_token(TokenTag::Colon);
         let ty = self.parse_type()?;
@@ -582,7 +582,7 @@ impl Parser {
 
     fn parse_variant(&mut self) -> Result<Rc<Variant>, Box<Error>> {
         self.skip_newlines();
-        let lo = self.index;
+        let lo = self.current_token().span.lo;
         let ctor = self.expect_ident()?;
         let mut data = None;
         if self.current_token().tag() == TokenTag::OpenParen {
