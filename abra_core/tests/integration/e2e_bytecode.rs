@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::helper::expect_value;
 use crate::helper::unwrap_or_panic;
+use crate::helper::{expect_value, should_fail};
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Vm;
@@ -1967,7 +1967,7 @@ type Greeter = {
 
 Greeter(greeting = "hi")
 "#;
-    crate::helper::should_fail(src);
+    should_fail(src);
 }
 
 #[test]
@@ -1980,7 +1980,7 @@ type Greeter = {
 
 Greeter("Anand", greeting = "hi", greeting = "ho")
 "#;
-    crate::helper::should_fail(src);
+    should_fail(src);
 }
 
 #[test]
@@ -1993,7 +1993,7 @@ type Greeter = {
 
 Greeter(greeting = "hi", "Anand")
 "#;
-    crate::helper::should_fail(src);
+    should_fail(src);
 }
 
 #[test]
@@ -2107,7 +2107,7 @@ let s = """
     """
 s
 "#;
-    crate::helper::should_fail(src);
+    should_fail(src);
 }
 
 #[test]
@@ -2127,5 +2127,17 @@ let x = 0
 x = 4
 println("x = " .. x)
 "#;
-    crate::helper::should_fail(src);
+    should_fail(src);
+}
+
+#[test]
+fn assign_to_non_variable() {
+    let src = r#"
+foo = foo
+
+fn foo(x: int) -> int {
+    x
+}
+"#;
+    should_fail(src);
 }
