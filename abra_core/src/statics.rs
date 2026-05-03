@@ -267,6 +267,10 @@ pub(crate) enum Declaration {
         e: Rc<EnumDef>,
         variant: usize,
     },
+    StructField {
+        s: Rc<StructDef>,
+        field: usize,
+    },
     Intrinsic(IntrinsicOperation),
     Var(AstNode),
     Polytype(PolytypeDeclaration),
@@ -358,6 +362,7 @@ impl Declaration {
             | Declaration::Var(_)
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. }
+            | Declaration::StructField { .. }
             | Declaration::Namespace(_, _) => None,
             Declaration::InterfaceOutputType { iface: _, ty } => Some(TypeKey::InterfaceOutput(ty)),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
@@ -433,6 +438,7 @@ impl TryFrom<&Declaration> for FuncArgDetailsKey {
             | Declaration::Enum(_)
             | Declaration::Var(_)
             | Declaration::Polytype(_)
+            | Declaration::StructField { .. }
             | Declaration::Namespace(_, _) => Err(()),
         }
     }

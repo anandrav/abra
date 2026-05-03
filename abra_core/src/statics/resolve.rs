@@ -1096,6 +1096,7 @@ fn resolve_names_member_helper(
             | Declaration::MemberFunction { .. }
             | Declaration::InterfaceOutputType { .. }
             | Declaration::EnumVariant { .. }
+            | Declaration::StructField { .. }
             | Declaration::Polytype(_)
             | Declaration::Intrinsic(_) => {
                 ctx.errors
@@ -1476,6 +1477,7 @@ fn fqn_of_id(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::Enum(e) => ctx.fully_qualified_names.get(&e.name.id).cloned(),
         Declaration::Struct(s) => ctx.fully_qualified_names.get(&s.name.id).cloned(),
         Declaration::EnumVariant { .. } => None,
+        Declaration::StructField { .. } => None,
         Declaration::BuiltinType(builtin_type) => Some(builtin_type.name().to_string()),
         Declaration::Polytype(_) => None,
         Declaration::Intrinsic(_) => None,

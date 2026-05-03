@@ -467,6 +467,7 @@ fn add_detail_for_decl(
         | Declaration::Enum(_)
         | Declaration::EnumVariant { .. }
         | Declaration::Struct(..)
+        | Declaration::StructField { .. }
         | Declaration::Polytype(..)
         | Declaration::Var(..) => {}
         Declaration::InterfaceOutputType { .. } | Declaration::Namespace(..) => unreachable!(), // TODO: this is sloppy
@@ -499,6 +500,7 @@ fn add_detail_for_decl_node(
             e: enum_def,
             variant,
         } => enum_def.variants[*variant].node(),
+        Declaration::StructField { s, field } => s.fields[*field].name.node(),
         Declaration::Struct(struct_def) => struct_def.name.node(),
         Declaration::Polytype(polytype_decl) => match polytype_decl {
             PolytypeDeclaration::Ordinary(polyty) => polyty.name.node(),

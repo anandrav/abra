@@ -1174,6 +1174,7 @@ impl Translator {
 
             Declaration::Polytype(_)
             | Declaration::InterfaceOutputType { .. }
+            | Declaration::StructField { .. }
             | Declaration::BuiltinType(_) => {
                 unreachable!()
             }
@@ -1371,6 +1372,7 @@ impl Translator {
             | Declaration::Polytype(_)
             | Declaration::Enum { .. }
             | Declaration::Namespace(_, _)
+            | Declaration::StructField { .. }
             | Declaration::BuiltinType(_) => {
                 unreachable!()
             }

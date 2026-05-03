@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use abra_core::{MockFileProvider, check_lsp};
+use abra_core::{CompletionCandidateKind, MockFileProvider, check_lsp};
 
 fn analyze(src: &str) -> abra_core::AnalysisResult {
     check_lsp("main.abra", MockFileProvider::single_file(src))
@@ -158,6 +158,32 @@ let _ = greet(name = \"Alice\")
     assert_def_at(src, q, "name");
 }
 
+// Fix #7: struct field access should jump to the field declaration.
+#[test]
+fn def_struct_field_access() {
+    let src = "\
+type Point = { x: int, y: int }
+fn get_x(p: Point) -> int = p.x
+";
+    let q = offset_of(src, "p.x") + "p.".len();
+    assert_def_at(src, q, "x");
+}
+
+#[test]
+fn def_struct_field_access_chained() {
+    let src = "\
+type Inner = { val: int }
+type Outer = { inner: Inner }
+fn get_val(o: Outer) -> int = o.inner.val
+";
+    // jump on `inner`
+    let q1 = offset_of(src, "o.inner.val") + "o.".len();
+    assert_def_at(src, q1, "inner");
+    // jump on `val`
+    let q2 = offset_of(src, "o.inner.val") + "o.inner.".len();
+    assert_def_at(src, q2, "val");
+}
+
 // Fix #6: lambda signatures should be reachable for go-to-def.
 #[test]
 fn def_lambda_arg_type_annotation() {
@@ -167,4 +193,116 @@ let f = (c: Color) -> 1
 ";
     let q = offset_of(src, "(c: Color)") + "(c: ".len();
     assert_def_at(src, q, "Color");
+}
+
+// --- Completions ---
+
+#[track_caller]
+fn assert_completion_labels(src: &str, after_dot_offset: usize, expected_labels: &[&str]) {
+    let analysis = analyze(src);
+    let candidates = analysis.completions_at(0, after_dot_offset);
+    let labels: Vec<String> = candidates.into_iter().map(|c| c.label).collect();
+    for expected in expected_labels {
+        assert!(
+            labels.iter().any(|l| l == expected),
+            "expected label {expected:?} in {labels:?}"
+        );
+    }
+}
+
+#[track_caller]
+fn assert_has_completion(
+    src: &str,
+    after_dot_offset: usize,
+    label: &str,
+    kind: CompletionCandidateKind,
+) {
+    let analysis = analyze(src);
+    let candidates = analysis.completions_at(0, after_dot_offset);
+    let found = candidates
+        .iter()
+        .find(|c| c.label == label)
+        .unwrap_or_else(|| panic!("missing label {label:?} in {candidates:#?}"));
+    assert!(
+        std::mem::discriminant(&found.kind) == std::mem::discriminant(&kind),
+        "label {label:?} had kind {:?}, expected {:?}",
+        found.kind,
+        kind
+    );
+}
+
+// Fix #11: enum used as namespace should produce variant + member function
+// completions. We use a real parseable shape `Color.X` and probe the offset
+// right after the dot (mid-expression).
+#[test]
+fn completion_enum_namespace() {
+    let src = "\
+type Color = Red | Green | Blue
+let c = Color.Red
+";
+    let dot_after = offset_of(src, "Color.Red") + "Color.".len();
+    assert_completion_labels(src, dot_after, &["Red", "Green", "Blue"]);
+    assert_has_completion(src, dot_after, "Red", CompletionCandidateKind::EnumVariant);
+}
+
+// Fix #11: interface used as namespace should produce method completions.
+#[test]
+fn completion_interface_namespace() {
+    let src = "\
+interface Speaker {
+    fn say(self: Self) -> string
+    fn shout(self: Self) -> string
+}
+type Robot = { id: int }
+implement Speaker for Robot {
+    fn say(self) -> string = \"beep\"
+    fn shout(self) -> string = \"BEEP\"
+}
+let r = Robot(1)
+let s = Speaker.say(r)
+";
+    let dot_after = offset_of(src, "Speaker.say(r)") + "Speaker.".len();
+    assert_completion_labels(src, dot_after, &["say", "shout"]);
+    assert_has_completion(src, dot_after, "say", CompletionCandidateKind::Function);
+}
+
+// Fix #11: struct used as namespace yields its member functions (extension methods).
+#[test]
+fn completion_struct_namespace_member_fn() {
+    let src = "\
+type Point = { x: int }
+extend Point {
+    fn double(self: Point) -> int = self.x * 2
+}
+let p = Point(1)
+let _d = Point.double(p)
+";
+    let dot_after = offset_of(src, "Point.double") + "Point.".len();
+    assert_completion_labels(src, dot_after, &["double"]);
+}
+
+// Fix #12: completions on a let-binding work mid-expression (`p.x`) even when
+// the binding is the only place the name appears.
+#[test]
+fn completion_struct_value_via_let_binding() {
+    let src = "\
+type Point = { x: int }
+fn use_it() {
+    let p = Point(1)
+    let _q = p.x
+}
+";
+    let dot_after = offset_of(src, "p.x") + "p.".len();
+    assert_completion_labels(src, dot_after, &["x"]);
+}
+
+// Fix #12: completion via a function arg binding name with a parseable use.
+#[test]
+fn completion_fn_arg_binding() {
+    let src = "\
+type Point = { x: int }
+fn use_it(p: Point) -> int = p.x
+";
+    let dot_after = offset_of(src, "p.x") + "p.".len();
+    assert_completion_labels(src, dot_after, &["x"]);
 }

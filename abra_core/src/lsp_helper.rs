@@ -62,6 +62,7 @@ pub(crate) fn declaration_location(decl: &statics::Declaration) -> Option<Defini
         Declaration::InterfaceOutputType { ty, .. } => ty.name.node(),
         Declaration::Enum(e) => e.name.node(),
         Declaration::EnumVariant { e, variant } => e.variants[*variant].node(),
+        Declaration::StructField { s, field } => s.fields[*field].name.node(),
         Declaration::Struct(s) => s.name.node(),
         Declaration::Var(node) => node.clone(),
         Declaration::Polytype(statics::PolytypeDeclaration::Ordinary(p)) => p.name.node(),
@@ -734,7 +735,9 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
     }
 }
 
-/// Find all Variable expression nodes with the given name in a file AST.
+/// Find all nodes that bear the given name and have associated type info — Variable
+/// expressions (uses), function-arg identifiers, and `let`/`for` pattern bindings.
+/// Used by completions to look up `x.<TAB>` even when `x` is only at its binding site.
 pub(crate) fn find_variables_by_name(file_ast: &FileAst, name: &str) -> Vec<AstNode> {
     let mut results = vec![];
     for item in &file_ast.items {
@@ -743,18 +746,43 @@ pub(crate) fn find_variables_by_name(file_ast: &FileAst, name: &str) -> Vec<AstN
     results
 }
 
+fn collect_vars_in_func_def(func_def: &Rc<FuncDef>, name: &str, out: &mut Vec<AstNode>) {
+    for arg in &func_def.args {
+        if arg.name.v == name {
+            out.push(arg.name.node());
+        }
+        if let Some(default) = &arg.default_val {
+            collect_vars_in_expr(default, name, out);
+        }
+    }
+    collect_vars_in_expr(&func_def.body, name, out);
+}
+
 fn collect_vars_in_item(item: &Rc<Item>, name: &str, out: &mut Vec<AstNode>) {
     match &*item.kind {
-        ItemKind::FuncDef(func_def) => collect_vars_in_expr(&func_def.body, name, out),
+        ItemKind::FuncDef(func_def) => collect_vars_in_func_def(func_def, name, out),
         ItemKind::Stmt(stmt) => collect_vars_in_stmt(stmt, name, out),
         ItemKind::InterfaceImpl(iface_impl) => {
             for method in &iface_impl.methods {
-                collect_vars_in_expr(&method.body, name, out);
+                collect_vars_in_func_def(method, name, out);
             }
         }
         ItemKind::Extension(ext) => {
             for method in &ext.methods {
-                collect_vars_in_expr(&method.body, name, out);
+                collect_vars_in_func_def(method, name, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_bindings_in_pat(pat: &Rc<Pat>, name: &str, out: &mut Vec<AstNode>) {
+    match &*pat.kind {
+        PatKind::Binding(n) if n == name => out.push(pat.node()),
+        PatKind::Variant(_, _, Some(data)) => collect_bindings_in_pat(data, name, out),
+        PatKind::Tuple(pats) => {
+            for p in pats {
+                collect_bindings_in_pat(p, name, out);
             }
         }
         _ => {}
@@ -763,7 +791,10 @@ fn collect_vars_in_item(item: &Rc<Item>, name: &str, out: &mut Vec<AstNode>) {
 
 fn collect_vars_in_stmt(stmt: &Rc<Stmt>, name: &str, out: &mut Vec<AstNode>) {
     match &*stmt.kind {
-        StmtKind::Let(_, _, expr) => collect_vars_in_expr(expr, name, out),
+        StmtKind::Let(_, (pat, _), expr) => {
+            collect_bindings_in_pat(pat, name, out);
+            collect_vars_in_expr(expr, name, out);
+        }
         StmtKind::Assign(lhs, _, rhs) => {
             collect_vars_in_expr(lhs, name, out);
             collect_vars_in_expr(rhs, name, out);
@@ -775,7 +806,8 @@ fn collect_vars_in_stmt(stmt: &Rc<Stmt>, name: &str, out: &mut Vec<AstNode>) {
                 collect_vars_in_stmt(s, name, out);
             }
         }
-        StmtKind::ForLoop(_, iter, body) => {
+        StmtKind::ForLoop(pat, iter, body) => {
+            collect_bindings_in_pat(pat, name, out);
             collect_vars_in_expr(iter, name, out);
             for s in body {
                 collect_vars_in_stmt(s, name, out);
@@ -828,10 +860,21 @@ fn collect_vars_in_expr(expr: &Rc<Expr>, name: &str, out: &mut Vec<AstNode>) {
         ExprKind::Match(scrutinee, arms) => {
             collect_vars_in_expr(scrutinee, name, out);
             for arm in arms {
+                collect_bindings_in_pat(&arm.pat, name, out);
                 collect_vars_in_stmt(&arm.stmt, name, out);
             }
         }
-        ExprKind::AnonymousFunction(_, _, body) => collect_vars_in_expr(body, name, out),
+        ExprKind::AnonymousFunction(args, _, body) => {
+            for arg in args {
+                if arg.name.v == name {
+                    out.push(arg.name.node());
+                }
+                if let Some(default) = &arg.default_val {
+                    collect_vars_in_expr(default, name, out);
+                }
+            }
+            collect_vars_in_expr(body, name, out);
+        }
         ExprKind::Array(elems) | ExprKind::Tuple(elems) => {
             for elem in elems {
                 collect_vars_in_expr(elem, name, out);

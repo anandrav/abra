@@ -2536,7 +2536,8 @@ fn generate_constraints_expr(
                     | Declaration::Polytype(_)
                     | Declaration::InterfaceMethod { .. }
                     | Declaration::MemberFunction { .. }
-                    | Declaration::EnumVariant { .. } => {
+                    | Declaration::EnumVariant { .. }
+                    | Declaration::StructField { .. } => {
                         // // a variable expression should not resolve to the above
                         ctx.errors
                             .push(Error::UnresolvedIdentifier { node: expr.node() });
@@ -3159,7 +3160,7 @@ fn generate_constraints_expr(
                     &inner
                 {
                     let mut resolved = false;
-                    for field in &struct_def.fields {
+                    for (i, field) in struct_def.fields.iter().enumerate() {
                         if field.name.v == *member_ident.v {
                             let ty_field = field.ty.to_typevar(ctx);
                             /* TODO: if the field is generic like type ArrayIterator<T>,
@@ -3179,6 +3180,13 @@ fn generate_constraints_expr(
                             }
                             let ty_field = ty_field.subst(&substitution);
                             constrain(ctx, &node_ty, &ty_field);
+                            ctx.resolution_map.insert(
+                                member_ident.id,
+                                Declaration::StructField {
+                                    s: struct_def.clone(),
+                                    field: i,
+                                },
+                            );
                             resolved = true;
                         }
                     }

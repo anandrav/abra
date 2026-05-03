@@ -556,8 +556,20 @@ impl AnalysisResult {
             }
         }
 
-        // 2. Search the AST for Variable nodes with this name, get their types
         let var_nodes = lsp_helper::find_variables_by_name(file_ast, ident_name);
+
+        // 2. If any Variable with this name resolves to a type-like declaration,
+        //    return its static members (variants, methods, member functions).
+        for var_node in &var_nodes {
+            if let Some(decl) = self.ctx.resolution_map.get(&var_node.id()) {
+                let candidates = self.namespace_completions_for_decl(decl);
+                if !candidates.is_empty() {
+                    return candidates;
+                }
+            }
+        }
+
+        // 3. Otherwise treat it as a value: get its type, return type's members.
         for var_node in &var_nodes {
             if let Some(solved_type) = self.ctx.solution_of_node(var_node.clone()) {
                 let candidates = self.type_completions(&solved_type);
@@ -568,6 +580,57 @@ impl AnalysisResult {
         }
 
         vec![]
+    }
+
+    fn namespace_completions_for_decl(
+        &self,
+        decl: &statics::Declaration,
+    ) -> Vec<CompletionCandidate> {
+        use statics::Declaration;
+        use statics::typecheck::{Nominal, TypeKey};
+
+        let mut candidates = vec![];
+        match decl {
+            Declaration::Namespace(ns, _) => return namespace_completions(ns),
+            Declaration::Struct(s) => {
+                self.add_member_function_completions(
+                    &TypeKey::TyApp(Nominal::Struct(s.clone())),
+                    &mut candidates,
+                );
+            }
+            Declaration::Enum(e) => {
+                for variant in &e.variants {
+                    candidates.push(CompletionCandidate {
+                        label: variant.ctor.v.clone(),
+                        kind: CompletionCandidateKind::EnumVariant,
+                    });
+                }
+                self.add_member_function_completions(
+                    &TypeKey::TyApp(Nominal::Enum(e.clone())),
+                    &mut candidates,
+                );
+            }
+            Declaration::InterfaceDef(iface) => {
+                for method in &iface.methods {
+                    candidates.push(CompletionCandidate {
+                        label: method.name.v.clone(),
+                        kind: CompletionCandidateKind::Function,
+                    });
+                }
+                for output_type in &iface.output_types {
+                    candidates.push(CompletionCandidate {
+                        label: output_type.name.v.clone(),
+                        kind: CompletionCandidateKind::Type,
+                    });
+                }
+            }
+            Declaration::BuiltinType(bt) => {
+                self.add_member_function_completions(&bt.to_type_key(), &mut candidates);
+            }
+            _ => {}
+        }
+        candidates.sort_by(|a, b| a.label.cmp(&b.label));
+        candidates
     }
 
     fn type_completions(&self, solved_type: &statics::Type) -> Vec<CompletionCandidate> {
