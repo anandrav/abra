@@ -319,3 +319,47 @@ fn use_it(p: Point) -> int = p.x
     let dot_after = offset_of(src, "p.x") + "p.".len();
     assert_completion_labels(src, dot_after, &["x"]);
 }
+
+// The user's diagnostic case: `Color.<TAB>` should autocomplete *just like*
+// `my_struct.<TAB>` does, even when the using-item itself failed to parse
+// and was dropped from the AST. The completion lookup must consult the
+// file's top-level namespace, not just Variable expressions.
+#[test]
+fn completion_enum_namespace_only_use_dropped() {
+    // The trailing dot makes this `let` line fail to parse — that item gets
+    // dropped, so there is no `Variable("Color")` anywhere in the AST.
+    // The only place `Color` lives is the type declaration in Item 1.
+    let src = "\
+type Color = Red | Green | Blue
+let _t = Color.
+";
+    let dot_after = offset_of(src, "Color.") + "Color.".len();
+    assert_completion_labels(src, dot_after, &["Red", "Green", "Blue"]);
+    assert_has_completion(src, dot_after, "Red", CompletionCandidateKind::EnumVariant);
+}
+
+#[test]
+fn completion_struct_namespace_only_use_dropped() {
+    let src = "\
+type Point = { x: int }
+extend Point {
+    fn double(self: Point) -> int = self.x * 2
+}
+let _t = Point.
+";
+    let dot_after = offset_of(src, "Point.\n") + "Point.".len();
+    assert_completion_labels(src, dot_after, &["double"]);
+}
+
+#[test]
+fn completion_interface_namespace_only_use_dropped() {
+    let src = "\
+interface Speaker {
+    fn say(self: Self) -> string
+    fn shout(self: Self) -> string
+}
+let _t = Speaker.
+";
+    let dot_after = offset_of(src, "Speaker.") + "Speaker.".len();
+    assert_completion_labels(src, dot_after, &["say", "shout"]);
+}

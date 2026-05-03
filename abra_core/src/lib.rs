@@ -546,46 +546,70 @@ impl AnalysisResult {
             None => return vec![],
         };
 
-        // 1. Check imports for namespace completions
-        for item in &file_ast.items {
-            if let ItemKind::Import(path, ast::ImportKind::As(alias)) = &*item.kind
-                && alias.v == ident_name
-                && let Some(ns) = self.ctx.root_namespace.namespaces.get(&path.v)
-            {
-                return namespace_completions(ns);
-            }
-        }
-
-        let var_nodes = lsp_helper::find_variables_by_name(file_ast, ident_name);
-
-        // 2. If any Variable with this name resolves to a type-like declaration,
-        //    return its static members (variants, methods, member functions).
-        for var_node in &var_nodes {
-            if let Some(decl) = self.ctx.resolution_map.get(&var_node.id()) {
-                let candidates = self.namespace_completions_for_decl(decl);
-                if !candidates.is_empty() {
-                    return candidates;
-                }
-            }
-        }
-
-        // 3. Otherwise treat it as a value: get its type, return type's members.
-        for var_node in &var_nodes {
-            if let Some(solved_type) = self.ctx.solution_of_node(var_node.clone()) {
-                let candidates = self.type_completions(&solved_type);
-                if !candidates.is_empty() {
-                    return candidates;
-                }
+        // Try every shape `ident_name` could resolve to and return the first
+        // non-empty answer.
+        for decl in self.find_completion_targets(file_ast, ident_name) {
+            let candidates = self.members_of_decl(&decl);
+            if !candidates.is_empty() {
+                return candidates;
             }
         }
 
         vec![]
     }
 
-    fn namespace_completions_for_decl(
+    /// Collect every `Declaration` that the name `ident_name` could refer to in
+    /// the cursor's scope, in priority order: import aliases, the file's
+    /// top-level namespace, then bindings/args/Variable usages found in the AST.
+    fn find_completion_targets(
         &self,
-        decl: &statics::Declaration,
-    ) -> Vec<CompletionCandidate> {
+        file_ast: &ast::FileAst,
+        ident_name: &str,
+    ) -> Vec<statics::Declaration> {
+        use statics::Declaration;
+
+        let mut targets = vec![];
+
+        // 1. Imports with an `As` alias (`use core/fs as fs`).
+        for item in &file_ast.items {
+            if let ItemKind::Import(path, ast::ImportKind::As(alias)) = &*item.kind
+                && alias.v == ident_name
+                && let Some(ns) = self.ctx.root_namespace.namespaces.get(&path.v)
+            {
+                targets.push(Declaration::Namespace(ns.clone(), alias.node()));
+            }
+        }
+
+        // 2. File's own top-level namespace — populated by scan_declarations
+        //    for every item that parsed (types, enums, interfaces, free fns).
+        //    This is what makes `Color.<TAB>` work even when the using-item
+        //    failed to parse.
+        if let Some(file_ns) = self
+            .ctx
+            .root_namespace
+            .namespaces
+            .get(&file_ast.package_name_str)
+            && let Some(decl) = file_ns.declarations.get(ident_name)
+        {
+            targets.push(decl.clone());
+        }
+
+        // 3. Variable expressions, pattern bindings, fn-arg identifiers.
+        //    Variables resolve via resolution_map; bindings/args are wrapped
+        //    as Var(node) so members_of_decl handles them uniformly.
+        for node in lsp_helper::find_variables_by_name(file_ast, ident_name) {
+            if let Some(decl) = self.ctx.resolution_map.get(&node.id()) {
+                targets.push(decl.clone());
+            } else {
+                // binding pat or fn arg ident — type info lives on the node itself
+                targets.push(Declaration::Var(node));
+            }
+        }
+
+        targets
+    }
+
+    fn members_of_decl(&self, decl: &statics::Declaration) -> Vec<CompletionCandidate> {
         use statics::Declaration;
         use statics::typecheck::{Nominal, TypeKey};
 
@@ -626,6 +650,11 @@ impl AnalysisResult {
             }
             Declaration::BuiltinType(bt) => {
                 self.add_member_function_completions(&bt.to_type_key(), &mut candidates);
+            }
+            Declaration::Var(node) => {
+                if let Some(solved) = self.ctx.solution_of_node(node.clone()) {
+                    return self.type_completions(&solved);
+                }
             }
             _ => {}
         }
