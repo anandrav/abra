@@ -4,7 +4,7 @@
 
 use abra_core::{CompletionCandidateKind, MockFileProvider, check_lsp};
 
-fn analyze(src: &str) -> abra_core::AnalysisResult {
+fn analyze(src: &str) -> abra_core::LspAnalysisResult {
     check_lsp("main.abra", MockFileProvider::single_file(src))
 }
 

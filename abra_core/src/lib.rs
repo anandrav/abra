@@ -28,12 +28,14 @@ pub mod statics;
 mod translate_bytecode;
 pub mod vm;
 
+use crate::lsp_helper::{declaration_location, extract_primary_from_diagnostic};
 use crate::statics::StaticsContext;
 pub use ast::FileData;
 pub use ast::FileId;
 pub use host_bindings::*;
 pub use prelude::PRELUDE;
 use statics::Error;
+use std::ops::Range;
 use translate_bytecode::CompiledProgram;
 use translate_bytecode::Translator;
 
@@ -385,14 +387,7 @@ impl FileProvider for MockFileProvider {
     }
 }
 
-// --- LSP / check-only API ---
-
-use crate::lsp_helper::{
-    declaration_location, extract_primary_from_diagnostic, namespace_completions,
-};
-use std::ops::Range;
-
-pub struct AnalysisResult {
+pub struct LspAnalysisResult {
     pub file_db: FileDatabase,
     pub(crate) ctx: StaticsContext,
     pub(crate) file_asts: Vec<Rc<FileAst>>,
@@ -428,14 +423,14 @@ pub enum CompletionCandidateKind {
 
 /// Run parse + type checking without bytecode translation.
 /// Always returns results, even when there are errors.
-pub fn check_lsp(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> AnalysisResult {
+pub fn check_lsp(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> LspAnalysisResult {
     let mut ctx = StaticsContext::new(file_provider);
     let file_asts = match get_files(&mut ctx, &[main_file_name]) {
         Ok(asts) => asts,
         Err(e) => {
             // File loading failed — return result with just the error
             ctx.errors.push(Error::Generic(e.msg.clone()));
-            return AnalysisResult {
+            return LspAnalysisResult {
                 file_db: ctx.file_db.clone(),
                 ctx,
                 file_asts: vec![],
@@ -446,14 +441,14 @@ pub fn check_lsp(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> 
     // Run analysis — ignore the Result, keep ctx regardless
     let _ = statics::analyze(&mut ctx, &file_asts);
 
-    AnalysisResult {
+    LspAnalysisResult {
         file_db: ctx.file_db.clone(),
         ctx,
         file_asts,
     }
 }
 
-impl AnalysisResult {
+impl LspAnalysisResult {
     /// Get all errors from the analysis as LSP-friendly structs.
     pub fn errors(&self) -> Vec<AnalysisError> {
         self.ctx
@@ -556,164 +551,5 @@ impl AnalysisResult {
         }
 
         vec![]
-    }
-
-    /// Collect every `Declaration` that the name `ident_name` could refer to in
-    /// the cursor's scope, in priority order: import aliases, the file's
-    /// top-level namespace, then bindings/args/Variable usages found in the AST.
-    fn find_completion_targets(
-        &self,
-        file_ast: &ast::FileAst,
-        ident_name: &str,
-    ) -> Vec<statics::Declaration> {
-        use statics::Declaration;
-
-        let mut targets = vec![];
-
-        // 1. Imports with an `As` alias (`use core/fs as fs`).
-        for item in &file_ast.items {
-            if let ItemKind::Import(path, ast::ImportKind::As(alias)) = &*item.kind
-                && alias.v == ident_name
-                && let Some(ns) = self.ctx.root_namespace.namespaces.get(&path.v)
-            {
-                targets.push(Declaration::Namespace(ns.clone(), alias.node()));
-            }
-        }
-
-        // 2. File's own top-level namespace — populated by scan_declarations
-        //    for every item that parsed (types, enums, interfaces, free fns).
-        //    This is what makes `Color.<TAB>` work even when the using-item
-        //    failed to parse.
-        if let Some(file_ns) = self
-            .ctx
-            .root_namespace
-            .namespaces
-            .get(&file_ast.package_name_str)
-            && let Some(decl) = file_ns.declarations.get(ident_name)
-        {
-            targets.push(decl.clone());
-        }
-
-        // 3. Variable expressions, pattern bindings, fn-arg identifiers.
-        //    Variables resolve via resolution_map; bindings/args are wrapped
-        //    as Var(node) so members_of_decl handles them uniformly.
-        for node in lsp_helper::find_variables_by_name(file_ast, ident_name) {
-            if let Some(decl) = self.ctx.resolution_map.get(&node.id()) {
-                targets.push(decl.clone());
-            } else {
-                // binding pat or fn arg ident — type info lives on the node itself
-                targets.push(Declaration::Var(node));
-            }
-        }
-
-        targets
-    }
-
-    fn members_of_decl(&self, decl: &statics::Declaration) -> Vec<CompletionCandidate> {
-        use statics::Declaration;
-        use statics::typecheck::{Nominal, TypeKey};
-
-        let mut candidates = vec![];
-        match decl {
-            Declaration::Namespace(ns, _) => return namespace_completions(ns),
-            Declaration::Struct(s) => {
-                self.add_member_function_completions(
-                    &TypeKey::TyApp(Nominal::Struct(s.clone())),
-                    &mut candidates,
-                );
-            }
-            Declaration::Enum(e) => {
-                for variant in &e.variants {
-                    candidates.push(CompletionCandidate {
-                        label: variant.ctor.v.clone(),
-                        kind: CompletionCandidateKind::EnumVariant,
-                    });
-                }
-                self.add_member_function_completions(
-                    &TypeKey::TyApp(Nominal::Enum(e.clone())),
-                    &mut candidates,
-                );
-            }
-            Declaration::InterfaceDef(iface) => {
-                for method in &iface.methods {
-                    candidates.push(CompletionCandidate {
-                        label: method.name.v.clone(),
-                        kind: CompletionCandidateKind::Function,
-                    });
-                }
-                for output_type in &iface.output_types {
-                    candidates.push(CompletionCandidate {
-                        label: output_type.name.v.clone(),
-                        kind: CompletionCandidateKind::Type,
-                    });
-                }
-            }
-            Declaration::BuiltinType(bt) => {
-                self.add_member_function_completions(&bt.to_type_key(), &mut candidates);
-            }
-            Declaration::Var(node) => {
-                if let Some(solved) = self.ctx.solution_of_node(node.clone()) {
-                    return self.type_completions(&solved);
-                }
-            }
-            _ => {}
-        }
-        candidates.sort_by(|a, b| a.label.cmp(&b.label));
-        candidates
-    }
-
-    fn type_completions(&self, solved_type: &statics::Type) -> Vec<CompletionCandidate> {
-        use statics::typecheck::{Nominal, SolvedType, TypeKey};
-
-        let mut candidates = vec![];
-        match solved_type {
-            SolvedType::Nominal(Nominal::Struct(struct_def), _) => {
-                for field in &struct_def.fields {
-                    candidates.push(CompletionCandidate {
-                        label: field.name.v.clone(),
-                        kind: CompletionCandidateKind::Field,
-                    });
-                }
-                let type_key = TypeKey::TyApp(Nominal::Struct(struct_def.clone()));
-                self.add_member_function_completions(&type_key, &mut candidates);
-            }
-            SolvedType::Nominal(Nominal::Enum(_enum_def), _) => {
-                let type_key = TypeKey::TyApp(Nominal::Enum(_enum_def.clone()));
-                self.add_member_function_completions(&type_key, &mut candidates);
-            }
-            SolvedType::Nominal(Nominal::Array, _) => {
-                self.add_member_function_completions(
-                    &TypeKey::TyApp(Nominal::Array),
-                    &mut candidates,
-                );
-            }
-            SolvedType::Int => {
-                self.add_member_function_completions(&TypeKey::Int, &mut candidates);
-            }
-            SolvedType::Float => {
-                self.add_member_function_completions(&TypeKey::Float, &mut candidates);
-            }
-            SolvedType::String => {
-                self.add_member_function_completions(&TypeKey::String, &mut candidates);
-            }
-            _ => {}
-        }
-        candidates.sort_by(|a, b| a.label.cmp(&b.label));
-        candidates
-    }
-
-    fn add_member_function_completions(
-        &self,
-        type_key: &statics::typecheck::TypeKey,
-        candidates: &mut Vec<CompletionCandidate>,
-    ) {
-        for (tk, name) in self.ctx.member_functions.keys() {
-            if tk == type_key {
-                candidates.push(CompletionCandidate {
-                    label: name.clone(),
-                    kind: CompletionCandidateKind::Function,
-                });
-            }
-        }
     }
 }

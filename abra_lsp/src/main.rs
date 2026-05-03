@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
 
-use abra_core::{AnalysisResult, CompletionCandidateKind, FileData, FileProvider};
+use abra_core::{CompletionCandidateKind, FileData, FileProvider, LspAnalysisResult};
 use lsp_server::{Connection, Message, Notification, Request, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification as _};
 use lsp_types::request::{Completion, GotoDefinition, HoverRequest, Request as _};
@@ -109,7 +109,7 @@ fn main_loop(
 struct ServerState {
     /// Maps URI strings to document contents for open files
     documents: Rc<HashMap<String, String>>,
-    analysis: Option<AnalysisResult>,
+    analysis: Option<LspAnalysisResult>,
     /// URI of the most recently opened/changed file
     active_file_uri: Option<String>,
     workspace_root: PathBuf,
@@ -261,7 +261,7 @@ fn resolve_position<'a>(
     state: &'a ServerState,
     uri: &Uri,
     position: Position,
-) -> Option<(&'a AnalysisResult, u32, usize)> {
+) -> Option<(&'a LspAnalysisResult, u32, usize)> {
     let analysis = state.analysis.as_ref()?;
     let file_path = uri_to_path(uri)?;
     let file_id = analysis.file_id_for_path(&file_path)?;
