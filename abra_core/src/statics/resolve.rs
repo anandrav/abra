@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    _print_node, Declaration, Error, FuncArgDetails, FuncArgDetailsKey, FuncResolutionKind,
-    Namespace, PolytypeDeclaration, StaticsContext,
+    _print_node, ArgEntry, Declaration, Error, FuncArgDetails, FuncArgDetailsKey,
+    FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
@@ -148,6 +148,8 @@ fn gather_declarations_item(
                 let fully_qualified_name = fullname(&qualifiers, &struct_name);
                 ctx.fully_qualified_names
                     .insert(s.name.id, fully_qualified_name);
+
+                update_function_arg_info(ctx, FuncArgDetailsKey::Struct(s.clone()), false);
             }
         },
         ItemKind::FuncDef(f) => {
@@ -289,20 +291,20 @@ fn update_function_arg_info(
     let symbol_table = SymbolTable::empty();
     let mut required_args: HashSet<String> = HashSet::default();
     let mut default_args: HashMap<usize, Rc<Expr>> = HashMap::default();
-    let args_iter: Vec<(usize, ArgMaybeAnnotated)> = if skip_self_argument {
-        key.args().iter().skip(1).cloned().enumerate().collect()
+    let entries: Vec<ArgEntry> = if skip_self_argument {
+        key.iter_args().skip(1).collect()
     } else {
-        key.args().iter().cloned().enumerate().collect()
+        key.iter_args().collect()
     };
-    for (i, arg) in args_iter {
-        symbol_table.extend_declaration(arg.name.v.clone(), Declaration::Var(arg.name.node()));
-        arg_indices.insert(arg.name.v.clone());
-        match &arg.default_val {
+    for (i, (name, default_val)) in entries.into_iter().enumerate() {
+        symbol_table.extend_declaration(name.v.clone(), Declaration::Var(name.node()));
+        arg_indices.insert(name.v.clone());
+        match default_val {
             Some(default_arg) => {
-                default_args.insert(i, default_arg.clone());
+                default_args.insert(i, default_arg);
             }
             None => {
-                required_args.insert(arg.name.v.clone());
+                required_args.insert(name.v.clone());
             }
         }
     }
@@ -750,6 +752,9 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                 }
                 for field in &struct_def.fields {
                     resolve_names_typ(ctx, &symbol_table, &field.ty, false);
+                    if let Some(default_val) = &field.default_val {
+                        resolve_names_expr(ctx, &symbol_table, default_val);
+                    }
                 }
             }
         },

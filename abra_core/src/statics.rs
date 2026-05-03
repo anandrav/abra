@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, EnumDef, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
+    AstNode, EnumDef, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, Identifier,
     InterfaceDef, InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype, StructDef,
     Type as AstType, TypeKind,
 };
@@ -375,13 +375,31 @@ pub(crate) struct FuncArgDetails {
 pub(crate) enum FuncArgDetailsKey {
     FuncDef(Rc<FuncDef>),
     FuncDecl(Rc<FuncDecl>),
+    Struct(Rc<StructDef>),
 }
 
+pub(crate) type ArgEntry = (Rc<Identifier>, Option<Rc<Expr>>);
+
 impl FuncArgDetailsKey {
-    fn args(&self) -> &[ArgMaybeAnnotated] {
+    /// Yields one (name, default_val) pair per parameter or struct field, in
+    /// declaration order. Cloning the `Rc`s here is cheap.
+    pub(crate) fn iter_args(&self) -> Box<dyn Iterator<Item = ArgEntry> + '_> {
         match self {
-            FuncArgDetailsKey::FuncDef(f) => &f.args,
-            FuncArgDetailsKey::FuncDecl(f) => &f.args,
+            FuncArgDetailsKey::FuncDef(f) => Box::new(
+                f.args
+                    .iter()
+                    .map(|a| (a.name.clone(), a.default_val.clone())),
+            ),
+            FuncArgDetailsKey::FuncDecl(f) => Box::new(
+                f.args
+                    .iter()
+                    .map(|a| (a.name.clone(), a.default_val.clone())),
+            ),
+            FuncArgDetailsKey::Struct(s) => Box::new(
+                s.fields
+                    .iter()
+                    .map(|f| (f.name.clone(), f.default_val.clone())),
+            ),
         }
     }
 }
@@ -398,9 +416,9 @@ impl TryFrom<&Declaration> for FuncArgDetailsKey {
                 }
             },
             Declaration::MemberFunction(f) => Ok(FuncArgDetailsKey::FuncDef(f.clone())),
+            Declaration::Struct(s) => Ok(FuncArgDetailsKey::Struct(s.clone())),
 
             Declaration::EnumVariant { .. } => Err(()),
-            Declaration::Struct(_) => Err(()),
 
             Declaration::InterfaceDef(_)
             | Declaration::InterfaceMethod { .. }
