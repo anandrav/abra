@@ -845,10 +845,11 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
         StmtKind::Expr(expr) => {
             resolve_names_expr(ctx, symbol_table, expr);
         }
-        StmtKind::Let(_mutable, (pat, ty), expr) => {
+        StmtKind::Let(is_mutable, (pat, ty), expr) => {
             resolve_names_expr(ctx, symbol_table, expr);
 
             resolve_names_pat(ctx, symbol_table, pat);
+            record_pat_mutability(ctx, pat, *is_mutable);
             if let Some(ty_annot) = &ty {
                 resolve_names_typ(ctx, symbol_table, ty_annot, false);
             }
@@ -1276,6 +1277,26 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: 
         PatKind::Tuple(pats) => {
             for pat in pats {
                 resolve_names_pat(ctx, symbol_table, pat);
+            }
+        }
+    }
+}
+
+fn record_pat_mutability(ctx: &mut StaticsContext, pat: &Rc<Pat>, is_mutable: bool) {
+    match &*pat.kind {
+        PatKind::Int(_) | PatKind::Float(_) | PatKind::Wildcard => (),
+        PatKind::Void | PatKind::Bool(_) | PatKind::Str(_) => {}
+        PatKind::Binding(_) => {
+            ctx.pat_is_mutable.insert(pat.id, is_mutable);
+        }
+        PatKind::Variant(_, _, data) => {
+            if let Some(data) = data {
+                record_pat_mutability(ctx, data, is_mutable)
+            };
+        }
+        PatKind::Tuple(elems) => {
+            for elem in elems {
+                record_pat_mutability(ctx, elem, is_mutable)
             }
         }
     }

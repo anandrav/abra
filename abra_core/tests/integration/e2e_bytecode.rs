@@ -2109,3 +2109,23 @@ s
 "#;
     crate::helper::should_fail(src);
 }
+
+#[test]
+fn mutate_var_variable() {
+    let src = r#"
+var x = 0
+x = 4
+x
+"#;
+    expect_value(src, 4);
+}
+
+#[test]
+fn mutate_let_variable() {
+    let src = r#"
+let x = 0
+x = 4
+println("x = " .. x)
+"#;
+    crate::helper::should_fail(src);
+}

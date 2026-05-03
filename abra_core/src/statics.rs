@@ -68,6 +68,9 @@ pub(crate) struct StaticsContext {
     // map from (type declaration, member function name) -> function declaration
     pub(crate) member_functions: HashMap<(TypeKey, String), (Declaration, AstNode)>,
 
+    // map from NodeId to whether that pattern represents a mutable variable
+    pub(crate) pat_is_mutable: HashMap<NodeId, bool>,
+
     // for loop function types. used by translator when desugaring for loop to calls
     // of Iterable.make_iterator() and Iterator.next(), which requires knowing the concrete
     // types of the methods
@@ -116,6 +119,8 @@ impl StaticsContext {
             interface_impl_analyzed: Default::default(),
             interface_def_analyzed: Default::default(),
             member_functions: Default::default(),
+
+            pat_is_mutable: Default::default(),
 
             for_loop_make_iterator_types: Default::default(),
             for_loop_next_types: Default::default(),
