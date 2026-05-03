@@ -2178,10 +2178,10 @@ fn generate_constraints_stmt(
             if let ExprKind::Variable(_) = &*lhs.kind
                 && let Some(decl) = ctx.resolution_map.get(&lhs.id)
             {
-                if let Declaration::Var(node) = decl
-                    && let AstNode::Pat(pat) = node
-                {
-                    if !ctx.pat_is_mutable[&pat.id] {
+                if let Declaration::Var(node) = decl {
+                    if let AstNode::Pat(pat) = node
+                        && !ctx.pat_is_mutable[&pat.id]
+                    {
                         ctx.errors.push(Error::GenericWithNode {
                             msg:
                                 "Can't modify immutable variable. Try using `var` instead of `let`"

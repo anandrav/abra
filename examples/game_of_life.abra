@@ -15,7 +15,7 @@ fn main() {
   
   // Reserve space for UI
   let w = term_w
-  let h = term_h - 2
+  var h = term_h - 2
   if h < 1 { h = 1 }
 
   // Initialize random world

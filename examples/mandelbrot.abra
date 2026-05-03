@@ -13,7 +13,7 @@ type View = {
 fn main() {
   let (term_w, term_h) = get_size()!
 
-  let initial_h = term_h - 2
+  var initial_h = term_h - 2
   if initial_h < 1 { initial_h = 1 }
   
   var view = View(
@@ -35,7 +35,7 @@ fn main() {
   while not quit {
     let (curr_w, curr_h) = get_size()!
     
-    let render_h = curr_h - 2
+    var render_h = curr_h - 2
     if render_h < 1 { render_h = 1 }
 
     if curr_w != view.width or render_h != view.height {

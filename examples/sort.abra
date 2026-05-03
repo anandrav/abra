@@ -1,6 +1,6 @@
-use random
+use core/random
 
-fn print_arr_excerpt(arr) {
+fn print_arr_excerpt(arr: array<_>) {
   print("[")
   for i in 3 {
     print(arr[i])

@@ -11,7 +11,7 @@ type Stream = {
 
 fn main() {
   // 1. Setup Screen
-  let (w, h) = get_size()!
+  var (w, h) = get_size()!
   
   // Initialize one stream per column
   var streams = init_streams(w, h)
