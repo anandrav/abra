@@ -24,6 +24,10 @@ for arg in "$@"; do
     VSCODE=true
   elif [[ "$arg" == "--intellij" ]]; then
     INTELLIJ=true
+  elif [[ "$arg" == "--all" ]]; then
+    VIM=true
+    VSCODE=true
+    INTELLIJ=true
   fi
 done
 
