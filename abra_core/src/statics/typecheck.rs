@@ -1770,7 +1770,22 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
             }
         }
         ItemKind::TypeDef(typdefkind) => match typdefkind {
-            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
+            TypeDefKind::Enum(..) => {}
+            TypeDefKind::Struct(s) => {
+                let polyvar_scope = PolyvarScope::empty();
+                for field in &s.fields {
+                    if let Some(default_val) = &field.default_val {
+                        let field_ty = field.ty.to_typevar(ctx);
+                        polyvar_scope.add_polys(&field_ty);
+                        generate_constraints_expr(
+                            ctx,
+                            &polyvar_scope,
+                            Mode::ana(field_ty),
+                            default_val,
+                        );
+                    }
+                }
+            }
         },
         ItemKind::FuncDef(f) => {
             generate_constraints_func_decl(ctx, f.name.node(), &f.args, f.ret_type.as_ref());

@@ -1874,6 +1874,129 @@ greeter.greet2()
 }
 
 #[test]
+fn struct_default_field_values() {
+    let src = r#"
+type Greeter = {
+    name: string
+    greeting: string = "HELLO"
+    punct: string = "!"
+    num: int = 42
+}
+
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand").greet()
+"#;
+    expect_value(src, "HELLO Anand! your number is 42");
+}
+
+#[test]
+fn struct_named_field_args() {
+    let src = r#"
+type Greeter = {
+    name: string
+    greeting: string = "HELLO"
+    punct: string = "!"
+    num: int = 42
+}
+
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand", greeting = "hello", punct = ",", num = 123).greet()
+"#;
+    expect_value(src, "hello Anand, your number is 123");
+}
+
+#[test]
+fn struct_named_field_args_out_of_order() {
+    let src = r#"
+type Greeter = {
+    name: string
+    greeting: string = "HELLO"
+    punct: string = "!"
+    num: int = 42
+}
+
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand", num = 123, punct = ",", greeting = "hello").greet()
+"#;
+    expect_value(src, "hello Anand, your number is 123");
+}
+
+#[test]
+fn struct_named_field_args_partial_override() {
+    let src = r#"
+type Greeter = {
+    name: string
+    greeting: string = "HELLO"
+    punct: string = "!"
+    num: int = 42
+}
+
+extend Greeter {
+    fn greet(self) {
+        self.greeting .. " " .. self.name .. self.punct .. " your number is " .. self.num
+    }
+}
+
+Greeter("Anand", num = 7).greet()
+"#;
+    expect_value(src, "HELLO Anand! your number is 7");
+}
+
+#[test]
+fn struct_missing_required_field_fails() {
+    let src = r#"
+type Greeter = {
+    name: string
+    greeting: string = "HELLO"
+}
+
+Greeter(greeting = "hi")
+"#;
+    crate::helper::should_fail(src);
+}
+
+#[test]
+fn struct_duplicate_named_field_fails() {
+    let src = r#"
+type Greeter = {
+    name: string
+    greeting: string = "HELLO"
+}
+
+Greeter("Anand", greeting = "hi", greeting = "ho")
+"#;
+    crate::helper::should_fail(src);
+}
+
+#[test]
+fn struct_positional_after_named_fails() {
+    let src = r#"
+type Greeter = {
+    name: string
+    greeting: string = "HELLO"
+}
+
+Greeter(greeting = "hi", "Anand")
+"#;
+    crate::helper::should_fail(src);
+}
+
+#[test]
 fn multiline_string_strips_indent() {
     let src = r#"
 let s = """

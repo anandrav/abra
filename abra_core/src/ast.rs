@@ -256,6 +256,7 @@ impl Variant {
 pub(crate) struct StructField {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty: Rc<Type>,
+    pub(crate) default_val: Option<Rc<Expr>>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
