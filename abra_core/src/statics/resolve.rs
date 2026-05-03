@@ -953,7 +953,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             }
         }
         ExprKind::FuncCall(func, args) => {
-            _print_node(ctx, func.node());
             resolve_names_expr(ctx, symbol_table, func);
 
             for arg in args {
@@ -961,11 +960,9 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             }
         }
         ExprKind::MemberAccess(accessed_expr, field) => {
-            dlog!("MemberAccess");
             resolve_names_expr(ctx, symbol_table, accessed_expr);
             let decl = resolve_names_member_helper(ctx, accessed_expr, field);
             if let Some(decl) = decl {
-                dlog!("helper returned Some(_)");
                 ctx.resolution_map.insert(expr.id, decl);
             }
         }

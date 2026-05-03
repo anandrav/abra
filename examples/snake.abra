@@ -65,15 +65,15 @@ type State = {
 
 fn main() {
   let st = State(
-    width = 20, 
-    height = 20,
+    width = 20 
+    height = 20
     snake = Snake(
-        body = [Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)],
+        body = [Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)]
         direction = .Right
-    ),
-    fruit = Fruit(Point(4, 5)),
-    score = 0,
-    status = .Playing,
+    )
+    fruit = Fruit(Point(4, 5))
+    score = 0
+    status = .Playing
     quit = false
   )
 
