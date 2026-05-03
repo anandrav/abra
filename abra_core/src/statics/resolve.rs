@@ -997,7 +997,6 @@ pub(crate) fn calculate_func_call_order(
     args: &[FuncCallArg],
     expr: &Rc<Expr>,
 ) {
-    dlog!("let's do this");
     let decl = ctx.resolution_map.get(&func.id);
     let key = decl.and_then(|decl| FuncArgDetailsKey::try_from(decl).ok());
     let func_arg_details = key.and_then(|key| ctx.func_arg_details.get(&key).cloned());

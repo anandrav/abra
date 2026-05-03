@@ -65,12 +65,17 @@ type State = {
 
 fn main() {
   let st = State(
-    20, 20,
-    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], .Right),
-    Fruit(Point(4, 5)),
-    0,
-    .Playing,
-    false)
+    width = 20, 
+    height = 20,
+    snake = Snake(
+        body = [Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)],
+        direction = .Right
+    ),
+    fruit = Fruit(Point(4, 5)),
+    score = 0,
+    status = .Playing,
+    quit = false
+  )
 
   // game loop
   term.enable_raw_mode()
