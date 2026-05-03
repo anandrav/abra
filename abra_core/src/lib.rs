@@ -20,6 +20,7 @@ pub mod environment;
 pub mod foreign_bindings;
 pub mod host_bindings;
 mod intrinsic;
+mod lsp_helper;
 mod optimize_bytecode;
 mod parse;
 pub mod prelude;
@@ -386,6 +387,9 @@ impl FileProvider for MockFileProvider {
 
 // --- LSP / check-only API ---
 
+use crate::lsp_helper::{
+    declaration_location, extract_primary_from_diagnostic, namespace_completions,
+};
 use std::ops::Range;
 
 pub struct AnalysisResult {
@@ -515,7 +519,7 @@ impl AnalysisResult {
     pub fn definition_at(&self, file_id: FileId, offset: usize) -> Option<DefinitionInfo> {
         let file_ast = self.file_asts.iter().find(|f| f.loc.file_id == file_id)?;
 
-        let node = ast::find_identifier_at_offset(file_ast, offset)?;
+        let node = lsp_helper::find_identifier_at_offset(file_ast, offset)?;
         let node_id = node.id();
         let decl = self.ctx.resolution_map.get(&node_id)?;
         declaration_location(decl)
@@ -525,7 +529,7 @@ impl AnalysisResult {
     pub fn type_at(&self, file_id: FileId, offset: usize) -> Option<String> {
         let file_ast = self.file_asts.iter().find(|f| f.loc.file_id == file_id)?;
 
-        let node = ast::find_innermost_node_at_offset(file_ast, offset)?;
+        let node = lsp_helper::find_innermost_node_at_offset(file_ast, offset)?;
         let solved = self.ctx.solution_of_node(node)?;
         Some(format!("{}", solved))
     }
@@ -580,7 +584,7 @@ impl AnalysisResult {
         }
 
         // 2. Search the AST for Variable nodes with this name, get their types
-        let var_nodes = ast::find_variables_by_name(file_ast, ident_name);
+        let var_nodes = lsp_helper::find_variables_by_name(file_ast, ident_name);
         for var_node in &var_nodes {
             if let Some(solved_type) = self.ctx.solution_of_node(var_node.clone()) {
                 let candidates = self.type_completions(&solved_type);
@@ -647,76 +651,4 @@ impl AnalysisResult {
             }
         }
     }
-}
-
-fn namespace_completions(ns: &statics::Namespace) -> Vec<CompletionCandidate> {
-    use statics::Declaration;
-
-    let mut candidates = vec![];
-    for (name, decl) in &ns.declarations {
-        let kind = match decl {
-            Declaration::FreeFunction(_) | Declaration::MemberFunction(_) => {
-                CompletionCandidateKind::Function
-            }
-            Declaration::EnumVariant { .. } => CompletionCandidateKind::EnumVariant,
-            Declaration::Struct(_)
-            | Declaration::Enum(_)
-            | Declaration::BuiltinType(_)
-            | Declaration::InterfaceDef(_) => CompletionCandidateKind::Type,
-            _ => CompletionCandidateKind::Function,
-        };
-        candidates.push(CompletionCandidate {
-            label: name.clone(),
-            kind,
-        });
-    }
-    candidates.sort_by(|a, b| a.label.cmp(&b.label));
-    candidates
-}
-
-fn extract_primary_from_diagnostic(
-    diagnostic: &codespan_reporting::diagnostic::Diagnostic<FileId>,
-) -> (FileId, Range<usize>, String) {
-    if let Some(label) = diagnostic.labels.first() {
-        (
-            label.file_id,
-            label.range.clone(),
-            diagnostic.message.clone(),
-        )
-    } else {
-        (0, 0..0, diagnostic.message.clone())
-    }
-}
-
-fn declaration_location(decl: &statics::Declaration) -> Option<DefinitionInfo> {
-    use statics::{Declaration, FuncResolutionKind};
-    let node = match decl {
-        Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => func_def.name.node(),
-        Declaration::FreeFunction(FuncResolutionKind::Host(func_decl)) => func_decl.name.node(),
-        Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => decl.name.node(),
-        Declaration::MemberFunction(func_def) => func_def.name.node(),
-        Declaration::InterfaceDef(iface) => iface.name.node(),
-        Declaration::InterfaceMethod {
-            iface,
-            method_index,
-        } => iface.methods[*method_index].name.node(),
-        Declaration::InterfaceOutputType { ty, .. } => ty.name.node(),
-        Declaration::Enum(e) => e.name.node(),
-        Declaration::EnumVariant { e, variant } => e.variants[*variant].node(),
-        Declaration::Struct(s) => s.name.node(),
-        Declaration::Var(node) => node.clone(),
-        Declaration::Polytype(statics::PolytypeDeclaration::Ordinary(p)) => p.name.node(),
-        Declaration::Namespace(_, node) => node.clone(),
-        Declaration::Intrinsic(_) | Declaration::BuiltinType(_) => return None,
-        Declaration::Polytype(
-            statics::PolytypeDeclaration::InterfaceSelf(_)
-            | statics::PolytypeDeclaration::ArrayArg
-            | statics::PolytypeDeclaration::IntrinsicOperation(..),
-        ) => return None,
-    };
-    let loc = node.location();
-    Some(DefinitionInfo {
-        file_id: loc.file_id,
-        range: loc.range(),
-    })
 }
