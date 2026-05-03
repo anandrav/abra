@@ -580,7 +580,7 @@ arr.len()
 #[test]
 fn array_of_nils() {
     let src = r#"
-let s = ""
+var s = ""
 
 let arr = [nil, nil, nil]
 s = s .. arr
