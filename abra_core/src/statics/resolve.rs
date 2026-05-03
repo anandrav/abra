@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    _print_node, ArgEntry, Declaration, Error, FuncArgDetails, FuncArgDetailsKey,
-    FuncResolutionKind, Namespace, PolytypeDeclaration, StaticsContext,
+    ArgEntry, Declaration, Error, FuncArgDetails, FuncArgDetailsKey, FuncResolutionKind, Namespace,
+    PolytypeDeclaration, StaticsContext,
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
@@ -19,7 +19,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::{HashMap, HashSet};
 use utils::id_set::IdSet;
-use utils::{dlog, swrite};
+use utils::swrite;
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {

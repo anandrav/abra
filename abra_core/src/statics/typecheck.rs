@@ -2175,6 +2175,17 @@ fn generate_constraints_stmt(
             );
         }
         StmtKind::Assign(lhs, assign_op, rhs) => {
+            if let ExprKind::Variable(_) = &*lhs.kind {
+                if let Some(decl) = ctx.resolution_map.get(&lhs.id) {
+                    if let Declaration::Var(node) = decl {
+                        if let AstNode::Stmt(stmt) = node {
+                            if let StmtKind::Let(false, _, _) = &*stmt.kind {
+                                ctx.errors.push(Error::Generic { msg: "Can't modify immutable variable. Try using `var` instead of `let`".to_string(), node: lhs.node() })
+                            }
+                        }
+                    }
+                }
+            }
             match assign_op {
                 AssignOperator::Equal => {
                     if let ExprKind::IndexAccess(accessed, index) = &*lhs.kind {
