@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-73185e3e.js";
+            window.path_to_searchindex_js = "../searchindex-a63efa1b.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -195,6 +195,30 @@
 <p>And update them the same way:</p>
 <pre><code>frank.age = frank.age + 1   // 35
 </code></pre>
+<h3 id="default-field-values"><a class="header" href="#default-field-values">Default field values</a></h3>
+<p>A field can have a default value. When constructing the struct, callers can leave any trailing field off:</p>
+<pre><code>type Greeter = {
+    name: string
+    greeting: string = "Hello"
+    excited: bool = false
+}
+
+extend Greeter {
+    fn greet(self) {
+        let punct = if self.excited { "!" } else { "." }
+        println(self.greeting .. ", " .. self.name .. punct)
+    }
+}
+
+Greeter("Alice").greet()                         // "Hello, Alice."
+Greeter("Bob", "Howdy").greet()                  // "Howdy, Bob."
+</code></pre>
+<h3 id="named-field-arguments"><a class="header" href="#named-field-arguments">Named field arguments</a></h3>
+<p>You can also pass a field by name, which lets you skip past fields that have defaults:</p>
+<pre><code>Greeter("Carol", excited = true).greet()                       // "Hello, Carol!"
+Greeter("Dave", greeting = "Hi", excited = true).greet()       // "Hi, Dave!"
+</code></pre>
+<p>Named arguments must come after all positional arguments.</p>
 <h3 id="generic-structs"><a class="header" href="#generic-structs">Generic structs</a></h3>
 <p>A struct can take a type parameter, so it works with any element type:</p>
 <pre><code>type Ref&lt;T&gt; = {
