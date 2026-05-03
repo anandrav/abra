@@ -169,7 +169,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let main_file_name = main_file_path.file_name().unwrap().to_str().unwrap();
 
     if args.check {
-        match abra_core::check2(main_file_name, file_provider) {
+        match abra_core::check(main_file_name, file_provider) {
             Ok(_) => {
                 let green = c("\x1b[38;2;100;230;100m");
                 let reset = c("\x1b[0m");

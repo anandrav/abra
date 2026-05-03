@@ -148,7 +148,7 @@ impl ServerState {
             standard_modules_dir: Rc::clone(&self.standard_modules_dir),
         };
 
-        let result = abra_core::check(&root_file_name, Box::new(file_provider));
+        let result = abra_core::check_lsp(&root_file_name, Box::new(file_provider));
         let errors = result.errors();
 
         // Group errors by file, ensuring every file gets an entry (to clear old diagnostics)

@@ -91,7 +91,7 @@ fn compile_bytecode_(
     Ok(translator.translate())
 }
 
-pub fn check2(
+pub fn check(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<(), ErrorSummary> {
@@ -428,7 +428,7 @@ pub enum CompletionCandidateKind {
 
 /// Run parse + type checking without bytecode translation.
 /// Always returns results, even when there are errors.
-pub fn check(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> AnalysisResult {
+pub fn check_lsp(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> AnalysisResult {
     let mut ctx = StaticsContext::new(file_provider);
     let file_asts = match get_files(&mut ctx, &[main_file_name]) {
         Ok(asts) => asts,
