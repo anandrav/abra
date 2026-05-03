@@ -2182,7 +2182,7 @@ fn generate_constraints_stmt(
                     && let AstNode::Pat(pat) = node
                 {
                     if !ctx.pat_is_mutable[&pat.id] {
-                        ctx.errors.push(Error::Generic {
+                        ctx.errors.push(Error::GenericWithNode {
                             msg:
                                 "Can't modify immutable variable. Try using `var` instead of `let`"
                                     .to_string(),
@@ -2190,7 +2190,7 @@ fn generate_constraints_stmt(
                         })
                     }
                 } else {
-                    ctx.errors.push(Error::Generic {
+                    ctx.errors.push(Error::GenericWithNode {
                         msg: "Can't assign to this. Must assign to a variable defined with `var` keyword".to_string(),
                         node: lhs.node(),
                     })
@@ -2210,7 +2210,7 @@ fn generate_constraints_stmt(
                         );
 
                         if accessed_ty.single().is_none() {
-                            ctx.errors.push(Error::Generic {
+                            ctx.errors.push(Error::GenericWithNode {
                                 msg: "Can't index expression without knowing type".to_string(),
                                 node: accessed.node(),
                             });
@@ -2343,7 +2343,7 @@ fn generate_constraints_stmt(
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, iterable);
             let iterable_ty = TypeVar::from_node(ctx, iterable.node());
             let Some(iterable_ty_solved) = iterable_ty.solution() else {
-                ctx.errors.push(Error::Generic {
+                ctx.errors.push(Error::GenericWithNode {
                     msg: "Cannot typecheck for loop because type of container is not known."
                         .to_string(),
                     node: iterable.node(),
@@ -2353,7 +2353,7 @@ fn generate_constraints_stmt(
             let iterable_iface_def = ctx.get_iface_decl("prelude.Iterable");
             let iterator_iface_def = ctx.get_iface_decl("prelude.Iterator");
             let Some(imp) = iterable_ty_solved.get_iface_impls(ctx, &iterable_iface_def) else {
-                ctx.errors.push(Error::Generic {
+                ctx.errors.push(Error::GenericWithNode {
                     msg: "For loop container does not implement `Iterable` interface.".to_string(),
                     node: iterable.node(),
                 });
@@ -3234,7 +3234,7 @@ fn generate_constraints_expr(
             );
 
             if accessed_ty.single().is_none() {
-                ctx.errors.push(Error::Generic {
+                ctx.errors.push(Error::GenericWithNode {
                     msg: "Can't index expression without knowing type".to_string(),
                     node: accessed.node(),
                 });

@@ -434,34 +434,7 @@ pub fn check_lsp(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> 
         Ok(asts) => asts,
         Err(e) => {
             // File loading failed — return result with just the error
-            ctx.errors.push(Error::Generic {
-                msg: e.msg.clone(),
-                node: ast::AstNode::Item(Rc::new(ast::Item {
-                    kind: Rc::new(ItemKind::Stmt(Rc::new(ast::Stmt {
-                        kind: Rc::new(ast::StmtKind::Expr(Rc::new(ast::Expr {
-                            kind: Rc::new(ast::ExprKind::Nil),
-                            loc: ast::Location {
-                                file_id: 0,
-                                lo: 0,
-                                hi: 0,
-                            },
-                            id: ast::NodeId::new(),
-                        }))),
-                        loc: ast::Location {
-                            file_id: 0,
-                            lo: 0,
-                            hi: 0,
-                        },
-                        id: ast::NodeId::new(),
-                    }))),
-                    loc: ast::Location {
-                        file_id: 0,
-                        lo: 0,
-                        hi: 0,
-                    },
-                    id: ast::NodeId::new(),
-                })),
-            });
+            ctx.errors.push(Error::Generic(e.msg.clone()));
             return AnalysisResult {
                 file_db: ctx.file_db.clone(),
                 ctx,

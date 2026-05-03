@@ -440,7 +440,8 @@ impl TryFrom<&Declaration> for FuncArgDetailsKey {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Error {
-    Generic {
+    Generic(String),
+    GenericWithNode {
         msg: String,
         node: AstNode,
     },

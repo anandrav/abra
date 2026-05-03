@@ -25,7 +25,10 @@ impl Error {
         };
 
         match self {
-            Error::Generic { msg, node } => {
+            Error::Generic(msg) => {
+                diagnostic = diagnostic.with_message(msg);
+            }
+            Error::GenericWithNode { msg, node } => {
                 let (file, range) = node.get_file_and_range();
                 diagnostic = diagnostic.with_message(msg);
                 labels.push(Label::secondary(file, range))

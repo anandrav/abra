@@ -170,7 +170,7 @@ fn gather_declarations_item(
             let foreign = func_decl.is_foreign();
             let host = func_decl.is_host();
             if foreign && host {
-                ctx.errors.push(Error::Generic {
+                ctx.errors.push(Error::GenericWithNode {
                     msg: "function declaration cannot be #host and #foreign".to_string(),
                     node: item.node(),
                 });
@@ -643,7 +643,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             let Some(Declaration::InterfaceDef(iface_def)) =
                 ctx.resolution_map.get(&iface_impl.iface.id).cloned()
             else {
-                ctx.errors.push(Error::Generic {
+                ctx.errors.push(Error::GenericWithNode {
                     msg: "Must implement an interface".to_string(),
                     node: iface_impl.iface.node(),
                 });
@@ -1000,7 +1000,7 @@ pub(crate) fn calculate_func_call_order(
     let func_arg_details = key.and_then(|key| ctx.func_arg_details.get(&key).cloned());
 
     if args.iter().any(|a| a.name.is_some()) && func_arg_details.is_none() {
-        ctx.errors.push(Error::Generic {
+        ctx.errors.push(Error::GenericWithNode {
             msg: "Can't use named arguments because can't determine original function definition"
                 .to_string(),
             node: expr.node(),
@@ -1017,7 +1017,7 @@ pub(crate) fn calculate_func_call_order(
                 named_encountered = true;
                 resolve_identifier(ctx, &func_arg_info.symbol_table, name);
                 if seen_named_args.contains(&name.v) {
-                    ctx.errors.push(Error::Generic {
+                    ctx.errors.push(Error::GenericWithNode {
                         msg: "Can't specify a named argument more than once".to_string(),
                         node: name.node(),
                     });
@@ -1026,7 +1026,7 @@ pub(crate) fn calculate_func_call_order(
                 missing_arg_names.remove(&name.v);
             } else {
                 if named_encountered {
-                    ctx.errors.push(Error::Generic {
+                    ctx.errors.push(Error::GenericWithNode {
                         msg: "Can't use unnamed argument after named arguments, only before"
                             .to_string(),
                         node: arg.val.node(),
@@ -1051,7 +1051,7 @@ pub(crate) fn calculate_func_call_order(
                 }
                 swrite!(&mut msg, "{missing_arg_name}");
             }
-            ctx.errors.push(Error::Generic {
+            ctx.errors.push(Error::GenericWithNode {
                 msg,
                 node: expr.node(),
             });
@@ -1430,7 +1430,7 @@ fn fqn_of_type(ctx: &mut StaticsContext, ty: &Rc<Type>) -> Option<String> {
             Some(s) => s,
         },
         TypeKind::Poly(_) => {
-            ctx.errors.push(Error::Generic {
+            ctx.errors.push(Error::GenericWithNode {
                 msg: "Cannot extend polymorphic type".to_string(),
                 node: ty.node(),
             });
@@ -1443,7 +1443,7 @@ fn fqn_of_type(ctx: &mut StaticsContext, ty: &Rc<Type>) -> Option<String> {
         TypeKind::Str => "string".to_string(),
         TypeKind::Wildcard => return None,
         TypeKind::Function(_, _) => {
-            ctx.errors.push(Error::Generic {
+            ctx.errors.push(Error::GenericWithNode {
                 msg: "Cannot extend function type".to_string(),
                 node: ty.node(),
             });
