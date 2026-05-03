@@ -69,7 +69,7 @@ fn test_directories() -> result<void, string> {
 }
 
 fn test_path_manipulation() -> result<void, string> {
-    check(join("foo", "bar.txt") == "foo/bar.txt", "join")?
+    check(join_path("foo", "bar.txt") == "foo/bar.txt", "join")?
     check(parent("/a/b/c.txt").unwrap() == "/a/b", "parent")?
     check(filename("/a/b/c.txt").unwrap() == "c.txt", "filename")?
     check(extension("/a/b/c.txt").unwrap() == "txt", "extension")?
