@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use abra_core::{CompletionCandidateKind, MockFileProvider, check_lsp};
+use std::collections::HashMap;
+use std::path::Path;
 
 fn analyze(src: &str) -> abra_core::LspAnalysisResult {
     check_lsp("main.abra", MockFileProvider::single_file(src))
@@ -362,4 +364,101 @@ let _t = Speaker.
 ";
     let dot_after = offset_of(src, "Speaker.") + "Speaker.".len();
     assert_completion_labels(src, dot_after, &["say", "shout"]);
+}
+
+// A glob-imported type should produce namespace completions just like a
+// locally-declared one. Drives the per-file effective-namespace cache that
+// resolve_imports_file populates.
+#[test]
+fn completion_glob_imported_enum() {
+    let helper_src = "\
+type Color = Red | Green | Blue
+";
+    let main_src = "\
+use helper
+let _t = Color.
+";
+    let mut files = HashMap::new();
+    files.insert(
+        Path::new("helper.abra").to_path_buf(),
+        helper_src.to_string(),
+    );
+    files.insert(Path::new("main.abra").to_path_buf(), main_src.to_string());
+    let analysis = check_lsp("main.abra", MockFileProvider::new(files));
+
+    let dot_after = main_src.find("Color.").unwrap() + "Color.".len();
+    let candidates = analysis.completions_at(0, dot_after);
+    let labels: Vec<String> = candidates.iter().map(|c| c.label.clone()).collect();
+    for expected in ["Red", "Green", "Blue"] {
+        assert!(
+            labels.iter().any(|l| l == expected),
+            "expected {expected} in {labels:?}"
+        );
+    }
+}
+
+// Identifier-prefix completion: with the cursor sitting in plain code (not
+// after a dot), every visible name should be returned so the IDE can filter
+// by the typed prefix. Glob-imported function names must show up — this is
+// what makes `now_utc` discoverable after `use core/time` in snake.abra etc.
+#[test]
+fn completion_identifier_glob_imported_fn() {
+    let helper_src = "\
+fn now_utc() -> int = 0
+fn now_local() -> int = 1
+";
+    let main_src = "\
+use helper
+fn main() {
+    let _t = 0
+}
+";
+    let mut files = HashMap::new();
+    files.insert(
+        Path::new("helper.abra").to_path_buf(),
+        helper_src.to_string(),
+    );
+    files.insert(Path::new("main.abra").to_path_buf(), main_src.to_string());
+    let analysis = check_lsp("main.abra", MockFileProvider::new(files));
+
+    // Probe at a benign location inside the function body (after `let _t = `).
+    // Trigger identifier completion (no preceding dot).
+    let probe = main_src.find("let _t = ").unwrap() + "let _t = ".len();
+    let candidates = analysis.completions_at(0, probe);
+    let labels: Vec<String> = candidates.iter().map(|c| c.label.clone()).collect();
+    for expected in ["now_utc", "now_local"] {
+        assert!(
+            labels.iter().any(|l| l == expected),
+            "expected {expected} in {labels:?}"
+        );
+    }
+}
+
+#[test]
+fn completion_glob_imported_struct_with_extension() {
+    let helper_src = "\
+type Point = { x: int }
+extend Point {
+    fn double(self: Point) -> int = self.x * 2
+}
+";
+    let main_src = "\
+use helper
+let _t = Point.
+";
+    let mut files = HashMap::new();
+    files.insert(
+        Path::new("helper.abra").to_path_buf(),
+        helper_src.to_string(),
+    );
+    files.insert(Path::new("main.abra").to_path_buf(), main_src.to_string());
+    let analysis = check_lsp("main.abra", MockFileProvider::new(files));
+
+    let dot_after = main_src.find("Point.").unwrap() + "Point.".len();
+    let candidates = analysis.completions_at(0, dot_after);
+    let labels: Vec<String> = candidates.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.iter().any(|l| l == "double"),
+        "expected `double` in {labels:?}"
+    );
 }

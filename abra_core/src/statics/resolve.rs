@@ -512,6 +512,13 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
         }
     }
 
+    // Cache the effective namespace so the LSP can look up names — including
+    // glob/inclusion/exclusion-imported ones — for completion.
+    ctx.file_namespaces.insert(
+        file.package_name_str.clone(),
+        Rc::new(effective_namespace.clone()),
+    );
+
     SymbolTable::from_namespace(effective_namespace)
 }
 

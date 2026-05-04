@@ -34,15 +34,12 @@ impl LspAnalysisResult {
             }
         }
 
-        // 2. File's own top-level namespace — populated by scan_declarations
-        //    for every item that parsed (types, enums, interfaces, free fns).
-        //    This is what makes `Color.<TAB>` work even when the using-item
-        //    failed to parse.
-        if let Some(file_ns) = self
-            .ctx
-            .root_namespace
-            .namespaces
-            .get(&file_ast.package_name_str)
+        // 2. File's effective namespace — populated by resolve_imports_file.
+        //    Includes own decls, prelude, and everything brought in by imports
+        //    (glob, inclusion, exclusion, As alias). This is what makes both
+        //    `Color.<TAB>` (own decl) and `JsonValue.<TAB>` (glob-imported)
+        //    work even when the using-item failed to parse.
+        if let Some(file_ns) = self.ctx.file_namespaces.get(&file_ast.package_name_str)
             && let Some(decl) = file_ns.declarations.get(ident_name)
         {
             targets.push(decl.clone());

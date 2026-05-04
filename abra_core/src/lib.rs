@@ -502,8 +502,9 @@ impl LspAnalysisResult {
         Some(format!("{}", solved))
     }
 
-    /// Get completion candidates for dot-access at the given byte offset.
-    /// `offset` should be the position right after the dot character.
+    /// Get completion candidates at the given byte offset. Returns dot-access
+    /// members when the cursor is right after a `.`, otherwise returns every
+    /// name visible at file scope so the IDE can filter by the typed prefix.
     pub fn completions_at(&self, file_id: FileId, offset: usize) -> Vec<CompletionCandidate> {
         let file_data = match self.file_db.get(file_id) {
             Ok(f) => f,
@@ -511,45 +512,44 @@ impl LspAnalysisResult {
         };
         let source = &file_data.source;
 
-        // offset is after the dot
-        if offset == 0 {
-            return vec![];
-        }
-        let dot_pos = offset - 1;
-        if source.as_bytes().get(dot_pos) != Some(&b'.') {
-            return vec![];
-        }
-
-        // Extract the identifier before the dot
-        let ident_end = dot_pos;
-        let mut ident_start = ident_end;
-        while ident_start > 0 {
-            let b = source.as_bytes()[ident_start - 1];
-            if b.is_ascii_alphanumeric() || b == b'_' {
-                ident_start -= 1;
-            } else {
-                break;
-            }
-        }
-        if ident_start >= ident_end {
-            return vec![];
-        }
-        let ident_name = &source[ident_start..ident_end];
-
         let file_ast = match self.file_asts.iter().find(|f| f.loc.file_id == file_id) {
             Some(f) => f,
             None => return vec![],
         };
 
-        // Try every shape `ident_name` could resolve to and return the first
-        // non-empty answer.
-        for decl in self.find_completion_targets(file_ast, ident_name) {
-            let candidates = self.members_of_decl(&decl);
-            if !candidates.is_empty() {
-                return candidates;
+        // Dot completion: cursor is right after a `.`
+        if offset > 0 && source.as_bytes().get(offset - 1) == Some(&b'.') {
+            // Extract the identifier before the dot
+            let ident_end = offset - 1;
+            let mut ident_start = ident_end;
+            while ident_start > 0 {
+                let b = source.as_bytes()[ident_start - 1];
+                if b.is_ascii_alphanumeric() || b == b'_' {
+                    ident_start -= 1;
+                } else {
+                    break;
+                }
             }
+            if ident_start >= ident_end {
+                return vec![];
+            }
+            let ident_name = &source[ident_start..ident_end];
+
+            for decl in self.find_completion_targets(file_ast, ident_name) {
+                let candidates = self.members_of_decl(&decl);
+                if !candidates.is_empty() {
+                    return candidates;
+                }
+            }
+            return vec![];
         }
 
+        // Identifier-prefix completion: dump the file's effective namespace.
+        // The IDE filters by what the user has typed. Includes own decls,
+        // prelude, and everything imported (glob/As/inclusion/exclusion).
+        if let Some(file_ns) = self.ctx.file_namespaces.get(&file_ast.package_name_str) {
+            return lsp_helper::namespace_completions(file_ns);
+        }
         vec![]
     }
 }

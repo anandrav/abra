@@ -32,6 +32,10 @@ pub(crate) struct StaticsContext {
     pub(crate) file_provider: Box<dyn FileProvider>,
 
     pub(crate) root_namespace: Namespace,
+    // The full set of names in scope at file level — own decls, prelude, imports
+    // (glob, As, inclusion, exclusion). Built by resolve_imports_file. Keyed by
+    // the file's package_name_str. Used by the LSP for completion lookups.
+    pub(crate) file_namespaces: HashMap<String, Rc<Namespace>>,
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
 
@@ -104,6 +108,7 @@ impl StaticsContext {
             file_provider,
 
             root_namespace: Default::default(),
+            file_namespaces: Default::default(),
             resolution_map: Default::default(),
             fully_qualified_names: Default::default(),
             interface_namespaces: Default::default(),
