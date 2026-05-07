@@ -1,7 +1,0 @@
-use core/strings
-
-let s = 'helloworld'
-println(s)
-let s = s.to_upper()
-println(s)
-
