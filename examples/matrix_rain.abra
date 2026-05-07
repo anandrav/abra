@@ -44,7 +44,7 @@ fn main() {
       let tail_y = float_to_int(tail_y_float)
 
       if (tail_y >= 0) and (tail_y < h) {
-        mark(" ", x, tail_y)
+        mark(' ', x, tail_y)
       }
 
       // B. Move the head
@@ -77,7 +77,7 @@ fn main() {
     while poll_key_event(1) {
       let key = get_key_event()
       match key {
-        .Char("q") -> quit = true
+        .Char('q') -> quit = true
         .Esc -> quit = true
         _ -> {}
       }
@@ -117,8 +117,8 @@ fn init_streams(w: int, h: int) -> array<Stream> {
 
 fn get_matrix_char(index: int) -> string {
   // A mix of tech-looking characters
-  let chars = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
-               "Z", "X", "Y", "W", "K", "P", ":", ".", "*", "+"]
+  let chars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+               'Z', 'X', 'Y', 'W', 'K', 'P', ':', '.', '*', '+']
   
   // Safety check mod
   let safe_index = index % chars.len()

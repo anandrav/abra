@@ -10,4 +10,4 @@ fn ackermann(m, n) {
   ackermann(m - 1, ackermann(m, n - 1))
 }
 
-println("ackermann(3,10)=" .. ackermann(3, 10))
+println('ackermann(3,10)=' .. ackermann(3, 10))

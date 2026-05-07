@@ -19,11 +19,11 @@ implement ToString for LispVal {
         match self {
             .Atom(s) -> s
             .Number(n) -> int_to_string(n)
-            .Bool(b) -> if b "true" else "false"
-            .Nil -> "nil"
-            .Func(arg, _) -> "<lambda:" .. arg .. ">"
+            .Bool(b) -> if b 'true' else 'false'
+            .Nil -> 'nil'
+            .Func(arg, _) -> '<lambda:' .. arg .. '>'
             .List(l) -> {
-                var s = "("
+                var s = '('
                 var curr = l
                 while true {
                     match curr {
@@ -32,13 +32,13 @@ implement ToString for LispVal {
                             s = s .. ToString.str(h)
                             match t {
                                 .empty -> {}
-                                _ -> s = s .. " "
+                                _ -> s = s .. ' '
                             }
                             curr = t
                         }
                     }
                 }
-                s .. ")"
+                s .. ')'
             }
         }
     }
@@ -80,17 +80,17 @@ fn tokenize(input: string) -> array<string> {
     while i < len {
         let c = chars[i]
         
-        if c == "(" or c == ")" {
+        if c == '(' or c == ')' {
             tokens.push(c)
             i += 1
-        } else if c == " " or c == "\n" or c == "\t" {
+        } else if c == ' ' or c == "\n" or c == "\t" {
             i += 1 // Skip whitespace
         } else {
             // Read atom (number or identifier) until delimiter
-            var atom = ""
+            var atom = ''
             while i < len {
                 let next_c = chars[i]
-                if next_c == "(" or next_c == ")" or next_c == " " or next_c == "\n" {
+                if next_c == '(' or next_c == ')' or next_c == ' ' or next_c == "\n" {
                     break
                 }
                 atom = atom .. next_c
@@ -117,17 +117,17 @@ fn read_from_tokens(tokens: array<string>, idx: int) -> (LispVal, int) {
 
     let token = tokens[idx]
     
-    if token == "(" {
+    if token == '(' {
         var list_items = []
         var curr = idx + 1
-        
+
         // Read until matching close paren
-        while curr < tokens.len() and tokens[curr] != ")" {
+        while curr < tokens.len() and tokens[curr] != ')' {
             let (val, next_idx) = read_from_tokens(tokens, curr)
             list_items.push(val)
             curr = next_idx
         }
-        
+
         // Convert array to linked list (cons cells)
         var l = list.empty
         var i = list_items.len() - 1
@@ -135,11 +135,11 @@ fn read_from_tokens(tokens: array<string>, idx: int) -> (LispVal, int) {
             l = list.cons(list_items[i], l)
             i -= 1
         }
-        
+
         // Return list + index after the closing ')'
         (.List(l), curr + 1)
-    } else if token == ")" {
-        panic("Unexpected ) at index " .. idx)
+    } else if token == ')' {
+        panic('Unexpected ) at index ' .. idx)
     } else {
         // Parse Atomic Value (Number or Symbol)
         if token.to_int().is_some() {
@@ -157,7 +157,7 @@ fn eval(val: LispVal, env: Env) -> LispVal {
         .Atom(s) -> {
             match env.get(s) {
                 .some(v) -> v
-                .none -> panic("Undefined symbol: " .. s)
+                .none -> panic('Undefined symbol: ' .. s)
             }
         }
         .Number(_) -> val
@@ -167,13 +167,13 @@ fn eval(val: LispVal, env: Env) -> LispVal {
                 .cons(head, tail) -> {
                     // Check special forms
                     match head {
-                        .Atom("quote") -> {
+                        .Atom('quote') -> {
                             match tail {
                                 .cons(q, _) -> q
                                 _ -> .Nil
                             }
                         }
-                        .Atom("if") -> {
+                        .Atom('if') -> {
                             // (if cond then else)
                             // Basic list unpacking
                             let cond_node = match tail { 
@@ -195,7 +195,7 @@ fn eval(val: LispVal, env: Env) -> LispVal {
                                 _ -> eval(then_node, env)
                             }
                         }
-                        .Atom("define") -> {
+                        .Atom('define') -> {
                             let name_node = match tail { 
                                 .cons(n, _) -> n
                                  _ -> .Nil 
@@ -207,7 +207,7 @@ fn eval(val: LispVal, env: Env) -> LispVal {
                             
                             let name = match name_node { 
                                 .Atom(s) -> s
-                                 _ -> panic("Define requires symbol") 
+                                 _ -> panic('Define requires symbol')
                                 }
                             let res = eval(val_node, env)
                             env.set(name, res)
@@ -238,21 +238,21 @@ fn eval(val: LispVal, env: Env) -> LispVal {
                                     }
                                     eval(body, new_env)
                                 }
-                                .Atom("+") -> {
+                                .Atom('+') -> {
                                     let sum = match (args[0], args[1]) {
                                         (.Number(a), .Number(b)) -> a + b
                                         _ -> 0
                                     }
                                     .Number(sum)
                                 }
-                                .Atom("-") -> {
+                                .Atom('-') -> {
                                     let diff = match (args[0], args[1]) {
                                         (.Number(a), .Number(b)) -> a - b
                                         _ -> 0
                                     }
                                     .Number(diff)
                                 }
-                                _ -> panic("Not a function: " .. ToString.str(func))
+                                _ -> panic('Not a function: ' .. ToString.str(func))
                             }
                         }
                     }
@@ -266,8 +266,8 @@ fn eval(val: LispVal, env: Env) -> LispVal {
 fn main() {
     let args = get_args()
     let code = if args.is_empty() {
-        let code = "(+ 10 (- 20 5))"
-        println("no input file given, defaulting to example program: `" .. code .. "`")
+        let code = '(+ 10 (- 20 5))'
+        println('no input file given, defaulting to example program: `' .. code .. '`')
         code
     } else {
         let fname = args[0]
@@ -276,21 +276,21 @@ fn main() {
     }
 
     let env = Env.new()
-    env.set("+", .Atom("+"))
-    env.set("-", .Atom("-"))
+    env.set('+', .Atom('+'))
+    env.set('-', .Atom('-'))
 
     let tokens = tokenize(code)
     
     // Debug print tokens
-    var s = "["
+    var s = '['
     for t in tokens { s = s .. "'" .. t .. "', " }
-    println("Tokens: " .. s .. "]")
+    println('Tokens: ' .. s .. ']')
 
     let ast = parse(tokens)
-    println("AST: " .. ast)
-    
+    println('AST: ' .. ast)
+
     let res = eval(ast, env)
-    println("Result: " .. res)
+    println('Result: ' .. res)
 }
 
 main()

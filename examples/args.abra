@@ -5,5 +5,5 @@ for arg in args {
 }
 
 if args.is_empty() {
-  println("no args given")
+  println('no args given')
 }

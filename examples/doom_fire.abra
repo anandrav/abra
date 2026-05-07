@@ -12,7 +12,7 @@ fn main() {
 
   // Pre-defined palette for performance (Dark -> Light)
   // We use density characters to simulate brightness
-  let palette = [" ", ".", "-", ":", "^", "*", "%", "S", "#", "@"]
+  let palette = [' ', '.', '-', ':', '^', '*', '%', 'S', '#', '@']
   let pal_len = palette.len()
 
   enable_raw_mode()
@@ -39,7 +39,7 @@ fn main() {
     // 3. Draw
     // We iterate y from 0 to h-1 (skipping the very bottom source row usually looks better)
     for y in h - 1 {
-       var line = ""
+       var line = ''
        
        for x in w {
           let idx = y * w + x
@@ -63,7 +63,7 @@ fn main() {
     // 4. Input
     while poll_key_event(1) {
       match get_key_event() {
-        .Char("q") -> quit = true
+        .Char('q') -> quit = true
         .Esc -> quit = true
         _ -> {}
       }

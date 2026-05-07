@@ -42,12 +42,12 @@ fn main() {
       let key = get_key_event()
       if not action_taken {
         match key {
-          .Char("q") -> quit = true
+          .Char('q') -> quit = true
           .Esc -> quit = true
-          .Char("p") -> world.paused = not(world.paused)
-          .Char("r") -> world = init_world(w, h) // Reset
-          .Char("c") -> world = clear_world(w, h) // Clear to empty
-          .Char(" ") -> {
+          .Char('p') -> world.paused = not(world.paused)
+          .Char('r') -> world = init_world(w, h) // Reset
+          .Char('c') -> world = clear_world(w, h) // Clear to empty
+          .Char(' ') -> {
             // Manual step if paused
             if world.paused {
                world = next_generation(world)
@@ -178,13 +178,13 @@ fn draw_world(world: World) {
   
   // Batch drawing strings for performance
   for y in h {
-    var line = ""
+    var line = ''
     for x in w {
       let idx = y * w + x
       if world.cells[idx] == 1 {
-        line = line .. "O"
+        line = line .. 'O'
       } else {
-        line = line .. " "
+        line = line .. ' '
       }
     }
     mark(line, 0, y)
@@ -193,16 +193,16 @@ fn draw_world(world: World) {
 
 fn draw_ui(world: World) {
   let y = world.height
-  
+
   // Clear UI line
-  mark("                                                                            ", 0, y)
-  
-  var status = "Running"
-  if world.paused { status = "PAUSED" }
-  
-  let info = "Gen: " .. world.generation .. " | " .. status
+  mark('                                                                            ', 0, y)
+
+  var status = 'Running'
+  if world.paused { status = 'PAUSED' }
+
+  let info = 'Gen: ' .. world.generation .. ' | ' .. status
   mark(info, 0, y)
-  mark("Controls: [P]ause/Play | [Space] Step | [R]eset | [C]lear | [Q]uit", 0, y + 1)
+  mark('Controls: [P]ause/Play | [Space] Step | [R]eset | [C]lear | [Q]uit', 0, y + 1)
 }
 
 main()

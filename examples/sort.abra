@@ -1,21 +1,21 @@
 use core/random
 
 fn print_arr_excerpt(arr: array<_>) {
-  print("[")
+  print('[')
   for i in 3 {
     print(arr[i])
     if i != 2 {
-      print(", ") 
-    } 
+      print(', ')
+    }
   }
-  print(" ..., ")
+  print(' ..., ')
   for i in 3 {
     print(arr[arr.len()-3+i])
     if i != 2 {
-      print(", ")
-    } 
-  } 
-  println("]")
+      print(', ')
+    }
+  }
+  println(']')
 }
 
 fn main() {
@@ -28,10 +28,10 @@ fn main() {
     i = i + 1
   }
   
-  println("Generated array with size=" .. size .. ":")
-  print_arr_excerpt(arr) 
+  println('Generated array with size=' .. size .. ':')
+  print_arr_excerpt(arr)
   arr.sort()
-  println("Sorted:")
+  println('Sorted:')
   print_arr_excerpt(arr)
 }
 

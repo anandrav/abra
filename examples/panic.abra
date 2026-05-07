@@ -1,15 +1,15 @@
 fn alpha() {
-  println("alpha")
+  println('alpha')
   beta()
 }
 
 fn beta() {
-  println("beta")
+  println('beta')
   gamma()
 }
 
 fn gamma() {
-  panic("oh noooo")
+  panic('oh noooo')
 }
 
 alpha()

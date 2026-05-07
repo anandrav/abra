@@ -103,14 +103,14 @@ fn main() {
       let snake = st.snake
       match term.get_key_event() {
         .Left -> snake.direction = .Left
-        .Char("a") -> snake.direction = .Left
+        .Char('a') -> snake.direction = .Left
         .Right -> snake.direction = .Right
-        .Char("d") -> snake.direction = .Right
+        .Char('d') -> snake.direction = .Right
         .Up -> snake.direction = .Up
-        .Char("w") -> snake.direction = .Up
+        .Char('w') -> snake.direction = .Up
         .Down -> snake.direction = .Down
-        .Char("s") -> snake.direction = .Down
-        .Char("q") -> st.quit = true
+        .Char('s') -> snake.direction = .Down
+        .Char('q') -> st.quit = true
         .Esc -> st.quit = true
         _ -> {}
       }
@@ -142,7 +142,7 @@ fn main() {
 extend Snake {
   fn display(self) {
     for seg in self.body {
-      term.mark("O", seg.x+1, seg.y+1)
+      term.mark('O', seg.x+1, seg.y+1)
     }
   }
 }
@@ -151,7 +151,7 @@ extend Fruit {
   fn display(self) {
     let x = self.location.x
     let y = self.location.y
-    term.mark("*", x+1, y+1)
+    term.mark('*', x+1, y+1)
   }
 }
 
@@ -223,25 +223,25 @@ fn draw_border(st: State) {
   let width = st.width
   let height = st.height
   for i in width + 2 {
-    term.mark("X", i, height+1)
-    term.mark("X", i, 0)
+    term.mark('X', i, height+1)
+    term.mark('X', i, 0)
   }
 
   for i in height + 2 {
-    term.mark("X", width+1, i)
-    term.mark("X", 0, i)
+    term.mark('X', width+1, i)
+    term.mark('X', 0, i)
   }
-  term.mark("SCORE: " .. st.score, 0, height+2)
+  term.mark('SCORE: ' .. st.score, 0, height+2)
 
   term.mark("HIT 'Q' TO QUIT", 0, height+3)
 }
 
 fn display_game_over() {
-  term.mark("GAME OVER", 6, 5)
+  term.mark('GAME OVER', 6, 5)
 }
 
 fn display_win_screen() {
-  term.mark("YOU WIN", 5, 5)
+  term.mark('YOU WIN', 5, 5)
 }
 
 main()
