@@ -1997,6 +1997,15 @@ Greeter(greeting = "hi", "Anand")
 }
 
 #[test]
+fn single_quote_string() {
+    let src = r#"
+let s = 'hello world'
+s
+"#;
+    expect_value(src, "hello world");
+}
+
+#[test]
 fn multiline_string_strips_indent() {
     let src = r#"
 let s = """

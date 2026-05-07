@@ -511,6 +511,18 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                 process_escapes_into(&mut s, &lexer, 1, content_end, ctx, file_id);
                 emit_string_token(&mut lexer, s, open, open + after_close);
             }
+            '\'' => {
+                let open = lexer.index;
+                let n_off = lexer.chars.len() - open;
+                let (content_end, after_close) =
+                    match scan_for_unescaped_delim(&lexer, 1, &['\''], false) {
+                        Some(c) => (c, c + 1),
+                        None => (n_off, n_off),
+                    };
+                let mut s = String::new();
+                process_escapes_into(&mut s, &lexer, 1, content_end, ctx, file_id);
+                emit_string_token(&mut lexer, s, open, open + after_close);
+            }
             '/' => {
                 if let Some('/') = lexer.peek_char(1) {
                     // single-line comment
@@ -611,6 +623,7 @@ fn process_escapes_into(
                 't' => s.push('\t'),
                 'r' => s.push('\r'),
                 '"' => s.push('"'),
+                '\'' => s.push('\''),
                 '\\' => s.push('\\'),
                 'x' => {
                     if p + 3 < end
