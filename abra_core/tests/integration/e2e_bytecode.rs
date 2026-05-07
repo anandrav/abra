@@ -1997,12 +1997,39 @@ Greeter(greeting = "hi", "Anand")
 }
 
 #[test]
+fn double_quote_string() {
+    let src = r#"
+let s = "hello world"
+s
+"#;
+    expect_value(src, "hello world");
+}
+
+#[test]
+fn double_quote_string_with_single_quotes() {
+    let src = r#"
+let s = "'hello world'"
+s
+"#;
+    expect_value(src, "'hello world'");
+}
+
+#[test]
 fn single_quote_string() {
     let src = r#"
 let s = 'hello world'
 s
 "#;
     expect_value(src, "hello world");
+}
+
+#[test]
+fn single_quote_string_with_double_quotes() {
+    let src = r#"
+let s = '"hello world"'
+s
+"#;
+    expect_value(src, "\"hello world\"");
 }
 
 #[test]
