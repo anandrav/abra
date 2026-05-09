@@ -2,93 +2,74 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// use abra_core::vm::AbraInt;
-// use ureq::http;
+use std::sync::OnceLock;
+
+use abra_core::vm::AbraInt;
+use reqwest::Method;
+use reqwest::blocking::{Client, Response as ReqwestResponse};
 
 use crate::ffi::core::http::{HttpError, Response};
 
-// fn ureq_err(e: ureq::Error) -> HttpError {
-//     let msg = e.to_string();
-//     match e {
-//         ureq::Error::HostNotFound | ureq::Error::ConnectionFailed => {
-//             HttpError::ConnectionFailed(msg)
-//         }
-//         ureq::Error::Timeout(_) => HttpError::Timeout(msg),
-//         _ => HttpError::Other(msg),
-//     }
-// }
-
-// fn make_agent() -> ureq::Agent {
-//     ureq::Agent::config_builder()
-//         .http_status_as_error(false)
-//         .build()
-//         .new_agent()
-// }
-//
-// fn read_response(mut response: http::Response<ureq::Body>) -> Result<Response, HttpError> {
-//     let status = response.status().as_u16() as AbraInt;
-//     let headers: Vec<(String, String)> = response
-//         .headers()
-//         .iter()
-//         .filter_map(|(name, value)| {
-//             value
-//                 .to_str()
-//                 .ok()
-//                 .map(|v| (name.to_string(), v.to_string()))
-//         })
-//         .collect();
-//     let body = response
-//         .body_mut()
-//         .read_to_string()
-//         .map_err(|e| HttpError::Other(e.to_string()))?;
-//
-//     Ok(Response {
-//         status,
-//         body,
-//         headers,
-//     })
-// }
-
-pub fn get(_url: String) -> Result<Response, HttpError> {
-    unimplemented!()
-    // let response = make_agent().get(&url).call().map_err(ureq_err)?;
-    // read_response(response)
+fn client() -> &'static Client {
+    static CLIENT: OnceLock<Client> = OnceLock::new();
+    CLIENT.get_or_init(Client::new)
 }
 
-pub fn post(_url: String, _body: String) -> Result<Response, HttpError> {
-    unimplemented!()
-    // let response = make_agent()
-    //     .post(&url)
-    //     .send(body.as_str())
-    //     .map_err(ureq_err)?;
-    // read_response(response)
+fn http_err(e: reqwest::Error) -> HttpError {
+    let msg = e.to_string();
+    if e.is_timeout() {
+        HttpError::Timeout(msg)
+    } else if e.is_connect() || e.is_request() {
+        HttpError::ConnectionFailed(msg)
+    } else {
+        HttpError::Other(msg)
+    }
+}
+
+fn read_response(resp: ReqwestResponse) -> Result<Response, HttpError> {
+    let status = resp.status().as_u16() as AbraInt;
+    let headers: Vec<(String, String)> = resp
+        .headers()
+        .iter()
+        .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
+        .collect();
+    let body = resp.text().map_err(http_err)?;
+    Ok(Response {
+        status,
+        body,
+        headers,
+    })
+}
+
+pub fn get(url: String) -> Result<Response, HttpError> {
+    let resp = client().get(&url).send().map_err(http_err)?;
+    read_response(resp)
+}
+
+pub fn post(url: String, body: String) -> Result<Response, HttpError> {
+    let resp = client()
+        .post(&url)
+        .body(body)
+        .send()
+        .map_err(http_err)?;
+    read_response(resp)
 }
 
 pub fn send_request(
-    _method: String,
-    _url: String,
-    _headers: Vec<(String, String)>,
-    _body: Option<String>,
+    method: String,
+    url: String,
+    headers: Vec<(String, String)>,
+    body: Option<String>,
 ) -> Result<Response, HttpError> {
-    unimplemented!()
-    // let agent = make_agent();
-    // let mut builder = http::Request::builder().method(method.as_str()).uri(&url);
-    // for (name, value) in &headers {
-    //     builder = builder.header(name.as_str(), value.as_str());
-    // }
-    // let response = match body {
-    //     Some(b) => {
-    //         let request = builder
-    //             .body(b.as_str())
-    //             .map_err(|e| HttpError::Other(e.to_string()))?;
-    //         agent.run(request).map_err(ureq_err)?
-    //     }
-    //     None => {
-    //         let request = builder
-    //             .body(())
-    //             .map_err(|e| HttpError::Other(e.to_string()))?;
-    //         agent.run(request).map_err(ureq_err)?
-    //     }
-    // };
-    // read_response(response)
+    let method =
+        Method::from_bytes(method.as_bytes()).map_err(|e| HttpError::Other(e.to_string()))?;
+    let mut req = client().request(method, &url);
+    for (name, value) in headers {
+        req = req.header(name, value);
+    }
+    if let Some(b) = body {
+        req = req.body(b);
+    }
+    let resp = req.send().map_err(http_err)?;
+    read_response(resp)
 }
