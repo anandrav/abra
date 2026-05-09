@@ -2,6 +2,9 @@
 fn print_string(s: string) -> void
 
 #host
+fn eprint_string(s: string) -> void
+
+#host
 fn readline() -> string
 
 #host
@@ -353,6 +356,11 @@ fn array_to_string_helper(arr: array<T ToString>, idx: int) {
 fn print(x: T ToString) { print_string(ToString.str(x)) }
 fn println(x: T ToString) {
     print_string(ToString.str(x) .. "\n")
+}
+
+fn eprint(x: T ToString) { eprint_string(ToString.str(x)) }
+fn eprintln(x: T ToString) {
+    eprint_string(ToString.str(x) .. "\n")
 }
 
 fn assert(condition: bool, message: string) {

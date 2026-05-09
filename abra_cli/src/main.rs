@@ -214,6 +214,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             io::stdout().flush().unwrap();
                             HostFunctionRet::PrintString.into_vm(&mut vm);
                         }
+                        HostFunctionArgs::EprintString(s) => {
+                            eprint!("{s}");
+                            io::stderr().flush().unwrap();
+                            HostFunctionRet::EprintString.into_vm(&mut vm);
+                        }
                         HostFunctionArgs::Readline => {
                             let mut input = String::new();
                             io::stdin().read_line(&mut input).unwrap();

@@ -58,6 +58,10 @@ fn handle_host_func(vm: &mut Vm, host_func_args: HostFunctionArgs) {
             let _ = HostFunctionRet::PrintString;
             panic!()
         }
+        HostFunctionArgs::EprintString(_s) => {
+            let _ = HostFunctionRet::EprintString;
+            panic!()
+        }
         HostFunctionArgs::Readline => {
             let _ = HostFunctionRet::Readline("".into());
             panic!()
