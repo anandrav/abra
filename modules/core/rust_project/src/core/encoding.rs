@@ -7,11 +7,11 @@ use base64::prelude::*;
 
 use super::{from_bytes, to_bytes};
 
-pub fn string_to_bytes(s: String) -> Vec<AbraInt> {
+pub fn bytes_from_string(s: String) -> Vec<AbraInt> {
     from_bytes(s.as_bytes())
 }
 
-pub fn bytes_to_string(bytes: Vec<AbraInt>) -> Result<String, String> {
+pub fn string_from_bytes(bytes: Vec<AbraInt>) -> Result<String, String> {
     String::from_utf8(to_bytes(bytes)).map_err(|e| e.to_string())
 }
 
@@ -23,13 +23,24 @@ pub fn hex_decode(s: String) -> Result<Vec<AbraInt>, String> {
     hex::decode(s).map(|b| from_bytes(&b)).map_err(|e| e.to_string())
 }
 
-pub fn base64_encode(bytes: Vec<AbraInt>) -> String {
-    BASE64_STANDARD.encode(to_bytes(bytes))
+pub fn base64_encode(bytes: Vec<AbraInt>, url_safe: bool, pad: bool) -> String {
+    let b = match (url_safe, pad) {
+        (false, true) => &BASE64_STANDARD,
+        (false, false) => &BASE64_STANDARD_NO_PAD,
+        (true, true) => &BASE64_URL_SAFE,
+        (true, false) => &BASE64_URL_SAFE_NO_PAD,
+    };
+    b.encode(to_bytes(bytes))
 }
 
-pub fn base64_decode(s: String) -> Result<Vec<AbraInt>, String> {
-    BASE64_STANDARD
-        .decode(s.as_bytes())
+pub fn base64_decode(s: String, url_safe: bool, pad: bool) -> Result<Vec<AbraInt>, String> {
+    let b = match (url_safe, pad) {
+        (false, true) => &BASE64_STANDARD,
+        (false, false) => &BASE64_STANDARD_NO_PAD,
+        (true, true) => &BASE64_URL_SAFE,
+        (true, false) => &BASE64_URL_SAFE_NO_PAD,
+    };
+    b.decode(s.as_bytes())
         .map(|b| from_bytes(&b))
         .map_err(|e| e.to_string())
 }

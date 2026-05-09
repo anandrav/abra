@@ -1,9 +1,9 @@
 // UTF-8 encode/decode between strings and byte arrays.
 #foreign
-fn string_to_bytes(s: string) -> array<int>
+fn bytes_from_string(s: string) -> array<int>
 
 #foreign
-fn bytes_to_string(bytes: array<int>) -> result<string, string>
+fn string_from_bytes(bytes: array<int>) -> result<string, string>
 
 // Lowercase hex.
 #foreign
@@ -12,9 +12,12 @@ fn hex_encode(bytes: array<int>) -> string
 #foreign
 fn hex_decode(s: string) -> result<array<int>, string>
 
-// Standard base64 (RFC 4648, with padding).
+// Base64 (RFC 4648). Default is the standard alphabet (§4, '+' and '/') with
+// '=' padding. Set url_safe=true for the URL/filename-safe alphabet
+// (§5, '-' and '_'). Set pad=false to omit '=' padding. JWTs and OAuth
+// tokens use url_safe=true, pad=false.
 #foreign
-fn base64_encode(bytes: array<int>) -> string
+fn base64_encode(bytes: array<int>, url_safe: bool = false, pad: bool = true) -> string
 
 #foreign
-fn base64_decode(s: string) -> result<array<int>, string>
+fn base64_decode(s: string, url_safe: bool = false, pad: bool = true) -> result<array<int>, string>

@@ -8,21 +8,25 @@ t.run("hex_decode_invalid", test_hex_decode_invalid())
 t.run("base64_rfc4648", test_base64_rfc4648())
 t.run("base64_roundtrip", test_base64_roundtrip())
 t.run("base64_decode_invalid", test_base64_decode_invalid())
+t.run("base64_url_alphabet", test_base64_url_alphabet())
+t.run("base64_nopad", test_base64_nopad())
+t.run("base64_url_nopad_roundtrip", test_base64_url_nopad_roundtrip())
+t.run("base64_url_decode_rejects_standard", test_base64_url_decode_rejects_standard())
 t.run("string_bytes_roundtrip", test_string_bytes_roundtrip())
 t.run("string_bytes_multibyte", test_string_bytes_multibyte())
-t.run("bytes_to_string_invalid", test_bytes_to_string_invalid())
+t.run("string_from_bytes_invalid", test_string_from_bytes_invalid())
 t.finish()
 
 fn test_hex_known() -> result<void, string> {
-    check(hex_encode(string_to_bytes("Hi")) == "4869", "Hi -> 4869")?
+    check(hex_encode(bytes_from_string("Hi")) == "4869", "Hi -> 4869")?
     check(hex_encode([]) == "", "empty")?
     .ok(nil)
 }
 
 fn test_hex_roundtrip() -> result<void, string> {
     let s = "the quick brown fox"
-    let h = hex_encode(string_to_bytes(s))
-    let back = bytes_to_string(hex_decode(h)?)?
+    let h = hex_encode(bytes_from_string(s))
+    let back = string_from_bytes(hex_decode(h)?)?
     check(back == s, "got: " .. back)?
     .ok(nil)
 }
@@ -36,19 +40,19 @@ fn test_hex_decode_invalid() -> result<void, string> {
 
 // RFC 4648 test vectors
 fn test_base64_rfc4648() -> result<void, string> {
-    check(base64_encode(string_to_bytes("")) == "", "empty")?
-    check(base64_encode(string_to_bytes("f")) == "Zg==", "f")?
-    check(base64_encode(string_to_bytes("fo")) == "Zm8=", "fo")?
-    check(base64_encode(string_to_bytes("foo")) == "Zm9v", "foo")?
-    check(base64_encode(string_to_bytes("foob")) == "Zm9vYg==", "foob")?
-    check(base64_encode(string_to_bytes("fooba")) == "Zm9vYmE=", "fooba")?
-    check(base64_encode(string_to_bytes("foobar")) == "Zm9vYmFy", "foobar")?
+    check(base64_encode(bytes_from_string("")) == "", "empty")?
+    check(base64_encode(bytes_from_string("f")) == "Zg==", "f")?
+    check(base64_encode(bytes_from_string("fo")) == "Zm8=", "fo")?
+    check(base64_encode(bytes_from_string("foo")) == "Zm9v", "foo")?
+    check(base64_encode(bytes_from_string("foob")) == "Zm9vYg==", "foob")?
+    check(base64_encode(bytes_from_string("fooba")) == "Zm9vYmE=", "fooba")?
+    check(base64_encode(bytes_from_string("foobar")) == "Zm9vYmFy", "foobar")?
     .ok(nil)
 }
 
 fn test_base64_roundtrip() -> result<void, string> {
     let s = "the quick brown fox jumps over the lazy dog"
-    let back = bytes_to_string(base64_decode(base64_encode(string_to_bytes(s)))?)?
+    let back = string_from_bytes(base64_decode(base64_encode(bytes_from_string(s)))?)?
     check(back == s, "got: " .. back)?
     .ok(nil)
 }
@@ -60,24 +64,60 @@ fn test_base64_decode_invalid() -> result<void, string> {
     }
 }
 
+// bytes [0xfb, 0xef, 0xff] -> 6-bit groups 62 62 63 63
+// standard alphabet maps these to '++//', URL-safe to '--__'.
+fn test_base64_url_alphabet() -> result<void, string> {
+    let bytes = [251, 239, 255]
+    check(base64_encode(bytes) == "++//", "standard")?
+    check(base64_encode(bytes, url_safe = true) == "--__", "url-safe")?
+    .ok(nil)
+}
+
+fn test_base64_nopad() -> result<void, string> {
+    let b = bytes_from_string("foob")
+    check(base64_encode(b) == "Zm9vYg==", "padded")?
+    check(base64_encode(b, pad = false) == "Zm9vYg", "no-pad")?
+    // decoder must also be told there's no padding
+    let back = string_from_bytes(base64_decode("Zm9vYg", pad = false)?)?
+    check(back == "foob", "decoded: " .. back)?
+    .ok(nil)
+}
+
+// JWT-style: url_safe=true, pad=false
+fn test_base64_url_nopad_roundtrip() -> result<void, string> {
+    let s = "the quick brown fox jumps over the lazy dog"
+    let encoded = base64_encode(bytes_from_string(s), url_safe = true, pad = false)
+    let back = string_from_bytes(base64_decode(encoded, url_safe = true, pad = false)?)?
+    check(back == s, "got: " .. back)?
+    .ok(nil)
+}
+
+// '+' and '/' are not in the URL-safe alphabet, so a url_safe decoder must reject them.
+fn test_base64_url_decode_rejects_standard() -> result<void, string> {
+    match base64_decode("++//", url_safe = true) {
+        .ok(_) -> .err("expected err")
+        .err(_) -> .ok(nil)
+    }
+}
+
 fn test_string_bytes_roundtrip() -> result<void, string> {
     let s = "hello"
-    let back = bytes_to_string(string_to_bytes(s))?
+    let back = string_from_bytes(bytes_from_string(s))?
     check(back == s, "got: " .. back)?
     .ok(nil)
 }
 
 fn test_string_bytes_multibyte() -> result<void, string> {
     let s = "héllo, 世界"
-    let bytes = string_to_bytes(s)
-    let back = bytes_to_string(bytes)?
+    let bytes = bytes_from_string(s)
+    let back = string_from_bytes(bytes)?
     check(back == s, "got: " .. back)?
     .ok(nil)
 }
 
-fn test_bytes_to_string_invalid() -> result<void, string> {
+fn test_string_from_bytes_invalid() -> result<void, string> {
     // 0xFF alone is not valid UTF-8
-    match bytes_to_string([255]) {
+    match string_from_bytes([255]) {
         .ok(_) -> .err("expected err")
         .err(_) -> .ok(nil)
     }

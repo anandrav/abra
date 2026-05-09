@@ -19,14 +19,14 @@ fn test_sha256_empty() -> result<void, string> {
 }
 
 fn test_sha256_abc() -> result<void, string> {
-    let h = hex_encode(sha256(string_to_bytes("abc")))
+    let h = hex_encode(sha256(bytes_from_string("abc")))
     check(h == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "got: " .. h)?
     .ok(nil)
 }
 
 fn test_sha256_long() -> result<void, string> {
     let s = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
-    let h = hex_encode(sha256(string_to_bytes(s)))
+    let h = hex_encode(sha256(bytes_from_string(s)))
     check(h == "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1", "got: " .. h)?
     .ok(nil)
 }
@@ -34,14 +34,14 @@ fn test_sha256_long() -> result<void, string> {
 // RFC 4231 test case 1: key = 0x0b * 20, data = "Hi There"
 fn test_hmac_rfc4231_1() -> result<void, string> {
     let key = array.filled(11, 20)
-    let h = hex_encode(hmac_sha256(key, string_to_bytes("Hi There")))
+    let h = hex_encode(hmac_sha256(key, bytes_from_string("Hi There")))
     check(h == "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7", "got: " .. h)?
     .ok(nil)
 }
 
 // RFC 4231 test case 2: key = "Jefe", data = "what do ya want for nothing?"
 fn test_hmac_rfc4231_2() -> result<void, string> {
-    let h = hex_encode(hmac_sha256(string_to_bytes("Jefe"), string_to_bytes("what do ya want for nothing?")))
+    let h = hex_encode(hmac_sha256(bytes_from_string("Jefe"), bytes_from_string("what do ya want for nothing?")))
     check(h == "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843", "got: " .. h)?
     .ok(nil)
 }
