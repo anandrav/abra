@@ -1,0 +1,57 @@
+use core/crypto
+use core/encoding
+use test_runner
+
+let t = TestRunner.new("crypto")
+t.run("sha256_empty", test_sha256_empty())
+t.run("sha256_abc", test_sha256_abc())
+t.run("sha256_long", test_sha256_long())
+t.run("hmac_sha256_rfc4231_1", test_hmac_rfc4231_1())
+t.run("hmac_sha256_rfc4231_2", test_hmac_rfc4231_2())
+t.run("hmac_sha256_long_key", test_hmac_long_key())
+t.finish()
+
+// FIPS 180-2 / RFC 6234
+fn test_sha256_empty() -> result<void, string> {
+    let h = hex_encode(sha256([]))
+    check(h == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "got: " .. h)?
+    .ok(nil)
+}
+
+fn test_sha256_abc() -> result<void, string> {
+    let h = hex_encode(sha256(string_to_bytes("abc")))
+    check(h == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "got: " .. h)?
+    .ok(nil)
+}
+
+fn test_sha256_long() -> result<void, string> {
+    let s = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+    let h = hex_encode(sha256(string_to_bytes(s)))
+    check(h == "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1", "got: " .. h)?
+    .ok(nil)
+}
+
+// RFC 4231 test case 1: key = 0x0b * 20, data = "Hi There"
+fn test_hmac_rfc4231_1() -> result<void, string> {
+    let key = array.filled(11, 20)
+    let h = hex_encode(hmac_sha256(key, string_to_bytes("Hi There")))
+    check(h == "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7", "got: " .. h)?
+    .ok(nil)
+}
+
+// RFC 4231 test case 2: key = "Jefe", data = "what do ya want for nothing?"
+fn test_hmac_rfc4231_2() -> result<void, string> {
+    let h = hex_encode(hmac_sha256(string_to_bytes("Jefe"), string_to_bytes("what do ya want for nothing?")))
+    check(h == "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843", "got: " .. h)?
+    .ok(nil)
+}
+
+// RFC 4231 test case 4: key = bytes 0x01..0x19 (25 bytes), data = 0xcd * 50
+fn test_hmac_long_key() -> result<void, string> {
+    let key: array<int> = []
+    for i in 25 { key.push(i + 1) }
+    let data = array.filled(205, 50)  // 0xcd
+    let h = hex_encode(hmac_sha256(key, data))
+    check(h == "82558a389a443c0ea4cc819899f2083a85f0faa3e578f8077a2e3ff46729665b", "got: " .. h)?
+    .ok(nil)
+}

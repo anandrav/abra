@@ -15,3 +15,25 @@ pub(crate) mod env;
 pub(crate) mod regex;
 
 pub(crate) mod http;
+
+pub(crate) mod crypto;
+pub(crate) mod encoding;
+
+use abra_core::vm::AbraInt;
+
+// Convert Abra `array<int>` to bytes. Each element must be in 0..=255.
+pub(crate) fn to_bytes(v: Vec<AbraInt>) -> Vec<u8> {
+    v.into_iter()
+        .map(|n| {
+            assert!(
+                (0..=255).contains(&n),
+                "byte value out of range: {n} (must be 0..=255)"
+            );
+            n as u8
+        })
+        .collect()
+}
+
+pub(crate) fn from_bytes(b: &[u8]) -> Vec<AbraInt> {
+    b.iter().map(|&x| x as AbraInt).collect()
+}

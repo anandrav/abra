@@ -109,7 +109,9 @@ fn gather_declarations_item(
 
             // only update function arg info
             for f in &ext.methods {
-                update_function_arg_info(ctx, FuncArgDetailsKey::FuncDef(f.clone()), true);
+                // skip `self` from nargs only if the method actually has one
+                let has_self = f.args.first().is_some_and(|a| a.name.v == "self");
+                update_function_arg_info(ctx, FuncArgDetailsKey::FuncDef(f.clone()), has_self);
             }
         }
         ItemKind::TypeDef(typdefkind) => match typdefkind {

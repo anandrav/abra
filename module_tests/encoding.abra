@@ -1,0 +1,84 @@
+use core/encoding
+use test_runner
+
+let t = TestRunner.new("encoding")
+t.run("hex_known", test_hex_known())
+t.run("hex_roundtrip", test_hex_roundtrip())
+t.run("hex_decode_invalid", test_hex_decode_invalid())
+t.run("base64_rfc4648", test_base64_rfc4648())
+t.run("base64_roundtrip", test_base64_roundtrip())
+t.run("base64_decode_invalid", test_base64_decode_invalid())
+t.run("string_bytes_roundtrip", test_string_bytes_roundtrip())
+t.run("string_bytes_multibyte", test_string_bytes_multibyte())
+t.run("bytes_to_string_invalid", test_bytes_to_string_invalid())
+t.finish()
+
+fn test_hex_known() -> result<void, string> {
+    check(hex_encode(string_to_bytes("Hi")) == "4869", "Hi -> 4869")?
+    check(hex_encode([]) == "", "empty")?
+    .ok(nil)
+}
+
+fn test_hex_roundtrip() -> result<void, string> {
+    let s = "the quick brown fox"
+    let h = hex_encode(string_to_bytes(s))
+    let back = bytes_to_string(hex_decode(h)?)?
+    check(back == s, "got: " .. back)?
+    .ok(nil)
+}
+
+fn test_hex_decode_invalid() -> result<void, string> {
+    match hex_decode("zz") {
+        .ok(_) -> .err("expected err")
+        .err(_) -> .ok(nil)
+    }
+}
+
+// RFC 4648 test vectors
+fn test_base64_rfc4648() -> result<void, string> {
+    check(base64_encode(string_to_bytes("")) == "", "empty")?
+    check(base64_encode(string_to_bytes("f")) == "Zg==", "f")?
+    check(base64_encode(string_to_bytes("fo")) == "Zm8=", "fo")?
+    check(base64_encode(string_to_bytes("foo")) == "Zm9v", "foo")?
+    check(base64_encode(string_to_bytes("foob")) == "Zm9vYg==", "foob")?
+    check(base64_encode(string_to_bytes("fooba")) == "Zm9vYmE=", "fooba")?
+    check(base64_encode(string_to_bytes("foobar")) == "Zm9vYmFy", "foobar")?
+    .ok(nil)
+}
+
+fn test_base64_roundtrip() -> result<void, string> {
+    let s = "the quick brown fox jumps over the lazy dog"
+    let back = bytes_to_string(base64_decode(base64_encode(string_to_bytes(s)))?)?
+    check(back == s, "got: " .. back)?
+    .ok(nil)
+}
+
+fn test_base64_decode_invalid() -> result<void, string> {
+    match base64_decode("@@@") {
+        .ok(_) -> .err("expected err")
+        .err(_) -> .ok(nil)
+    }
+}
+
+fn test_string_bytes_roundtrip() -> result<void, string> {
+    let s = "hello"
+    let back = bytes_to_string(string_to_bytes(s))?
+    check(back == s, "got: " .. back)?
+    .ok(nil)
+}
+
+fn test_string_bytes_multibyte() -> result<void, string> {
+    let s = "héllo, 世界"
+    let bytes = string_to_bytes(s)
+    let back = bytes_to_string(bytes)?
+    check(back == s, "got: " .. back)?
+    .ok(nil)
+}
+
+fn test_bytes_to_string_invalid() -> result<void, string> {
+    // 0xFF alone is not valid UTF-8
+    match bytes_to_string([255]) {
+        .ok(_) -> .err("expected err")
+        .err(_) -> .ok(nil)
+    }
+}

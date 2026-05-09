@@ -1,0 +1,20 @@
+// UTF-8 encode/decode between strings and byte arrays.
+#foreign
+fn string_to_bytes(s: string) -> array<int>
+
+#foreign
+fn bytes_to_string(bytes: array<int>) -> result<string, string>
+
+// Lowercase hex.
+#foreign
+fn hex_encode(bytes: array<int>) -> string
+
+#foreign
+fn hex_decode(s: string) -> result<array<int>, string>
+
+// Standard base64 (RFC 4648, with padding).
+#foreign
+fn base64_encode(bytes: array<int>) -> string
+
+#foreign
+fn base64_decode(s: string) -> result<array<int>, string>

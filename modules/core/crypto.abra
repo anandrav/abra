@@ -1,0 +1,7 @@
+// SHA-256 hash. Returns 32 bytes.
+#foreign
+fn sha256(data: array<int>) -> array<int>
+
+// HMAC-SHA256. Returns 32 bytes.
+#foreign
+fn hmac_sha256(key: array<int>, msg: array<int>) -> array<int>
