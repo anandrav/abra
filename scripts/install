@@ -85,11 +85,6 @@ fi
 }
 
 install_abra_vscode_extension() {
-  if ! command -v code &> /dev/null; then
-    echo "VS Code ('code' command) not found. Skipping Abra VS Code extension installation."
-    return
-  fi
-
   printf "Installing Abra VS Code extension...\n"
 
   if ! command -v npm &> /dev/null; then
@@ -146,15 +141,27 @@ install_abra_vscode_extension() {
     return 1
   fi
 
-  printf "  - Installing extension... "
-  if code --install-extension "$VSIX_FILE" --force > /dev/null 2>&1; then
-    printf "Done\n"
-  else
-    printf "Failed!\n"
-    echo "Failed to install the Abra VS Code extension. Please check VS Code permissions." >&2
+  VSCODE_CLIS=()
+  command -v code &> /dev/null && VSCODE_CLIS+=(code)
+  command -v codium &> /dev/null && VSCODE_CLIS+=(codium)
+
+  if [ ${#VSCODE_CLIS[@]} -eq 0 ]; then
+    printf "  - Skipping install: neither 'code' nor 'codium' on PATH. Built: tooling/vscode/%s\n" "$VSIX_FILE"
     popd > /dev/null
-    return 1
+    return 0
   fi
+
+  for cli in "${VSCODE_CLIS[@]}"; do
+    printf "  - Installing via '%s'... " "$cli"
+    if "$cli" --install-extension "$VSIX_FILE" --force > /dev/null 2>&1; then
+      printf "Done\n"
+    else
+      printf "Failed!\n"
+      echo "Failed to install the Abra extension via '$cli'. Please check editor permissions." >&2
+      popd > /dev/null
+      return 1
+    fi
+  done
 
   popd > /dev/null
 }

@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.87.0"
+    "vscode": "^1.116.0"
   },
   "categories": [
     "Programming Languages"
@@ -68,13 +68,14 @@
     }
   },
   "dependencies": {
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9"
   },
   "devDependencies": {
-    "@types/node": "^22.19.17",
-    "@types/vscode": "^1.87.0",
-    "@vscode/vsce": "^3.9.1",
-    "typescript": "^6.0.3"
+    "@types/node": "^25",
+    "@types/vscode": "^1",
+    "@vscode/vsce": "^3",
+    "fast-uri": "^3",
+    "typescript": "^6"
   },
   "scripts": {
     "compile": "tsc -p ./",
