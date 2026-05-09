@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-a63efa1b.js";
+            window.path_to_searchindex_js = "../searchindex-cacafa2c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -380,18 +380,25 @@ let parts = split("foo, bar,baz , qux", "\\s*,\\s*")
 println(parts)    // [ foo, bar, baz, qux ]
 </code></pre>
 <h2 id="corecolors"><a class="header" href="#corecolors">core/colors</a></h2>
-<p>ANSI escape-code helpers for coloring and styling terminal output. Each function takes any value that implements <code>ToString</code>.</p>
+<p>ANSI escape-code helpers for coloring and styling terminal output. Each function takes any value that implements <code>ToString</code>. Compose by nesting.</p>
+<ul>
+<li>Foreground: <code>black</code>, <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>, <code>magenta</code>, <code>cyan</code>, <code>white</code>, and <code>bright_*</code> versions of each.</li>
+<li>Background: <code>on_black</code>, <code>on_red</code>, <code>on_green</code>, <code>on_yellow</code>, <code>on_blue</code>, <code>on_magenta</code>, <code>on_cyan</code>, <code>on_white</code>.</li>
+<li>Attributes: <code>bold</code>, <code>dim</code>, <code>italic</code>, <code>underline</code>, <code>reverse</code>, <code>strikethrough</code>.</li>
+</ul>
 <pre><code>use core/colors
 
 println(red("error: ") .. "could not connect")
 println(bold(green("Success!")))
+println(on_yellow(black(" WARNING ")))
 </code></pre>
 <h2 id="ardterm"><a class="header" href="#ardterm">ard/term</a></h2>
-<p>Build text-based interactive programs in the terminal. Provides raw-mode input, drawing primitives, and a key-event API. The example programs <code>snake.abra</code>, <code>mandelbrot.abra</code>, and <code>game_of_life.abra</code> are good starting points.</p>
+<p>Build text-based interactive programs in the terminal, backed by <code>crossterm</code>. Provides raw mode, an alternate screen, drawing and cursor primitives, and a unified event stream covering keys, mouse, and resize. The example programs <code>snake.abra</code>, <code>mandelbrot.abra</code>, and <code>game_of_life.abra</code> are good starting points.</p>
 <pre><code>use ard/term
 use core/time
 
 enable_raw_mode()
+enter_alternate_screen()
 hide_cursor()
 clear()
 
@@ -399,21 +406,41 @@ var quit = false
 while not quit {
     mark("press q to quit", 0, 0)
     flush()
-    while poll_key_event(1) {
-        match get_key_event() {
-            .Char("q") -&gt; quit = true
-            .Esc -&gt; quit = true
+    while poll_event(1) {
+        match get_event() {
+            .Key(key, _) -&gt; match key {
+                .Char('q') -&gt; quit = true
+                .Esc -&gt; quit = true
+                _ -&gt; {}
+            }
+            .Resize(w, h) -&gt; {} // terminal was resized to w x h
             _ -&gt; {}
         }
     }
     sleep(0.05)
 }
 
-clear()
-disable_raw_mode()
 show_cursor()
+leave_alternate_screen()
+disable_raw_mode()
 flush()
 </code></pre>
+<h3 id="types"><a class="header" href="#types">Types</a></h3>
+<ul>
+<li><code>Event = Key(KeyCode, Modifiers) | Mouse(MouseEvent, Modifiers) | Resize(int, int) | Other</code></li>
+<li><code>KeyCode = Char(string) | Enter | Tab | BackTab | Backspace | Delete | Insert | Esc | Left | Right | Up | Down | Home | End | PageUp | PageDown | Function(int) | Other</code> — <code>Function(n)</code> represents F1 through F12.</li>
+<li><code>Modifiers = { ctrl: bool, alt: bool, shift: bool }</code></li>
+<li><code>MouseButton = LeftButton | RightButton | MiddleButton</code></li>
+<li><code>MouseEvent = Down(MouseButton, int, int) | Up(MouseButton, int, int) | Drag(MouseButton, int, int) | Move(int, int) | ScrollUp(int, int) | ScrollDown(int, int)</code> — coordinates are <code>(x, y)</code>.</li>
+</ul>
+<h3 id="functions"><a class="header" href="#functions">Functions</a></h3>
+<ul>
+<li>Modes: <code>enable_raw_mode</code>, <code>disable_raw_mode</code>, <code>enter_alternate_screen</code>, <code>leave_alternate_screen</code>, <code>enable_mouse</code>, <code>disable_mouse</code>, <code>set_title(s)</code>, <code>bell()</code>.</li>
+<li>Events: <code>poll_event(ms) -&gt; bool</code>, <code>get_event() -&gt; Event</code>.</li>
+<li>Drawing: <code>clear</code>, <code>clear_line</code>, <code>clear_to_end_of_line</code>, <code>clear_to_end_of_screen</code>, <code>mark(s, x, y)</code>, <code>flush</code>.</li>
+<li>Cursor: <code>hide_cursor</code>, <code>show_cursor</code>, <code>move_to(x, y)</code>, <code>move_up(n)</code>, <code>move_down(n)</code>, <code>move_left(n)</code>, <code>move_right(n)</code>, <code>save_cursor</code>, <code>restore_cursor</code>.</li>
+<li>Size: <code>get_size() -&gt; option&lt;(int, int)&gt;</code> returns <code>(cols, rows)</code>.</li>
+</ul>
 
                     </main>
 
