@@ -1,12 +1,51 @@
 #foreign
 type KeyCode =
+    | Char(string)
+    | Enter
+    | Tab
+    | BackTab
+    | Backspace
+    | Delete
+    | Insert
+    | Esc
     | Left
     | Right
     | Up
     | Down
-    | Char(string)
-    | Esc
-    | Space
+    | Home
+    | End
+    | PageUp
+    | PageDown
+    | Function(int)
+    | Other
+
+#foreign
+type Modifiers = {
+    ctrl: bool
+    alt: bool
+    shift: bool
+}
+
+#foreign
+type MouseButton =
+    | LeftButton
+    | RightButton
+    | MiddleButton
+
+#foreign
+type MouseEvent =
+    | Down(MouseButton, int, int)
+    | Up(MouseButton, int, int)
+    | Drag(MouseButton, int, int)
+    | Move(int, int)
+    | ScrollUp(int, int)
+    | ScrollDown(int, int)
+
+#foreign
+type Event =
+    | Key(KeyCode, Modifiers)
+    | Mouse(MouseEvent, Modifiers)
+    | Resize(int, int)
     | Other
 
 #foreign
@@ -16,13 +55,46 @@ fn enable_raw_mode() -> void
 fn disable_raw_mode() -> void
 
 #foreign
-fn poll_key_event(milliseconds: int) -> bool
+fn enter_alternate_screen() -> void
 
 #foreign
-fn get_key_event() -> KeyCode
+fn leave_alternate_screen() -> void
+
+#foreign
+fn enable_mouse() -> void
+
+#foreign
+fn disable_mouse() -> void
+
+#foreign
+fn set_title(title: string) -> void
+
+#foreign
+fn bell() -> void
+
+#foreign
+fn poll_event(milliseconds: int) -> bool
+
+#foreign
+fn get_event() -> Event
 
 #foreign
 fn clear() -> void
+
+#foreign
+fn clear_line() -> void
+
+#foreign
+fn clear_to_end_of_line() -> void
+
+#foreign
+fn clear_to_end_of_screen() -> void
+
+#foreign
+fn mark(s: string, x: int, y: int) -> void
+
+#foreign
+fn flush() -> void
 
 #foreign
 fn hide_cursor() -> void
@@ -31,10 +103,25 @@ fn hide_cursor() -> void
 fn show_cursor() -> void
 
 #foreign
-fn mark(s: string, x: int, y: int) -> void
+fn move_to(x: int, y: int) -> void
 
 #foreign
-fn flush() -> void
+fn move_up(n: int) -> void
+
+#foreign
+fn move_down(n: int) -> void
+
+#foreign
+fn move_left(n: int) -> void
+
+#foreign
+fn move_right(n: int) -> void
+
+#foreign
+fn save_cursor() -> void
+
+#foreign
+fn restore_cursor() -> void
 
 #foreign
 fn get_size() -> option<(int, int)>

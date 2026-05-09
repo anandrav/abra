@@ -61,10 +61,13 @@ fn main() {
     flush()
 
     // 4. Input
-    while poll_key_event(1) {
-      match get_key_event() {
-        .Char('q') -> quit = true
-        .Esc -> quit = true
+    while poll_event(1) {
+      match get_event() {
+        .Key(key, _) -> match key {
+          .Char('q') -> quit = true
+          .Esc -> quit = true
+          _ -> {}
+        }
         _ -> {}
       }
     }

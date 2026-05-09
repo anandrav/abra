@@ -271,24 +271,30 @@ println(parts)    // [ foo, bar, baz, qux ]
 
 ## core/colors
 
-ANSI escape-code helpers for coloring and styling terminal output. Each function takes any value that implements `ToString`.
+ANSI escape-code helpers for coloring and styling terminal output. Each function takes any value that implements `ToString`. Compose by nesting.
+
+- Foreground: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, and `bright_*` versions of each.
+- Background: `on_black`, `on_red`, `on_green`, `on_yellow`, `on_blue`, `on_magenta`, `on_cyan`, `on_white`.
+- Attributes: `bold`, `dim`, `italic`, `underline`, `reverse`, `strikethrough`.
 
 ```
 use core/colors
 
 println(red("error: ") .. "could not connect")
 println(bold(green("Success!")))
+println(on_yellow(black(" WARNING ")))
 ```
 
 ## ard/term
 
-Build text-based interactive programs in the terminal. Provides raw-mode input, drawing primitives, and a key-event API. The example programs `snake.abra`, `mandelbrot.abra`, and `game_of_life.abra` are good starting points.
+Build text-based interactive programs in the terminal, backed by `crossterm`. Provides raw mode, an alternate screen, drawing and cursor primitives, and a unified event stream covering keys, mouse, and resize. The example programs `snake.abra`, `mandelbrot.abra`, and `game_of_life.abra` are good starting points.
 
 ```
 use ard/term
 use core/time
 
 enable_raw_mode()
+enter_alternate_screen()
 hide_cursor()
 clear()
 
@@ -296,18 +302,38 @@ var quit = false
 while not quit {
     mark("press q to quit", 0, 0)
     flush()
-    while poll_key_event(1) {
-        match get_key_event() {
-            .Char("q") -> quit = true
-            .Esc -> quit = true
+    while poll_event(1) {
+        match get_event() {
+            .Key(key, _) -> match key {
+                .Char('q') -> quit = true
+                .Esc -> quit = true
+                _ -> {}
+            }
+            .Resize(w, h) -> {} // terminal was resized to w x h
             _ -> {}
         }
     }
     sleep(0.05)
 }
 
-clear()
-disable_raw_mode()
 show_cursor()
+leave_alternate_screen()
+disable_raw_mode()
 flush()
 ```
+
+### Types
+
+- `Event = Key(KeyCode, Modifiers) | Mouse(MouseEvent, Modifiers) | Resize(int, int) | Other`
+- `KeyCode = Char(string) | Enter | Tab | BackTab | Backspace | Delete | Insert | Esc | Left | Right | Up | Down | Home | End | PageUp | PageDown | Function(int) | Other` — `Function(n)` represents F1 through F12.
+- `Modifiers = { ctrl: bool, alt: bool, shift: bool }`
+- `MouseButton = LeftButton | RightButton | MiddleButton`
+- `MouseEvent = Down(MouseButton, int, int) | Up(MouseButton, int, int) | Drag(MouseButton, int, int) | Move(int, int) | ScrollUp(int, int) | ScrollDown(int, int)` — coordinates are `(x, y)`.
+
+### Functions
+
+- Modes: `enable_raw_mode`, `disable_raw_mode`, `enter_alternate_screen`, `leave_alternate_screen`, `enable_mouse`, `disable_mouse`, `set_title(s)`, `bell()`.
+- Events: `poll_event(ms) -> bool`, `get_event() -> Event`.
+- Drawing: `clear`, `clear_line`, `clear_to_end_of_line`, `clear_to_end_of_screen`, `mark(s, x, y)`, `flush`.
+- Cursor: `hide_cursor`, `show_cursor`, `move_to(x, y)`, `move_up(n)`, `move_down(n)`, `move_left(n)`, `move_right(n)`, `save_cursor`, `restore_cursor`.
+- Size: `get_size() -> option<(int, int)>` returns `(cols, rows)`.

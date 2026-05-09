@@ -38,22 +38,25 @@ fn main() {
     // 2. Input Handling
     // We loop to clear the queue, but only process relevant keys once per frame
     var action_taken = false
-    while poll_key_event(1) {
-      let key = get_key_event()
+    while poll_event(1) {
+      let event = get_event()
       if not action_taken {
-        match key {
-          .Char('q') -> quit = true
-          .Esc -> quit = true
-          .Char('p') -> world.paused = not(world.paused)
-          .Char('r') -> world = init_world(w, h) // Reset
-          .Char('c') -> world = clear_world(w, h) // Clear to empty
-          .Char(' ') -> {
-            // Manual step if paused
-            if world.paused {
-               world = next_generation(world)
-            } else {
-               world.paused = true
+        match event {
+          .Key(key, _) -> match key {
+            .Char('q') -> quit = true
+            .Esc -> quit = true
+            .Char('p') -> world.paused = not(world.paused)
+            .Char('r') -> world = init_world(w, h) // Reset
+            .Char('c') -> world = clear_world(w, h) // Clear to empty
+            .Char(' ') -> {
+              // Manual step if paused
+              if world.paused {
+                 world = next_generation(world)
+              } else {
+                 world.paused = true
+              }
             }
+            _ -> {}
           }
           _ -> {}
         }

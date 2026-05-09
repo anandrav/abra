@@ -99,19 +99,22 @@ fn main() {
 
     let start_time = get_time()
 
-    while term.poll_key_event(0) {
+    while term.poll_event(0) {
       let snake = st.snake
-      match term.get_key_event() {
-        .Left -> snake.direction = .Left
-        .Char('a') -> snake.direction = .Left
-        .Right -> snake.direction = .Right
-        .Char('d') -> snake.direction = .Right
-        .Up -> snake.direction = .Up
-        .Char('w') -> snake.direction = .Up
-        .Down -> snake.direction = .Down
-        .Char('s') -> snake.direction = .Down
-        .Char('q') -> st.quit = true
-        .Esc -> st.quit = true
+      match term.get_event() {
+        .Key(key, _) -> match key {
+          .Left -> snake.direction = .Left
+          .Char('a') -> snake.direction = .Left
+          .Right -> snake.direction = .Right
+          .Char('d') -> snake.direction = .Right
+          .Up -> snake.direction = .Up
+          .Char('w') -> snake.direction = .Up
+          .Down -> snake.direction = .Down
+          .Char('s') -> snake.direction = .Down
+          .Char('q') -> st.quit = true
+          .Esc -> st.quit = true
+          _ -> {}
+        }
         _ -> {}
       }
     }

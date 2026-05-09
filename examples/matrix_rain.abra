@@ -74,11 +74,14 @@ fn main() {
     flush()
 
     // 3. Input Handling
-    while poll_key_event(1) {
-      let key = get_key_event()
-      match key {
-        .Char('q') -> quit = true
-        .Esc -> quit = true
+    while poll_event(1) {
+      let event = get_event()
+      match event {
+        .Key(key, _) -> match key {
+          .Char('q') -> quit = true
+          .Esc -> quit = true
+          _ -> {}
+        }
         _ -> {}
       }
     }
