@@ -1082,7 +1082,9 @@ fn calculate_named_arg_order(
         } else {
             i
         };
-        reordered_args[index] = Some(arg.val.clone());
+        if index < reordered_args.len() {
+            reordered_args[index] = Some(arg.val.clone());
+        }
     }
     for (i, default_val) in &func_arg_info.default_args {
         if reordered_args[*i].is_none() {
