@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let red = c("\x1b[38;2;230;100;100m");
             let bold = c("\x1b[1m");
             let reset = c("\x1b[0m");
-            eprintln!("{red}{bold}error:{reset} {}\n", err);
+            eprintln!("{red}{bold}error:{reset} {}", err);
             print_help();
             exit(1);
         }
@@ -173,7 +173,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(_) => {
                 let green = c("\x1b[38;2;100;230;100m");
                 let reset = c("\x1b[0m");
-                eprintln!("{green}Passed{reset}\n");
+                eprintln!("{green}Passed{reset}");
                 return Ok(());
             }
             Err(err) => {
