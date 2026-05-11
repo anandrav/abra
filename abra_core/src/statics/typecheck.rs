@@ -2755,6 +2755,12 @@ fn generate_constraints_expr(
                 if let StmtKind::Expr(expr) = &*arm.stmt.kind {
                     let expr_ty = TypeVar::from_node(ctx, expr.node());
                     constrain(ctx, &node_ty, &expr_ty)
+                } else if let StmtKind::Return(_) = &*arm.stmt.kind {
+                    constrain(
+                        ctx,
+                        &node_ty,
+                        &TypeVar::make_never(Reason::Node(expr.node())),
+                    )
                 } else {
                     constrain(
                         ctx,
