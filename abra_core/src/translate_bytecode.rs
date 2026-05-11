@@ -351,10 +351,6 @@ impl Translator {
                     })
                     .collect::<Vec<_>>();
                 for (i, stmt) in statements.iter().enumerate() {
-                    if let StmtKind::Return(_) = &*stmt.kind {
-                        self.emit(st, Instr::Stop);
-                        continue;
-                    }
                     self.translate_stmt(stmt, i == statements.len() - 1, &offset_table, &mono, st);
                 }
 
@@ -2115,6 +2111,10 @@ impl Translator {
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
             }
             StmtKind::Return(expr) => {
+                if st.return_stack.is_empty() {
+                    self.emit(st, Instr::Stop);
+                    return;
+                }
                 self.translate_expr(expr, offset_table, mono, st);
                 let ret_ty = self.get_ty(mono, expr.node()).unwrap();
                 if ret_ty == SolvedType::Void {
