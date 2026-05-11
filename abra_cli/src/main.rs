@@ -56,12 +56,12 @@ impl Args {
                     exit(0);
                 }
                 Value(val) => {
-                    if file.is_none() {
-                        file = Some(val.parse()?);
-                    } else {
-                        // If file is already found, everything else is a trailing arg
-                        abra_program_args.push(val.parse()?);
+                    file = Some(val.parse()?);
+                    // Everything after <FILE> is forwarded to the script
+                    for raw in parser.raw_args()? {
+                        abra_program_args.push(raw.to_string_lossy().into_owned());
                     }
+                    break;
                 }
                 _ => return Err(arg.unexpected()),
             }
