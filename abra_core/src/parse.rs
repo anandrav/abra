@@ -607,7 +607,7 @@ impl Parser {
             return Ok(None);
         };
 
-        if self.current_token().tag() == TokenTag::Eq {
+        if self.current_token().tag() == TokenTag::Colon {
             // It must be a named arg
             self.consume_token();
             let ty = self.parse_type()?;
@@ -628,11 +628,11 @@ impl Parser {
         let checkpoint = self.index;
         let mut checkpoint_errors = mem::take(&mut self.errors);
 
-        if let Some(lambda_expr) = self.try_parse_named_variant_field()? {
+        if let Some(named_variant_field) = self.try_parse_named_variant_field()? {
             // restore
             checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
             self.errors = checkpoint_errors;
-            return Ok(lambda_expr);
+            return Ok(named_variant_field);
         }
 
         // rollback
