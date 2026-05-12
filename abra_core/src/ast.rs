@@ -242,8 +242,11 @@ pub(crate) struct Variant {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct VariantElement {
-    pub(crate) name: Option<Identifier>,
+    pub(crate) name: Option<Rc<Identifier>>,
     pub(crate) ty: Rc<Type>,
+
+    pub(crate) loc: Location,
+    pub(crate) id: NodeId,
 }
 
 impl std::hash::Hash for Variant {

@@ -584,9 +584,13 @@ impl Parser {
         self.skip_newlines();
         let lo = self.current_token().span.lo;
         let ctor = self.expect_ident()?;
-        let mut data = None;
+        let mut data = vec![];
         if self.current_token().tag() == TokenTag::OpenParen {
-            data = Some(self.parse_type()?);
+            data = self.parse_delimited_list(
+                TokenTag::CloseParen,
+                TokenTag::Comma,
+                Self::parse_variant_field,
+            )?;
         }
         Ok(Rc::new(Variant {
             ctor,
@@ -594,6 +598,58 @@ impl Parser {
             loc: self.location(lo),
             id: NodeId::new(),
         }))
+    }
+
+    fn try_parse_named_variant_field(&mut self) -> Result<Option<VariantElement>, Box<Error>> {
+        let lo = self.current_token().span.lo;
+        let Ok(name) = self.expect_ident() else {
+            return Ok(None);
+        };
+
+        if self.current_token().tag() == TokenTag::Eq {
+            // It must be a named arg
+            self.consume_token();
+            let ty = self.parse_type()?;
+            Ok(Some(VariantElement {
+                name: Some(name),
+                ty,
+                loc: self.location(lo),
+                id: NodeId::new(),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn parse_variant_field(&mut self) -> Result<VariantElement, Box<Error>> {
+        self.skip_newlines();
+
+        let checkpoint = self.index;
+        let mut checkpoint_errors = mem::take(&mut self.errors);
+
+        if let Some(lambda_expr) = self.try_parse_named_variant_field()? {
+            // restore
+            checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
+            self.errors = checkpoint_errors;
+            return Ok(lambda_expr);
+        }
+
+        // rollback
+        self.index = checkpoint;
+        self.errors = checkpoint_errors;
+
+        // It's not a named arg
+
+        let lo = self.current_token().span.lo;
+        let ty = self.parse_type()?;
+        let func_call_arg = VariantElement {
+            name: None,
+            ty,
+
+            loc: self.location(lo),
+            id: NodeId::new(),
+        };
+        Ok(func_call_arg)
     }
 
     fn parse_output_type_decl(&mut self) -> Result<Rc<InterfaceOutputType>, Box<Error>> {
