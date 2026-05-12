@@ -3358,7 +3358,13 @@ fn generate_constraints_expr(
                     let residual_ty = residual_ty.subst(&subst);
 
                     // TODO: if try operator is used at toplevel there is no calling function...
-                    let calling_func_ty = ctx.func_ret_stack.last().unwrap().clone();
+                    let Some(calling_func_ty) = ctx.func_ret_stack.last().cloned() else {
+                        ctx.errors.push(Error::GenericWithNode {
+                            msg: "Cannot use `?` operator at the top level.".to_string(),
+                            node: expr.node(),
+                        });
+                        return;
+                    };
                     let calling_func_ty = ctx.unifvars.get(&calling_func_ty).unwrap().clone();
                     constrain_to_iface(
                         ctx,
