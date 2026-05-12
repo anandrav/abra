@@ -455,7 +455,9 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                     for variant in &e.variants {
                         swrite!(output, "{}", variant.ctor.v);
                         if variant.data.len() > 0 {
+                            output.push('(');
                             output.push_str(&name_of_variant_data_ty(&variant.data));
+                            output.push(')');
                         }
                         output.push(',');
                     }
@@ -481,6 +483,9 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                         if variant.data.len() > 0 {
                             if variant.data.len() == 1 && *variant.data[0].ty.kind == TypeKind::Void
                             {
+                                output.push_str("(vm_funcs.pop)(vm);");
+                                swrite!(output, "{}::{}(())", e.name.v, variant.ctor.v);
+                            } else {
                                 let tyname = name_of_variant_data_ty(&variant.data);
                                 swrite!(
                                     output,
@@ -488,9 +493,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
     "#
                                 );
                                 swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
-                            } else {
-                                output.push_str("(vm_funcs.pop)(vm);");
-                                swrite!(output, "{}::{}(())", e.name.v, variant.ctor.v);
                             }
                         } else {
                             output.push_str("(vm_funcs.pop)(vm);");
@@ -626,11 +628,16 @@ pub(crate) fn name_of_variant_data_ty(elems: &[VariantElement]) -> String {
         panic!("variant data is empty. You probably didn't mean to call it.")
     }
     let mut ret = "".to_string();
+    if elems.len() == 1 {
+        ret.push_str(&name_of_ty(&elems[0].ty));
+        return ret;
+    }
     ret.push('(');
     for (i, elem) in elems.iter().enumerate() {
         if i != 0 {
-            ret.push_str(&name_of_ty(&elem.ty));
+            ret.push(',');
         }
+        ret.push_str(&name_of_ty(&elem.ty));
     }
     ret.push(')');
     ret
