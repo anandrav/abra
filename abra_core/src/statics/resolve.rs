@@ -749,8 +749,8 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                     resolve_names_polytyp(ctx, &symbol_table, ty_arg, true);
                 }
                 for variant in &enum_def.variants {
-                    if let Some(data_ty) = &variant.data {
-                        resolve_names_typ(ctx, &symbol_table, data_ty, false);
+                    for elem in &variant.data {
+                        resolve_names_typ(ctx, &symbol_table, &elem.ty, false);
                     }
                 }
             }

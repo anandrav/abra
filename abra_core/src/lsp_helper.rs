@@ -543,10 +543,10 @@ fn find_ident_in_item(item: &Rc<Item>, offset: usize) -> Option<AstNode> {
                     if variant.ctor.loc.contains_offset(offset) {
                         return Some(variant.ctor.node());
                     }
-                    if let Some(data) = &variant.data
-                        && let Some(node) = find_ident_in_type(data, offset)
-                    {
-                        return Some(node);
+                    for elem in &variant.data {
+                        if let Some(node) = find_ident_in_type(&elem.ty, offset) {
+                            return Some(node);
+                        }
                     }
                 }
                 None

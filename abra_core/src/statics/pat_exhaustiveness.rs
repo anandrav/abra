@@ -235,10 +235,16 @@ impl Matrix {
             Constructor::Variant((enum_def, idx)) => {
                 let variant = &enum_def.variants[*idx];
                 let variant_data = &variant.data;
-                let data_ty = if let Some(data) = &variant_data {
-                    data.to_solved_type(statics).unwrap()
-                } else {
-                    SolvedType::Void
+                // TODO: duplicated
+                let data_ty = match variant_data.len() {
+                    0 => SolvedType::Void,
+                    1 => variant_data[0].ty.to_solved_type(statics).unwrap(),
+                    _ => SolvedType::Tuple(
+                        variant_data
+                            .iter()
+                            .map(|data| data.ty.to_solved_type(statics).unwrap())
+                            .collect(),
+                    ),
                 };
                 match data_ty {
                     SolvedType::Never => unreachable!(),
@@ -421,10 +427,16 @@ impl DeconstructedPat {
                 Constructor::Variant((enum_def, idx)) => {
                     let variant = &enum_def.variants[*idx];
                     let variant_data = &variant.data;
-                    let data_ty = if let Some(data) = &variant_data {
-                        data.to_solved_type(statics).unwrap()
-                    } else {
-                        SolvedType::Void
+                    // TODO: duplicated
+                    let data_ty = match variant_data.len() {
+                        0 => SolvedType::Void,
+                        1 => variant_data[0].ty.to_solved_type(statics).unwrap(),
+                        _ => SolvedType::Tuple(
+                            variant_data
+                                .iter()
+                                .map(|data| data.ty.to_solved_type(statics).unwrap())
+                                .collect(),
+                        ),
                     };
 
                     if !matches!(data_ty, SolvedType::Void) {
@@ -553,12 +565,13 @@ impl Constructor {
             },
             Constructor::Variant((enum_def, idx)) => {
                 let variant = &enum_def.variants[*idx];
-                match &variant.data {
-                    None => 0,
-                    Some(ty) => match &*ty.kind {
+                match &variant.data.len() {
+                    0 => 0,
+                    1 => match &*variant.data[0].ty.kind {
                         TypeKind::Void => 0,
                         _ => 1,
                     },
+                    n => *n,
                 }
             }
         }
