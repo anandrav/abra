@@ -611,9 +611,19 @@ impl Parser {
             // It must be a named arg
             self.consume_token();
             let ty = self.parse_type()?;
+
+            let default_val = if self.current_token().tag() == TokenTag::Eq {
+                self.consume_token();
+                Some(self.parse_expr()?)
+            } else {
+                None
+            };
+
             Ok(Some(VariantField {
                 name: Some(name),
                 ty,
+                default_val,
+
                 loc: self.location(lo),
                 id: NodeId::new(),
             }))
@@ -643,9 +653,17 @@ impl Parser {
 
         let lo = self.current_token().span.lo;
         let ty = self.parse_type()?;
+        let default_val = if self.current_token().tag() == TokenTag::Eq {
+            self.consume_token();
+            Some(self.parse_expr()?)
+        } else {
+            None
+        };
+
         let func_call_arg = VariantField {
             name: None,
             ty,
+            default_val,
 
             loc: self.location(lo),
             id: NodeId::new(),

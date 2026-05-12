@@ -244,6 +244,7 @@ pub(crate) struct Variant {
 pub(crate) struct VariantField {
     pub(crate) name: Option<Rc<Identifier>>,
     pub(crate) ty: Rc<Type>,
+    pub(crate) default_val: Option<Rc<Expr>>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
