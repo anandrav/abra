@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{FileAst, ImportKind, ItemKind, Type, TypeDefKind, TypeKind};
-use crate::foreign_bindings::{name_of_ty, run_formatter};
+use crate::foreign_bindings::{name_of_ty, name_of_variant_data_ty, run_formatter};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
@@ -420,10 +420,8 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         );
                         for variant in &e.variants {
                             swrite!(output, "{}", variant.ctor.v);
-                            if let Some(ty) = &variant.data {
-                                output.push('(');
-                                output.push_str(&name_of_ty(ty));
-                                output.push(')');
+                            if variant.data.len() > 0 {
+                                output.push_str(&name_of_variant_data_ty(&variant.data));
                             }
                             output.push(',');
                         }
@@ -446,8 +444,8 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         output.push_str("match tag {");
                         for (i, variant) in e.variants.iter().enumerate() {
                             output.push_str(&format!("{i} => {{"));
-                            if let Some(ty) = &variant.data {
-                                let tyname = name_of_ty(ty);
+                            if variant.data.len() > 0 {
+                                let tyname = name_of_variant_data_ty(&variant.data);
                                 swrite!(
                                     output,
                                     r#"let value: {tyname} = <{tyname}>::from_vm(vm);
@@ -475,7 +473,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
 
                         output.push_str("match self {");
                         for (i, variant) in e.variants.iter().enumerate() {
-                            if variant.data.is_some() {
+                            if variant.data.len() > 0 {
                                 swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
                                 output.push_str("value.to_vm(vm);");
                                 swrite!(output, "vm.construct_variant({i});");
