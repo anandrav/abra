@@ -234,15 +234,14 @@ impl std::hash::Hash for StructDef {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Variant {
     pub(crate) ctor: Rc<Identifier>,
-    pub(crate) data: Vec<VariantElement>, // TODO: rename to `fields`
+    pub(crate) field: Vec<VariantField>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub(crate) struct VariantElement {
-    // TODO: rename to `VariantField`
+pub(crate) struct VariantField {
     pub(crate) name: Option<Rc<Identifier>>,
     pub(crate) ty: Rc<Type>,
 

@@ -234,7 +234,7 @@ impl Matrix {
             },
             Constructor::Variant((enum_def, idx)) => {
                 let variant = &enum_def.variants[*idx];
-                let variant_data = &variant.data;
+                let variant_data = &variant.field;
                 // TODO: duplicated
                 let data_ty = match variant_data.len() {
                     0 => SolvedType::Void,
@@ -242,7 +242,7 @@ impl Matrix {
                     _ => SolvedType::Tuple(
                         variant_data
                             .iter()
-                            .map(|data| data.ty.to_solved_type(statics).unwrap())
+                            .map(|field| field.ty.to_solved_type(statics).unwrap())
                             .collect(),
                     ),
                 };
@@ -426,7 +426,7 @@ impl DeconstructedPat {
             SolvedType::Nominal(_, _) => match ctor {
                 Constructor::Variant((enum_def, idx)) => {
                     let variant = &enum_def.variants[*idx];
-                    let variant_data = &variant.data;
+                    let variant_data = &variant.field;
                     // TODO: duplicated
                     let data_ty = match variant_data.len() {
                         0 => SolvedType::Void,
@@ -434,7 +434,7 @@ impl DeconstructedPat {
                         _ => SolvedType::Tuple(
                             variant_data
                                 .iter()
-                                .map(|data| data.ty.to_solved_type(statics).unwrap())
+                                .map(|field| field.ty.to_solved_type(statics).unwrap())
                                 .collect(),
                         ),
                     };
@@ -565,9 +565,9 @@ impl Constructor {
             },
             Constructor::Variant((enum_def, idx)) => {
                 let variant = &enum_def.variants[*idx];
-                match &variant.data.len() {
+                match &variant.field.len() {
                     0 => 0,
-                    1 => match &*variant.data[0].ty.kind {
+                    1 => match &*variant.field[0].ty.kind {
                         TypeKind::Void => 0,
                         _ => 1,
                     },

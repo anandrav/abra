@@ -222,7 +222,7 @@ unsafe extern "C" fn abra_vm_array_len(vm: *mut c_void) -> usize {
     vm.array_len()
 }
 
-use crate::ast::VariantElement;
+use crate::ast::VariantField;
 use crate::statics::StaticsContext;
 use std::env::current_dir;
 
@@ -454,9 +454,9 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                     );
                     for variant in &e.variants {
                         swrite!(output, "{}", variant.ctor.v);
-                        if !variant.data.is_empty() {
+                        if !variant.field.is_empty() {
                             output.push('(');
-                            output.push_str(&name_of_variant_data_ty(&variant.data));
+                            output.push_str(&name_of_variant_data_ty(&variant.field));
                             output.push(')');
                         }
                         output.push(',');
@@ -480,13 +480,14 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                     output.push_str("match tag {");
                     for (i, variant) in e.variants.iter().enumerate() {
                         output.push_str(&format!("{i} => {{"));
-                        if !variant.data.is_empty() {
-                            if variant.data.len() == 1 && *variant.data[0].ty.kind == TypeKind::Void
+                        if !variant.field.is_empty() {
+                            if variant.field.len() == 1
+                                && *variant.field[0].ty.kind == TypeKind::Void
                             {
                                 output.push_str("(vm_funcs.pop)(vm);");
                                 swrite!(output, "{}::{}(())", e.name.v, variant.ctor.v);
                             } else {
-                                let tyname = name_of_variant_data_ty(&variant.data);
+                                let tyname = name_of_variant_data_ty(&variant.field);
                                 swrite!(
                                     output,
                                     r#"let value: {tyname} = <{tyname}>::from_vm_unsafe(vm, vm_funcs);
@@ -515,8 +516,9 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
 
                     output.push_str("match self {");
                     for (i, variant) in e.variants.iter().enumerate() {
-                        if !variant.data.is_empty() {
-                            if variant.data.len() == 1 && *variant.data[0].ty.kind == TypeKind::Void
+                        if !variant.field.is_empty() {
+                            if variant.field.len() == 1
+                                && *variant.field[0].ty.kind == TypeKind::Void
                             {
                                 swrite!(output, "{}::{}(()) => {{", e.name.v, variant.ctor.v);
                                 output.push_str("0.to_vm_unsafe(vm, vm_funcs);");
@@ -623,7 +625,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
     num_items
 }
 
-pub(crate) fn name_of_variant_data_ty(elems: &[VariantElement]) -> String {
+pub(crate) fn name_of_variant_data_ty(elems: &[VariantField]) -> String {
     if elems.is_empty() {
         panic!("variant data is empty. You probably didn't mean to call it.")
     }

@@ -595,13 +595,13 @@ impl Parser {
         }
         Ok(Rc::new(Variant {
             ctor,
-            data,
+            field: data,
             loc: self.location(lo),
             id: NodeId::new(),
         }))
     }
 
-    fn try_parse_named_variant_field(&mut self) -> Result<Option<VariantElement>, Box<Error>> {
+    fn try_parse_named_variant_field(&mut self) -> Result<Option<VariantField>, Box<Error>> {
         let lo = self.current_token().span.lo;
         let Ok(name) = self.expect_ident() else {
             return Ok(None);
@@ -611,7 +611,7 @@ impl Parser {
             // It must be a named arg
             self.consume_token();
             let ty = self.parse_type()?;
-            Ok(Some(VariantElement {
+            Ok(Some(VariantField {
                 name: Some(name),
                 ty,
                 loc: self.location(lo),
@@ -622,7 +622,7 @@ impl Parser {
         }
     }
 
-    fn parse_variant_field(&mut self) -> Result<VariantElement, Box<Error>> {
+    fn parse_variant_field(&mut self) -> Result<VariantField, Box<Error>> {
         self.skip_newlines();
 
         let checkpoint = self.index;
@@ -642,8 +642,8 @@ impl Parser {
         // It's not a named arg
 
         let lo = self.current_token().span.lo;
-        let ty = self.parse_type().unwrap(); // TODO: make ?
-        let func_call_arg = VariantElement {
+        let ty = self.parse_type()?;
+        let func_call_arg = VariantField {
             name: None,
             ty,
 

@@ -3454,7 +3454,7 @@ fn enum_ctor_helper(
     constrain(ctx, &node_ty, &def_type);
 
     let variant = &enum_def.variants[variant];
-    let tys_args: Vec<_> = variant.data.iter().map(|e| e.ty.to_typevar(ctx)).collect();
+    let tys_args: Vec<_> = variant.field.iter().map(|e| e.ty.to_typevar(ctx)).collect();
     let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
     let func_ty = TypeVar::make_func(tys_args, def_type.clone(), Reason::Node(func_node.clone()));
     let func_node_ty = TypeVar::from_node(ctx, func_node.clone());
@@ -3731,14 +3731,14 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
 
                     let variant_def = &enum_def.variants[variant];
                     // TODO: duplicated
-                    let variant_data_ty = match &variant_def.data.len() {
+                    let variant_data_ty = match &variant_def.field.len() {
                         0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
-                        1 => variant_def.data[0].ty.to_typevar(ctx),
+                        1 => variant_def.field[0].ty.to_typevar(ctx),
                         _ => TypeVar::make_tuple(
                             variant_def
-                                .data
+                                .field
                                 .iter()
-                                .map(|data| data.ty.to_typevar(ctx))
+                                .map(|field| field.ty.to_typevar(ctx))
                                 .collect(),
                             Reason::Node(pat.node()),
                         ),
@@ -3787,14 +3787,14 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
 
                     let variant_def = &enum_def.variants[idx];
                     // TODO: duplicated
-                    let variant_data_ty = match &variant_def.data.len() {
+                    let variant_data_ty = match &variant_def.field.len() {
                         0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
-                        1 => variant_def.data[0].ty.to_typevar(ctx),
+                        1 => variant_def.field[0].ty.to_typevar(ctx),
                         _ => TypeVar::make_tuple(
                             variant_def
-                                .data
+                                .field
                                 .iter()
-                                .map(|data| data.ty.to_typevar(ctx))
+                                .map(|field| field.ty.to_typevar(ctx))
                                 .collect(),
                             Reason::Node(pat.node()),
                         ),
