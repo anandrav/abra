@@ -3357,7 +3357,6 @@ fn generate_constraints_expr(
                     };
                     let residual_ty = residual_ty.subst(&subst);
 
-                    // TODO: if try operator is used at toplevel there is no calling function...
                     let Some(calling_func_ty) = ctx.func_ret_stack.last().cloned() else {
                         ctx.errors.push(Error::GenericWithNode {
                             msg: "Cannot use `?` operator at the top level.".to_string(),
@@ -3378,26 +3377,6 @@ fn generate_constraints_expr(
                         expr_inner_ty_key,
                         residual_ty,
                     ));
-
-                    // TODO LAST HERE
-                    /*
-                        Because the return type of the calling function is often not known at this
-                        point, the constraint should be pushed to a Vector, and then all those
-                        constraints will be addressed toward the end of typechecking
-
-                        The constraint can be broken into 3 parts:
-                        1. the return type of the calling function must implement Try interface
-                        2. the return type of the calling function must have the same TypeKey
-                           as the type of the expression being try'd
-                        3. the residual of the return type of the calling function must
-                            be equal to the residual of the type of the expression being try'd
-
-                        The information necessary to check this constraint is:
-                        1. The calling function (to retrieve its return type)
-                        2. The type of the expression being try'd
-                        3. The residual of the type of the expressio being try'd
-
-                    */
                 }
             } else {
                 ctx.errors
