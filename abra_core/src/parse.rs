@@ -624,20 +624,20 @@ impl Parser {
 
     fn parse_variant_field(&mut self) -> Result<VariantElement, Box<Error>> {
         self.skip_newlines();
-        //
-        // let checkpoint = self.index;
-        // let mut checkpoint_errors = mem::take(&mut self.errors);
-        //
-        // if let Some(lambda_expr) = self.try_parse_named_variant_field()? {
-        //     // restore
-        //     checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
-        //     self.errors = checkpoint_errors;
-        //     return Ok(lambda_expr);
-        // }
-        //
-        // // rollback
-        // self.index = checkpoint;
-        // self.errors = checkpoint_errors;
+
+        let checkpoint = self.index;
+        let mut checkpoint_errors = mem::take(&mut self.errors);
+
+        if let Some(lambda_expr) = self.try_parse_named_variant_field()? {
+            // restore
+            checkpoint_errors.extend(self.errors.drain(0..self.errors.len()));
+            self.errors = checkpoint_errors;
+            return Ok(lambda_expr);
+        }
+
+        // rollback
+        self.index = checkpoint;
+        self.errors = checkpoint_errors;
 
         // It's not a named arg
 
