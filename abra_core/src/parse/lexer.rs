@@ -665,6 +665,20 @@ fn at_triple_quote(lexer: &Lexer, p: usize) -> bool {
         && lexer.peek_char(p + 2) == Some('"')
 }
 
+fn is_line_end_from(lexer: &Lexer, p: usize) -> bool {
+    let mut q = p;
+    while let Some(c) = lexer.peek_char(q) {
+        if c == '\n' {
+            return true;
+        }
+        if c != ' ' && c != '\t' {
+            return false;
+        }
+        q += 1;
+    }
+    true
+}
+
 fn is_space_or_tab_at(lexer: &Lexer, p: usize) -> bool {
     matches!(lexer.peek_char(p), Some(' ' | '\t'))
 }
@@ -707,16 +721,37 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
     let mut prefix: std::ops::Range<usize> = 0..0;
     let after_close = if lexer.peek_char(p).is_some() {
         p += 1; // skip opener-line \n
-        loop {
+        'outer: loop {
             let ws_start = p;
             while is_space_or_tab_at(lexer, p) {
                 p += 1;
             }
+            let ws_end = p;
             if at_triple_quote(lexer, p) {
                 prefix = ws_start..p;
                 break p + 3;
             }
-            while lexer.peek_char(p).is_some_and(|c| c != '\n') {
+            // Walk the content of this line. Accept an inline `"""` as a
+            // closer iff it is followed only by whitespace until EOL/EOF;
+            // mid-line `"""` followed by more content stays literal.
+            while let Some(c) = lexer.peek_char(p) {
+                if c == '\n' {
+                    break;
+                }
+                if c == '\\' {
+                    // Skip escape pair, but don't cross a newline.
+                    if lexer.peek_char(p + 1).is_some_and(|n| n != '\n') {
+                        p += 2;
+                        continue;
+                    }
+                    p += 1;
+                    continue;
+                }
+                if at_triple_quote(lexer, p) && is_line_end_from(lexer, p + 3) {
+                    prefix = ws_start..ws_end;
+                    body_lines.push((ws_start, p));
+                    break 'outer p + 3;
+                }
                 p += 1;
             }
             body_lines.push((ws_start, p));

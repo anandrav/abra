@@ -2112,6 +2112,47 @@ s
 }
 
 #[test]
+fn multiline_string_opener_residue_inline_closer() {
+    let src = r#"
+let s = """hello
+    world"""
+s
+"#;
+    expect_value(src, "hello\nworld");
+}
+
+#[test]
+fn multiline_string_inline_closer_no_indent() {
+    let src = r#"
+let s = """hello
+world"""
+s
+"#;
+    expect_value(src, "hello\nworld");
+}
+
+#[test]
+fn multiline_string_inline_closer_with_trailing_ws() {
+    let src = "
+let s = \"\"\"hello
+    world\"\"\"  \t
+s
+";
+    expect_value(src, "hello\nworld");
+}
+
+#[test]
+fn multiline_string_inline_triple_quote_not_at_eol() {
+    let src = r#"
+let s = """
+    say """quote""" here
+    """
+s
+"#;
+    expect_value(src, "say \"\"\"quote\"\"\" here");
+}
+
+#[test]
 fn multiline_string_escapes() {
     let src = r#"
 let s = """
