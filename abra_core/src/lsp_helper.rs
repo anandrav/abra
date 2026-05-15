@@ -338,7 +338,13 @@ fn find_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
             find_in_expr(lhs, offset).or_else(|| find_in_expr(rhs, offset))
         }
         StmtKind::Expr(expr) => find_in_expr(expr, offset),
-        StmtKind::Return(expr) => find_in_expr(expr, offset),
+        StmtKind::Return(expr) => {
+            if let Some(expr) = expr {
+                find_in_expr(expr, offset)
+            } else {
+                None
+            }
+        }
         StmtKind::WhileLoop(cond, body) => {
             if let Some(node) = find_in_expr(cond, offset) {
                 return Some(node);
@@ -736,7 +742,13 @@ fn find_ident_in_stmt(stmt: &Rc<Stmt>, offset: usize) -> Option<AstNode> {
             find_ident_in_expr(lhs, offset).or_else(|| find_ident_in_expr(rhs, offset))
         }
         StmtKind::Expr(expr) => find_ident_in_expr(expr, offset),
-        StmtKind::Return(expr) => find_ident_in_expr(expr, offset),
+        StmtKind::Return(expr) => {
+            if let Some(expr) = expr {
+                find_ident_in_expr(expr, offset)
+            } else {
+                None
+            }
+        }
         StmtKind::WhileLoop(cond, body) => {
             if let Some(node) = find_ident_in_expr(cond, offset) {
                 return Some(node);
@@ -960,7 +972,12 @@ fn collect_vars_in_stmt(stmt: &Rc<Stmt>, name: &str, out: &mut Vec<AstNode>) {
             collect_vars_in_expr(lhs, name, out);
             collect_vars_in_expr(rhs, name, out);
         }
-        StmtKind::Expr(expr) | StmtKind::Return(expr) => collect_vars_in_expr(expr, name, out),
+        StmtKind::Expr(expr) => collect_vars_in_expr(expr, name, out),
+        StmtKind::Return(expr) => {
+            if let Some(expr) = expr {
+                collect_vars_in_expr(expr, name, out)
+            }
+        }
         StmtKind::WhileLoop(cond, body) => {
             collect_vars_in_expr(cond, name, out);
             for s in body {

@@ -2115,8 +2115,14 @@ impl Translator {
                     self.emit(st, Instr::Stop);
                     return;
                 }
-                self.translate_expr(expr, offset_table, mono, st);
-                let ret_ty = self.get_ty(mono, expr.node()).unwrap();
+                if let Some(expr) = expr {
+                    self.translate_expr(expr, offset_table, mono, st);
+                }
+                let ret_ty = if let Some(expr) = expr {
+                    self.get_ty(mono, expr.node()).unwrap()
+                } else {
+                    SolvedType::Void
+                };
                 if ret_ty == SolvedType::Void {
                     self.emit(st, Instr::ReturnVoid);
                 } else {
@@ -2469,7 +2475,9 @@ impl Translator {
                 }
                 StmtKind::Continue | StmtKind::Break => {}
                 StmtKind::Return(expr) => {
-                    self.collect_locals_expr(expr, locals, mono);
+                    if let Some(expr) = expr {
+                        self.collect_locals_expr(expr, locals, mono);
+                    }
                 }
                 StmtKind::WhileLoop(cond, statements) => {
                     self.collect_locals_expr(cond, locals, mono);
@@ -2679,7 +2687,9 @@ impl Translator {
                 }
                 StmtKind::Continue | StmtKind::Break => {}
                 StmtKind::Return(expr) => {
-                    self.collect_captures_expr(expr, locals, mono);
+                    if let Some(expr) = expr {
+                        self.collect_captures_expr(expr, locals, mono);
+                    }
                 }
                 StmtKind::WhileLoop(cond, statements) => {
                     self.collect_captures_expr(cond, locals, mono);

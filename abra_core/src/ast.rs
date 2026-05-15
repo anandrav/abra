@@ -390,7 +390,7 @@ pub(crate) enum StmtKind {
     Expr(Rc<Expr>),
     Continue,
     Break,
-    Return(Rc<Expr>),
+    Return(Option<Rc<Expr>>),
     WhileLoop(Rc<Expr>, Vec<Rc<Stmt>>),
     ForLoop(Rc<Pat>, Rc<Expr>, Vec<Rc<Stmt>>),
 }

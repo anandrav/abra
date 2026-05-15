@@ -869,7 +869,9 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
         }
         StmtKind::Continue | StmtKind::Break => {}
         StmtKind::Return(expr) => {
-            resolve_names_expr(ctx, symbol_table, expr);
+            if let Some(expr) = expr {
+                resolve_names_expr(ctx, symbol_table, expr);
+            }
         }
         StmtKind::WhileLoop(cond, statements) => {
             resolve_names_expr(ctx, symbol_table, cond);

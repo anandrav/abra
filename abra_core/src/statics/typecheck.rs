@@ -2304,22 +2304,29 @@ fn generate_constraints_stmt(
             match enclosing_func_ret {
                 Some(prov) => {
                     let ret_ty = TypeVar::fresh(ctx, prov.clone());
-                    generate_constraints_expr(
-                        ctx,
-                        polyvar_scope,
-                        Mode::ana_reason(ret_ty, ConstraintReason::ReturnValue),
-                        expr,
-                    );
+                    if let Some(expr) = expr {
+                        generate_constraints_expr(
+                            ctx,
+                            polyvar_scope,
+                            Mode::ana_reason(ret_ty, ConstraintReason::ReturnValue),
+                            expr,
+                        );
+                    } else {
+                        let void_ty = TypeVar::make_void(Reason::Node(stmt.node()));
+                        constrain(ctx, &ret_ty, &void_ty);
+                    }
                 }
                 None => {
-                    // TODO: need a better reason like "ToplevelReturn"
-                    let ret_ty = TypeVar::make_void(Reason::Node(stmt.node()));
-                    generate_constraints_expr(
-                        ctx,
-                        polyvar_scope,
-                        Mode::ana_reason(ret_ty, ConstraintReason::ReturnValue),
-                        expr,
-                    );
+                    if let Some(expr) = expr {
+                        // TODO: need a better reason like "ToplevelReturn"
+                        let ret_ty = TypeVar::make_void(Reason::Node(stmt.node()));
+                        generate_constraints_expr(
+                            ctx,
+                            polyvar_scope,
+                            Mode::ana_reason(ret_ty, ConstraintReason::ReturnValue),
+                            expr,
+                        );
+                    }
                 }
             }
         }

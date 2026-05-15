@@ -1721,7 +1721,11 @@ impl Parser {
             }
             TokenKind::Return => {
                 self.expect_token(TokenTag::Return);
-                let expr = self.parse_expr()?;
+                let expr = if self.current_token().tag() == TokenTag::Newline {
+                    None
+                } else {
+                    Some(self.parse_expr()?)
+                };
                 Stmt {
                     kind: StmtKind::Return(expr).into(),
                     loc: self.location(lo),
