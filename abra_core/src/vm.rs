@@ -536,10 +536,10 @@ pub enum Instr {
     ConcatStrings(u16, u16, u16),
     StringNthByte(u16, u16, u16),
     StringCountBytes(u16, u16),
-    IntToFloat(u16, u16),
-    FloatToInt(u16, u16),
-    IntToString(u16, u16),
-    FloatToString(u16, u16),
+    FloatFromInt(u16, u16),
+    IntFromFloat(u16, u16),
+    StringFromInt(u16, u16),
+    StringFromFloat(u16, u16),
 
     LoadLib,
     LoadForeignFunc,
@@ -1832,23 +1832,23 @@ impl Vm {
                 let s = self.load_offset_or_top(reg).view_string(self);
                 self.store_offset_or_top(dest, s.len() as AbraInt);
             }
-            Instr::IntToFloat(dest, reg) => {
+            Instr::FloatFromInt(dest, reg) => {
                 let n = self.load_offset_or_top(reg).get_int(self);
                 let f = n as f64;
                 self.store_offset_or_top(dest, f);
             }
-            Instr::FloatToInt(dest, reg) => {
+            Instr::IntFromFloat(dest, reg) => {
                 let f = self.load_offset_or_top(reg).get_float(self);
                 let n = f as AbraInt;
                 self.store_offset_or_top(dest, n);
             }
-            Instr::IntToString(dest, reg) => {
+            Instr::StringFromInt(dest, reg) => {
                 let n = self.load_offset_or_top(reg).get_int(self);
                 let s = n.to_string();
                 let s = StringObject::new(s, self);
                 self.store_offset_or_top(dest, s);
             }
-            Instr::FloatToString(dest, reg) => {
+            Instr::StringFromFloat(dest, reg) => {
                 let f = self.load_offset_or_top(reg).get_float(self);
                 let s = f.to_string();
                 let s = StringObject::new(s, self);

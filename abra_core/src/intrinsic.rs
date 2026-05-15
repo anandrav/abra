@@ -72,10 +72,10 @@ pub enum IntrinsicOperation {
     EqualFloat,
     EqualString,
 
-    IntToFloat,
-    FloatToInt,
-    IntToString,
-    FloatToString,
+    FloatFromInt,
+    IntFromFloat,
+    StringFromInt,
+    StringFromFloat,
 
     ConcatStrings,
     StringNthByte,
@@ -189,22 +189,22 @@ impl IntrinsicOperation {
                 reason.clone(),
             ),
 
-            IntrinsicOperation::IntToFloat => TypeVar::make_func(
+            IntrinsicOperation::FloatFromInt => TypeVar::make_func(
                 vec![TypeVar::make_int(reason.clone())],
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
             ),
-            IntrinsicOperation::FloatToInt => TypeVar::make_func(
+            IntrinsicOperation::IntFromFloat => TypeVar::make_func(
                 vec![TypeVar::make_float(reason.clone())],
                 TypeVar::make_int(reason.clone()),
                 reason.clone(),
             ),
-            IntrinsicOperation::IntToString => TypeVar::make_func(
+            IntrinsicOperation::StringFromInt => TypeVar::make_func(
                 vec![TypeVar::make_int(reason.clone())],
                 TypeVar::make_string(reason.clone()),
                 reason.clone(),
             ),
-            IntrinsicOperation::FloatToString => TypeVar::make_func(
+            IntrinsicOperation::StringFromFloat => TypeVar::make_func(
                 vec![TypeVar::make_float(reason.clone())],
                 TypeVar::make_string(reason.clone()),
                 reason.clone(),

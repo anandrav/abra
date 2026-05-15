@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Set global RUSTFLAGS to suppress warnings
-export RUSTFLAGS="-Awarnings"
-
 QUICK=false
 VIM=false
 VSCODE=false

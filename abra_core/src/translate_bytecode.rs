@@ -1445,10 +1445,10 @@ impl Translator {
             IntrinsicOperation::GreaterThanString => 2,
             IntrinsicOperation::GreaterThanOrEqualString => 2,
             IntrinsicOperation::EqualString => 2,
-            IntrinsicOperation::IntToFloat => 1,
-            IntrinsicOperation::FloatToInt => 1,
-            IntrinsicOperation::IntToString => 1,
-            IntrinsicOperation::FloatToString => 1,
+            IntrinsicOperation::FloatFromInt => 1,
+            IntrinsicOperation::IntFromFloat => 1,
+            IntrinsicOperation::StringFromInt => 1,
+            IntrinsicOperation::StringFromFloat => 1,
             IntrinsicOperation::ConcatStrings => 2,
             IntrinsicOperation::StringNthByte => 2,
             IntrinsicOperation::StringCountBytes => 1,
@@ -1623,17 +1623,17 @@ impl Translator {
             IntrinsicOperation::EqualString => {
                 self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::IntToFloat => {
-                self.emit(st, Instr::IntToFloat(Reg::Top, Reg::Top));
+            IntrinsicOperation::FloatFromInt => {
+                self.emit(st, Instr::FloatFromInt(Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::FloatToInt => {
-                self.emit(st, Instr::FloatToInt(Reg::Top, Reg::Top));
+            IntrinsicOperation::IntFromFloat => {
+                self.emit(st, Instr::IntFromFloat(Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::IntToString => {
-                self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
+            IntrinsicOperation::StringFromInt => {
+                self.emit(st, Instr::StringFromInt(Reg::Top, Reg::Top));
             }
-            IntrinsicOperation::FloatToString => {
-                self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
+            IntrinsicOperation::StringFromFloat => {
+                self.emit(st, Instr::StringFromFloat(Reg::Top, Reg::Top));
             }
             IntrinsicOperation::ConcatStrings => {
                 self.emit(st, Instr::ConcatStrings(Reg::Top, Reg::Top, Reg::Top));
@@ -2259,12 +2259,12 @@ impl Translator {
             "prelude.ToString.str"
                 if is_func(&overload_ty, SolvedType::Int, SolvedType::String) =>
             {
-                self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
+                self.emit(st, Instr::StringFromInt(Reg::Top, Reg::Top));
             }
             "prelude.ToString.str"
                 if is_func(&overload_ty, SolvedType::Float, SolvedType::String) =>
             {
-                self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
+                self.emit(st, Instr::StringFromFloat(Reg::Top, Reg::Top));
             }
             "prelude.Clone.clone"
                 if is_ident_func(&overload_ty, SolvedType::Int)

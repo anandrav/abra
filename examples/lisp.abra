@@ -18,7 +18,7 @@ implement ToString for LispVal {
     fn str(self) -> string {
         match self {
             .Atom(s) -> s
-            .Number(n) -> int_to_string(n)
+            .Number(n) -> string_from_int(n)
             .Bool(b) -> if b 'true' else 'false'
             .Nil -> 'nil'
             .Func(arg, _) -> '<lambda:' .. arg .. '>'

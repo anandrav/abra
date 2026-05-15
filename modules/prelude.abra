@@ -309,13 +309,13 @@ implement ToString for void {
 	fn str(s) = "nil"
 }
 implement ToString for int {
-	fn str(n) = int_to_string(n)
+	fn str(n) = string_from_int(n)
 }
 implement ToString for bool {
 	fn str(b) = if b "true" else "false"
 }
 implement ToString for float {
-    fn str(f) = float_to_string(f)
+    fn str(f) = string_from_float(f)
 }
 
 implement ToString for option<T ToString> {

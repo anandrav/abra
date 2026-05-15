@@ -31,7 +31,7 @@ extend DateTime {
     }
 
     fn add_days(self, days: int) -> DateTime {
-        from_timestamp(self.timestamp + int_to_float(days) * 86400.0)
+        from_timestamp(self.timestamp + float_from_int(days) * 86400.0)
     }
 
     fn diff(self, other: DateTime) -> float {

@@ -164,8 +164,8 @@ fn escape_string(s: string) -> string {
 }
 
 fn format_number(n: float) -> string {
-    let i = float_to_int(n)
-    if int_to_float(i) == n and n >= -9007199254740992.0 \
+    let i = int_from_float(n)
+    if float_from_int(i) == n and n >= -9007199254740992.0 \
         and n <= 9007199254740992.0 {
         "" .. i
     } else {

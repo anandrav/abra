@@ -40,8 +40,8 @@ fn main() {
       let s = streams[x]
 
       // A. Erase the tail (The point 'len' distance behind the head)
-      let tail_y_float = s.y - int_to_float(s.len)
-      let tail_y = float_to_int(tail_y_float)
+      let tail_y_float = s.y - float_from_int(s.len)
+      let tail_y = int_from_float(tail_y_float)
 
       if (tail_y >= 0) and (tail_y < h) {
         mark(' ', x, tail_y)
@@ -51,7 +51,7 @@ fn main() {
       s.y = s.y + s.speed
 
       // C. Draw the head
-      let head_y = float_to_int(s.y)
+      let head_y = int_from_float(s.y)
       
       if (head_y >= 0) and (head_y < h) {
         let char = get_matrix_char(s.char_index)
@@ -65,8 +65,8 @@ fn main() {
       let max_y = h + s.len
       if tail_y > max_y {
         // Reset to top with new random properties
-        s.y = int_to_float(random_int(1, 20)) * -1.0 // Start above screen
-        s.speed = int_to_float(random_int(2, 9)) / 10.0 // Speed 0.2 - 0.9
+        s.y = float_from_int(random_int(1, 20)) * -1.0 // Start above screen
+        s.speed = float_from_int(random_int(2, 9)) / 10.0 // Speed 0.2 - 0.9
         s.len = random_int(5, h / 2)
       }
     }
@@ -109,11 +109,11 @@ fn init_streams(w: int, h: int) -> array<Stream> {
     
     // Random speed between 0.2 and 0.9
     let speed_int = random_int(2, 9) 
-    let speed = int_to_float(speed_int) / 10.0
+    let speed = float_from_int(speed_int) / 10.0
 
     let len = random_int(4, h / 2)
     
-    arr.push(Stream(int_to_float(start_y), speed, len, 0))
+    arr.push(Stream(float_from_int(start_y), speed, len, 0))
   }
   arr
 }

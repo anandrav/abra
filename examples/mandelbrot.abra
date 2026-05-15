@@ -110,21 +110,21 @@ fn main() {
 }
 
 fn draw_mandelbrot(view: View) {
-  let width_f = int_to_float(view.width)
-  let height_f = int_to_float(view.height)
+  let width_f = float_from_int(view.width)
+  let height_f = float_from_int(view.height)
   
   let half_width = width_f / 2.0
   let half_height = height_f / 2.0
 
   for y in view.height {
-    let y_f = int_to_float(y)
+    let y_f = float_from_int(y)
     
     let y_offset = y_f - half_height
     let c_im = view.center_im + (y_offset * view.scale)
     let c_im2 = c_im * c_im // Pre-calculate y squared
 
     for x in view.width {
-      let x_f = int_to_float(x)
+      let x_f = float_from_int(x)
       let x_offset = x_f - half_width
 
       let c_re = view.center_re + (x_offset * view.scale * 0.5)

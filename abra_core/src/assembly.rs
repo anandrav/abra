@@ -181,10 +181,10 @@ pub enum Instr {
     ConcatStrings(Reg, Reg, Reg),
     StringNthByte(Reg, Reg, Reg),
     StringCountBytes(Reg, Reg),
-    IntToFloat(Reg, Reg),
-    FloatToInt(Reg, Reg),
-    IntToString(Reg, Reg),
-    FloatToString(Reg, Reg),
+    FloatFromInt(Reg, Reg),
+    IntFromFloat(Reg, Reg),
+    StringFromInt(Reg, Reg),
+    StringFromFloat(Reg, Reg),
 
     LoadLib,
     LoadForeignFunc,
@@ -448,10 +448,10 @@ impl Display for Instr {
             Instr::StringCountBytes(dest, reg) => {
                 write!(f, "string_count_bytes {dest} {reg}")
             }
-            Instr::IntToFloat(dest, reg) => write!(f, "int_to_float {dest} {reg}"),
-            Instr::FloatToInt(dest, reg) => write!(f, "float_to_int {dest} {reg}"),
-            Instr::IntToString(dest, reg) => write!(f, "int_to_string {dest} {reg}"),
-            Instr::FloatToString(dest, reg) => write!(f, "float_to_string {dest} {reg}"),
+            Instr::FloatFromInt(dest, reg) => write!(f, "float_from_int {dest} {reg}"),
+            Instr::IntFromFloat(dest, reg) => write!(f, "int_from_float {dest} {reg}"),
+            Instr::StringFromInt(dest, reg) => write!(f, "string_from_int {dest} {reg}"),
+            Instr::StringFromFloat(dest, reg) => write!(f, "string_from_float {dest} {reg}"),
             Instr::HostFunc(n) => write!(f, "call_host {n}"),
 
             Instr::LoadLib => write!(f, "load_lib"),
@@ -770,10 +770,10 @@ fn instr_to_vminstr(
         Instr::StringCountBytes(dest, reg) => {
             VmInstr::StringCountBytes(dest.encode(), reg.encode())
         }
-        Instr::IntToFloat(dest, reg) => VmInstr::IntToFloat(dest.encode(), reg.encode()),
-        Instr::FloatToInt(dest, reg) => VmInstr::FloatToInt(dest.encode(), reg.encode()),
-        Instr::IntToString(dest, reg) => VmInstr::IntToString(dest.encode(), reg.encode()),
-        Instr::FloatToString(dest, reg) => VmInstr::FloatToString(dest.encode(), reg.encode()),
+        Instr::FloatFromInt(dest, reg) => VmInstr::FloatFromInt(dest.encode(), reg.encode()),
+        Instr::IntFromFloat(dest, reg) => VmInstr::IntFromFloat(dest.encode(), reg.encode()),
+        Instr::StringFromInt(dest, reg) => VmInstr::StringFromInt(dest.encode(), reg.encode()),
+        Instr::StringFromFloat(dest, reg) => VmInstr::StringFromFloat(dest.encode(), reg.encode()),
         Instr::HostFunc(n) => VmInstr::HostFunc(*n),
 
         Instr::LoadLib => VmInstr::LoadLib,
