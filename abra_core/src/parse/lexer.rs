@@ -718,6 +718,8 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
     let lo = lexer.index;
     let mut next = 3;
 
+    let mut first_line_has_triple_quote = true;
+
     // return true if last line (ends in """)
     // return false if not last line (ends in \n)
     // return None if encountered EOF
@@ -779,7 +781,9 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
             }
             MultilineStringGetlineResult::Empty(begin, end) => {
                 dlog!("empty");
-                if !lines.is_empty() {
+                if lines.is_empty() {
+                    first_line_has_triple_quote = false;
+                } else {
                     lines.push(MultilineStringGetlineResult2::Empty(begin, end));
                 }
             }
@@ -812,8 +816,16 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         indent
     }
 
+    dlog!(
+        "first_line_has_triple_quote: {}",
+        first_line_has_triple_quote
+    );
+
     let mut indent = usize::MAX;
-    for line in &lines {
+    for (i, line) in lines.iter().enumerate() {
+        if i == 0 && first_line_has_triple_quote {
+            continue;
+        }
         match line {
             MultilineStringGetlineResult2::EndsWithTripleQuote(begin, end)
             | MultilineStringGetlineResult2::EndsWithNewline(begin, end) => {
@@ -832,7 +844,12 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
 
         let mut test = "".to_string();
         let slice2 = lexer.index + end;
-        let slice1 = slice2.min(lexer.index + begin + indent);
+        let modified_indent = if i == 0 && first_line_has_triple_quote {
+            0
+        } else {
+            indent
+        };
+        let slice1 = slice2.min(lexer.index + begin + modified_indent);
 
         for c in &lexer.chars[slice1..slice2] {
             string_val.push(*c);

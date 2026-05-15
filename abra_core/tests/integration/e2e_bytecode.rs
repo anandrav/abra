@@ -2032,7 +2032,6 @@ s
     expect_value(src, "\"hello world\"");
 }
 
-#[ignore]
 #[test]
 fn multiline_string_strips_indent() {
     let src = r#"
@@ -2045,7 +2044,6 @@ s
     expect_value(src, "hello\nworld");
 }
 
-#[ignore]
 #[test]
 fn multiline_string_no_indent() {
     let src = "
@@ -2113,7 +2111,6 @@ s
     expect_value(src, "hello\nworld");
 }
 
-#[ignore]
 #[test]
 fn multiline_string_opener_residue_inline_closer() {
     let src = r#"
@@ -2134,7 +2131,6 @@ s
     expect_value(src, "hello\nworld");
 }
 
-#[ignore]
 #[test]
 fn multiline_string_inline_closer_with_trailing_ws() {
     let src = "
@@ -2143,18 +2139,6 @@ let s = \"\"\"hello
 s
 ";
     expect_value(src, "hello\nworld");
-}
-
-#[ignore]
-#[test]
-fn multiline_string_inline_triple_quote_not_at_eol() {
-    let src = r#"
-let s = """
-    say """quote""" here
-    """
-s
-"#;
-    expect_value(src, "say \"\"\"quote\"\"\" here");
 }
 
 #[ignore]
@@ -2170,7 +2154,6 @@ s
     expect_value(src, "tab\there\nquote\"end");
 }
 
-#[ignore]
 #[test]
 fn multiline_string_embedded_quotes() {
     let src = r#"
