@@ -2141,7 +2141,6 @@ s
     expect_value(src, "hello\nworld");
 }
 
-#[ignore]
 #[test]
 fn multiline_string_escapes() {
     let src = r#"

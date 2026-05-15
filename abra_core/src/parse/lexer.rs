@@ -516,7 +516,12 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         None => (n_off, n_off),
                     };
                 let mut s = String::new();
-                process_escapes_into(&mut s, &lexer, 1, content_end, ctx, file_id);
+                process_escapes_into(
+                    &mut s,
+                    &lexer.chars[lexer.index + 1..lexer.index + content_end],
+                    ctx,
+                    file_id,
+                );
                 emit_string_token(&mut lexer, s, open, open + after_close);
             }
             '\'' => {
@@ -528,7 +533,13 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         None => (n_off, n_off),
                     };
                 let mut s = String::new();
-                process_escapes_into(&mut s, &lexer, 1, content_end, ctx, file_id);
+                process_escapes_into(
+                    &mut s,
+                    // TODO: make a lexer.slice() method so don't have ot remember to do lexer.index + ... everywhere
+                    &lexer.chars[lexer.index + 1..lexer.index + content_end],
+                    ctx,
+                    file_id,
+                );
                 emit_string_token(&mut lexer, s, open, open + after_close);
             }
             '/' => {
@@ -609,22 +620,16 @@ fn scan_for_unescaped_delim(
 }
 
 // Process escape sequences in offsets [start..end], appending decoded chars to `s`.
-fn process_escapes_into(
-    s: &mut String,
-    lexer: &Lexer,
-    start: usize,
-    end: usize,
-    ctx: &mut StaticsContext,
-    file_id: FileId,
-) {
-    let base = lexer.index;
-    let mut p = start;
+fn process_escapes_into(s: &mut String, chars: &[char], ctx: &mut StaticsContext, file_id: FileId) {
+    let base = 0;
+    let mut p = 0;
+    let end = chars.len();
     while p < end
-        && let Some(c) = lexer.peek_char(p)
+        && let Some(c) = chars.get(p).cloned()
     {
         if c == '\\'
             && p + 1 < end
-            && let Some(c2) = lexer.peek_char(p + 1)
+            && let Some(c2) = chars.get(p + 1).cloned()
         {
             match c2 {
                 'n' => s.push('\n'),
@@ -635,8 +640,8 @@ fn process_escapes_into(
                 '\\' => s.push('\\'),
                 'x' => {
                     if p + 3 < end
-                        && let Some(d2) = lexer.peek_char(p + 2)
-                        && let Some(d3) = lexer.peek_char(p + 3)
+                        && let Some(d2) = chars.get(p + 2).cloned()
+                        && let Some(d3) = chars.get(p + 3).cloned()
                         && let Ok(byte) = u8::from_str_radix(&format!("{d2}{d3}"), 16)
                     {
                         s.push(byte as char);
@@ -861,8 +866,15 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
     }
 
     dlog!("STRING VALUE:\n`{}`", string_val);
+    let mut string_val_processed_escapes = "".to_string();
+    process_escapes_into(
+        &mut string_val_processed_escapes,
+        &string_val.chars().collect::<Vec<_>>(),
+        ctx,
+        file_id,
+    );
     // panic!();
-    emit_string_token(lexer, string_val, lo, lexer.index + next);
+    emit_string_token(lexer, string_val_processed_escapes, lo, lexer.index + next);
 }
 
 fn emit_string_token(lexer: &mut Lexer, s: String, lo: usize, hi: usize) {
