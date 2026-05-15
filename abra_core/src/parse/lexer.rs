@@ -295,6 +295,10 @@ impl Lexer {
         self.chars.get(self.index + dist).cloned()
     }
 
+    fn slice(&self, begin: usize, end: usize) -> &[char] {
+        &self.chars[self.index + begin..self.index + end]
+    }
+
     fn emit(&mut self, kind: TokenKind) {
         let len = kind.nchars();
         let span = Span {
@@ -514,12 +518,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         None => (n_off, n_off),
                     };
                 let mut s = String::new();
-                process_escapes_into(
-                    &mut s,
-                    &lexer.chars[lexer.index + 1..lexer.index + content_end],
-                    ctx,
-                    file_id,
-                );
+                process_escapes_into(&mut s, lexer.slice(1, content_end), ctx, file_id);
                 emit_string_token(&mut lexer, s, open, open + after_close);
             }
             '\'' => {
@@ -531,13 +530,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         None => (n_off, n_off),
                     };
                 let mut s = String::new();
-                process_escapes_into(
-                    &mut s,
-                    // TODO: make a lexer.slice() method so don't have ot remember to do lexer.index + ... everywhere
-                    &lexer.chars[lexer.index + 1..lexer.index + content_end],
-                    ctx,
-                    file_id,
-                );
+                process_escapes_into(&mut s, lexer.slice(1, content_end), ctx, file_id);
                 emit_string_token(&mut lexer, s, open, open + after_close);
             }
             '/' => {
@@ -712,10 +705,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         if lexer.at_triple_quote(*next) {
             let end = *next;
             *next += 3;
-            if lexer.chars[lexer.index + begin..lexer.index + end]
-                .iter()
-                .all(|c| c.is_whitespace())
-            {
+            if lexer.slice(begin, end).iter().all(|c| c.is_whitespace()) {
                 return None;
             }
             return Some(MultilineStringGetlineResult::EndsWithTripleQuote(
@@ -725,10 +715,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         if lexer.peek_char(*next) == Some('\n') {
             let end = *next;
             *next += 1;
-            if lexer.chars[lexer.index + begin..lexer.index + end]
-                .iter()
-                .all(|c| c.is_whitespace())
-            {
+            if lexer.slice(begin, end).iter().all(|c| c.is_whitespace()) {
                 return Some(MultilineStringGetlineResult::Empty(begin, end));
             }
             return Some(MultilineStringGetlineResult::EndsWithNewline(begin, end));
