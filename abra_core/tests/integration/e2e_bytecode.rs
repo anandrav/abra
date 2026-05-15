@@ -1997,6 +1997,73 @@ Greeter(greeting = "hi", "Anand")
 }
 
 #[test]
+fn enum_variant_named_field_args() {
+    let src = r#"
+type color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+}
+"#;
+    expect_value(src, "1:2:3");
+}
+
+#[test]
+fn enum_variant_named_field_args_out_of_order() {
+    let src = r#"
+type color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = color.Rgb(blue = 3, red = 1, green = 2)
+match c {
+    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+}
+"#;
+    expect_value(src, "1:2:3");
+}
+
+#[test]
+fn enum_variant_default_field_values() {
+    let src = r#"
+type color =
+  | Rgb(red: int = 10, green: int = 20, blue: int = 30)
+
+let c = color.Rgb()
+match c {
+    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+}
+"#;
+    expect_value(src, "10:20:30");
+}
+
+#[test]
+fn enum_variant_named_field_args_partial_override() {
+    let src = r#"
+type color =
+  | Rgb(red: int, green: int = 20, blue: int = 30)
+
+let c = color.Rgb(red = 1, blue = 99)
+match c {
+    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+}
+"#;
+    expect_value(src, "1:20:99");
+}
+
+#[test]
+fn enum_variant_mixed_named_unnamed_fields_fails() {
+    let src = r#"
+type color =
+  | Rgb(red: int, int, blue: int)
+
+let c = color.Rgb(1, 2, 3)
+"#;
+    should_fail(src);
+}
+
+#[test]
 fn double_quote_string() {
     let src = r#"
 let s = "hello world"

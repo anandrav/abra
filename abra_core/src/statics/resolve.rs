@@ -139,7 +139,11 @@ fn gather_declarations_item(
                     let all_fields_are_named = v.fields.iter().all(|f| f.name.is_some());
                     let at_least_one_field_is_named = v.fields.iter().any(|f| f.name.is_some());
                     if !all_fields_are_named && at_least_one_field_is_named {
-                        ctx.errors.push(Error::GenericWithNode { msg: "Either all this variant's fields must be named or no fields must be named".to_string(), node: v.node() });
+                        ctx.errors.push(Error::GenericWithNode {
+                            msg: "variant fields must be either all named or all unnamed"
+                                .to_string(),
+                            node: v.node(),
+                        });
                     }
 
                     if all_fields_are_named {
