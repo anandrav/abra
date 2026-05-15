@@ -517,8 +517,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         Some(c) => (c, c + 1),
                         None => (n_off, n_off),
                     };
-                let mut s = String::new();
-                process_escapes_into(&mut s, lexer.slice(1, content_end), ctx, file_id);
+                let s = process_escapes_into(lexer.slice(1, content_end), ctx, file_id);
                 emit_string_token(&mut lexer, s, open, open + after_close);
             }
             '\'' => {
@@ -529,8 +528,7 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                         Some(c) => (c, c + 1),
                         None => (n_off, n_off),
                     };
-                let mut s = String::new();
-                process_escapes_into(&mut s, lexer.slice(1, content_end), ctx, file_id);
+                let s = process_escapes_into(lexer.slice(1, content_end), ctx, file_id);
                 emit_string_token(&mut lexer, s, open, open + after_close);
             }
             '/' => {
@@ -611,7 +609,8 @@ fn scan_for_unescaped_delim(
 }
 
 // Process escape sequences in offsets [start..end], appending decoded chars to `s`.
-fn process_escapes_into(s: &mut String, chars: &[char], ctx: &mut StaticsContext, file_id: FileId) {
+fn process_escapes_into(chars: &[char], ctx: &mut StaticsContext, file_id: FileId) -> String {
+    let mut s = "".to_string();
     let base = 0;
     let mut p = 0;
     let end = chars.len();
@@ -661,6 +660,7 @@ fn process_escapes_into(s: &mut String, chars: &[char], ctx: &mut StaticsContext
             p += 1;
         }
     }
+    s
 }
 
 enum MultilineStringGetlineResult {
@@ -727,9 +727,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
     loop {
         let line = get_line(lexer, &mut next);
         match line {
-            None => {
-                break;
-            }
+            None => break,
             Some(line) => match line {
                 MultilineStringGetlineResult::Empty(begin, end) => {
                     if lines.is_empty() {
@@ -784,12 +782,12 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         let end = line.end();
 
         let slice2 = lexer.index + end;
-        let modified_indent = if i == 0 && first_line_has_triple_quote {
+        let indent = if i == 0 && first_line_has_triple_quote {
             0
         } else {
             indent
         };
-        let slice1 = slice2.min(lexer.index + begin + modified_indent);
+        let slice1 = slice2.min(lexer.index + begin + indent);
 
         for c in &lexer.chars[slice1..slice2] {
             string_val.push(*c);
@@ -800,14 +798,8 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         }
     }
 
-    let mut string_val_processed_escapes = "".to_string();
-    process_escapes_into(
-        &mut string_val_processed_escapes,
-        &string_val.chars().collect::<Vec<_>>(),
-        ctx,
-        file_id,
-    );
-    emit_string_token(lexer, string_val_processed_escapes, lo, lexer.index + next);
+    let string_val = process_escapes_into(&string_val.chars().collect::<Vec<_>>(), ctx, file_id);
+    emit_string_token(lexer, string_val, lo, lexer.index + next);
 }
 
 fn emit_string_token(lexer: &mut Lexer, s: String, lo: usize, hi: usize) {
