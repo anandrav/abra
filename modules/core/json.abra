@@ -209,7 +209,7 @@ extend Parser {
             if is_whitespace(self.peek()) {
                 self.pos += 1
             } else {
-                return nil
+                return
             }
         }
     }

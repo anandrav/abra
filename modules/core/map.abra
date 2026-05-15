@@ -48,7 +48,7 @@ extend map<K Hash Equal, V> {
             if self.entry_hashes[i] == hash_code {
                 if self.entry_keys[i] == key {
                     self.entry_values[i] = value
-                    return nil
+                    return
                 }
             }
             i = self.entry_nexts[i]
