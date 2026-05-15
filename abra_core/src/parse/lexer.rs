@@ -700,9 +700,6 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
 
     let mut first_line_has_triple_quote = true;
 
-    // return true if last line (ends in """)
-    // return false if not last line (ends in \n)
-    // return None if encountered EOF
     fn get_line(lexer: &mut Lexer, next: &mut usize) -> Option<MultilineStringGetlineResult> {
         let begin = *next;
         while !lexer.at_triple_quote(*next)
@@ -823,7 +820,6 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         ctx,
         file_id,
     );
-    // panic!();
     emit_string_token(lexer, string_val_processed_escapes, lo, lexer.index + next);
 }
 
