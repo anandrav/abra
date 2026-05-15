@@ -9,6 +9,7 @@ use std::fmt::Formatter;
 use std::str::FromStr;
 use strum::IntoDiscriminant;
 use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
+use utils::dlog;
 
 #[derive(Clone)]
 pub(crate) struct Token {
@@ -362,6 +363,12 @@ impl Lexer {
         }
         self.emit_with_skipped(TokenKind::FloatLit(num), skipped_chars);
     }
+
+    fn at_triple_quote(&self, offset: usize) -> bool {
+        self.peek_char(offset) == Some('"')
+            && self.peek_char(offset + 1) == Some('"')
+            && self.peek_char(offset + 2) == Some('"')
+    }
 }
 
 // TODO: just stick file_id in the file_data as well, annoying to pass both around
@@ -496,7 +503,8 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
                 }
             }
             '"' => {
-                if at_triple_quote(&lexer, 0) {
+                if lexer.at_triple_quote(0) {
+                    dlog!("current_char: {}", lexer.current_char());
                     handle_multiline_string(&mut lexer, ctx, file_id);
                     continue;
                 }
@@ -659,12 +667,6 @@ fn process_escapes_into(
     }
 }
 
-fn at_triple_quote(lexer: &Lexer, p: usize) -> bool {
-    lexer.peek_char(p) == Some('"')
-        && lexer.peek_char(p + 1) == Some('"')
-        && lexer.peek_char(p + 2) == Some('"')
-}
-
 fn is_line_end_from(lexer: &Lexer, p: usize) -> bool {
     let mut q = p;
     while let Some(c) = lexer.peek_char(q) {
@@ -679,129 +681,171 @@ fn is_line_end_from(lexer: &Lexer, p: usize) -> bool {
     true
 }
 
-fn is_space_or_tab_at(lexer: &Lexer, p: usize) -> bool {
-    matches!(lexer.peek_char(p), Some(' ' | '\t'))
+// TODO: just use Option<MultilineStringGetlineResult2>
+enum MultilineStringGetlineResult {
+    None,
+    JustTripleQuote,
+    EndsWithTripleQuote(usize, usize),
+    EndsWithNewline(usize, usize),
+    Empty(usize, usize),
 }
 
-// Handle a triple-quoted multiline string starting at `lexer.index` (where
-// `chars[index..][..3]` is `"""`). Two cases:
-//   B (single-line): closing `"""` appears on the same line as the opener.
-//      Content is the chars between, escape-processed, no indent stripping.
-//   A (multi-line): closing `"""` appears on a later line preceded only by
-//      whitespace. That whitespace is the indent prefix; it is stripped from
-//      every non-blank content line. Insufficient indent → error, but the
-//      line is still included verbatim. Opener-line residue (chars between
-//      `"""` and the first newline) becomes the first content line if non-blank,
-//      and is not subject to prefix stripping.
-// On EOF before a closer: emit what we have and advance to EOF.
+enum MultilineStringGetlineResult2 {
+    EndsWithTripleQuote(usize, usize),
+    EndsWithNewline(usize, usize),
+    Empty(usize, usize),
+}
+
+impl MultilineStringGetlineResult2 {
+    fn begin(&self) -> usize {
+        match self {
+            MultilineStringGetlineResult2::EndsWithTripleQuote(begin, _)
+            | MultilineStringGetlineResult2::EndsWithNewline(begin, _)
+            | MultilineStringGetlineResult2::Empty(begin, _) => *begin,
+        }
+    }
+
+    fn end(&self) -> usize {
+        match self {
+            MultilineStringGetlineResult2::EndsWithTripleQuote(_, end)
+            | MultilineStringGetlineResult2::EndsWithNewline(_, end)
+            | MultilineStringGetlineResult2::Empty(_, end) => *end,
+        }
+    }
+}
+
 fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id: FileId) {
-    const TQ: [char; 3] = ['"', '"', '"'];
-    let open = lexer.index;
-    let after_open = 3; // offset past """
+    let lo = lexer.index;
+    let mut next = 3;
 
-    // Case B: opener and closer on the same line.
-    if let Some(close) = scan_for_unescaped_delim(lexer, after_open, &TQ, true) {
-        let mut s = String::new();
-        process_escapes_into(&mut s, lexer, after_open, close, ctx, file_id);
-        emit_string_token(lexer, s, open, open + close + 3);
-        return;
+    // return true if last line (ends in """)
+    // return false if not last line (ends in \n)
+    // return None if encountered EOF
+    fn get_line(
+        lexer: &mut Lexer,
+        ctx: &mut StaticsContext,
+        next: &mut usize,
+    ) -> MultilineStringGetlineResult {
+        let begin = *next;
+        // dlog!("begin is {}", lexer.chars[lexer.index + begin]);
+        while !lexer.at_triple_quote(*next)
+            && let Some(c) = lexer.peek_char(*next)
+            && c != '\n'
+        {
+            *next += 1;
+        }
+        // dlog!("len is {}", *next - begin + 1);
+
+        if lexer.at_triple_quote(*next) {
+            let end = *next;
+            *next += 3;
+            dlog!(
+                "slice: `{:?}`",
+                &lexer.chars[lexer.index + begin..lexer.index + end]
+            );
+            if lexer.chars[lexer.index + begin..lexer.index + end]
+                .iter()
+                .all(|c| c.is_whitespace())
+            {
+                return MultilineStringGetlineResult::JustTripleQuote;
+            }
+            return MultilineStringGetlineResult::EndsWithTripleQuote(begin, end);
+        }
+        if lexer.peek_char(*next) == Some('\n') {
+            let end = *next;
+            *next += 1;
+            if lexer.chars[lexer.index + begin..lexer.index + end]
+                .iter()
+                .all(|c| c.is_whitespace())
+            {
+                return MultilineStringGetlineResult::Empty(begin, end);
+            }
+            return MultilineStringGetlineResult::EndsWithNewline(begin, end);
+        }
+        MultilineStringGetlineResult::None
     }
 
-    // Walk to the opener-line newline; the chars before it are the residue.
-    let mut p = after_open;
-    while lexer.peek_char(p).is_some_and(|c| c != '\n') {
-        p += 1;
-    }
-    let opener_line_end = p;
-    let residue_is_blank = (after_open..opener_line_end).all(|i| is_space_or_tab_at(lexer, i));
-
-    // Walk body lines after the opener-line newline until closer or EOF. Each
-    // body line is recorded as (line_start, line_end_excluding_newline).
-    let mut body_lines: Vec<(usize, usize)> = vec![];
-    let mut prefix: std::ops::Range<usize> = 0..0;
-    let after_close = if lexer.peek_char(p).is_some() {
-        p += 1; // skip opener-line \n
-        'outer: loop {
-            let ws_start = p;
-            while is_space_or_tab_at(lexer, p) {
-                p += 1;
+    let mut lines = vec![];
+    loop {
+        let line = get_line(lexer, ctx, &mut next);
+        match line {
+            MultilineStringGetlineResult::None => {
+                dlog!("none");
+                break;
             }
-            let ws_end = p;
-            if at_triple_quote(lexer, p) {
-                prefix = ws_start..p;
-                break p + 3;
+            MultilineStringGetlineResult::JustTripleQuote => {
+                dlog!("only triple quote");
+                break;
             }
-            // Walk the content of this line. Accept an inline `"""` as a
-            // closer iff it is followed only by whitespace until EOL/EOF;
-            // mid-line `"""` followed by more content stays literal.
-            while let Some(c) = lexer.peek_char(p) {
-                if c == '\n' {
-                    break;
+            MultilineStringGetlineResult::Empty(begin, end) => {
+                dlog!("empty");
+                if !lines.is_empty() {
+                    lines.push(MultilineStringGetlineResult2::Empty(begin, end));
                 }
-                if c == '\\' {
-                    // Skip escape pair, but don't cross a newline.
-                    if lexer.peek_char(p + 1).is_some_and(|n| n != '\n') {
-                        p += 2;
-                        continue;
-                    }
-                    p += 1;
-                    continue;
-                }
-                if at_triple_quote(lexer, p) && is_line_end_from(lexer, p + 3) {
-                    prefix = ws_start..ws_end;
-                    body_lines.push((ws_start, p));
-                    break 'outer p + 3;
-                }
-                p += 1;
             }
-            body_lines.push((ws_start, p));
-            if lexer.peek_char(p).is_none() {
-                break p;
-            }
-            p += 1;
-        }
-    } else {
-        p
-    };
-
-    // Render: residue (never stripped), then body lines (stripped by prefix).
-    let mut s = String::new();
-    let mut emitted = false;
-    if !residue_is_blank {
-        process_escapes_into(&mut s, lexer, after_open, opener_line_end, ctx, file_id);
-        emitted = true;
-    }
-    for &(ls, le) in &body_lines {
-        if emitted {
-            s.push('\n');
-        }
-        emitted = true;
-        if (ls..le).all(|j| is_space_or_tab_at(lexer, j)) {
-            continue;
-        }
-        let strip = if !prefix.is_empty() {
-            let pl = prefix.len();
-            let ok = le - ls >= pl
-                && (0..pl).all(|k| lexer.peek_char(ls + k) == lexer.peek_char(prefix.start + k));
-            if !ok {
-                ctx.errors.push(Error::InsufficientIndentation(
-                    file_id,
-                    Span {
-                        lo: open + ls,
-                        hi: open + le,
-                    },
+            MultilineStringGetlineResult::EndsWithTripleQuote(begin, end) => {
+                lines.push(MultilineStringGetlineResult2::EndsWithTripleQuote(
+                    begin, end,
                 ));
-                0
-            } else {
-                pl
+                break;
             }
-        } else {
-            0
-        };
-        process_escapes_into(&mut s, lexer, ls + strip, le, ctx, file_id);
+            MultilineStringGetlineResult::EndsWithNewline(begin, end) => {
+                dlog!("ends in newline");
+                lines.push(MultilineStringGetlineResult2::EndsWithNewline(begin, end));
+            }
+        }
     }
 
-    emit_string_token(lexer, s, open, open + after_close);
+    dlog!("nlines = {}", lines.len());
+
+    fn calculate_indent(lexer: &mut Lexer, ctx: &mut StaticsContext, mut begin: usize) -> usize {
+        let mut indent = 0;
+        while matches!(lexer.peek_char(begin), Some(' ' | '\t')) {
+            if matches!(lexer.peek_char(begin), Some(' ')) {
+                indent += 1
+            }
+            if matches!(lexer.peek_char(begin), Some('\t')) {
+                indent += 4
+            }
+            begin += 1;
+        }
+        indent
+    }
+
+    let mut indent = usize::MAX;
+    for line in &lines {
+        match line {
+            MultilineStringGetlineResult2::EndsWithTripleQuote(begin, end)
+            | MultilineStringGetlineResult2::EndsWithNewline(begin, end) => {
+                dlog!("indent' = {}", calculate_indent(lexer, ctx, *begin));
+                indent = indent.min(calculate_indent(lexer, ctx, *begin))
+            }
+            MultilineStringGetlineResult2::Empty(_, _) => {}
+        }
+    }
+    dlog!("indent: {}", indent);
+
+    let mut string_val = "".to_string();
+    for (i, line) in lines.iter().enumerate() {
+        let begin = line.begin();
+        let end = line.end();
+
+        let mut test = "".to_string();
+        let slice2 = lexer.index + end;
+        let slice1 = slice2.min(lexer.index + begin + indent);
+
+        for c in &lexer.chars[slice1..slice2] {
+            string_val.push(*c);
+        }
+
+        if i < lines.len() - 1 {
+            string_val.push('\n');
+        }
+    }
+
+    dlog!("STRING VALUE:\n`{}`", string_val);
+    // panic!();
+    emit_string_token(lexer, string_val, lo, lexer.index + next);
 }
 
 fn emit_string_token(lexer: &mut Lexer, s: String, lo: usize, hi: usize) {
