@@ -461,7 +461,6 @@ pub(crate) enum Error {
     UnexpectedToken(String, String, Location),
     ProblematicToken(String, Location),
     UnrecognizedEscapeSequence(FileId, Span),
-    InsufficientIndentation(FileId, Span),
     EmptyParentheses(Location),
     // resolution phase
     UnresolvedIdentifier {

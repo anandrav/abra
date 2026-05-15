@@ -2164,19 +2164,6 @@ s
     expect_value(src, "say \"hi\" loudly");
 }
 
-#[ignore]
-#[test]
-fn multiline_string_insufficient_indent_errors() {
-    let src = r#"
-let s = """
-    hello
-  world
-    """
-s
-"#;
-    should_fail(src);
-}
-
 #[test]
 fn mutate_var_variable() {
     let src = r#"
