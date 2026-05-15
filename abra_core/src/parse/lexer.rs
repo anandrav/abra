@@ -9,7 +9,6 @@ use std::fmt::Formatter;
 use std::str::FromStr;
 use strum::IntoDiscriminant;
 use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
-use utils::dlog;
 
 #[derive(Clone)]
 pub(crate) struct Token {
@@ -504,7 +503,6 @@ pub(crate) fn tokenize_file(ctx: &mut StaticsContext, file_id: FileId) -> Vec<To
             }
             '"' => {
                 if lexer.at_triple_quote(0) {
-                    dlog!("current_char: {}", lexer.current_char());
                     handle_multiline_string(&mut lexer, ctx, file_id);
                     continue;
                 }
@@ -707,22 +705,16 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
     // return None if encountered EOF
     fn get_line(lexer: &mut Lexer, next: &mut usize) -> Option<MultilineStringGetlineResult> {
         let begin = *next;
-        // dlog!("begin is {}", lexer.chars[lexer.index + begin]);
         while !lexer.at_triple_quote(*next)
             && let Some(c) = lexer.peek_char(*next)
             && c != '\n'
         {
             *next += 1;
         }
-        // dlog!("len is {}", *next - begin + 1);
 
         if lexer.at_triple_quote(*next) {
             let end = *next;
             *next += 3;
-            dlog!(
-                "slice: `{:?}`",
-                &lexer.chars[lexer.index + begin..lexer.index + end]
-            );
             if lexer.chars[lexer.index + begin..lexer.index + end]
                 .iter()
                 .all(|c| c.is_whitespace())
@@ -752,12 +744,10 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         let line = get_line(lexer, &mut next);
         match line {
             None => {
-                dlog!("none");
                 break;
             }
             Some(line) => match line {
                 MultilineStringGetlineResult::Empty(begin, end) => {
-                    dlog!("empty");
                     if lines.is_empty() {
                         first_line_has_triple_quote = false;
                     } else {
@@ -771,14 +761,11 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
                     break;
                 }
                 MultilineStringGetlineResult::EndsWithNewline(begin, end) => {
-                    dlog!("ends in newline");
                     lines.push(MultilineStringGetlineResult::EndsWithNewline(begin, end));
                 }
             },
         }
     }
-
-    dlog!("nlines = {}", lines.len());
 
     fn calculate_indent(lexer: &mut Lexer, mut begin: usize) -> usize {
         let mut indent = 0;
@@ -794,11 +781,6 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         indent
     }
 
-    dlog!(
-        "first_line_has_triple_quote: {}",
-        first_line_has_triple_quote
-    );
-
     let mut indent = usize::MAX;
     for (i, line) in lines.iter().enumerate() {
         if i == 0 && first_line_has_triple_quote {
@@ -807,14 +789,11 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         match line {
             MultilineStringGetlineResult::EndsWithTripleQuote(begin, _)
             | MultilineStringGetlineResult::EndsWithNewline(begin, _) => {
-                dlog!("indent' = {}", calculate_indent(lexer, *begin));
                 indent = indent.min(calculate_indent(lexer, *begin))
             }
             MultilineStringGetlineResult::Empty(_, _) => {}
         }
     }
-    dlog!("indent: {}", indent);
-
     let mut string_val = "".to_string();
     for (i, line) in lines.iter().enumerate() {
         let begin = line.begin();
@@ -837,7 +816,6 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         }
     }
 
-    dlog!("STRING VALUE:\n`{}`", string_val);
     let mut string_val_processed_escapes = "".to_string();
     process_escapes_into(
         &mut string_val_processed_escapes,
