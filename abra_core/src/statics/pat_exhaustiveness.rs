@@ -236,7 +236,7 @@ impl Matrix {
             },
             Constructor::Variant((enum_def, idx)) => {
                 let variant = &enum_def.variants[*idx];
-                let variant_data = &variant.field;
+                let variant_data = &variant.fields;
                 // TODO: duplicated
                 let data_ty = match variant_data.len() {
                     0 => SolvedType::Void,
@@ -428,7 +428,7 @@ impl DeconstructedPat {
             SolvedType::Nominal(_, _) => match ctor {
                 Constructor::Variant((enum_def, idx)) => {
                     let variant = &enum_def.variants[*idx];
-                    let variant_data = &variant.field;
+                    let variant_data = &variant.fields;
                     // TODO: duplicated
                     let data_ty = match variant_data.len() {
                         0 => SolvedType::Void,
@@ -567,9 +567,9 @@ impl Constructor {
             },
             Constructor::Variant((enum_def, idx)) => {
                 let variant = &enum_def.variants[*idx];
-                match &variant.field.len() {
+                match &variant.fields.len() {
                     0 => 0,
-                    1 => match &*variant.field[0].ty.kind {
+                    1 => match &*variant.fields[0].ty.kind {
                         TypeKind::Void => 0,
                         _ => 1,
                     },

@@ -209,7 +209,7 @@ pub(crate) enum TypeDefKind {
 pub(crate) struct EnumDef {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty_args: Vec<Rc<Polytype>>,
-    pub(crate) variants: Vec<Rc<Variant>>,
+    pub(crate) variants: Vec<Rc<EnumVariant>>,
     pub(crate) id: NodeId,
 
     pub(crate) attributes: Vec<Attribute>,
@@ -232,9 +232,9 @@ impl std::hash::Hash for StructDef {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub(crate) struct Variant {
+pub(crate) struct EnumVariant {
     pub(crate) ctor: Rc<Identifier>,
-    pub(crate) field: Vec<VariantField>,
+    pub(crate) fields: Vec<VariantField>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
@@ -250,14 +250,14 @@ pub(crate) struct VariantField {
     pub(crate) id: NodeId,
 }
 
-impl std::hash::Hash for Variant {
+impl std::hash::Hash for EnumVariant {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-impl Variant {
-    pub fn node(self: &Rc<Variant>) -> AstNode {
+impl EnumVariant {
+    pub fn node(self: &Rc<EnumVariant>) -> AstNode {
         AstNode::Variant(self.clone())
     }
 }
@@ -286,7 +286,7 @@ pub(crate) enum AstNode {
     Pat(Rc<Pat>),
     Type(Rc<Type>),
     Identifier(Rc<Identifier>),
-    Variant(Rc<Variant>),
+    Variant(Rc<EnumVariant>),
     MatchArm(Rc<MatchArm>),
 }
 

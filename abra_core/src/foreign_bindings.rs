@@ -454,9 +454,9 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                     );
                     for variant in &e.variants {
                         swrite!(output, "{}", variant.ctor.v);
-                        if !variant.field.is_empty() {
+                        if !variant.fields.is_empty() {
                             output.push('(');
-                            output.push_str(&name_of_variant_data_ty(&variant.field));
+                            output.push_str(&name_of_variant_data_ty(&variant.fields));
                             output.push(')');
                         }
                         output.push(',');
@@ -480,14 +480,14 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                     output.push_str("match tag {");
                     for (i, variant) in e.variants.iter().enumerate() {
                         output.push_str(&format!("{i} => {{"));
-                        if !variant.field.is_empty() {
-                            if variant.field.len() == 1
-                                && *variant.field[0].ty.kind == TypeKind::Void
+                        if !variant.fields.is_empty() {
+                            if variant.fields.len() == 1
+                                && *variant.fields[0].ty.kind == TypeKind::Void
                             {
                                 output.push_str("(vm_funcs.pop)(vm);");
                                 swrite!(output, "{}::{}(())", e.name.v, variant.ctor.v);
                             } else {
-                                let tyname = name_of_variant_data_ty(&variant.field);
+                                let tyname = name_of_variant_data_ty(&variant.fields);
                                 swrite!(
                                     output,
                                     r#"let value: {tyname} = <{tyname}>::from_vm_unsafe(vm, vm_funcs);
@@ -516,9 +516,9 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
 
                     output.push_str("match self {");
                     for (i, variant) in e.variants.iter().enumerate() {
-                        if !variant.field.is_empty() {
-                            if variant.field.len() == 1
-                                && *variant.field[0].ty.kind == TypeKind::Void
+                        if !variant.fields.is_empty() {
+                            if variant.fields.len() == 1
+                                && *variant.fields[0].ty.kind == TypeKind::Void
                             {
                                 swrite!(output, "{}::{}(()) => {{", e.name.v, variant.ctor.v);
                                 output.push_str("0.to_vm_unsafe(vm, vm_funcs);");

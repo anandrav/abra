@@ -2982,7 +2982,7 @@ fn generate_constraints_expr(
                                     ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                                     // used when calculating function arg order
                                     ctx.resolution_map.insert(func.id, memfn_decl.clone());
-                                    calculate_func_call_order(ctx, func, args, expr);
+                                    calculate_func_call_order(ctx, func.node(), args, expr.node());
 
                                     let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                                     match memfn_decl {
@@ -3067,7 +3067,7 @@ fn generate_constraints_expr(
                     }
                 }
                 _ => {
-                    calculate_func_call_order(ctx, func, args, expr);
+                    calculate_func_call_order(ctx, func.node(), args, expr.node());
 
                     generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, func);
 
@@ -3461,22 +3461,40 @@ fn enum_ctor_helper(
     constrain(ctx, &node_ty, &def_type);
 
     let variant = &enum_def.variants[variant];
-    let tys_args: Vec<_> = variant.field.iter().map(|e| e.ty.to_typevar(ctx)).collect();
+    let tys_args: Vec<_> = variant
+        .fields
+        .iter()
+        .map(|e| e.ty.to_typevar(ctx))
+        .collect();
     let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
     let func_ty = TypeVar::make_func(tys_args, def_type.clone(), Reason::Node(func_node.clone()));
     let func_node_ty = TypeVar::from_node(ctx, func_node.clone());
     constrain(ctx, &func_ty, &func_node_ty);
 
-    let func_ty = TypeVar::from_node(ctx, func_node.clone());
-    generate_constraints_expr_funcap_helper(
-        ctx,
-        polyvar_scope,
-        &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
-        func_ty,
-        func_node,
-        funcap_node,
-        def_type.clone(),
-    );
+    // TODO: duplicated code
+    // TODO: this can be even shorter
+    calculate_func_call_order(ctx, func_node.clone(), args, funcap_node.clone());
+    if let Some(reordered_args) = ctx.function_call_arg_order.get(&funcap_node.id()).cloned() {
+        generate_constraints_expr_funcap_helper(
+            ctx,
+            polyvar_scope,
+            &reordered_args,
+            func_ty,
+            func_node,
+            funcap_node,
+            node_ty.clone(),
+        );
+    } else {
+        generate_constraints_expr_funcap_helper(
+            ctx,
+            polyvar_scope,
+            &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
+            func_ty,
+            func_node,
+            funcap_node,
+            node_ty.clone(),
+        );
+    }
 }
 
 fn generate_constraints_func_decl(
@@ -3738,12 +3756,12 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
 
                     let variant_def = &enum_def.variants[variant];
                     // TODO: duplicated
-                    let variant_data_ty = match &variant_def.field.len() {
+                    let variant_data_ty = match &variant_def.fields.len() {
                         0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
-                        1 => variant_def.field[0].ty.to_typevar(ctx),
+                        1 => variant_def.fields[0].ty.to_typevar(ctx),
                         _ => TypeVar::make_tuple(
                             variant_def
-                                .field
+                                .fields
                                 .iter()
                                 .map(|field| field.ty.to_typevar(ctx))
                                 .collect(),
@@ -3794,12 +3812,12 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
 
                     let variant_def = &enum_def.variants[idx];
                     // TODO: duplicated
-                    let variant_data_ty = match &variant_def.field.len() {
+                    let variant_data_ty = match &variant_def.fields.len() {
                         0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
-                        1 => variant_def.field[0].ty.to_typevar(ctx),
+                        1 => variant_def.fields[0].ty.to_typevar(ctx),
                         _ => TypeVar::make_tuple(
                             variant_def
-                                .field
+                                .fields
                                 .iter()
                                 .map(|field| field.ty.to_typevar(ctx))
                                 .collect(),

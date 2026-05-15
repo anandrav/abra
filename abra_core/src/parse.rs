@@ -557,7 +557,7 @@ impl Parser {
         ty_args: Vec<Rc<Polytype>>,
         attributes: Vec<Attribute>,
     ) -> Result<Rc<EnumDef>, Box<Error>> {
-        let mut variants: Vec<Rc<Variant>> = vec![];
+        let mut variants: Vec<Rc<EnumVariant>> = vec![];
         loop {
             self.skip_newlines();
             if variants.is_empty() {
@@ -580,7 +580,7 @@ impl Parser {
         }))
     }
 
-    fn parse_variant(&mut self) -> Result<Rc<Variant>, Box<Error>> {
+    fn parse_variant(&mut self) -> Result<Rc<EnumVariant>, Box<Error>> {
         self.skip_newlines();
         let lo = self.current_token().span.lo;
         let ctor = self.expect_ident()?;
@@ -593,9 +593,9 @@ impl Parser {
                 Self::parse_variant_field,
             )?;
         }
-        Ok(Rc::new(Variant {
+        Ok(Rc::new(EnumVariant {
             ctor,
-            field: data,
+            fields: data,
             loc: self.location(lo),
             id: NodeId::new(),
         }))

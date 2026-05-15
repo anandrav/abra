@@ -420,8 +420,8 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         );
                         for variant in &e.variants {
                             swrite!(output, "{}", variant.ctor.v);
-                            if !variant.field.is_empty() {
-                                output.push_str(&name_of_variant_data_ty(&variant.field));
+                            if !variant.fields.is_empty() {
+                                output.push_str(&name_of_variant_data_ty(&variant.fields));
                             }
                             output.push(',');
                         }
@@ -444,8 +444,8 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         output.push_str("match tag {");
                         for (i, variant) in e.variants.iter().enumerate() {
                             output.push_str(&format!("{i} => {{"));
-                            if !variant.field.is_empty() {
-                                let tyname = name_of_variant_data_ty(&variant.field);
+                            if !variant.fields.is_empty() {
+                                let tyname = name_of_variant_data_ty(&variant.fields);
                                 swrite!(
                                     output,
                                     r#"let value: {tyname} = <{tyname}>::from_vm(vm);
@@ -473,7 +473,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
 
                         output.push_str("match self {");
                         for (i, variant) in e.variants.iter().enumerate() {
-                            if !variant.field.is_empty() {
+                            if !variant.fields.is_empty() {
                                 swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
                                 output.push_str("value.to_vm(vm);");
                                 swrite!(output, "vm.construct_variant({i});");

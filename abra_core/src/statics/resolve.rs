@@ -135,6 +135,20 @@ fn gather_declarations_item(
                             variant,
                         },
                     );
+
+                    let all_fields_are_named = v.fields.iter().all(|f| f.name.is_some());
+                    let at_least_one_field_is_named = v.fields.iter().any(|f| f.name.is_some());
+                    if !all_fields_are_named && at_least_one_field_is_named {
+                        ctx.errors.push(Error::GenericWithNode { msg: "Either all this variant's fields must be named or no fields must be named".to_string(), node: v.node() });
+                    }
+
+                    if all_fields_are_named {
+                        update_function_arg_info(
+                            ctx,
+                            FuncArgDetailsKey::EnumVariant(v.clone()),
+                            false,
+                        );
+                    }
                 }
 
                 namespace.add_namespace(e.name.v.clone(), enum_namespace.into());
@@ -749,7 +763,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                     resolve_names_polytyp(ctx, &symbol_table, ty_arg, true);
                 }
                 for variant in &enum_def.variants {
-                    for field in &variant.field {
+                    for field in &variant.fields {
                         resolve_names_typ(ctx, &symbol_table, &field.ty, false);
                     }
                 }
@@ -1002,11 +1016,11 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
 
 pub(crate) fn calculate_func_call_order(
     ctx: &mut StaticsContext,
-    func: &Rc<Expr>,
+    func_node: AstNode,
     args: &[FuncCallArg],
-    expr: &Rc<Expr>,
+    funcap_node: AstNode,
 ) {
-    let decl = ctx.resolution_map.get(&func.id);
+    let decl = ctx.resolution_map.get(&func_node.id());
     let key = decl.and_then(|decl| FuncArgDetailsKey::try_from(decl).ok());
     let func_arg_details = key.and_then(|key| ctx.func_arg_details.get(&key).cloned());
 
@@ -1014,7 +1028,7 @@ pub(crate) fn calculate_func_call_order(
         ctx.errors.push(Error::GenericWithNode {
             msg: "Can't use named arguments because can't determine original function definition"
                 .to_string(),
-            node: expr.node(),
+            node: funcap_node,
         });
         return;
     };
@@ -1064,12 +1078,14 @@ pub(crate) fn calculate_func_call_order(
             }
             ctx.errors.push(Error::GenericWithNode {
                 msg,
-                node: expr.node(),
+                node: funcap_node,
             });
             return;
         }
-        ctx.function_call_arg_order
-            .insert(expr.id, calculate_named_arg_order(func_arg_info, args));
+        ctx.function_call_arg_order.insert(
+            funcap_node.id(),
+            calculate_named_arg_order(func_arg_info, args),
+        );
     }
 }
 

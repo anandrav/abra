@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    AstNode, EnumDef, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, Identifier,
-    InterfaceDef, InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype, StructDef,
-    Type as AstType, TypeKind,
+    AstNode, EnumDef, EnumVariant, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
+    Identifier, InterfaceDef, InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype,
+    StructDef, Type as AstType, TypeKind,
 };
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::{ErrorSummary, FileProvider};
@@ -391,6 +391,7 @@ pub(crate) enum FuncArgDetailsKey {
     FuncDef(Rc<FuncDef>),
     FuncDecl(Rc<FuncDecl>),
     Struct(Rc<StructDef>),
+    EnumVariant(Rc<EnumVariant>),
 }
 
 pub(crate) type ArgEntry = (Rc<Identifier>, Option<Rc<Expr>>);
@@ -415,6 +416,11 @@ impl FuncArgDetailsKey {
                     .iter()
                     .map(|f| (f.name.clone(), f.default_val.clone())),
             ),
+            FuncArgDetailsKey::EnumVariant(v) => Box::new(
+                v.fields
+                    .iter()
+                    .map(|f| (f.name.as_ref().unwrap().clone(), f.default_val.clone())),
+            ),
         }
     }
 }
@@ -433,7 +439,9 @@ impl TryFrom<&Declaration> for FuncArgDetailsKey {
             Declaration::MemberFunction(f) => Ok(FuncArgDetailsKey::FuncDef(f.clone())),
             Declaration::Struct(s) => Ok(FuncArgDetailsKey::Struct(s.clone())),
 
-            Declaration::EnumVariant { .. } => Err(()),
+            Declaration::EnumVariant { e, variant } => {
+                Ok(FuncArgDetailsKey::EnumVariant(e.variants[*variant].clone()))
+            }
 
             Declaration::InterfaceDef(_)
             | Declaration::InterfaceMethod { .. }
