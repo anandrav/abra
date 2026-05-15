@@ -672,35 +672,26 @@ fn process_escapes_into(s: &mut String, chars: &[char], ctx: &mut StaticsContext
     }
 }
 
-// TODO: just use Option<MultilineStringGetlineResult2>
 enum MultilineStringGetlineResult {
-    None,
-    JustTripleQuote,
     EndsWithTripleQuote(usize, usize),
     EndsWithNewline(usize, usize),
     Empty(usize, usize),
 }
 
-enum MultilineStringGetlineResult2 {
-    EndsWithTripleQuote(usize, usize),
-    EndsWithNewline(usize, usize),
-    Empty(usize, usize),
-}
-
-impl MultilineStringGetlineResult2 {
+impl MultilineStringGetlineResult {
     fn begin(&self) -> usize {
         match self {
-            MultilineStringGetlineResult2::EndsWithTripleQuote(begin, _)
-            | MultilineStringGetlineResult2::EndsWithNewline(begin, _)
-            | MultilineStringGetlineResult2::Empty(begin, _) => *begin,
+            MultilineStringGetlineResult::EndsWithTripleQuote(begin, _)
+            | MultilineStringGetlineResult::EndsWithNewline(begin, _)
+            | MultilineStringGetlineResult::Empty(begin, _) => *begin,
         }
     }
 
     fn end(&self) -> usize {
         match self {
-            MultilineStringGetlineResult2::EndsWithTripleQuote(_, end)
-            | MultilineStringGetlineResult2::EndsWithNewline(_, end)
-            | MultilineStringGetlineResult2::Empty(_, end) => *end,
+            MultilineStringGetlineResult::EndsWithTripleQuote(_, end)
+            | MultilineStringGetlineResult::EndsWithNewline(_, end)
+            | MultilineStringGetlineResult::Empty(_, end) => *end,
         }
     }
 }
@@ -714,7 +705,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
     // return true if last line (ends in """)
     // return false if not last line (ends in \n)
     // return None if encountered EOF
-    fn get_line(lexer: &mut Lexer, next: &mut usize) -> MultilineStringGetlineResult {
+    fn get_line(lexer: &mut Lexer, next: &mut usize) -> Option<MultilineStringGetlineResult> {
         let begin = *next;
         // dlog!("begin is {}", lexer.chars[lexer.index + begin]);
         while !lexer.at_triple_quote(*next)
@@ -736,9 +727,11 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
                 .iter()
                 .all(|c| c.is_whitespace())
             {
-                return MultilineStringGetlineResult::JustTripleQuote;
+                return None;
             }
-            return MultilineStringGetlineResult::EndsWithTripleQuote(begin, end);
+            return Some(MultilineStringGetlineResult::EndsWithTripleQuote(
+                begin, end,
+            ));
         }
         if lexer.peek_char(*next) == Some('\n') {
             let end = *next;
@@ -747,43 +740,41 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
                 .iter()
                 .all(|c| c.is_whitespace())
             {
-                return MultilineStringGetlineResult::Empty(begin, end);
+                return Some(MultilineStringGetlineResult::Empty(begin, end));
             }
-            return MultilineStringGetlineResult::EndsWithNewline(begin, end);
+            return Some(MultilineStringGetlineResult::EndsWithNewline(begin, end));
         }
-        MultilineStringGetlineResult::None
+        None
     }
 
     let mut lines = vec![];
     loop {
         let line = get_line(lexer, &mut next);
         match line {
-            MultilineStringGetlineResult::None => {
+            None => {
                 dlog!("none");
                 break;
             }
-            MultilineStringGetlineResult::JustTripleQuote => {
-                dlog!("only triple quote");
-                break;
-            }
-            MultilineStringGetlineResult::Empty(begin, end) => {
-                dlog!("empty");
-                if lines.is_empty() {
-                    first_line_has_triple_quote = false;
-                } else {
-                    lines.push(MultilineStringGetlineResult2::Empty(begin, end));
+            Some(line) => match line {
+                MultilineStringGetlineResult::Empty(begin, end) => {
+                    dlog!("empty");
+                    if lines.is_empty() {
+                        first_line_has_triple_quote = false;
+                    } else {
+                        lines.push(MultilineStringGetlineResult::Empty(begin, end));
+                    }
                 }
-            }
-            MultilineStringGetlineResult::EndsWithTripleQuote(begin, end) => {
-                lines.push(MultilineStringGetlineResult2::EndsWithTripleQuote(
-                    begin, end,
-                ));
-                break;
-            }
-            MultilineStringGetlineResult::EndsWithNewline(begin, end) => {
-                dlog!("ends in newline");
-                lines.push(MultilineStringGetlineResult2::EndsWithNewline(begin, end));
-            }
+                MultilineStringGetlineResult::EndsWithTripleQuote(begin, end) => {
+                    lines.push(MultilineStringGetlineResult::EndsWithTripleQuote(
+                        begin, end,
+                    ));
+                    break;
+                }
+                MultilineStringGetlineResult::EndsWithNewline(begin, end) => {
+                    dlog!("ends in newline");
+                    lines.push(MultilineStringGetlineResult::EndsWithNewline(begin, end));
+                }
+            },
         }
     }
 
@@ -814,12 +805,12 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
             continue;
         }
         match line {
-            MultilineStringGetlineResult2::EndsWithTripleQuote(begin, _)
-            | MultilineStringGetlineResult2::EndsWithNewline(begin, _) => {
+            MultilineStringGetlineResult::EndsWithTripleQuote(begin, _)
+            | MultilineStringGetlineResult::EndsWithNewline(begin, _) => {
                 dlog!("indent' = {}", calculate_indent(lexer, *begin));
                 indent = indent.min(calculate_indent(lexer, *begin))
             }
-            MultilineStringGetlineResult2::Empty(_, _) => {}
+            MultilineStringGetlineResult::Empty(_, _) => {}
         }
     }
     dlog!("indent: {}", indent);
