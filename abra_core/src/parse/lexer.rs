@@ -672,20 +672,6 @@ fn process_escapes_into(s: &mut String, chars: &[char], ctx: &mut StaticsContext
     }
 }
 
-fn is_line_end_from(lexer: &Lexer, p: usize) -> bool {
-    let mut q = p;
-    while let Some(c) = lexer.peek_char(q) {
-        if c == '\n' {
-            return true;
-        }
-        if c != ' ' && c != '\t' {
-            return false;
-        }
-        q += 1;
-    }
-    true
-}
-
 // TODO: just use Option<MultilineStringGetlineResult2>
 enum MultilineStringGetlineResult {
     None,
@@ -728,11 +714,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
     // return true if last line (ends in """)
     // return false if not last line (ends in \n)
     // return None if encountered EOF
-    fn get_line(
-        lexer: &mut Lexer,
-        ctx: &mut StaticsContext,
-        next: &mut usize,
-    ) -> MultilineStringGetlineResult {
+    fn get_line(lexer: &mut Lexer, next: &mut usize) -> MultilineStringGetlineResult {
         let begin = *next;
         // dlog!("begin is {}", lexer.chars[lexer.index + begin]);
         while !lexer.at_triple_quote(*next)
@@ -774,7 +756,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
 
     let mut lines = vec![];
     loop {
-        let line = get_line(lexer, ctx, &mut next);
+        let line = get_line(lexer, &mut next);
         match line {
             MultilineStringGetlineResult::None => {
                 dlog!("none");
@@ -807,7 +789,7 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
 
     dlog!("nlines = {}", lines.len());
 
-    fn calculate_indent(lexer: &mut Lexer, ctx: &mut StaticsContext, mut begin: usize) -> usize {
+    fn calculate_indent(lexer: &mut Lexer, mut begin: usize) -> usize {
         let mut indent = 0;
         while matches!(lexer.peek_char(begin), Some(' ' | '\t')) {
             if matches!(lexer.peek_char(begin), Some(' ')) {
@@ -832,10 +814,10 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
             continue;
         }
         match line {
-            MultilineStringGetlineResult2::EndsWithTripleQuote(begin, end)
-            | MultilineStringGetlineResult2::EndsWithNewline(begin, end) => {
-                dlog!("indent' = {}", calculate_indent(lexer, ctx, *begin));
-                indent = indent.min(calculate_indent(lexer, ctx, *begin))
+            MultilineStringGetlineResult2::EndsWithTripleQuote(begin, _)
+            | MultilineStringGetlineResult2::EndsWithNewline(begin, _) => {
+                dlog!("indent' = {}", calculate_indent(lexer, *begin));
+                indent = indent.min(calculate_indent(lexer, *begin))
             }
             MultilineStringGetlineResult2::Empty(_, _) => {}
         }
@@ -847,7 +829,6 @@ fn handle_multiline_string(lexer: &mut Lexer, ctx: &mut StaticsContext, file_id:
         let begin = line.begin();
         let end = line.end();
 
-        let mut test = "".to_string();
         let slice2 = lexer.index + end;
         let modified_indent = if i == 0 && first_line_has_triple_quote {
             0
