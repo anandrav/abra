@@ -3679,48 +3679,6 @@ fn generate_constraints_expr_funcap_helper(
     );
 }
 
-// fn generate_constraints_expr_funcap_helper_named_args(
-//     ctx: &mut StaticsContext,
-//     polyvar_scope: &PolyvarScope,
-//     args: &[FuncCallArg],
-//     ty_func: TypeVar,
-//     func_node: AstNode,
-//     expr_node: AstNode,
-//     node_ty: TypeVar,
-// ) {
-//     if let Some(PotentialType::Function(_, func_ty_args, _)) = ty_func.single() {
-//         args.iter().zip(func_ty_args).for_each(|(arg, expected)| {
-//             generate_constraints_expr(ctx, polyvar_scope, Mode::ana(expected), &arg.val);
-//         });
-//     }
-//
-//     // arguments
-//     let tys_args: Vec<TypeVar> = args
-//         .iter()
-//         .enumerate()
-//         .map(|(n, arg)| {
-//             let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
-//             let arg_ty = TypeVar::from_node(ctx, arg.val.node());
-//             constrain(ctx, &unknown, &arg_ty);
-//             unknown
-//         })
-//         .collect();
-//
-//     // body
-//     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func_node));
-//     constrain(ctx, &ty_body, &node_ty);
-//
-//     // function type
-//     let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr_node.clone()));
-//
-//     constrain_because(
-//         ctx,
-//         &ty_args_and_body,
-//         &ty_func,
-//         ConstraintReason::FuncCall(expr_node),
-//     );
-// }
-
 fn generate_constraints_fn_arg(ctx: &mut StaticsContext, mode: Mode, arg: &Rc<Identifier>) {
     let ty_arg = TypeVar::from_node(ctx, arg.node());
     handle_ana(ctx, mode, ty_arg);
