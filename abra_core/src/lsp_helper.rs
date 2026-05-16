@@ -672,7 +672,10 @@ fn find_ident_in_type(typ: &Rc<Type>, offset: usize) -> Option<AstNode> {
         return None;
     }
     match &*typ.kind {
-        TypeKind::NamedWithParams(ident, args) => {
+        TypeKind::NamedWithParams {
+            name: ident,
+            params: args,
+        } => {
             if ident.loc.contains_offset(offset) {
                 return Some(ident.node());
             }

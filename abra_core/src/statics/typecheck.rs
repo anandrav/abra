@@ -1249,7 +1249,10 @@ impl AstType {
                     None
                 }
             }
-            TypeKind::NamedWithParams(identifier, args) => {
+            TypeKind::NamedWithParams {
+                name: identifier,
+                params: args,
+            } => {
                 let sargs = args
                     .iter()
                     .map(|arg| arg.to_solved_type(ctx))
@@ -1314,7 +1317,10 @@ impl AstType {
                     TypeVar::empty()
                 }
             }
-            TypeKind::NamedWithParams(ident, params) => {
+            TypeKind::NamedWithParams {
+                name: ident,
+                params,
+            } => {
                 let lookup = ctx.resolution_map.get(&ident.id);
                 match lookup {
                     Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
@@ -1986,7 +1992,10 @@ pub(crate) fn get_substitution_of_typ(
     };
     if let PotentialType::Nominal(_, _, params) = &potential_ty {
         let mut args: Vec<PolytypeDeclaration> = vec![];
-        let TypeKind::NamedWithParams(_, imp_args) = &*original.kind else {
+        let TypeKind::NamedWithParams {
+            params: imp_args, ..
+        } = &*original.kind
+        else {
             return subst;
         };
         for arg in imp_args {

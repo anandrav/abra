@@ -1369,7 +1369,10 @@ fn resolve_names_typ(
         TypeKind::Wildcard => {
             // noop
         }
-        TypeKind::NamedWithParams(identifier, args) => {
+        TypeKind::NamedWithParams {
+            name: identifier,
+            params: args,
+        } => {
             // the Type node and the Identifier node should both resolve to the same thing
             // TODO: if the identifier resolves to a variable that should be an error...
             // TODO: because the variable is not a type, and converting to a TypeVar later will fail
@@ -1456,7 +1459,7 @@ fn resolve_iface_arguments(
 
 fn fqn_of_type(ctx: &mut StaticsContext, ty: &Rc<Type>) -> Option<String> {
     let fqn = match &*ty.kind {
-        TypeKind::NamedWithParams(ident, _) => match fqn_of_id(ctx, ident.id) {
+        TypeKind::NamedWithParams { name: ident, .. } => match fqn_of_id(ctx, ident.id) {
             None => {
                 ctx.errors.push(Error::MustExtendType { node: ty.node() });
                 return None;

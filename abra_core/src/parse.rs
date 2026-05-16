@@ -1595,7 +1595,7 @@ impl Parser {
                         self.parse_delimited_list(TokenTag::Gt, TokenTag::Comma, Self::parse_type)?;
                 }
                 Type {
-                    kind: Rc::new(TypeKind::NamedWithParams(name, args)),
+                    kind: Rc::new(TypeKind::NamedWithParams { name, params: args }),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

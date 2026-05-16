@@ -686,7 +686,10 @@ impl Type {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeKind {
     Poly(Rc<Polytype>),
-    NamedWithParams(Rc<Identifier>, Vec<Rc<Type>>),
+    NamedWithParams {
+        name: Rc<Identifier>,
+        params: Vec<Rc<Type>>,
+    },
     Void,
     Int,
     Float,

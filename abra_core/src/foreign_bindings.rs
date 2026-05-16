@@ -661,7 +661,10 @@ pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
             s.push(')');
             s
         }
-        TypeKind::NamedWithParams(ident, params) => {
+        TypeKind::NamedWithParams {
+            name: ident,
+            params,
+        } => {
             // special-case
             let mut s = ident.v.clone();
             if s == "option" {
