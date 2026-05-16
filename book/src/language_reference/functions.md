@@ -70,6 +70,17 @@ fn display_message() {
 }
 ```
 
+In a `void`-returning function, a bare `return` is shorthand for `return nil`:
+
+```
+fn maybe_log(msg: string, enabled: bool) {
+    if not enabled {
+        return
+    }
+    println(msg)
+}
+```
+
 ### Expression-bodied functions
 
 When the whole function is a single expression, write it after `=` instead of in a block:

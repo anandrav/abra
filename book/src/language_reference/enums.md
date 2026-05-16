@@ -51,6 +51,24 @@ area(.Rectangle(2.0, 4.0))
 area(.Origin)
 ```
 
+### Named fields and defaults
+
+A variant's fields can be named, and named fields can have default values:
+
+```
+type Color =
+    | Rgb(red: int = 0, green: int = 0, blue: int = 0)
+    | Named(string)
+
+let red    = Color.Rgb(red = 255)
+let yellow = Color.Rgb(red = 255, green = 255)
+let teal   = Color.Rgb(green = 128, blue = 128)
+```
+
+At a call site, named arguments may appear in any order, but must come after any positional ones. If every field has a default, you can call the constructor with no arguments at all (`Color.Rgb()`).
+
+A variant's fields must be either all named or all unnamed — you can't mix the two within a single variant.
+
 ### Handling all the variants
 
 Use `match` to do something different for each case. The compiler checks that you've covered every variant, so you can't forget one:

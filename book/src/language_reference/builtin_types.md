@@ -18,12 +18,12 @@ let g = 13 % 5      // 3 (modulo)
 
 ### float
 
-A 64-bit floating-point number. The same arithmetic operators apply, but you can't mix `int` and `float` directly — convert with `int_to_float` or `float_to_int`.
+A 64-bit floating-point number. The same arithmetic operators apply, but you can't mix `int` and `float` directly — convert with `float_from_int` or `int_from_float`.
 
 ```
 let pi = 3.14159
 let area = pi * 2.0 * 2.0
-let n = float_to_int(pi)    // 3
+let n = int_from_float(pi)    // 3
 ```
 
 ### bool
@@ -95,7 +95,7 @@ fn greet(name: string) {
 
 fn maybe_greet(name: string, should_greet: bool) {
     if not should_greet {
-        return nil      // explicit early return
+        return          // explicit early return; shorthand for `return nil`
     }
     println("Hello, " .. name)
 }
