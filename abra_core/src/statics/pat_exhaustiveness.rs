@@ -9,7 +9,7 @@ use crate::ast::{
 use core::panic;
 
 use super::typecheck::Nominal;
-use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
+use super::{Declaration, EnumDef, Error, SolvedType as Type, StaticsContext, TypeKind};
 use crate::vm::AbraInt;
 use std::fmt::{self, Display};
 use std::rc::Rc;
@@ -189,11 +189,11 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
 #[derive(Debug, Clone)]
 struct Matrix {
     rows: Vec<MatrixRow>,
-    types: Vec<SolvedType>,
+    types: Vec<Type>,
 }
 
 impl Matrix {
-    fn new(statics: &StaticsContext, scrutinee_ty: SolvedType, arms: &[Rc<MatchArm>]) -> Self {
+    fn new(statics: &StaticsContext, scrutinee_ty: Type, arms: &[Rc<MatchArm>]) -> Self {
         let types = vec![scrutinee_ty];
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
@@ -228,38 +228,26 @@ impl Matrix {
             | Constructor::Bool(..)
             | Constructor::Wildcard(..) => {}
             Constructor::Product => match &self.types[0] {
-                SolvedType::Tuple(tys) => {
+                Type::Tuple(tys) => {
                     new_types.extend(tys.clone());
                 }
-                SolvedType::Void => {}
+                Type::Void => {}
                 _ => unreachable!(),
             },
             Constructor::Variant((enum_def, idx)) => {
-                let variant = &enum_def.variants[*idx];
-                let variant_data = &variant.fields;
-                // TODO: duplicated
-                let data_ty = match variant_data.len() {
-                    0 => SolvedType::Void,
-                    1 => variant_data[0].ty.to_solved_type(statics).unwrap(),
-                    _ => SolvedType::Tuple(
-                        variant_data
-                            .iter()
-                            .map(|field| field.ty.to_solved_type(statics).unwrap())
-                            .collect(),
-                    ),
-                };
+                let data_ty = data_ty_of_variant(statics, enum_def, *idx);
                 match data_ty {
-                    SolvedType::Never => unreachable!(),
-                    SolvedType::InterfaceOutput(..) => unreachable!(),
-                    SolvedType::Void => {}
-                    SolvedType::Poly(..)
-                    | SolvedType::Bool
-                    | SolvedType::Int
-                    | SolvedType::String
-                    | SolvedType::Float
-                    | SolvedType::Function(..)
-                    | SolvedType::Tuple(_)
-                    | SolvedType::Nominal(..) => new_types.push(data_ty),
+                    Type::Never => unreachable!(),
+                    Type::InterfaceOutput(..) => unreachable!(),
+                    Type::Void => {}
+                    Type::Poly(..)
+                    | Type::Bool
+                    | Type::Int
+                    | Type::String
+                    | Type::Float
+                    | Type::Function(..)
+                    | Type::Tuple(_)
+                    | Type::Nominal(..) => new_types.push(data_ty),
                 }
             }
         }
@@ -352,7 +340,7 @@ impl MatrixRow {
 pub(crate) struct DeconstructedPat {
     ctor: Constructor,
     fields: Vec<DeconstructedPat>,
-    ty: SolvedType,
+    ty: Type,
 }
 
 impl DeconstructedPat {
@@ -414,34 +402,22 @@ impl DeconstructedPat {
         }
     }
 
-    fn field_tys(&self, ctor: &Constructor, statics: &StaticsContext) -> Vec<SolvedType> {
+    fn field_tys(&self, ctor: &Constructor, statics: &StaticsContext) -> Vec<Type> {
         match &self.ty {
-            SolvedType::Int
-            | SolvedType::Float
-            | SolvedType::String
-            | SolvedType::Bool
-            | SolvedType::Void
-            | SolvedType::Poly(..)
-            | SolvedType::InterfaceOutput(..)
-            | SolvedType::Function(..) => vec![],
-            SolvedType::Tuple(tys) => tys.clone(),
-            SolvedType::Nominal(_, _) => match ctor {
+            Type::Int
+            | Type::Float
+            | Type::String
+            | Type::Bool
+            | Type::Void
+            | Type::Poly(..)
+            | Type::InterfaceOutput(..)
+            | Type::Function(..) => vec![],
+            Type::Tuple(tys) => tys.clone(),
+            Type::Nominal(_, _) => match ctor {
                 Constructor::Variant((enum_def, idx)) => {
-                    let variant = &enum_def.variants[*idx];
-                    let variant_data = &variant.fields;
-                    // TODO: duplicated
-                    let data_ty = match variant_data.len() {
-                        0 => SolvedType::Void,
-                        1 => variant_data[0].ty.to_solved_type(statics).unwrap(),
-                        _ => SolvedType::Tuple(
-                            variant_data
-                                .iter()
-                                .map(|field| field.ty.to_solved_type(statics).unwrap())
-                                .collect(),
-                        ),
-                    };
+                    let data_ty = data_ty_of_variant(statics, enum_def, *idx);
 
-                    if !matches!(data_ty, SolvedType::Void) {
+                    if !matches!(data_ty, Type::Void) {
                         vec![data_ty.clone()]
                     } else {
                         vec![]
@@ -452,13 +428,13 @@ impl DeconstructedPat {
                 }
                 _ => panic!("unexpected constructor"),
             },
-            SolvedType::Never => unreachable!(),
+            Type::Never => unreachable!(),
         }
     }
 
-    fn missing_from_ctor(ctor: &Constructor, ty: SolvedType) -> Self {
+    fn missing_from_ctor(ctor: &Constructor, ty: Type) -> Self {
         let fields = match ty.clone() {
-            SolvedType::Tuple(tys) | SolvedType::Nominal(_, tys) => tys
+            Type::Tuple(tys) | Type::Nominal(_, tys) => tys
                 .iter()
                 .map(|ty| DeconstructedPat {
                     ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
@@ -473,6 +449,21 @@ impl DeconstructedPat {
             fields,
             ty,
         }
+    }
+}
+
+fn data_ty_of_variant(statics: &StaticsContext, enum_def: &Rc<EnumDef>, idx: usize) -> Type {
+    let variant = &enum_def.variants[idx];
+    let variant_data = &variant.fields;
+    match variant_data.len() {
+        0 => Type::Void,
+        1 => variant_data[0].ty.to_solved_type(statics).unwrap(),
+        _ => Type::Tuple(
+            variant_data
+                .iter()
+                .map(|field| field.ty.to_solved_type(statics).unwrap())
+                .collect(),
+        ),
     }
 }
 
@@ -553,7 +544,7 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, matrix_tys: &[SolvedType]) -> usize {
+    fn arity(&self, matrix_tys: &[Type]) -> usize {
         match self {
             Constructor::Bool(..)
             | Constructor::Int(..)
@@ -561,8 +552,8 @@ impl Constructor {
             | Constructor::Float(..)
             | Constructor::Wildcard(..) => 0,
             Constructor::Product => match &matrix_tys[0] {
-                SolvedType::Tuple(tys) => tys.len(),
-                SolvedType::Void => 0,
+                Type::Tuple(tys) => tys.len(),
+                Type::Void => 0,
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant((enum_def, idx)) => {
@@ -616,7 +607,7 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &SolvedType) {
+    fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &Type) {
         for witness in self.rows.iter_mut() {
             let len = witness.len();
             let fields: Vec<DeconstructedPat> = witness.drain((len - arity)..).rev().collect();
@@ -630,7 +621,7 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_missing_constructors(&mut self, missing_ctors: &[Constructor], head_ty: &SolvedType) {
+    fn apply_missing_constructors(&mut self, missing_ctors: &[Constructor], head_ty: &Type) {
         if missing_ctors.is_empty() {
             return;
         }
@@ -870,10 +861,10 @@ fn compute_exhaustiveness_and_usefulness(
     ret_witnesses
 }
 
-fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
+fn ctors_for_ty(ty: &Type) -> ConstructorSet {
     match ty {
-        SolvedType::Bool => ConstructorSet::Bool,
-        SolvedType::Nominal(nominal, _) => {
+        Type::Bool => ConstructorSet::Bool,
+        Type::Nominal(nominal, _) => {
             let Nominal::Enum(enum_def) = nominal else { panic!() };
             let variants: Vec<_> = enum_def
                 .variants
@@ -883,14 +874,12 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
                 .collect();
             ConstructorSet::EnumVariants(variants)
         }
-        SolvedType::Tuple(..) => ConstructorSet::Product,
-        SolvedType::Void => ConstructorSet::Product,
-        SolvedType::Int | SolvedType::Float | SolvedType::String | SolvedType::Function(..) => {
-            ConstructorSet::Unlistable
-        }
-        SolvedType::Poly(..) => ConstructorSet::Unlistable,
+        Type::Tuple(..) => ConstructorSet::Product,
+        Type::Void => ConstructorSet::Product,
+        Type::Int | Type::Float | Type::String | Type::Function(..) => ConstructorSet::Unlistable,
+        Type::Poly(..) => ConstructorSet::Unlistable,
 
-        SolvedType::Never => unreachable!(),
-        SolvedType::InterfaceOutput(..) => unreachable!(),
+        Type::Never => unreachable!(),
+        Type::InterfaceOutput(..) => unreachable!(),
     }
 }
