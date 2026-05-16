@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-cacafa2c.js";
+            window.path_to_searchindex_js = "../searchindex-967fed6a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -222,6 +222,14 @@
         println(n)
     }
     // implicitly returns nil
+}
+</code></pre>
+<p>In a <code>void</code>-returning function, a bare <code>return</code> is shorthand for <code>return nil</code>:</p>
+<pre><code>fn maybe_log(msg: string, enabled: bool) {
+    if not enabled {
+        return
+    }
+    println(msg)
 }
 </code></pre>
 <h3 id="expression-bodied-functions"><a class="header" href="#expression-bodied-functions">Expression-bodied functions</a></h3>

@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-cacafa2c.js";
+            window.path_to_searchindex_js = "searchindex-967fed6a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f43184b7.js"></script>
@@ -286,10 +286,10 @@ let f = 2 ^ 8       // 256 (power)
 let g = 13 % 5      // 3 (modulo)
 </code></pre>
 <h3 id="float"><a class="header" href="#float">float</a></h3>
-<p>A 64-bit floating-point number. The same arithmetic operators apply, but you can’t mix <code>int</code> and <code>float</code> directly — convert with <code>int_to_float</code> or <code>float_to_int</code>.</p>
+<p>A 64-bit floating-point number. The same arithmetic operators apply, but you can’t mix <code>int</code> and <code>float</code> directly — convert with <code>float_from_int</code> or <code>int_from_float</code>.</p>
 <pre><code>let pi = 3.14159
 let area = pi * 2.0 * 2.0
-let n = float_to_int(pi)    // 3
+let n = int_from_float(pi)    // 3
 </code></pre>
 <h3 id="bool"><a class="header" href="#bool">bool</a></h3>
 <pre><code>let shield_is_equipped = true
@@ -334,7 +334,7 @@ let person = ("Lancelot", 19)
 
 fn maybe_greet(name: string, should_greet: bool) {
     if not should_greet {
-        return nil      // explicit early return
+        return          // explicit early return; shorthand for `return nil`
     }
     println("Hello, " .. name)
 }
@@ -595,6 +595,14 @@ println(sum)    // 15
     // implicitly returns nil
 }
 </code></pre>
+<p>In a <code>void</code>-returning function, a bare <code>return</code> is shorthand for <code>return nil</code>:</p>
+<pre><code>fn maybe_log(msg: string, enabled: bool) {
+    if not enabled {
+        return
+    }
+    println(msg)
+}
+</code></pre>
 <h3 id="expression-bodied-functions"><a class="header" href="#expression-bodied-functions">Expression-bodied functions</a></h3>
 <p>When the whole function is a single expression, write it after <code>=</code> instead of in a block:</p>
 <pre><code>fn square(x: int) -&gt; int = x * x
@@ -755,6 +763,18 @@ area(.Circle(5.0))
 area(.Rectangle(2.0, 4.0))
 area(.Origin)
 </code></pre>
+<h3 id="named-fields-and-defaults"><a class="header" href="#named-fields-and-defaults">Named fields and defaults</a></h3>
+<p>A variant’s fields can be named, and named fields can have default values:</p>
+<pre><code>type Color =
+    | Rgb(red: int = 0, green: int = 0, blue: int = 0)
+    | Named(string)
+
+let red    = Color.Rgb(red = 255)
+let yellow = Color.Rgb(red = 255, green = 255)
+let teal   = Color.Rgb(green = 128, blue = 128)
+</code></pre>
+<p>At a call site, named arguments may appear in any order, but must come after any positional ones. If every field has a default, you can call the constructor with no arguments at all (<code>Color.Rgb()</code>).</p>
+<p>A variant’s fields must be either all named or all unnamed — you can’t mix the two within a single variant.</p>
 <h3 id="handling-all-the-variants"><a class="header" href="#handling-all-the-variants">Handling all the variants</a></h3>
 <p>Use <code>match</code> to do something different for each case. The compiler checks that you’ve covered every variant, so you can’t forget one:</p>
 <pre><code>let pi = 3.14159

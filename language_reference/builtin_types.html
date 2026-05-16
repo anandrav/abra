@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-cacafa2c.js";
+            window.path_to_searchindex_js = "../searchindex-967fed6a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -190,10 +190,10 @@ let f = 2 ^ 8       // 256 (power)
 let g = 13 % 5      // 3 (modulo)
 </code></pre>
 <h3 id="float"><a class="header" href="#float">float</a></h3>
-<p>A 64-bit floating-point number. The same arithmetic operators apply, but you can’t mix <code>int</code> and <code>float</code> directly — convert with <code>int_to_float</code> or <code>float_to_int</code>.</p>
+<p>A 64-bit floating-point number. The same arithmetic operators apply, but you can’t mix <code>int</code> and <code>float</code> directly — convert with <code>float_from_int</code> or <code>int_from_float</code>.</p>
 <pre><code>let pi = 3.14159
 let area = pi * 2.0 * 2.0
-let n = float_to_int(pi)    // 3
+let n = int_from_float(pi)    // 3
 </code></pre>
 <h3 id="bool"><a class="header" href="#bool">bool</a></h3>
 <pre><code>let shield_is_equipped = true
@@ -238,7 +238,7 @@ let person = ("Lancelot", 19)
 
 fn maybe_greet(name: string, should_greet: bool) {
     if not should_greet {
-        return nil      // explicit early return
+        return          // explicit early return; shorthand for `return nil`
     }
     println("Hello, " .. name)
 }

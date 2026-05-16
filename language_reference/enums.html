@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-cacafa2c.js";
+            window.path_to_searchindex_js = "../searchindex-967fed6a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-f43184b7.js"></script>
@@ -212,6 +212,18 @@ area(.Circle(5.0))
 area(.Rectangle(2.0, 4.0))
 area(.Origin)
 </code></pre>
+<h3 id="named-fields-and-defaults"><a class="header" href="#named-fields-and-defaults">Named fields and defaults</a></h3>
+<p>A variant’s fields can be named, and named fields can have default values:</p>
+<pre><code>type Color =
+    | Rgb(red: int = 0, green: int = 0, blue: int = 0)
+    | Named(string)
+
+let red    = Color.Rgb(red = 255)
+let yellow = Color.Rgb(red = 255, green = 255)
+let teal   = Color.Rgb(green = 128, blue = 128)
+</code></pre>
+<p>At a call site, named arguments may appear in any order, but must come after any positional ones. If every field has a default, you can call the constructor with no arguments at all (<code>Color.Rgb()</code>).</p>
+<p>A variant’s fields must be either all named or all unnamed — you can’t mix the two within a single variant.</p>
 <h3 id="handling-all-the-variants"><a class="header" href="#handling-all-the-variants">Handling all the variants</a></h3>
 <p>Use <code>match</code> to do something different for each case. The compiler checks that you’ve covered every variant, so you can’t forget one:</p>
 <pre><code>let pi = 3.14159
