@@ -2785,29 +2785,19 @@ fn generate_constraints_expr(
 
                 let func_ty = TypeVar::from_node(ctx, func.node().clone());
 
-                // TODO: duplicated above
-                // TODO: this can be even shorter
-                if let Some(reordered_args) = ctx.function_call_arg_order.get(&expr.id).cloned() {
-                    generate_constraints_expr_funcap_helper(
-                        ctx,
-                        polyvar_scope,
-                        &reordered_args,
-                        func_ty,
-                        func.node(),
-                        expr.node(),
-                        node_ty.clone(),
-                    );
-                } else {
-                    generate_constraints_expr_funcap_helper(
-                        ctx,
-                        polyvar_scope,
-                        &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
-                        func_ty,
-                        func.node(),
-                        expr.node(),
-                        node_ty.clone(),
-                    );
-                }
+                let args = match ctx.function_call_arg_order.get(&expr.id).cloned() {
+                    None => &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
+                    Some(args) => &args.clone(),
+                };
+                generate_constraints_expr_funcap_helper(
+                    ctx,
+                    polyvar_scope,
+                    args,
+                    func_ty,
+                    func.node(),
+                    expr.node(),
+                    node_ty.clone(),
+                );
             }
             match &*func.kind {
                 ExprKind::MemberAccess(receiver_expr, fname) => {
@@ -2830,32 +2820,20 @@ fn generate_constraints_expr(
                                 actual_args.push(reciever_expr);
                             }
 
-                            // TODO: this can be even shorter
-                            if let Some(reordered_args) =
-                                ctx.function_call_arg_order.get(&expr.id).cloned()
-                            {
-                                actual_args.extend(reordered_args);
-                                generate_constraints_expr_funcap_helper(
-                                    ctx,
-                                    polyvar_scope,
-                                    &actual_args,
-                                    func_ty,
-                                    fname.node(),
-                                    expr.node(),
-                                    node_ty.clone(),
-                                );
-                            } else {
-                                actual_args.extend(args.iter().cloned().map(|a| a.val));
-                                generate_constraints_expr_funcap_helper(
-                                    ctx,
-                                    polyvar_scope,
-                                    &actual_args,
-                                    func_ty,
-                                    func.node(),
-                                    expr.node(),
-                                    node_ty.clone(),
-                                );
-                            }
+                            let args = match ctx.function_call_arg_order.get(&expr.id).cloned() {
+                                None => args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
+                                Some(args) => args.clone(),
+                            };
+                            actual_args.extend(args);
+                            generate_constraints_expr_funcap_helper(
+                                ctx,
+                                polyvar_scope,
+                                &actual_args,
+                                func_ty,
+                                fname.node(),
+                                expr.node(),
+                                node_ty.clone(),
+                            );
                         };
                     let receiver_has_methods = matches!(
                         ctx.resolution_map.get(&receiver_expr.id),
@@ -3534,30 +3512,20 @@ fn enum_ctor_helper(
     let func_node_ty = TypeVar::from_node(ctx, func_node.clone());
     constrain(ctx, &func_ty, &func_node_ty);
 
-    // TODO: duplicated code
-    // TODO: this can be even shorter
     calculate_func_call_order(ctx, func_node.clone(), args, funcap_node.clone());
-    if let Some(reordered_args) = ctx.function_call_arg_order.get(&funcap_node.id()).cloned() {
-        generate_constraints_expr_funcap_helper(
-            ctx,
-            polyvar_scope,
-            &reordered_args,
-            func_ty,
-            func_node,
-            funcap_node,
-            node_ty.clone(),
-        );
-    } else {
-        generate_constraints_expr_funcap_helper(
-            ctx,
-            polyvar_scope,
-            &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
-            func_ty,
-            func_node,
-            funcap_node,
-            node_ty.clone(),
-        );
-    }
+    let args = match ctx.function_call_arg_order.get(&funcap_node.id()).cloned() {
+        None => &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
+        Some(args) => &args.clone(),
+    };
+    generate_constraints_expr_funcap_helper(
+        ctx,
+        polyvar_scope,
+        args,
+        func_ty,
+        func_node,
+        funcap_node,
+        node_ty.clone(),
+    );
 }
 
 fn generate_constraints_func_decl(
