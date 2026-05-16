@@ -2785,7 +2785,7 @@ fn generate_constraints_expr(
 
                 let func_ty = TypeVar::from_node(ctx, func.node().clone());
 
-                let args = match ctx.function_call_arg_order.get(&expr.id).cloned() {
+                let args = match ctx.function_call_arg_order.get(&expr.id) {
                     None => &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
                     Some(args) => &args.clone(),
                 };
@@ -2820,7 +2820,7 @@ fn generate_constraints_expr(
                                 actual_args.push(reciever_expr);
                             }
 
-                            let args = match ctx.function_call_arg_order.get(&expr.id).cloned() {
+                            let args = match ctx.function_call_arg_order.get(&expr.id) {
                                 None => args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
                                 Some(args) => args.clone(),
                             };
@@ -3513,7 +3513,7 @@ fn enum_ctor_helper(
     constrain(ctx, &func_ty, &func_node_ty);
 
     calculate_func_call_order(ctx, func_node.clone(), args, funcap_node.clone());
-    let args = match ctx.function_call_arg_order.get(&funcap_node.id()).cloned() {
+    let args = match ctx.function_call_arg_order.get(&funcap_node.id()) {
         None => &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
         Some(args) => &args.clone(),
     };
