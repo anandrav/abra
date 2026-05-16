@@ -662,6 +662,7 @@ pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
             s
         }
         TypeKind::NamedWithParams {
+            package: _,
             name: ident,
             params,
         } => {

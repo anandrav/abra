@@ -1587,7 +1587,18 @@ impl Parser {
                 }
             }
             TokenKind::Ident(_) => {
-                let name = self.expect_ident()?;
+                let first_ident = self.expect_ident()?;
+                let second_ident = if self.current_token().tag() == TokenTag::Dot {
+                    self.consume_token();
+                    Some(self.expect_ident()?)
+                } else {
+                    None
+                };
+                let (package, name) = if let Some(second_ident) = second_ident {
+                    (Some(first_ident), second_ident)
+                } else {
+                    (None, first_ident)
+                };
                 let mut args = vec![];
                 if self.current_token().tag() == TokenTag::Lt {
                     self.consume_token();
@@ -1595,7 +1606,11 @@ impl Parser {
                         self.parse_delimited_list(TokenTag::Gt, TokenTag::Comma, Self::parse_type)?;
                 }
                 Type {
-                    kind: Rc::new(TypeKind::NamedWithParams { name, params: args }),
+                    kind: Rc::new(TypeKind::NamedWithParams {
+                        package,
+                        name,
+                        params: args,
+                    }),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

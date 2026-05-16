@@ -1250,15 +1250,16 @@ impl AstType {
                 }
             }
             TypeKind::NamedWithParams {
-                name: identifier,
-                params: args,
+                package: _,
+                name,
+                params,
             } => {
-                let sargs = args
+                let sargs = params
                     .iter()
                     .map(|arg| arg.to_solved_type(ctx))
                     .collect::<Option<Vec<_>>>()?;
 
-                let lookup = ctx.resolution_map.get(&identifier.id)?;
+                let lookup = ctx.resolution_map.get(&name.id)?;
                 match lookup {
                     Declaration::BuiltinType(BuiltinType::Array) => {
                         Some(SolvedType::Nominal(Nominal::Array, sargs))
@@ -1318,10 +1319,11 @@ impl AstType {
                 }
             }
             TypeKind::NamedWithParams {
-                name: ident,
+                package: _,
+                name,
                 params,
             } => {
-                let lookup = ctx.resolution_map.get(&ident.id);
+                let lookup = ctx.resolution_map.get(&name.id);
                 match lookup {
                     Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
                         reason,
@@ -2495,72 +2497,8 @@ fn generate_constraints_expr(
         ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(decl) = lookup
-                && let Some(typ) = match decl {
-                    // these are used to access member functions
-                    // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
-                    Declaration::Namespace(_, _)
-                    | Declaration::Enum(_)
-                    | Declaration::BuiltinType(BuiltinType::Array) => None,
-                    Declaration::Var(node) => {
-                        let tyvar = TypeVar::from_node(ctx, node.clone());
-                        Some(tyvar)
-                    }
-                    Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => {
-                        let fnode = func_def.name.node();
-                        let func_ty = TypeVar::from_node(ctx, fnode.clone());
-                        let inst = func_ty.instantiate(ctx, polyvar_scope, expr.node());
-                        Some(inst)
-                    }
-                    Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
-                        Some(TypeVar::from_node(ctx, f.name.node()))
-                    }
-                    Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => {
-                        Some(TypeVar::from_node(ctx, decl.name.node()))
-                    }
-                    Declaration::Intrinsic(intrinsic) => {
-                        let ty_signature = intrinsic.type_signature();
-                        let ty_signature =
-                            ty_signature.instantiate(ctx, polyvar_scope, expr.node());
-                        Some(ty_signature)
-                    }
-                    // struct constructor.
-                    Declaration::Struct(struct_def) => {
-                        let (def_type, substitution) = TypeVar::make_nominal_and_substitution(
-                            ctx,
-                            Reason::Node(expr.node()),
-                            Nominal::Struct(struct_def.clone()),
-                            expr.node(),
-                        );
-
-                        let fields = struct_def
-                            .fields
-                            .iter()
-                            .map(|f| {
-                                let ty = f.ty.to_typevar(ctx);
-                                ty.subst(&substitution)
-                            })
-                            .collect();
-                        Some(TypeVar::make_func(
-                            fields,
-                            def_type,
-                            Reason::Node(expr.node()),
-                        ))
-                    }
-                    Declaration::InterfaceDef(..)
-                    | Declaration::InterfaceOutputType { .. }
-                    | Declaration::BuiltinType(_)
-                    | Declaration::Polytype(_)
-                    | Declaration::InterfaceMethod { .. }
-                    | Declaration::MemberFunction { .. }
-                    | Declaration::EnumVariant { .. }
-                    | Declaration::StructField { .. } => {
-                        // // a variable expression should not resolve to the above
-                        ctx.errors
-                            .push(Error::UnresolvedIdentifier { node: expr.node() });
-                        None
-                    }
-                }
-                .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
+                && let Some(typ) = tyvar_of_decl(ctx, polyvar_scope, expr, &decl)
+                    .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
                 constrain(ctx, &typ, &node_ty);
             }
@@ -2833,6 +2771,44 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::FuncCall(func, args) => {
+            fn generate_constraints_func_call_typical_case(
+                ctx: &mut StaticsContext,
+                polyvar_scope: &PolyvarScope,
+                func: &Rc<Expr>,
+                args: &[FuncCallArg],
+                expr: &Rc<Expr>,
+                node_ty: TypeVar,
+            ) {
+                calculate_func_call_order(ctx, func.node(), args, expr.node());
+
+                generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, func);
+
+                let func_ty = TypeVar::from_node(ctx, func.node().clone());
+
+                // TODO: duplicated above
+                // TODO: this can be even shorter
+                if let Some(reordered_args) = ctx.function_call_arg_order.get(&expr.id).cloned() {
+                    generate_constraints_expr_funcap_helper(
+                        ctx,
+                        polyvar_scope,
+                        &reordered_args,
+                        func_ty,
+                        func.node(),
+                        expr.node(),
+                        node_ty.clone(),
+                    );
+                } else {
+                    generate_constraints_expr_funcap_helper(
+                        ctx,
+                        polyvar_scope,
+                        &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
+                        func_ty,
+                        func.node(),
+                        expr.node(),
+                        node_ty.clone(),
+                    );
+                }
+            }
             match &*func.kind {
                 ExprKind::MemberAccess(receiver_expr, fname) => {
                     let helper =
@@ -2881,13 +2857,30 @@ fn generate_constraints_expr(
                                 );
                             }
                         };
-                    let receiver_is_namespace = matches!(
+                    let receiver_has_methods = matches!(
                         ctx.resolution_map.get(&receiver_expr.id),
                         Some(Declaration::Struct(_))
                             | Some(Declaration::Enum(_))
                             | Some(Declaration::BuiltinType(BuiltinType::Array))
                             | Some(Declaration::InterfaceDef(_))
                     );
+                    if let Some(Declaration::Namespace(..)) =
+                        ctx.resolution_map.get(&receiver_expr.id).cloned()
+                    {
+                        // qualified struct constructor
+                        // example: my_package.Person("Alan", 35)
+                        //          ^^^^^^^^^^
+
+                        generate_constraints_func_call_typical_case(
+                            ctx,
+                            polyvar_scope,
+                            func,
+                            args,
+                            expr,
+                            node_ty,
+                        );
+                        return;
+                    }
                     match ctx.resolution_map.get(&fname.id).cloned() {
                         Some(Declaration::EnumVariant {
                             e: enum_def,
@@ -2909,7 +2902,7 @@ fn generate_constraints_expr(
                         Some(Declaration::InterfaceMethod {
                             iface: iface_def,
                             method_index: method,
-                        }) if receiver_is_namespace => {
+                        }) if receiver_has_methods => {
                             // fully qualified interface method
                             // example: Clone.clone(my_struct)
                             //          ^^^^^
@@ -2951,7 +2944,7 @@ fn generate_constraints_expr(
                                 node_ty.clone(),
                             );
                         }
-                        Some(Declaration::MemberFunction(func)) if receiver_is_namespace => {
+                        Some(Declaration::MemberFunction(func)) if receiver_has_methods => {
                             // fully qualified struct/enum method
                             // example: Person.fullname(my_person)
                             //          ^^^^^
@@ -3076,36 +3069,14 @@ fn generate_constraints_expr(
                     }
                 }
                 _ => {
-                    calculate_func_call_order(ctx, func.node(), args, expr.node());
-
-                    generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, func);
-
-                    let func_ty = TypeVar::from_node(ctx, func.node().clone());
-
-                    // TODO: duplicated above
-                    // TODO: this can be even shorter
-                    if let Some(reordered_args) = ctx.function_call_arg_order.get(&expr.id).cloned()
-                    {
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope,
-                            &reordered_args,
-                            func_ty,
-                            func.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
-                    } else {
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope,
-                            &args.iter().cloned().map(|a| a.val).collect::<Vec<_>>(),
-                            func_ty,
-                            func.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
-                    }
+                    generate_constraints_func_call_typical_case(
+                        ctx,
+                        polyvar_scope,
+                        func,
+                        args,
+                        expr,
+                        node_ty,
+                    );
                 }
             }
         }
@@ -3160,6 +3131,17 @@ fn generate_constraints_expr(
                     ctx.errors.push(Error::UnresolvedIdentifier {
                         node: member_ident.node(),
                     })
+                }
+            } else if let Some(Declaration::Namespace(_, _)) =
+                ctx.resolution_map.get(&accessed.id).cloned()
+            {
+                if let Some(decl) = ctx.resolution_map.get(&member_ident.id).cloned()
+                    && let Some(typ) = tyvar_of_decl(ctx, polyvar_scope, expr, &decl)
+                        .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
+                {
+                    constrain(ctx, &typ, &node_ty);
+                    let member_ident_ty = TypeVar::from_node(ctx, member_ident.node());
+                    constrain(ctx, &node_ty, &member_ident_ty);
                 }
             } else {
                 // struct field access
@@ -3402,6 +3384,78 @@ fn generate_constraints_expr(
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
     handle_ana(ctx, mode, node_ty);
+}
+
+fn tyvar_of_decl(
+    ctx: &mut StaticsContext,
+    polyvar_scope: &PolyvarScope,
+    expr: &Rc<Expr>,
+    decl: &Declaration,
+) -> Option<TypeVar> {
+    match decl {
+        // these are used to access member functions
+        // TODO: struct could be used to access a member function, maybe if the member function is passed as an argument! Maybe shouldn't use name of struct as constructor anymore
+        Declaration::Namespace(_, _)
+        | Declaration::Enum(_)
+        | Declaration::BuiltinType(BuiltinType::Array) => None,
+        Declaration::Var(node) => {
+            let tyvar = TypeVar::from_node(ctx, node.clone());
+            Some(tyvar)
+        }
+        Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => {
+            let fnode = func_def.name.node();
+            let func_ty = TypeVar::from_node(ctx, fnode.clone());
+            let inst = func_ty.instantiate(ctx, polyvar_scope, expr.node());
+            Some(inst)
+        }
+        Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
+            Some(TypeVar::from_node(ctx, f.name.node()))
+        }
+        Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => {
+            Some(TypeVar::from_node(ctx, decl.name.node()))
+        }
+        Declaration::Intrinsic(intrinsic) => {
+            let ty_signature = intrinsic.type_signature();
+            let ty_signature = ty_signature.instantiate(ctx, polyvar_scope, expr.node());
+            Some(ty_signature)
+        }
+        // struct constructor.
+        Declaration::Struct(struct_def) => {
+            let (def_type, substitution) = TypeVar::make_nominal_and_substitution(
+                ctx,
+                Reason::Node(expr.node()),
+                Nominal::Struct(struct_def.clone()),
+                expr.node(),
+            );
+
+            let fields = struct_def
+                .fields
+                .iter()
+                .map(|f| {
+                    let ty = f.ty.to_typevar(ctx);
+                    ty.subst(&substitution)
+                })
+                .collect();
+            Some(TypeVar::make_func(
+                fields,
+                def_type,
+                Reason::Node(expr.node()),
+            ))
+        }
+        Declaration::InterfaceDef(..)
+        | Declaration::InterfaceOutputType { .. }
+        | Declaration::BuiltinType(_)
+        | Declaration::Polytype(_)
+        | Declaration::InterfaceMethod { .. }
+        | Declaration::MemberFunction { .. }
+        | Declaration::EnumVariant { .. }
+        | Declaration::StructField { .. } => {
+            // // a variable expression should not resolve to the above
+            ctx.errors
+                .push(Error::UnresolvedIdentifier { node: expr.node() });
+            None
+        }
+    }
 }
 
 impl StaticsContext {

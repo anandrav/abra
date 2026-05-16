@@ -1370,15 +1370,34 @@ fn resolve_names_typ(
             // noop
         }
         TypeKind::NamedWithParams {
-            name: identifier,
+            package,
+            name,
             params: args,
         } => {
             // the Type node and the Identifier node should both resolve to the same thing
             // TODO: if the identifier resolves to a variable that should be an error...
             // TODO: because the variable is not a type, and converting to a TypeVar later will fail
             // TODO: for instance let result: result<int, string> = .ok(2), the second `result` will resolve to the first `result`
-            resolve_identifier(ctx, symbol_table, identifier);
-            if let Some(decl) = ctx.resolution_map.get(&identifier.id) {
+            if let Some(package) = package {
+                resolve_identifier(ctx, symbol_table, package);
+                if let Some(Declaration::Namespace(ns, _)) = ctx.resolution_map.get(&package.id) {
+                    if let Some(decl) = ns.try_get_declaration(&name.v) {
+                        ctx.resolution_map.insert(name.id, decl.clone());
+                        ctx.resolution_map.insert(typ.id, decl.clone());
+                    } else {
+                        ctx.errors
+                            .push(Error::UnresolvedIdentifier { node: name.node() });
+                    }
+                } else {
+                    ctx.errors.push(Error::GenericWithNode {
+                        msg: "Must be a namespace".to_string(),
+                        node: package.node(),
+                    });
+                }
+            } else {
+                resolve_identifier(ctx, symbol_table, name);
+            }
+            if let Some(decl) = ctx.resolution_map.get(&name.id) {
                 ctx.resolution_map.insert(typ.id, decl.clone());
             }
 

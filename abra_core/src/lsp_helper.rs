@@ -673,6 +673,7 @@ fn find_ident_in_type(typ: &Rc<Type>, offset: usize) -> Option<AstNode> {
     }
     match &*typ.kind {
         TypeKind::NamedWithParams {
+            package: _,
             name: ident,
             params: args,
         } => {

@@ -687,6 +687,7 @@ impl Type {
 pub(crate) enum TypeKind {
     Poly(Rc<Polytype>),
     NamedWithParams {
+        package: Option<Rc<Identifier>>,
         name: Rc<Identifier>,
         params: Vec<Rc<Type>>,
     },

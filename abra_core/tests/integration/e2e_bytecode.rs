@@ -1247,6 +1247,39 @@ foo(6, 7)
 }
 
 #[test]
+fn import_qualified_access() {
+    let util = r#"
+fn foo(a: int, b) {
+  a * b
+}
+
+type Bar = {
+  asdf: int
+}
+"#;
+    let main = r#"
+use util as util
+
+let bar: util.Bar = util.Bar(34)
+
+util.foo(6, bar.asdf)
+"#;
+    let mut files: HashMap<PathBuf, String> = HashMap::default();
+    files.insert("main.abra".into(), main.into());
+    files.insert("util.abra".into(), util.into());
+    let file_provider = MockFileProvider::new(files);
+
+    let program = compile_bytecode("main.abra", file_provider);
+    if let Err(e) = program {
+        panic!("{}", e);
+    }
+    let mut vm = Vm::new(program.unwrap());
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 204);
+}
+
+#[test]
 fn format_append() {
     let src = r#"
 format_append(format_append(123, true), false)
