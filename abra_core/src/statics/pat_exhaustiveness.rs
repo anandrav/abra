@@ -186,6 +186,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
 
 // Exhaustiveness and usefulness analysis for pattern matching
 // uses same algorithm as Rust compiler: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_pattern_analysis/usefulness/index.html
+// which is inspired by the algorithm in this paper: http://moscova.inria.fr/~maranget/papers/warn/index.html
 #[derive(Debug, Clone)]
 struct Matrix {
     rows: Vec<MatrixRow>,
