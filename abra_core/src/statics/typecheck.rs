@@ -3868,6 +3868,7 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                 }
             }
         }
+        PatKind::Or(left, right) => unimplemented!(),
     }
     let ty_pat = TypeVar::from_node(ctx, pat.node());
     handle_ana(ctx, mode, ty_pat);

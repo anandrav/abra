@@ -378,6 +378,7 @@ impl DeconstructedPat {
                     .collect();
                 Constructor::Variant((enum_def.clone(), *variant))
             }
+            PatKind::Or(left, right) => unimplemented!(),
         };
         Self { ctor, fields, ty }
     }

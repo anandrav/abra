@@ -662,6 +662,7 @@ pub(crate) enum PatKind {
     Bool(bool),
     Str(String),
     Tuple(Vec<Rc<Pat>>),
+    Or(Rc<Pat>, Rc<Pat>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

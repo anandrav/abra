@@ -1313,6 +1313,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: 
                 resolve_names_pat(ctx, symbol_table, pat);
             }
         }
+        PatKind::Or(left, right) => unimplemented!(),
     }
 }
 
@@ -1332,6 +1333,10 @@ fn record_pat_mutability(ctx: &mut StaticsContext, pat: &Rc<Pat>, is_mutable: bo
             for elem in elems {
                 record_pat_mutability(ctx, elem, is_mutable)
             }
+        }
+        PatKind::Or(left, right) => {
+            record_pat_mutability(ctx, left, is_mutable);
+            record_pat_mutability(ctx, right, is_mutable)
         }
     }
 }

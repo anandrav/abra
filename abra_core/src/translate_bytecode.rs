@@ -2365,6 +2365,7 @@ impl Translator {
                     void_case();
                 }
             }
+            PatKind::Or(left, right) => unimplemented!(),
             PatKind::Void => {
                 // noop
             }
@@ -2517,6 +2518,7 @@ impl Translator {
             PatKind::Variant(_prefixes, _, Some(inner)) => {
                 self.collect_locals_pat(inner, locals, mono);
             }
+            PatKind::Or(left, right) => unimplemented!(),
             PatKind::Variant(_prefixes, _, None) => {}
             PatKind::Void
             | PatKind::Bool(..)
