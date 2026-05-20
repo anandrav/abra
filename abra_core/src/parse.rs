@@ -978,6 +978,13 @@ impl Parser {
         })
     }
 
+    fn parse_postfix_op_pat(&mut self) -> Option<PostfixOpPat> {
+        Some(match self.current_token().tag() {
+            TokenTag::VBar => PostfixOpPat::Or,
+            _ => return None,
+        })
+    }
+
     fn try_parse_lambda_expr(&mut self) -> Result<Option<Rc<Expr>>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
@@ -1338,7 +1345,7 @@ impl Parser {
     ) -> Result<Rc<Pat>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
-        Ok(Rc::new(match current.kind {
+        let mut lhs = Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 if self.peek_token(1).kind == TokenKind::Dot {
                     prefixes.push(self.expect_ident()?);
@@ -1476,7 +1483,31 @@ impl Parser {
                 )
                 .into());
             }
-        }))
+        });
+        while let Some(op) = self.parse_postfix_op_pat() {
+            self.handle_postfix_pat(&mut lhs, lo, op)?;
+        }
+        Ok(lhs)
+    }
+
+    fn handle_postfix_pat(
+        &mut self,
+        lhs: &mut Rc<Pat>,
+        lo: usize,
+        op: PostfixOpPat,
+    ) -> Result<(), Box<Error>> {
+        match op {
+            PostfixOpPat::Or => {
+                self.consume_token();
+                let rhs = self.parse_match_pattern()?;
+                *lhs = Rc::new(Pat {
+                    kind: PatKind::Or(lhs.clone(), rhs).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                })
+            }
+        }
+        Ok(())
     }
 
     fn parse_let_pattern(&mut self) -> Result<Rc<Pat>, Box<Error>> {
@@ -1849,4 +1880,8 @@ impl PostfixOp {
             PostfixOp::Try => 15,
         }
     }
+}
+
+enum PostfixOpPat {
+    Or,
 }
