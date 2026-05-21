@@ -2535,8 +2535,8 @@ impl Translator {
             PatKind::Variant(_prefixes, _, Some(inner)) => {
                 self.collect_locals_pat(inner, locals, mono);
             }
-            PatKind::Or(left, right) => {
-                // TODO: collect locals
+            PatKind::Or(left, _right) => {
+                self.collect_locals_pat(left, locals, mono);
             }
             PatKind::Variant(_prefixes, _, None) => {}
             PatKind::Void

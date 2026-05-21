@@ -875,7 +875,7 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
         StmtKind::Let(is_mutable, (pat, ty), expr) => {
             resolve_names_expr(ctx, symbol_table, expr);
 
-            resolve_names_pat(ctx, symbol_table, pat);
+            resolve_names_pat(ctx, symbol_table, pat, true);
             record_pat_mutability(ctx, pat, *is_mutable);
             if let Some(ty_annot) = &ty {
                 resolve_names_typ(ctx, symbol_table, ty_annot, false);
@@ -900,7 +900,7 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
         }
         StmtKind::ForLoop(pat, iterable, statements) => {
             resolve_names_expr(ctx, symbol_table, iterable);
-            resolve_names_pat(ctx, symbol_table, pat);
+            resolve_names_pat(ctx, symbol_table, pat, true);
             let symbol_table = symbol_table.new_scope();
             for statement in statements.iter() {
                 resolve_names_stmt(ctx, &symbol_table, statement);
@@ -969,7 +969,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             resolve_names_expr(ctx, symbol_table, scrut);
             for arm in arms {
                 let symbol_table = symbol_table.new_scope();
-                resolve_names_pat(ctx, &symbol_table, &arm.pat);
+                resolve_names_pat(ctx, &symbol_table, &arm.pat, true);
                 resolve_names_stmt(ctx, &symbol_table, &arm.stmt);
             }
         }
@@ -1269,12 +1269,21 @@ fn resolve_names_fn_arg(symbol_table: &SymbolTable, arg: &Rc<Identifier>) {
     symbol_table.extend_declaration(arg.v.clone(), Declaration::Var(arg.node()));
 }
 
-fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: &Rc<Pat>) {
+fn resolve_names_pat(
+    ctx: &mut StaticsContext,
+    symbol_table: &SymbolTable,
+    pat: &Rc<Pat>,
+    pat_can_extend_symbol_table: bool,
+) {
     match &*pat.kind {
         PatKind::Int(_) | PatKind::Float(_) | PatKind::Wildcard => (),
         PatKind::Void | PatKind::Bool(_) | PatKind::Str(_) => {}
         PatKind::Binding(identifier) => {
-            symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.node()));
+            if pat_can_extend_symbol_table {
+                symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.node()));
+            } else {
+                resolve_symbol(ctx, symbol_table, identifier, pat.node());
+            }
         }
         PatKind::Variant(prefixes, tag, data) => {
             if !prefixes.is_empty() {
@@ -1305,20 +1314,20 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: 
             }
 
             if let Some(data) = data {
-                resolve_names_pat(ctx, symbol_table, data)
+                resolve_names_pat(ctx, symbol_table, data, pat_can_extend_symbol_table);
             };
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
-                resolve_names_pat(ctx, symbol_table, pat);
+                resolve_names_pat(ctx, symbol_table, pat, pat_can_extend_symbol_table);
             }
         }
         PatKind::Or(left, right) => {
             /* TODO can't extend declaration willy-nilly for bindings now. Bindings must be present in both parts of the pattern.
              * It would be simplest to get the list of bindings from the LHS. Pass a flag to this function to indicate if we're allowed to add bindings?
              */
-            resolve_names_pat(ctx, symbol_table, left);
-            resolve_names_pat(ctx, symbol_table, right);
+            resolve_names_pat(ctx, symbol_table, left, pat_can_extend_symbol_table); // TODO: is this correct??
+            resolve_names_pat(ctx, symbol_table, right, false);
         }
     }
 }
