@@ -1755,12 +1755,13 @@ impl Translator {
 
             PatKind::Or(left, right) => {
                 let early_exit_label = make_label("or_pat_early_exit");
-                // duplicate the scrutinee before doing a comparison
-                // self.emit(st, Instr::Duplicate);
                 self.translate_pat_comparison(&scrutinee_ty, left, st, mono);
+                // early exit if result of pat comparison is false
                 self.emit(st, Instr::Duplicate);
                 self.emit(st, Instr::JumpIf(early_exit_label.clone()));
                 self.emit(st, Instr::Pop);
+                // duplicate scrutiny before next comparison
+                self.emit(st, Instr::Duplicate);
                 self.translate_pat_comparison(&scrutinee_ty, right, st, mono);
                 self.emit(st, early_exit_label);
                 return;

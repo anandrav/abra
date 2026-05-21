@@ -502,7 +502,6 @@ match c {
     expect_value(src, 3);
 }
 
-#[ignore]
 #[test]
 fn or_pattern_no_bindings3() {
     let src = r#"

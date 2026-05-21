@@ -281,7 +281,7 @@ impl Vm {
     pub fn pop(&mut self) -> Value {
         match self.value_stack.pop() {
             Some(v) => v,
-            None => panic!("underflow"),
+            None => self.fail(VmErrorKind::InternalError("underflow".to_string())),
         }
     }
 

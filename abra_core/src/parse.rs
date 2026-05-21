@@ -1345,7 +1345,7 @@ impl Parser {
     ) -> Result<Rc<Pat>, Box<Error>> {
         let current = self.current_token();
         let lo = self.current_token().span.lo;
-        let mut lhs = Rc::new(match current.kind {
+        let mut ret = Rc::new(match current.kind {
             TokenKind::Ident(s) => {
                 if self.peek_token(1).kind == TokenKind::Dot {
                     prefixes.push(self.expect_ident()?);
@@ -1485,9 +1485,9 @@ impl Parser {
             }
         });
         while let Some(op) = self.parse_postfix_op_pat() {
-            self.handle_postfix_pat(&mut lhs, lo, op)?;
+            self.handle_postfix_pat(&mut ret, lo, op)?;
         }
-        Ok(lhs)
+        Ok(ret)
     }
 
     fn handle_postfix_pat(
