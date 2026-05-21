@@ -1804,8 +1804,8 @@ impl Translator {
                     else {
                         panic!("expected variable to be defined in node");
                     };
-                    let tag_fail_label = make_label("tag_fail");
-                    let end_label = make_label("endvariant");
+                    let tag_fail_label = make_label(&format!("tagfail_{}", ctor.v));
+                    let end_label = make_label(&format!("endvariant_{}", ctor.v));
 
                     self.emit(st, Instr::DeconstructVariant);
                     self.emit(st, Instr::PushInt(*variant as AbraInt));

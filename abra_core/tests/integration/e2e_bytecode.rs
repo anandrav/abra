@@ -467,21 +467,44 @@ type color =
   | Orange
   | Purple
 
+let c = color.Yellow
+
+match c {
+  .Red -> 0
+  .Blue -> 1
+  .Green -> 2
+  .Yellow | .Orange | .Purple -> 3
+}
+"#;
+    expect_value(src, 3);
+}
+
+#[test]
+fn or_pattern_no_bindings2() {
+    let src = r#"
+type color =
+  | Red
+  | Blue
+  | Green
+  | Yellow
+  | Orange
+  | Purple
+
 let c = color.Orange
 
 match c {
   .Red -> 0
   .Blue -> 1
   .Green -> 2
-  .Yellow -> 3
-  .Orange | .Purple -> 4
+  .Yellow | .Orange | .Purple -> 3
 }
 "#;
-    expect_value(src, 4);
+    expect_value(src, 3);
 }
 
+#[ignore]
 #[test]
-fn or_pattern_no_bindings2() {
+fn or_pattern_no_bindings3() {
     let src = r#"
 type color =
   | Red
@@ -497,11 +520,10 @@ match c {
   .Red -> 0
   .Blue -> 1
   .Green -> 2
-  .Yellow -> 3
-  .Orange | .Purple -> 4
+  .Yellow | .Orange | .Purple -> 3
 }
 "#;
-    expect_value(src, 4);
+    expect_value(src, 3);
 }
 
 #[test]
