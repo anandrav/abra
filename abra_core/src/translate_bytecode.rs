@@ -1752,6 +1752,19 @@ impl Translator {
                 self.emit(st, Instr::PushBool(true));
                 return;
             }
+
+            PatKind::Or(left, right) => {
+                let early_exit_label = make_label("or_pat_early_exit");
+                // duplicate the scrutinee before doing a comparison
+                // self.emit(st, Instr::Duplicate);
+                self.translate_pat_comparison(&scrutinee_ty, left, st, mono);
+                self.emit(st, Instr::Duplicate);
+                self.emit(st, Instr::JumpIf(early_exit_label.clone()));
+                self.emit(st, Instr::Pop);
+                self.translate_pat_comparison(&scrutinee_ty, right, st, mono);
+                self.emit(st, early_exit_label);
+                return;
+            }
             _ => {}
         }
 
@@ -2365,7 +2378,10 @@ impl Translator {
                     void_case();
                 }
             }
-            PatKind::Or(left, right) => unimplemented!(),
+            PatKind::Or(left, right) => {
+                // TODO: handle pat bindings for OR patterns...
+                self.emit(st, Instr::Pop);
+            }
             PatKind::Void => {
                 // noop
             }
@@ -2518,7 +2534,9 @@ impl Translator {
             PatKind::Variant(_prefixes, _, Some(inner)) => {
                 self.collect_locals_pat(inner, locals, mono);
             }
-            PatKind::Or(left, right) => unimplemented!(),
+            PatKind::Or(left, right) => {
+                // TODO: collect locals
+            }
             PatKind::Variant(_prefixes, _, None) => {}
             PatKind::Void
             | PatKind::Bool(..)

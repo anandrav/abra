@@ -457,6 +457,54 @@ match triplet {
 }
 
 #[test]
+fn or_pattern_no_bindings1() {
+    let src = r#"
+type color =
+  | Red
+  | Blue
+  | Green
+  | Yellow
+  | Orange
+  | Purple
+
+let c = color.Orange
+
+match c {
+  .Red -> 0
+  .Blue -> 1
+  .Green -> 2
+  .Yellow -> 3
+  .Orange | .Purple -> 4
+}
+"#;
+    expect_value(src, 4);
+}
+
+#[test]
+fn or_pattern_no_bindings2() {
+    let src = r#"
+type color =
+  | Red
+  | Blue
+  | Green
+  | Yellow
+  | Orange
+  | Purple
+
+let c = color.Purple
+
+match c {
+  .Red -> 0
+  .Blue -> 1
+  .Green -> 2
+  .Yellow -> 3
+  .Orange | .Purple -> 4
+}
+"#;
+    expect_value(src, 4);
+}
+
+#[test]
 fn pattern_tuples_binding() {
     let src = r#"
 let xs = (1, (2, 3))

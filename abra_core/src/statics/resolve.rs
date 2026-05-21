@@ -1313,7 +1313,13 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: 
                 resolve_names_pat(ctx, symbol_table, pat);
             }
         }
-        PatKind::Or(left, right) => unimplemented!(),
+        PatKind::Or(left, right) => {
+            /* TODO can't extend declaration willy-nilly for bindings now. Bindings must be present in both parts of the pattern.
+             * It would be simplest to get the list of bindings from the LHS. Pass a flag to this function to indicate if we're allowed to add bindings?
+             */
+            resolve_names_pat(ctx, symbol_table, left);
+            resolve_names_pat(ctx, symbol_table, right);
+        }
     }
 }
 
