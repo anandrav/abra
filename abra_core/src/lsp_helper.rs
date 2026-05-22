@@ -809,7 +809,12 @@ fn find_ident_in_pat(pat: &Rc<Pat>, offset: usize) -> Option<AstNode> {
             }
             None
         }
-        PatKind::Or(left, right) => unimplemented!(),
+        PatKind::Or(left, right) => {
+            if let Some(node) = find_ident_in_pat(left, offset) {
+                return Some(node);
+            }
+            find_ident_in_pat(right, offset)
+        }
         PatKind::Wildcard
         | PatKind::Binding(_)
         | PatKind::Void
