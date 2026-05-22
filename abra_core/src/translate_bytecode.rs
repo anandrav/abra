@@ -925,18 +925,26 @@ impl Translator {
                     .enumerate()
                     .map(|(i, _)| make_label(&format!("arm{i}")))
                     .collect::<Vec<_>>();
+                let mut or_pat_decisions = HashSet::default();
                 for (i, arm) in arms.iter().enumerate() {
                     let arm_label = arm_labels[i].clone();
 
                     // duplicate the scrutinee before doing a comparison
                     self.emit(st, Instr::Duplicate);
-                    self.translate_pat_comparison(&ty, &arm.pat, st, mono);
+                    self.translate_pat_comparison(&ty, &arm.pat, st, mono, &mut or_pat_decisions);
                     self.emit(st, Instr::JumpIf(arm_label));
                 }
+                let mut or_pat_decisions = HashSet::default();
                 for (i, arm) in arms.iter().enumerate() {
                     self.emit(st, Line::Label(arm_labels[i].clone()));
 
-                    self.handle_pat_binding(&arm.pat, offset_table, st, mono);
+                    self.handle_pat_binding(
+                        &arm.pat,
+                        offset_table,
+                        st,
+                        mono,
+                        &mut or_pat_decisions,
+                    );
 
                     self.translate_stmt(&arm.stmt, true, offset_table, mono, st);
                     if i != arms.len() - 1 {
@@ -1741,6 +1749,7 @@ impl Translator {
         pat: &Rc<Pat>,
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
+        or_pat_decisions: &mut HashSet<NodeId>,
     ) {
         match &*pat.kind {
             PatKind::Wildcard | PatKind::Binding(_) | PatKind::Void => {
@@ -1755,14 +1764,14 @@ impl Translator {
 
             PatKind::Or(left, right) => {
                 let early_exit_label = make_label("or_pat_early_exit");
-                self.translate_pat_comparison(&scrutinee_ty, left, st, mono);
-                // early exit if result of pat comparison is false
+                self.translate_pat_comparison(&scrutinee_ty, left, st, mono, or_pat_decisions);
+                // early exit if result of pat comparison is true
                 self.emit(st, Instr::Duplicate);
                 self.emit(st, Instr::JumpIf(early_exit_label.clone()));
                 self.emit(st, Instr::Pop);
                 // duplicate scrutiny before next comparison
                 self.emit(st, Instr::Duplicate);
-                self.translate_pat_comparison(&scrutinee_ty, right, st, mono);
+                self.translate_pat_comparison(&scrutinee_ty, right, st, mono, or_pat_decisions);
                 self.emit(st, early_exit_label);
                 return;
             }
@@ -1821,7 +1830,13 @@ impl Translator {
                     if let Some(inner) = inner {
                         let inner_ty = self.get_ty(mono, inner.node()).unwrap();
                         if inner_ty != SolvedType::Void {
-                            self.translate_pat_comparison(&inner_ty, inner, st, mono);
+                            self.translate_pat_comparison(
+                                &inner_ty,
+                                inner,
+                                st,
+                                mono,
+                                or_pat_decisions,
+                            );
                             self.emit(st, Instr::Jump(end_label.clone()));
                         } else {
                             void_case();
@@ -1854,7 +1869,7 @@ impl Translator {
                         .collect::<Vec<_>>();
                     for (i, pat) in pats.iter().enumerate() {
                         let ty = &types[i];
-                        self.translate_pat_comparison(ty, pat, st, mono);
+                        self.translate_pat_comparison(ty, pat, st, mono, or_pat_decisions);
                         let is_last = i == pats.len() - 1;
                         self.emit(st, Instr::JumpIfFalse(failure_labels[i].clone()));
                         // SUCCESS
@@ -1908,7 +1923,8 @@ impl Translator {
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr, offset_table, mono, st);
-                self.handle_pat_binding(&pat.0, offset_table, st, mono);
+                let mut or_pat_decisions = HashSet::default();
+                self.handle_pat_binding(&pat.0, offset_table, st, mono, &mut or_pat_decisions);
             }
             StmtKind::Assign(expr1, assign_op, rvalue) => {
                 let rvalue_ty = self.get_ty(mono, rvalue.node()).unwrap();
@@ -2195,7 +2211,8 @@ impl Translator {
                 self.emit(st, Instr::PushInt(0 as AbraInt));
                 self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 self.emit(st, Instr::JumpIfFalse(end_label_iter.clone()));
-                self.handle_pat_binding(pat, offset_table, st, mono);
+                let mut or_pat_decisions = HashSet::default();
+                self.handle_pat_binding(pat, offset_table, st, mono, &mut or_pat_decisions);
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label_break.clone(),
@@ -2343,6 +2360,7 @@ impl Translator {
         locals: &OffsetTable,
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
+        or_pat_decisions: &mut HashSet<NodeId>,
     ) {
         match &*pat.kind {
             PatKind::Binding(_) => {
@@ -2356,7 +2374,7 @@ impl Translator {
             PatKind::Tuple(pats) => {
                 self.emit(st, Instr::DeconstructStruct);
                 for pat in pats.iter() {
-                    self.handle_pat_binding(pat, locals, st, mono);
+                    self.handle_pat_binding(pat, locals, st, mono, or_pat_decisions);
                 }
             }
             PatKind::Variant(_prefixes, _, inner) => {
@@ -2371,7 +2389,7 @@ impl Translator {
                         self.emit(st, Instr::DeconstructVariant);
                         // pop tag
                         self.emit(st, Instr::Pop);
-                        self.handle_pat_binding(inner, locals, st, mono);
+                        self.handle_pat_binding(inner, locals, st, mono, or_pat_decisions);
                     } else {
                         void_case();
                     }
@@ -2380,7 +2398,11 @@ impl Translator {
                 }
             }
             PatKind::Or(left, right) => {
-                // TODO: handle pat bindings for OR patterns...
+                // if !or_pat_decisions.contains(&pat.id) {
+                //     self.handle_pat_binding(left, locals, st, mono, or_pat_decisions);
+                // } else {
+                //     self.handle_pat_binding(right, locals, st, mono, or_pat_decisions);
+                // }
                 self.emit(st, Instr::Pop);
             }
             PatKind::Void => {
