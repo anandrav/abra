@@ -54,12 +54,17 @@ syn match   abraFuncDef         "fn\s\+\w\+" contains=abraFunctionKey
 " (so `.some(x)` stays a variant and `arr.push(x)` isn't styled as a call).
 syn match   abraFuncCall        "\.\@<!\<\w\+\s*("he=e-1
 
-" Variants in enum-like `type Name = variant | variant(T) | ...` definitions.
-" Matches an identifier on a `type` line preceded (on the same line) by `=` or `|`.
-" Variable-width lookbehind; uses `.*` so a `|` after an earlier `(...)` can match.
-" Defined AFTER abraFuncCall so it wins via vim's "last-defined at same position"
-" priority (otherwise abraFuncCall would claim `some(`, `Break(`, etc.).
+" Variants in enum-like type definitions, both single- and multi-line:
+"   type Name = a | b(T) | c
+"   type Name =
+"     | a
+"     | b(T)
+" Two matches: one for variants after `=` or `|` on a `type` line; one for
+" continuation lines beginning with `|`. Both defined AFTER abraFuncCall so they
+" win via vim's "last-defined at same position" rule (else abraFuncCall would
+" claim `some(`, `Atom(`, etc.).
 syn match   abraVariantDecl     "\%(^\s*type\>.*[=|]\s*\)\@<=\<\h\w*\>"
+syn match   abraVariantDecl     "\%(^\s*|\s*\)\@<=\<\h\w*\>"
 
 " --- 2. Regions (Higher Priority - Overrides matchers above) ---
 
