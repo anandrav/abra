@@ -111,9 +111,11 @@ hi def link abraFloat           Float
 hi def link abraBoolean         Boolean
 hi def link abraNil             Constant
 
-" Variants -> Type group (distinct from String/Constant)
-hi def link abraVariant         Type
-hi def link abraVariantDecl     Type
+" Variants -> blue (distinct from String, Type, and Function). Use explicit
+" colors via `hi def` so it's overridable but doesn't depend on the active
+" colorscheme having a particular semantic group mapped to blue.
+hi def abraVariant      ctermfg=Blue guifg=#268bd2
+hi def abraVariantDecl  ctermfg=Blue guifg=#268bd2
 hi def link abraAttribute       PreProc
 
 " Keywords -> Statement (Yellow/Brown)
