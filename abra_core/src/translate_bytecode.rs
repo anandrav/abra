@@ -972,7 +972,7 @@ impl Translator {
                     );
 
                     self.translate_stmt(&arm.stmt, true, offset_table, mono, st);
-                    if i != arms.len() - 1 {
+                    if i != arm_labels.len() - 1 {
                         self.emit(st, Instr::Jump(end_label.clone()));
                     }
                 }

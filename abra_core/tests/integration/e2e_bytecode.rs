@@ -526,7 +526,30 @@ match c {
 }
 
 #[test]
-fn or_pattern_with_bindings() {
+fn or_pattern_with_bindings1() {
+    let src = r#"
+type color =
+  | Red
+  | Blue
+  | Green
+  | Yellow(string)
+  | Orange(string)
+  | Purple(string)
+
+let c = color.Yellow('other')
+
+match c {
+  .Red -> 'red'
+  .Blue -> 'blue'
+  .Green -> 'green'
+  .Yellow(s) | .Orange(s) | .Purple(s) -> s
+}
+"#;
+    expect_value(src, "other");
+}
+
+#[test]
+fn or_pattern_with_bindings2() {
     let src = r#"
 type color =
   | Red
@@ -546,6 +569,52 @@ match c {
 }
 "#;
     expect_value(src, "other");
+}
+
+#[test]
+fn or_pattern_with_mismatched_bindings() {
+    let src = r#"
+type color =
+  | Red
+  | Blue
+  | Green
+  | Yellow(string)
+  | Orange(string)
+  | Purple(string)
+
+let c = color.Purple('other')
+
+match c {
+  .Red -> 'red'
+  .Blue -> 'blue'
+  .Green -> 'green'
+  .Yellow(s) | .Orange(s) | .Purple(some_other_name) -> s
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn or_pattern_with_missing_bindings() {
+    let src = r#"
+type color =
+  | Red
+  | Blue
+  | Green
+  | Yellow(string)
+  | Orange(string)
+  | Purple(string)
+
+let c = color.Purple('other')
+
+match c {
+  .Red -> 'red'
+  .Blue -> 'blue'
+  .Green -> 'green'
+  .Yellow(s) | .Orange(s) | .Purple -> s
+}
+"#;
+    should_fail(src);
 }
 
 #[test]
