@@ -2429,8 +2429,17 @@ impl Translator {
                 let pat_ty = self.get_ty(mono, pat.node()).unwrap();
 
                 if pat_ty != SolvedType::Void {
-                    let idx = locals.get(&pat.id).unwrap();
-                    self.emit(st, Instr::StoreOffset(*idx));
+                    let idx = match locals.get(&pat.id) {
+                        Some(idx) => *idx,
+                        None => {
+                            let Declaration::Var(node) = &self.statics.resolution_map[&pat.id]
+                            else {
+                                unreachable!()
+                            };
+                            *locals.get(&node.id()).unwrap()
+                        }
+                    };
+                    self.emit(st, Instr::StoreOffset(idx));
                 }
             }
             PatKind::Tuple(pats) => {
