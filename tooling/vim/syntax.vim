@@ -19,8 +19,11 @@ syn keyword abraRepeat          while for in
 syn keyword abraStatement       return break continue
 
 " Storage & Structure
-syn keyword abraKeyword         let var interface extend implement impl type outputtype use as except
+syn keyword abraKeyword         let var interface extend implement impl outputtype use as except
 syn keyword abraFunctionKey     fn
+
+" `type` keyword (as match, not keyword, so other matches can coexist)
+syn match   abraTypeKw          "\<type\>"
 
 " Operators
 syn keyword abraOperatorKey     and or not
@@ -47,7 +50,16 @@ syn match   abraVariant         "\%([^A-Za-z0-9_)\]]\|^\)\zs\.[a-zA-Z_]\w*"
 
 " Functions
 syn match   abraFuncDef         "fn\s\+\w\+" contains=abraFunctionKey
-syn match   abraFuncCall        "\w\+\s*("he=e-1
+" Function calls: identifier followed by `(`, but NOT preceded by `.`
+" (so `.some(x)` stays a variant and `arr.push(x)` isn't styled as a call).
+syn match   abraFuncCall        "\.\@<!\<\w\+\s*("he=e-1
+
+" Variants in enum-like `type Name = variant | variant(T) | ...` definitions.
+" Matches an identifier on a `type` line preceded (on the same line) by `=` or `|`.
+" Variable-width lookbehind; uses `.*` so a `|` after an earlier `(...)` can match.
+" Defined AFTER abraFuncCall so it wins via vim's "last-defined at same position"
+" priority (otherwise abraFuncCall would claim `some(`, `Break(`, etc.).
+syn match   abraVariantDecl     "\%(^\s*type\>.*[=|]\s*\)\@<=\<\h\w*\>"
 
 " --- 2. Regions (Higher Priority - Overrides matchers above) ---
 
@@ -58,12 +70,17 @@ syn match   abraShebang         "\%^#!.*"
 syn match   abraEscape          contained "\\[ntr\\'\"]"
 syn match   abraEscape          contained "\\x\x\{2}"
 
-" Strings: triple-quoted multi-line (defined first so vim's longest-match prefers it over "")
-syn region  abraStringMulti     start=+"""+ end=+"""+ contains=abraEscape,@Spell
-" Strings: double-quoted single-line
+" Strings: single-line double- and single-quoted. Defined BEFORE abraStringMulti
+" so the multi-line region (last-defined) wins at `"""` per vim priority rules.
 syn region  abraString          start=+"+  skip=+\\\\\|\\"+  end=+"\|$+ contains=abraEscape,@Spell
-" Strings: single-quoted single-line
 syn region  abraString          start=+'+  skip=+\\\\\|\\'+  end=+'\|$+ contains=abraEscape,@Spell
+" Strings: triple-quoted multi-line
+syn region  abraStringMulti     start=+"""+ end=+"""+ contains=abraEscape,@Spell
+
+" Ensure multi-line strings are recognized when reformatting from anywhere in
+" the file (without this, opening near the end of a long multi-line literal
+" can mis-classify content as code).
+syn sync minlines=50
 
 " TODOs in comments
 syn keyword abraTodo            TODO FIXME XXX contained
@@ -89,8 +106,9 @@ hi def link abraFloat           Float
 hi def link abraBoolean         Boolean
 hi def link abraNil             Constant
 
-" Variants -> Constant (Pink/Magenta)
-hi def link abraVariant         Constant
+" Variants -> Type group (distinct from String/Constant)
+hi def link abraVariant         Type
+hi def link abraVariantDecl     Type
 hi def link abraAttribute       PreProc
 
 " Keywords -> Statement (Yellow/Brown)
@@ -98,6 +116,7 @@ hi def link abraConditional     Conditional
 hi def link abraRepeat          Repeat
 hi def link abraStatement       Statement
 hi def link abraKeyword         Statement
+hi def link abraTypeKw          Statement
 hi def link abraFunctionKey     Statement
 hi def link abraOperatorKey     Operator
 hi def link abraOperator        Operator
