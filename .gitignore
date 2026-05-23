@@ -1,10 +1,13 @@
+# Rust
 debug/
 target/
 Cargo.lock
 **/*.rs.bk
-
 .cargo/
 vendor/
 
 temp/
 flamegraph.svg
+
+# IDE
+.idea/
