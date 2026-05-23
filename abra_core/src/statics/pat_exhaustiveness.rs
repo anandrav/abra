@@ -20,6 +20,12 @@ pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,
     files: &[Rc<FileAst>],
 ) {
+    // Skip if earlier passes already reported errors — malformed patterns
+    // (e.g. or-patterns with missing/mismatched bindings) can leave the AST
+    // in a state where exhaustiveness analysis would panic.
+    if !ctx.errors.is_empty() {
+        return;
+    }
     for file in files {
         check_pattern_exhaustiveness_file(ctx, file);
     }
@@ -220,13 +226,15 @@ impl Matrix {
         if let Constructor::Or = ctor {
             let mut rows = vec![];
             for (i, old_row) in self.rows.iter().enumerate() {
-                for expanded_row in old_row.expand_or_pat_once() {
+                for mut expanded_row in old_row.expand_or_pats() {
+                    expanded_row.parent_row = i;
+                    expanded_row.useful = false;
                     rows.push(expanded_row);
                 }
             }
             return Matrix {
                 rows,
-                types: self.types.clone()
+                types: self.types.clone(),
             };
         }
 
@@ -262,7 +270,7 @@ impl Matrix {
                     | Type::Nominal(..) => new_types.push(data_ty),
                 }
             }
-            Constructor::Or => unreachable!()
+            Constructor::Or => unreachable!(),
         }
 
         new_types.extend(expanded.types[1..].iter().cloned());
@@ -292,7 +300,7 @@ impl Matrix {
         }
         Matrix {
             rows,
-            types: self.types.clone()
+            types: self.types.clone(),
         }
     }
 
@@ -352,46 +360,21 @@ impl MatrixRow {
         }
     }
 
-    fn expand_or_pat_once(&self) -> Vec<MatrixRow> {
-        if let Constructor::Or = self.head().ctor {
-            let mut ret = vec![];
-            for (i, field) in self.pats.iter().enumerate() {
-                let mut new_row = self.clone();
-                new_row.pats[0] = field.clone();
-                ret.push(new_row);
-            }
-            return ret;
-        }
-        vec![self.clone()]
-    }
-
     fn expand_or_pats(&self) -> Vec<MatrixRow> {
         if let Constructor::Or = self.head().ctor {
             let mut ret = vec![];
-            for (i, pat) in self.pats[0].fields.iter().enumerate() {
+            for pat in self.pats[0].fields.iter() {
                 let mut new_row = self.clone();
                 new_row.pats[0] = pat.clone();
-                if i == 0 {
-                    ret.push(new_row);
-                } else {
-                    for row in new_row.expand_or_pats() {
-                        ret.push(row);
-                    }
+                for row in new_row.expand_or_pats() {
+                    ret.push(row);
                 }
             }
-
-            // println!("before: {}", self);
-            // println!("self.pats.len() = {}", self.pats.len());
-            // println!("after: ");
-            // for row in &ret {
-            //     println!("- {}", row);
-            // }
             return ret;
         }
         vec![self.clone()]
     }
 }
-
 
 impl Display for MatrixRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -450,7 +433,10 @@ impl DeconstructedPat {
                 Constructor::Variant((enum_def.clone(), *variant))
             }
             PatKind::Or(left, right) => {
-                fields = vec![DeconstructedPat::from_ast_pat(statics, left), DeconstructedPat::from_ast_pat(statics, right)];
+                fields = vec![
+                    DeconstructedPat::from_ast_pat(statics, left),
+                    DeconstructedPat::from_ast_pat(statics, right),
+                ];
                 Constructor::Or
             }
         };
@@ -613,7 +599,10 @@ impl Constructor {
             (Constructor::Float(f1), Constructor::Float(f2)) => f1 == f2,
             (Constructor::String(s1), Constructor::String(s2)) => s1 == s2,
             (Constructor::Product, Constructor::Product) => true,
-            _ => panic!("comparing incompatible constructors: {} and {}", self, other),
+            _ => panic!(
+                "comparing incompatible constructors: {} and {}",
+                self, other
+            ),
         }
     }
 
@@ -906,6 +895,19 @@ fn compute_exhaustiveness_and_usefulness(
             WitnessMatrix::empty()
         };
     };
+
+    // If any row has an or-pattern at its head, expand it into separate rows first
+    // so each alternative is processed as its own constructor.
+    let has_or = matrix
+        .rows
+        .iter()
+        .any(|r| matches!(r.pats[0].ctor, Constructor::Or));
+    if has_or {
+        let mut specialized = matrix.specialize(&Constructor::Or, 0, statics);
+        let witnesses = compute_exhaustiveness_and_usefulness(statics, &mut specialized);
+        matrix.unspecialize(specialized);
+        return witnesses;
+    }
 
     let mut ret_witnesses = WitnessMatrix::empty();
 
