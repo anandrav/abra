@@ -43,7 +43,7 @@ fn main() {
       if not action_taken {
         match event {
           .Key(key, _) -> match key {
-            .Char('q') -> quit = true
+            .Char('q') |
             .Esc -> quit = true
             .Char('p') -> world.paused = not(world.paused)
             .Char('r') -> world = init_world(w, h) // Reset

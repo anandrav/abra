@@ -56,17 +56,17 @@ fn main() {
       let event = get_event()
       match event {
         .Key(key, _) -> match key {
-          .Char('q') -> quit = true
+          .Char('q') |
           .Esc -> quit = true
 
           // Pan keys
-          .Up -> view.center_im = view.center_im - (view.scale * 2.0)
+          .Up |
           .Char('w') -> view.center_im = view.center_im - (view.scale * 2.0)
-          .Down -> view.center_im = view.center_im + (view.scale * 2.0)
+          .Down |
           .Char('s') -> view.center_im = view.center_im + (view.scale * 2.0)
-          .Left -> view.center_re = view.center_re - (view.scale * 2.0)
+          .Left |
           .Char('a') -> view.center_re = view.center_re - (view.scale * 2.0)
-          .Right -> view.center_re = view.center_re + (view.scale * 2.0)
+          .Right |
           .Char('d') -> view.center_re = view.center_re + (view.scale * 2.0)
 
           // Zoom in

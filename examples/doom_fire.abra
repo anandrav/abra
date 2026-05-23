@@ -64,7 +64,7 @@ fn main() {
     while poll_event(1) {
       match get_event() {
         .Key(key, _) -> match key {
-          .Char('q') -> quit = true
+          .Char('q') |
           .Esc -> quit = true
           _ -> {}
         }
