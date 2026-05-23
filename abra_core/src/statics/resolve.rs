@@ -1323,11 +1323,105 @@ fn resolve_names_pat(
             }
         }
         PatKind::Or(left, right) => {
-            /* TODO can't extend declaration willy-nilly for bindings now. Bindings must be present in both parts of the pattern.
-             * It would be simplest to get the list of bindings from the LHS. Pass a flag to this function to indicate if we're allowed to add bindings?
-             */
-            resolve_names_pat(ctx, symbol_table, left, pat_can_extend_symbol_table); // TODO: is this correct??
+            // resolve names. Only the pattern on the left of the OR can extend with new symbols
+            resolve_names_pat(ctx, symbol_table, left, pat_can_extend_symbol_table);
             resolve_names_pat(ctx, symbol_table, right, false);
+
+            // ensure that patterns on the right of the OR introduce all bindings introduced
+            // by the pattern on the left of the OR
+            let mut required_bindings = HashSet::default();
+            gather_required_bindings(ctx, left, &mut required_bindings);
+
+            let mut or_pattern_subtrees = vec![];
+            gather_or_pattern_subtrees(ctx, right, &mut or_pattern_subtrees);
+
+            for subtree in or_pattern_subtrees {
+                let mut required_bindings = required_bindings.clone();
+                record_bindings_introduced(ctx, &subtree, &mut required_bindings);
+
+                if !required_bindings.is_empty() {
+                    ctx.errors.push(Error::GenericWithNode {
+                        msg: "This pattern does not introduce all required variables".to_string(),
+                        node: subtree.node(),
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn record_bindings_introduced(
+    ctx: &mut StaticsContext,
+    pat: &Rc<Pat>,
+    required_bindings: &mut HashSet<String>,
+) {
+    match &*pat.kind {
+        PatKind::Int(_) | PatKind::Float(_) | PatKind::Wildcard => (),
+        PatKind::Void | PatKind::Bool(_) | PatKind::Str(_) => {}
+        PatKind::Binding(identifier) => {
+            required_bindings.remove(identifier);
+        }
+        PatKind::Variant(_, _, data) => {
+            if let Some(data) = data {
+                record_bindings_introduced(ctx, data, required_bindings);
+            };
+        }
+        PatKind::Tuple(pats) => {
+            for pat in pats {
+                record_bindings_introduced(ctx, pat, required_bindings);
+            }
+        }
+        PatKind::Or(left, right) => {
+            record_bindings_introduced(ctx, left, required_bindings);
+            record_bindings_introduced(ctx, right, required_bindings);
+        }
+    }
+}
+
+fn gather_required_bindings(
+    ctx: &mut StaticsContext,
+    pat: &Rc<Pat>,
+    required_bindings: &mut HashSet<String>,
+) {
+    match &*pat.kind {
+        PatKind::Int(_)
+        | PatKind::Float(_)
+        | PatKind::Wildcard
+        | PatKind::Void
+        | PatKind::Bool(_)
+        | PatKind::Str(_) => {}
+        PatKind::Binding(identifier) => {
+            required_bindings.insert(identifier.clone());
+        }
+        PatKind::Variant(_, _, data) => {
+            if let Some(data) = data {
+                gather_required_bindings(ctx, data, required_bindings);
+            };
+        }
+        PatKind::Tuple(pats) => {
+            for pat in pats {
+                gather_required_bindings(ctx, pat, required_bindings);
+            }
+        }
+        PatKind::Or(left, right) => {
+            gather_required_bindings(ctx, left, required_bindings);
+            gather_required_bindings(ctx, right, required_bindings);
+        }
+    }
+}
+
+fn gather_or_pattern_subtrees(
+    ctx: &mut StaticsContext,
+    pat: &Rc<Pat>,
+    subtrees: &mut Vec<Rc<Pat>>,
+) {
+    match &*pat.kind {
+        PatKind::Or(left, right) => {
+            subtrees.push(left.clone());
+            gather_or_pattern_subtrees(ctx, right, subtrees);
+        }
+        _ => {
+            subtrees.push(pat.clone());
         }
     }
 }

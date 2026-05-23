@@ -618,6 +618,29 @@ match c {
 }
 
 #[test]
+fn or_pattern_with_missing_bindings2() {
+    let src = r#"
+type color =
+  | Red
+  | Blue
+  | Green
+  | Yellow(string)
+  | Orange(string)
+  | Purple(string)
+
+let c = color.Purple('other')
+
+match c {
+  .Red -> 'red'
+  .Blue -> 'blue'
+  .Green -> 'green'
+  .Yellow(s) | .Orange(s) | .Purple(_) -> s
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
 fn pattern_tuples_binding() {
     let src = r#"
 let xs = (1, (2, 3))
