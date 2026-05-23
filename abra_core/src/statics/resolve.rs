@@ -1330,14 +1330,14 @@ fn resolve_names_pat(
             // ensure that patterns on the right of the OR introduce all bindings introduced
             // by the pattern on the left of the OR
             let mut required_bindings = HashSet::default();
-            gather_required_bindings(ctx, left, &mut required_bindings);
+            gather_required_bindings(left, &mut required_bindings);
 
             let mut or_pattern_subtrees = vec![];
-            gather_or_pattern_subtrees(ctx, right, &mut or_pattern_subtrees);
+            gather_or_pattern_subtrees(right, &mut or_pattern_subtrees);
 
             for subtree in or_pattern_subtrees {
                 let mut required_bindings = required_bindings.clone();
-                record_bindings_introduced(ctx, &subtree, &mut required_bindings);
+                record_bindings_introduced(&subtree, &mut required_bindings);
 
                 if !required_bindings.is_empty() {
                     ctx.errors.push(Error::GenericWithNode {
@@ -1350,11 +1350,7 @@ fn resolve_names_pat(
     }
 }
 
-fn record_bindings_introduced(
-    ctx: &mut StaticsContext,
-    pat: &Rc<Pat>,
-    required_bindings: &mut HashSet<String>,
-) {
+fn record_bindings_introduced(pat: &Rc<Pat>, required_bindings: &mut HashSet<String>) {
     match &*pat.kind {
         PatKind::Int(_) | PatKind::Float(_) | PatKind::Wildcard => (),
         PatKind::Void | PatKind::Bool(_) | PatKind::Str(_) => {}
@@ -1363,26 +1359,22 @@ fn record_bindings_introduced(
         }
         PatKind::Variant(_, _, data) => {
             if let Some(data) = data {
-                record_bindings_introduced(ctx, data, required_bindings);
+                record_bindings_introduced(data, required_bindings);
             };
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
-                record_bindings_introduced(ctx, pat, required_bindings);
+                record_bindings_introduced(pat, required_bindings);
             }
         }
         PatKind::Or(left, right) => {
-            record_bindings_introduced(ctx, left, required_bindings);
-            record_bindings_introduced(ctx, right, required_bindings);
+            record_bindings_introduced(left, required_bindings);
+            record_bindings_introduced(right, required_bindings);
         }
     }
 }
 
-fn gather_required_bindings(
-    ctx: &mut StaticsContext,
-    pat: &Rc<Pat>,
-    required_bindings: &mut HashSet<String>,
-) {
+fn gather_required_bindings(pat: &Rc<Pat>, required_bindings: &mut HashSet<String>) {
     match &*pat.kind {
         PatKind::Int(_)
         | PatKind::Float(_)
@@ -1395,30 +1387,26 @@ fn gather_required_bindings(
         }
         PatKind::Variant(_, _, data) => {
             if let Some(data) = data {
-                gather_required_bindings(ctx, data, required_bindings);
+                gather_required_bindings(data, required_bindings);
             };
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
-                gather_required_bindings(ctx, pat, required_bindings);
+                gather_required_bindings(pat, required_bindings);
             }
         }
         PatKind::Or(left, right) => {
-            gather_required_bindings(ctx, left, required_bindings);
-            gather_required_bindings(ctx, right, required_bindings);
+            gather_required_bindings(left, required_bindings);
+            gather_required_bindings(right, required_bindings);
         }
     }
 }
 
-fn gather_or_pattern_subtrees(
-    ctx: &mut StaticsContext,
-    pat: &Rc<Pat>,
-    subtrees: &mut Vec<Rc<Pat>>,
-) {
+fn gather_or_pattern_subtrees(pat: &Rc<Pat>, subtrees: &mut Vec<Rc<Pat>>) {
     match &*pat.kind {
         PatKind::Or(left, right) => {
             subtrees.push(left.clone());
-            gather_or_pattern_subtrees(ctx, right, subtrees);
+            gather_or_pattern_subtrees(right, subtrees);
         }
         _ => {
             subtrees.push(pat.clone());
