@@ -1943,6 +1943,7 @@ let n = match person {
   ("Bob", nil, nil, nil, nil, 50) -> 0
   ("Alice", nil, nil, nil, nil, 20) -> 0
   ("Alice", nil, nil, nil, nil, 30) -> 1
+  _ -> 2
 }
 n
 "#;

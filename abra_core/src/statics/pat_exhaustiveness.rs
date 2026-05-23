@@ -114,11 +114,6 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
             if statics.solution_of_node(scrutiny.node()).is_none() {
                 return;
             }
-            for arm in arms {
-                if statics.solution_of_node(arm.node()).is_none() {
-                    return;
-                }
-            }
 
             match_expr_exhaustive_check(statics, expr.node(), scrutiny, arms);
         }
