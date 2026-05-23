@@ -13,6 +13,7 @@ use super::{Declaration, EnumDef, Error, SolvedType as Type, StaticsContext, Typ
 use crate::vm::AbraInt;
 use std::fmt::{self, Display};
 use std::rc::Rc;
+use strum_macros::Display;
 use utils::hash::HashSet;
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
@@ -216,6 +217,21 @@ impl Matrix {
         ctor_arity: usize,
         statics: &StaticsContext,
     ) -> Matrix {
+        if let Constructor::Or = ctor {
+            let mut rows = vec![];
+            for (i, old_row) in self.rows.iter().enumerate() {
+                for expanded_row in old_row.expand_or_pat_once() {
+                    rows.push(expanded_row);
+                }
+            }
+            return Matrix {
+                rows,
+                types: self.types.clone()
+            };
+        }
+
+        let expanded = self.expand_or_pats();
+
         let mut new_types = Vec::new();
         match ctor {
             Constructor::Int(..)
@@ -223,7 +239,7 @@ impl Matrix {
             | Constructor::String(..)
             | Constructor::Bool(..)
             | Constructor::Wildcard(..) => {}
-            Constructor::Product => match &self.types[0] {
+            Constructor::Product => match &expanded.types[0] {
                 Type::Tuple(tys) => {
                     new_types.extend(tys.clone());
                 }
@@ -246,15 +262,16 @@ impl Matrix {
                     | Type::Nominal(..) => new_types.push(data_ty),
                 }
             }
+            Constructor::Or => unreachable!()
         }
 
-        new_types.extend(self.types[1..].iter().cloned());
+        new_types.extend(expanded.types[1..].iter().cloned());
 
         let mut new_matrix = Matrix {
             rows: vec![],
             types: new_types,
         };
-        for (i, row) in self.rows.iter().enumerate() {
+        for (i, row) in expanded.rows.iter().enumerate() {
             if row.pats.is_empty() {
                 panic!("no pats in row");
             }
@@ -264,6 +281,19 @@ impl Matrix {
             }
         }
         new_matrix
+    }
+
+    fn expand_or_pats(&self) -> Matrix {
+        let mut rows = vec![];
+        for (i, old_row) in self.rows.iter().enumerate() {
+            for expanded_row in old_row.expand_or_pats() {
+                rows.push(expanded_row);
+            }
+        }
+        Matrix {
+            rows,
+            types: self.types.clone()
+        }
     }
 
     fn unspecialize(&mut self, specialized: Self) {
@@ -278,16 +308,7 @@ impl Display for Matrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
         for row in self.rows.iter() {
-            if row.pats.is_empty() {
-                write!(f, "()")?;
-            }
-            for (i, pat) in row.pats.iter().enumerate() {
-                if i != 0 {
-                    write!(f, ", ")?;
-                }
-                write!(f, "{pat}")?;
-            }
-            writeln!(f)?;
+            writeln!(f, "{}", row)?;
         }
         Ok(())
     }
@@ -329,6 +350,61 @@ impl MatrixRow {
             parent_row,
             useful: false,
         }
+    }
+
+    fn expand_or_pat_once(&self) -> Vec<MatrixRow> {
+        if let Constructor::Or = self.head().ctor {
+            let mut ret = vec![];
+            for (i, field) in self.pats.iter().enumerate() {
+                let mut new_row = self.clone();
+                new_row.pats[0] = field.clone();
+                ret.push(new_row);
+            }
+            return ret;
+        }
+        vec![self.clone()]
+    }
+
+    fn expand_or_pats(&self) -> Vec<MatrixRow> {
+        if let Constructor::Or = self.head().ctor {
+            let mut ret = vec![];
+            for (i, pat) in self.pats[0].fields.iter().enumerate() {
+                let mut new_row = self.clone();
+                new_row.pats[0] = pat.clone();
+                if i == 0 {
+                    ret.push(new_row);
+                } else {
+                    for row in new_row.expand_or_pats() {
+                        ret.push(row);
+                    }
+                }
+            }
+
+            // println!("before: {}", self);
+            // println!("self.pats.len() = {}", self.pats.len());
+            // println!("after: ");
+            // for row in &ret {
+            //     println!("- {}", row);
+            // }
+            return ret;
+        }
+        vec![self.clone()]
+    }
+}
+
+
+impl Display for MatrixRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.pats.is_empty() {
+            write!(f, "()")?;
+        }
+        for (i, pat) in self.pats.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{pat}")?;
+        }
+        Ok(())
     }
 }
 
@@ -373,7 +449,10 @@ impl DeconstructedPat {
                     .collect();
                 Constructor::Variant((enum_def.clone(), *variant))
             }
-            PatKind::Or(left, right) => unimplemented!(),
+            PatKind::Or(left, right) => {
+                fields = vec![DeconstructedPat::from_ast_pat(statics, left), DeconstructedPat::from_ast_pat(statics, right)];
+                Constructor::Or
+            }
         };
         Self { ctor, fields, ty }
     }
@@ -482,6 +561,16 @@ impl Display for DeconstructedPat {
                 }
                 write!(f, ")")
             }
+            Constructor::Or => {
+                write!(f, "(")?;
+                for (i, field) in self.fields.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " | ")?;
+                    }
+                    write!(f, "{field}")?;
+                }
+                write!(f, ")")
+            }
             Constructor::Variant((enum_def, idx)) => {
                 let variant_name = &enum_def.variants[*idx].ctor.v;
                 write!(f, "{variant_name}")?;
@@ -500,7 +589,7 @@ impl Display for DeconstructedPat {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Display)]
 enum Constructor {
     Wildcard(WildcardReason), // user-created wildcard pattern
     Bool(bool),
@@ -509,6 +598,7 @@ enum Constructor {
     String(String),
     Product, // tuples, including unit
     Variant(EnumVariant),
+    Or,
 }
 
 impl Constructor {
@@ -523,7 +613,7 @@ impl Constructor {
             (Constructor::Float(f1), Constructor::Float(f2)) => f1 == f2,
             (Constructor::String(s1), Constructor::String(s2)) => s1 == s2,
             (Constructor::Product, Constructor::Product) => true,
-            _ => panic!("comparing incompatible constructors"),
+            _ => panic!("comparing incompatible constructors: {} and {}", self, other),
         }
     }
 
@@ -564,6 +654,7 @@ impl Constructor {
                     n => *n,
                 }
             }
+            Constructor::Or => unimplemented!(),
         }
     }
 
