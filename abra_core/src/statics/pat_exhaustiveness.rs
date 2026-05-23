@@ -293,7 +293,7 @@ impl Matrix {
 
     fn expand_or_pats(&self) -> Matrix {
         let mut rows = vec![];
-        for (i, old_row) in self.rows.iter().enumerate() {
+        for old_row in self.rows.iter() {
             for expanded_row in old_row.expand_or_pats() {
                 rows.push(expanded_row);
             }
