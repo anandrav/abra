@@ -3871,10 +3871,6 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
         PatKind::Or(left, right) => {
             generate_constraints_pat(ctx, mode.clone(), left);
             generate_constraints_pat(ctx, mode.clone(), right);
-            let ty_left = TypeVar::from_node(ctx, left.node());
-            constrain(ctx, &ty_pat, &ty_left);
-            let ty_right = TypeVar::from_node(ctx, right.node());
-            constrain(ctx, &ty_pat, &ty_right);
         }
     }
     let ty_pat = TypeVar::from_node(ctx, pat.node());

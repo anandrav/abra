@@ -43,8 +43,8 @@ type Status =
 implement Equal for Status {
   fn equal(s1: Status, s2: Status) {
     match (s1, s2) {
-      (.Playing, .Playing) -> true
-      (.Lost, .Lost) -> true
+      (.Playing, .Playing) |
+      (.Lost, .Lost) |
       (.Won, .Won) -> true
       _ -> false
     }
@@ -103,15 +103,15 @@ fn main() {
       let snake = st.snake
       match term.get_event() {
         .Key(key, _) -> match key {
-          .Left -> snake.direction = .Left
+          .Left |
           .Char('a') -> snake.direction = .Left
-          .Right -> snake.direction = .Right
+          .Right |
           .Char('d') -> snake.direction = .Right
-          .Up -> snake.direction = .Up
+          .Up |
           .Char('w') -> snake.direction = .Up
-          .Down -> snake.direction = .Down
+          .Down |
           .Char('s') -> snake.direction = .Down
-          .Char('q') -> st.quit = true
+          .Char('q') |
           .Esc -> st.quit = true
           _ -> {}
         }

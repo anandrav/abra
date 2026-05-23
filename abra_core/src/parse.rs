@@ -1336,6 +1336,7 @@ impl Parser {
     }
 
     fn parse_match_pattern(&mut self) -> Result<Rc<Pat>, Box<Error>> {
+        self.skip_newlines();
         self.parse_match_pattern_with_prefixes(vec![])
     }
 
