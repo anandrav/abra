@@ -954,8 +954,7 @@ fn compute_exhaustiveness_and_usefulness(
 fn ctors_for_ty(ty: &Type) -> ConstructorSet {
     match ty {
         Type::Bool => ConstructorSet::Bool,
-        Type::Nominal(nominal, _) => {
-            let Nominal::Enum(enum_def) = nominal else { panic!() };
+        Type::Nominal(Nominal::Enum(enum_def), _) => {
             let variants: Vec<_> = enum_def
                 .variants
                 .iter()
@@ -964,6 +963,9 @@ fn ctors_for_ty(ty: &Type) -> ConstructorSet {
                 .collect();
             ConstructorSet::EnumVariants(variants)
         }
+        // Structs and arrays have no deconstruction pattern syntax, so they
+        // can only be matched with a wildcard/binding — treat as Unlistable.
+        Type::Nominal(Nominal::Struct(_) | Nominal::Array, _) => ConstructorSet::Unlistable,
         Type::Tuple(..) => ConstructorSet::Product,
         Type::Void => ConstructorSet::Product,
         Type::Int | Type::Float | Type::String | Type::Function(..) => ConstructorSet::Unlistable,
