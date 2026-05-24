@@ -125,6 +125,60 @@ pub struct Runtime {
     vm_shared_readonly: Arc<VmSharedReadonly>,
 }
 
+impl Runtime {
+    // pub fn new(program: CompiledProgram) -> Self {
+    //     let mut vm_shared_readonly = Arc::new(VmSharedReadonly {
+    //         program: program.instructions,
+    //
+    //         int_constants: program.int_constants.into_iter().collect(),
+    //         float_constants: program.float_constants.into_iter().collect(),
+    //         static_strings: vec![],
+    //         filename_arena: program.filename_arena.into_iter().collect(),
+    //         function_name_arena: program.function_name_arena.into_iter().collect(),
+    //
+    //         filename_table: program.filename_table,
+    //         lineno_table: program.lineno_table,
+    //         function_name_table: program.function_name_table,
+    //
+    //         #[cfg(feature = "ffi")]
+    //         libs: Vec::new(),
+    //         #[cfg(feature = "ffi")]
+    //         foreign_functions: Vec::new(),
+    //     });
+    //
+    //     for s in program.static_strings {
+    //         let s_obj = StringObject::new(s, &mut vm);
+    //         vm_shared_readonly.static_strings.push(s_obj);
+    //     }
+    //
+    //     #[cfg(feature = "ffi")]
+    //     for lib_data in &program.ffi_libs {
+    //         // pop libname from stack
+    //         // load the library with a certain name and add it to the Vm's Vec of libs
+    //         let libname = &lib_data.lib_name;
+    //         let lib = unsafe { Library::new(libname) };
+    //         let Ok(lib) = lib else { vm.fail(VmErrorKind::LibLoadFailure(libname.to_string())) };
+    //         vm_shared_readonly.libs.push(lib);
+    //
+    //         for symbol_name in &lib_data.function_names {
+    //             // pop foreign func name from stack
+    //             // load symbol from the last library loaded
+    //             let lib = vm_shared_readonly.libs.last().expect("no libraries have been loaded");
+    //             let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
+    //                 unsafe { lib.get(symbol_name.as_bytes()) };
+    //             let Ok(symbol) = symbol else {
+    //                 panic!("could not load symbol {}", symbol_name);
+    //                 // TODO: don't panic, report error in a better way
+    //                 // vm_shared_readonly.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
+    //             };
+    //             vm_shared_readonly.foreign_functions.push(*symbol);
+    //         }
+    //     }
+    //
+    //     vm
+    // }
+}
+
 pub struct VmGreenThread {
     pc: ProgramCounter,
     // stack
