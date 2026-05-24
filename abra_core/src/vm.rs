@@ -12,10 +12,12 @@ use core::fmt;
 use libloading::Library;
 use std::alloc::{Layout, alloc, dealloc};
 use std::cmp::PartialEq;
+use std::collections::VecDeque;
 use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::{
     fmt::{Display, Formatter},
     ptr,
@@ -68,6 +70,91 @@ pub struct Vm {
     libs: Vec<Library>,
     #[cfg(feature = "ffi")]
     foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
+}
+
+struct VmSharedReadonly {
+    program: Vec<Instr>,
+    // constants
+    int_constants: Vec<AbraInt>,
+    float_constants: Vec<f64>,
+    static_strings: Vec<*mut StringObject>,
+    // source map
+    filename_table: Vec<(BytecodeIndex, u32)>,
+    lineno_table: Vec<(BytecodeIndex, u32)>,
+    function_name_table: Vec<(BytecodeIndex, u32)>,
+    filename_arena: Vec<String>,
+    function_name_arena: Vec<String>,
+
+    // TODO: this is only mutated at startup then readonly then onward. SO...
+    #[cfg(feature = "ffi")]
+    ffi: VmFfi,
+}
+
+/*
+The CLI or some other program will
+   1. load all shared libraries/foreign functions
+   2. initialize the worker pool (pool of real OS threads which will run the green threads) (OR JUST USE RAYON)
+   3. initialize the main thread and put it in the queue
+   4. in a loop,
+       - given there are N workers, pop up to N** threads from the queue schedule them on the worker threads for 100 steps* using RAYON perhaps and PARKING LOT
+           *tweak this obviously
+           ** could also allow the user to specify a specific number of threads to be run instead. Could be more than number of real cpu cores if they
+               want guaranteed progress across different machines.
+       - as these threads run, they will create new threads. Those are pushed to the end of the queue
+       - if the thread isn't done after 100 steps, it gets pushed to the end of the queue.
+       - it the thread is done after 100 steps, it is *not* pushed to the end of the queue.
+
+   Note:
+       - probably a good concurrent queue in parking lot crate
+       - probably shoudl use RAYON for the worker pool. or parking lot?
+       - the logic from #4 should be done every frame of the program so this will be a routine provided by vm.rs
+       - since shared libraries/foreign functions are loaded *before* the main function is run,
+           need an instruction to signal when this FFI "prelude" is over and the actual program can begin
+   Open questions
+       - best way to do readonly shared data with ZERO overhead?
+
+*/
+pub struct Runtime {
+    threads: VecDeque<Box<VmGreenThread>>,
+
+    new_threads: Receiver<Box<VmGreenThread>>,
+
+    // How do readonly share this with absolutely zero overhead?
+    vm_shared_readonly: VmSharedReadonly,
+}
+
+#[cfg(feature = "ffi")]
+struct VmFfi {
+    libs: Vec<Library>,
+    foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
+}
+
+pub struct VmGreenThread {
+    pc: ProgramCounter,
+    // stack
+    stack_base: usize,
+    value_stack: Vec<Value>,
+    call_stack: Vec<CallFrame>,
+    // heap
+    heap_list: Vec<*mut ObjectHeader>,
+    gray_stack: Vec<*mut ObjectHeader>,
+    gc_state: GcState,
+    gc_visited: bool,
+    heap_size: usize,
+    gc_debt: usize,
+    last_gc_heap_size: usize,
+    // status
+    pending_host_func: Option<u16>,
+    error: Option<Box<VmError>>,
+    done: bool,
+    // string op state
+    string_op_index1: usize,
+    string_op_index2: usize,
+    string_operand1: Value,
+    string_operand2: Value,
+    concat_string_builder: Vec<u8>,
+
+    new_threads_sender: Sender<Box<VmGreenThread>>,
 }
 
 #[derive(Copy, Clone, Debug)]
