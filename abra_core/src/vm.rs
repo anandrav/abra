@@ -274,6 +274,28 @@ impl Vm {
             vm.static_strings.push(s_obj);
         }
 
+        #[cfg(feature = "ffi")]
+        for lib_data in &program.ffi_libs {
+            // pop libname from stack
+            // load the library with a certain name and add it to the Vm's Vec of libs
+            let libname = &lib_data.lib_name;
+            let lib = unsafe { Library::new(libname) };
+            let Ok(lib) = lib else { vm.fail(VmErrorKind::LibLoadFailure(libname.to_string())) };
+            vm.libs.push(lib);
+
+            for symbol_name in &lib_data.function_names {
+                // pop foreign func name from stack
+                // load symbol from the last library loaded
+                let lib = vm.libs.last().expect("no libraries have been loaded");
+                let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
+                    unsafe { lib.get(symbol_name.as_bytes()) };
+                let Ok(symbol) = symbol else {
+                    vm.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
+                };
+                vm.foreign_functions.push(*symbol);
+            }
+        }
+
         vm
     }
 }
@@ -1953,14 +1975,14 @@ impl Vm {
 
                 #[cfg(feature = "ffi")]
                 {
-                    // pop libname from stack
-                    // load the library with a certain name and add it to the Vm's Vec of libs
-                    let libname = self.pop().view_string(self);
-                    let lib = unsafe { Library::new(libname) };
-                    let Ok(lib) = lib else {
-                        self.fail(VmErrorKind::LibLoadFailure(libname.to_string()))
-                    };
-                    self.libs.push(lib);
+                    // // pop libname from stack
+                    // // load the library with a certain name and add it to the Vm's Vec of libs
+                    // let libname = self.pop().view_string(self);
+                    // let lib = unsafe { Library::new(libname) };
+                    // let Ok(lib) = lib else {
+                    //     self.fail(VmErrorKind::LibLoadFailure(libname.to_string()))
+                    // };
+                    // self.libs.push(lib);
                 }
             }
             Instr::LoadForeignFunc => {
@@ -1970,16 +1992,16 @@ impl Vm {
 
                 #[cfg(feature = "ffi")]
                 {
-                    // pop foreign func name from stack
-                    // load symbol from the last library loaded
-                    let symbol_name = self.pop().view_string(self);
-                    let lib = self.libs.last().expect("no libraries have been loaded");
-                    let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
-                        unsafe { lib.get(symbol_name.as_bytes()) };
-                    let Ok(symbol) = symbol else {
-                        self.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
-                    };
-                    self.foreign_functions.push(*symbol);
+                    // // pop foreign func name from stack
+                    // // load symbol from the last library loaded
+                    // let symbol_name = self.pop().view_string(self);
+                    // let lib = self.libs.last().expect("no libraries have been loaded");
+                    // let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
+                    //     unsafe { lib.get(symbol_name.as_bytes()) };
+                    // let Ok(symbol) = symbol else {
+                    //     self.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
+                    // };
+                    // self.foreign_functions.push(*symbol);
                 }
             }
             Instr::CallExtern(_func_id) => {

@@ -175,6 +175,16 @@ pub struct CompiledProgram {
     pub(crate) filename_table: Vec<(BytecodeIndex, u32)>,
     pub(crate) lineno_table: Vec<(BytecodeIndex, u32)>,
     pub(crate) function_name_table: Vec<(BytecodeIndex, u32)>,
+    // ffi data
+    #[cfg(feature = "ffi")]
+    pub(crate) ffi_libs: Vec<FfiLib>,
+}
+
+#[derive(Debug, Clone)]
+#[cfg(feature = "ffi")]
+pub struct FfiLib {
+    pub lib_name: String,
+    pub function_names: Vec<String>,
 }
 
 pub type BytecodeIndex = u32;
@@ -292,6 +302,21 @@ impl Translator {
             filename_table: st.filename_table,
             lineno_table: st.lineno_table,
             function_name_table: st.function_name_table,
+            #[cfg(feature = "ffi")]
+            ffi_libs: {
+                self.statics
+                    .dylibs
+                    .iter()
+                    .enumerate()
+                    .map(|(i, lib)| FfiLib {
+                        lib_name: lib.to_str().unwrap().to_string(),
+                        function_names: self.statics.dylib_to_funcs[&(i as u32)]
+                            .iter()
+                            .cloned()
+                            .collect(),
+                    })
+                    .collect()
+            },
         }
     }
 
@@ -310,14 +335,14 @@ impl Translator {
             let mono = MonomorphEnv::empty();
 
             // Initialization routine before main function (load shared libraries)
-            for (i, lib) in self.statics.dylibs.iter().enumerate() {
-                self.emit(st, Instr::PushString(lib.to_str().unwrap().to_string()));
-                self.emit(st, Instr::LoadLib);
-                for s in self.statics.dylib_to_funcs[&(i as u32)].iter() {
-                    self.emit(st, Instr::PushString(s.to_string()));
-                    self.emit(st, Instr::LoadForeignFunc);
-                }
-            }
+            // for (i, lib) in self.statics.dylibs.iter().enumerate() {
+            //     self.emit(st, Instr::PushString(lib.to_str().unwrap().to_string()));
+            //     self.emit(st, Instr::LoadLib);
+            //     for s in self.statics.dylib_to_funcs[&(i as u32)].iter() {
+            //         self.emit(st, Instr::PushString(s.to_string()));
+            //         self.emit(st, Instr::LoadForeignFunc);
+            //     }
+            // }
 
             // Handle the main function (files)
             if let Some(file) = self.file_asts.first() {
