@@ -85,14 +85,15 @@ struct VmSharedReadonly {
     filename_arena: Vec<String>,
     function_name_arena: Vec<String>,
 
-    // TODO: this is only mutated at startup then readonly then onward. SO...
+    // TODO: this is only mutated at startup then readonly afterward. SO...
     #[cfg(feature = "ffi")]
     ffi: VmFfi,
 }
 
 /*
 The CLI or some other program will
-   1. load all shared libraries/foreign functions
+   1. load all shared libraries/foreign functions. This is no longer encoded in bytecode instructions!
+        It's just part of the arguments to Runtime/Vm::new() or something, kind of like string constants.
    2. initialize the worker pool (pool of real OS threads which will run the green threads) (OR JUST USE RAYON)
    3. initialize the main thread and put it in the queue
    4. in a loop,
@@ -105,7 +106,7 @@ The CLI or some other program will
        - it the thread is done after 100 steps, it is *not* pushed to the end of the queue.
 
    Note:
-       - probably a good concurrent queue in parking lot crate
+       - probably a good concurrent queue in parking lot crate. or just use channels? It's MULTI PRODUCER SINGLE CONSUMER
        - probably shoudl use RAYON for the worker pool. or parking lot?
        - the logic from #4 should be done every frame of the program so this will be a routine provided by vm.rs
        - since shared libraries/foreign functions are loaded *before* the main function is run,
