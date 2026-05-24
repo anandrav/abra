@@ -17,6 +17,7 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::{
     fmt::{Display, Formatter},
@@ -85,15 +86,15 @@ struct VmSharedReadonly {
     filename_arena: Vec<String>,
     function_name_arena: Vec<String>,
 
-    // TODO: this is only mutated at startup then readonly afterward. SO...
+    // FFI
     #[cfg(feature = "ffi")]
-    ffi: VmFfi,
+    libs: Vec<Library>,
+    #[cfg(feature = "ffi")]
+    foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
 }
 
 /*
 The CLI or some other program will
-   1. load all shared libraries/foreign functions. This is no longer encoded in bytecode instructions!
-        It's just part of the arguments to Runtime/Vm::new() or something, kind of like string constants.
    2. initialize the worker pool (pool of real OS threads which will run the green threads) (OR JUST USE RAYON)
    3. initialize the main thread and put it in the queue
    4. in a loop,
@@ -112,7 +113,7 @@ The CLI or some other program will
        - since shared libraries/foreign functions are loaded *before* the main function is run,
            need an instruction to signal when this FFI "prelude" is over and the actual program can begin
    Open questions
-       - best way to do readonly shared data with ZERO overhead?
+       - best way to do readonly shared data with ZERO overhead? Even Arc<T> has overhead... Should be safe to just read something...
 
 */
 pub struct Runtime {
@@ -121,13 +122,7 @@ pub struct Runtime {
     new_threads: Receiver<Box<VmGreenThread>>,
 
     // How do readonly share this with absolutely zero overhead?
-    vm_shared_readonly: VmSharedReadonly,
-}
-
-#[cfg(feature = "ffi")]
-struct VmFfi {
-    libs: Vec<Library>,
-    foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
+    vm_shared_readonly: Arc<VmSharedReadonly>,
 }
 
 pub struct VmGreenThread {
@@ -155,7 +150,38 @@ pub struct VmGreenThread {
     string_operand2: Value,
     concat_string_builder: Vec<u8>,
 
-    new_threads_sender: Sender<Box<VmGreenThread>>,
+    vm_shared_readonly: Arc<VmSharedReadonly>,
+    // new_threads_sender: Sender<Box<VmGreenThread>>,
+}
+
+impl VmGreenThread {
+    fn new(vm_shared_readonly: Arc<VmSharedReadonly>) -> Self {
+        Self {
+            pc: ProgramCounter(0),
+            stack_base: 0,
+            value_stack: vec![],
+            call_stack: Vec::new(),
+            heap_list: vec![],
+            gray_stack: vec![],
+            gc_state: GcState::Idle,
+            gc_visited: true,
+            heap_size: 0,
+            gc_debt: 0,
+            last_gc_heap_size: 0,
+
+            pending_host_func: None,
+            error: None,
+            done: false,
+
+            string_op_index1: 0,
+            string_op_index2: 0,
+            string_operand1: Value::from(0),
+            string_operand2: Value::from(0),
+            concat_string_builder: vec![],
+
+            vm_shared_readonly,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
