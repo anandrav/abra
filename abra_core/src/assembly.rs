@@ -185,9 +185,6 @@ pub enum Instr {
     IntFromFloat(Reg, Reg),
     StringFromInt(Reg, Reg),
     StringFromFloat(Reg, Reg),
-
-    LoadLib,
-    LoadForeignFunc,
 }
 
 #[derive(Debug, Clone)]
@@ -453,9 +450,6 @@ impl Display for Instr {
             Instr::StringFromInt(dest, reg) => write!(f, "string_from_int {dest} {reg}"),
             Instr::StringFromFloat(dest, reg) => write!(f, "string_from_float {dest} {reg}"),
             Instr::HostFunc(n) => write!(f, "call_host {n}"),
-
-            Instr::LoadLib => write!(f, "load_lib"),
-            Instr::LoadForeignFunc => write!(f, "load_foreign_func"),
         }
     }
 }
@@ -775,9 +769,6 @@ fn instr_to_vminstr(
         Instr::StringFromInt(dest, reg) => VmInstr::StringFromInt(dest.encode(), reg.encode()),
         Instr::StringFromFloat(dest, reg) => VmInstr::StringFromFloat(dest.encode(), reg.encode()),
         Instr::HostFunc(n) => VmInstr::HostFunc(*n),
-
-        Instr::LoadLib => VmInstr::LoadLib,
-        Instr::LoadForeignFunc => VmInstr::LoadForeignFunc,
     }
 }
 

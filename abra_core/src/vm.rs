@@ -650,9 +650,6 @@ pub enum Instr {
     IntFromFloat(u16, u16),
     StringFromInt(u16, u16),
     StringFromFloat(u16, u16),
-
-    LoadLib,
-    LoadForeignFunc,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1967,42 +1964,6 @@ impl Vm {
             Instr::HostFunc(eff) => {
                 self.pending_host_func = Some(eff);
                 return false;
-            }
-            Instr::LoadLib => {
-                if cfg!(not(feature = "ffi")) {
-                    self.fail(VmErrorKind::FfiNotEnabled);
-                }
-
-                #[cfg(feature = "ffi")]
-                {
-                    // // pop libname from stack
-                    // // load the library with a certain name and add it to the Vm's Vec of libs
-                    // let libname = self.pop().view_string(self);
-                    // let lib = unsafe { Library::new(libname) };
-                    // let Ok(lib) = lib else {
-                    //     self.fail(VmErrorKind::LibLoadFailure(libname.to_string()))
-                    // };
-                    // self.libs.push(lib);
-                }
-            }
-            Instr::LoadForeignFunc => {
-                if cfg!(not(feature = "ffi")) {
-                    self.fail(VmErrorKind::FfiNotEnabled);
-                }
-
-                #[cfg(feature = "ffi")]
-                {
-                    // // pop foreign func name from stack
-                    // // load symbol from the last library loaded
-                    // let symbol_name = self.pop().view_string(self);
-                    // let lib = self.libs.last().expect("no libraries have been loaded");
-                    // let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
-                    //     unsafe { lib.get(symbol_name.as_bytes()) };
-                    // let Ok(symbol) = symbol else {
-                    //     self.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
-                    // };
-                    // self.foreign_functions.push(*symbol);
-                }
             }
             Instr::CallExtern(_func_id) => {
                 if cfg!(not(feature = "ffi")) {
