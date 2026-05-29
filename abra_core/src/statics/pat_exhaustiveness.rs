@@ -640,7 +640,9 @@ impl Constructor {
                         TypeKind::Void => 0,
                         _ => 1,
                     },
-                    n => *n,
+                    // Multi-field variants are represented as a single tuple
+                    // in the matrix, so arity is 1.
+                    _ => 1,
                 }
             }
             Constructor::Or => unimplemented!(),
