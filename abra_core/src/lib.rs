@@ -19,6 +19,7 @@ pub mod ast;
 pub mod environment;
 pub mod foreign_bindings;
 pub mod host_bindings;
+pub mod install;
 mod intrinsic;
 mod lsp_helper;
 mod optimize_bytecode;

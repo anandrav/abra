@@ -45,16 +45,15 @@ cargo install $CARGO_INSTALL_PROFILE --bin abra-lsp --path abra_lsp || {
 }
 printf "Done\n"
 
-printf "Installing Abra modules...\n"
-if [ -d $HOME/.abra/abra ]; then
-    mv "$HOME/.abra/abra" $HOME/.abra/abra_to_delete
-    rm -rf $HOME/.abra/abra_to_delete &
-fi
-mkdir -p $HOME/.abra/abra
-cp ./Cargo.toml $HOME/.abra/abra/Cargo.toml
-cp -R ./modules $HOME/.abra/abra/
-mkdir -p $HOME/.abra/abra/target/$CARGO_BUILD_SUBDIR
-cp -R ./target/$CARGO_BUILD_SUBDIR/lib* $HOME/.abra/abra/target/$CARGO_BUILD_SUBDIR
+printf "Installing Abra standard modules...\n"
+CARGO_ROOT="${CARGO_INSTALL_ROOT:-${CARGO_HOME:-$HOME/.cargo}}"
+ABRA_SHARE="$CARGO_ROOT/share/abra"
+rm -rf "$ABRA_SHARE"
+mkdir -p "$ABRA_SHARE"
+cp ./Cargo.toml "$ABRA_SHARE/Cargo.toml"
+cp -R ./modules "$ABRA_SHARE/"
+mkdir -p "$ABRA_SHARE/target/$CARGO_BUILD_SUBDIR"
+cp ./target/$CARGO_BUILD_SUBDIR/lib* "$ABRA_SHARE/target/$CARGO_BUILD_SUBDIR/"
 printf "Done\n"
 
 install_vim_syntax_highlighting() {

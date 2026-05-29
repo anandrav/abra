@@ -147,10 +147,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let current_dir = std::env::current_dir().expect("Can't get current directory.");
             current_dir.join(standard_modules)
         }
-        None => {
-            let home_dir = home::home_dir().expect("Can't get home directory.");
-            home_dir.join(".abra/abra/modules")
-        }
+        None => abra_core::install::standard_modules_dir(),
     };
 
     let mut import_dirs = vec![];

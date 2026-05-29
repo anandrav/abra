@@ -55,7 +55,7 @@ fn main_loop(
         .and_then(|opts| opts.get("standardModulesDir"))
         .and_then(|v| v.as_str())
         .map(PathBuf::from)
-        .unwrap_or_else(|| home_dir().join(".abra").join("abra").join("modules"));
+        .unwrap_or_else(abra_core::install::standard_modules_dir);
 
     // Optional override: if set, always compile from this root file instead of the active file
     let root_file_override = init_params
@@ -443,10 +443,4 @@ fn hex_val(b: u8) -> Option<u8> {
         b'A'..=b'F' => Some(b - b'A' + 10),
         _ => None,
     }
-}
-
-fn home_dir() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."))
 }
