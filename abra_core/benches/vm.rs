@@ -4,7 +4,7 @@
 
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::vm::Vm;
+use abra_core::vm::{Runtime, Vm};
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use std::time::Duration;
@@ -15,10 +15,10 @@ fn run_benchmark(c: &mut Criterion, name: &str, src: &str) {
 
     c.bench_function(name, |b| {
         b.iter_batched(
-            || Vm::new(program.clone()), // Prepare a new VM instance
-            |mut vm| {
-                vm.run();
-                black_box(vm.top());
+            || Runtime::new(program.clone()), // Prepare a new VM instance
+            |mut runtime| {
+                runtime.run();
+                black_box(runtime.top());
             },
             BatchSize::SmallInput, // Reasonable batch size
         );

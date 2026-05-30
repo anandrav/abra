@@ -118,12 +118,12 @@ The CLI or some other program will
 
 */
 pub struct Runtime {
-    threads: Vec<Box<VmGreenThread>>,
-
+    pub thread: Box<VmGreenThread>,
+    // threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
 
     // How do readonly share this with absolutely zero overhead?
-    vm_shared_readonly: Arc<VmSharedReadonly>,
+    shared: Arc<VmSharedReadonly>,
 }
 
 impl Runtime {
@@ -189,19 +189,52 @@ impl Runtime {
 
         let (sender, receiver) = mpsc::channel();
 
-        let mut threads = vec![Box::new(VmGreenThread::new(vm_shared_readonly.clone()))];
+        // let mut threads = vec![];
 
         Runtime {
-            threads,
+            thread: Box::new(VmGreenThread::new(vm_shared_readonly.clone())),
+            // threads,
             new_threads: receiver,
-            vm_shared_readonly: vm_shared_readonly.clone(),
+            shared: vm_shared_readonly.clone(),
         }
     }
 
     pub fn run(&mut self) {
-        let mut threads_to_run = vec![];
-        threads_to_run = std::mem::take(&mut self.threads);
-        threads_to_run.par_iter_mut().for_each(|thread| {})
+        // let mut threads_to_run = vec![];
+        // threads_to_run = std::mem::take(&mut self.threads);
+        // threads_to_run.par_iter_mut().for_each(|thread| {})
+
+        self.thread.run();
+    }
+
+    // TODO: these do not belong on runtime because they are thread specific I guess? Not totally sure. Is there a "main" thread?
+
+    pub fn top(&self) -> Value {
+        self.thread.top()
+    }
+
+    pub fn pop(&mut self) -> Value {
+        self.thread.pop()
+    }
+
+    pub fn clear_pending_host_func(&mut self) {
+        self.thread.clear_pending_host_func()
+    }
+
+    pub fn status(&self) -> VmStatus {
+        self.thread.status()
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.thread.is_done()
+    }
+
+    pub fn run_n_steps(&mut self, steps: u32) {
+        self.thread.run_n_steps(steps)
+    }
+
+    pub fn nbytes(&self) -> usize {
+        self.thread.nbytes()
     }
 }
 
@@ -231,12 +264,12 @@ pub struct VmGreenThread {
     string_operand2: Value,
     concat_string_builder: Vec<u8>,
 
-    vm_shared_readonly: Arc<VmSharedReadonly>,
+    shared: Arc<VmSharedReadonly>,
     // new_threads_sender: Sender<Box<VmGreenThread>>,
 }
 
 impl VmGreenThread {
-    fn new(vm_shared_readonly: Arc<VmSharedReadonly>) -> Self {
+    fn new(shared: Arc<VmSharedReadonly>) -> Self {
         Self {
             pc: ProgramCounter(0),
             stack_base: 0,
@@ -260,7 +293,7 @@ impl VmGreenThread {
             string_operand2: Value::from(0),
             concat_string_builder: vec![],
 
-            vm_shared_readonly,
+            shared,
         }
     }
 }
@@ -334,80 +367,7 @@ pub enum ValueKind {
 
 pub type ErrorLocation = (String, u32);
 
-impl Vm {
-    pub fn new(program: CompiledProgram) -> Self {
-        let mut vm = Self {
-            program: program.instructions,
-            pc: ProgramCounter(0),
-            stack_base: 0,
-            value_stack: vec![],
-            call_stack: Vec::new(),
-            heap_list: vec![],
-            gray_stack: vec![],
-            gc_state: GcState::Idle,
-            gc_visited: true,
-            heap_size: 0,
-            gc_debt: 0,
-            last_gc_heap_size: 0,
-
-            int_constants: program.int_constants.into_iter().collect(),
-            float_constants: program.float_constants.into_iter().collect(),
-            static_strings: vec![],
-            filename_arena: program.filename_arena.into_iter().collect(),
-            function_name_arena: program.function_name_arena.into_iter().collect(),
-
-            filename_table: program.filename_table,
-            lineno_table: program.lineno_table,
-            function_name_table: program.function_name_table,
-
-            pending_host_func: None,
-            error: None,
-            done: false,
-
-            string_op_index1: 0,
-            string_op_index2: 0,
-            string_operand1: Value::from(0),
-            string_operand2: Value::from(0),
-            concat_string_builder: vec![],
-
-            #[cfg(feature = "ffi")]
-            libs: Vec::new(),
-            #[cfg(feature = "ffi")]
-            foreign_functions: Vec::new(),
-        };
-
-        for s in program.static_strings {
-            let s_obj = StringObject::new_vm_static(s, &mut vm);
-            vm.static_strings.push(s_obj);
-        }
-
-        #[cfg(feature = "ffi")]
-        for lib_data in &program.ffi_libs {
-            // pop libname from stack
-            // load the library with a certain name and add it to the Vm's Vec of libs
-            let libname = &lib_data.lib_name;
-            let lib = unsafe { Library::new(libname) };
-            let Ok(lib) = lib else { vm.fail(VmErrorKind::LibLoadFailure(libname.to_string())) };
-            vm.libs.push(lib);
-
-            for symbol_name in &lib_data.function_names {
-                // pop foreign func name from stack
-                // load symbol from the last library loaded
-                let lib = vm.libs.last().expect("no libraries have been loaded");
-                let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
-                    unsafe { lib.get(symbol_name.as_bytes()) };
-                let Ok(symbol) = symbol else {
-                    vm.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
-                };
-                vm.foreign_functions.push(*symbol);
-            }
-        }
-
-        vm
-    }
-}
-
-impl Vm {
+impl VmGreenThread {
     pub fn status(&self) -> VmStatus {
         if let Some(eff) = self.pending_host_func {
             VmStatus::PendingHostFunc(eff)
@@ -878,22 +838,22 @@ impl Display for ExpectedType {
 }
 
 impl Value {
-    fn check_type(&self, _vm: &Vm, tag: ValueTag) {
+    fn check_type(&self, _vm: &VmGreenThread, tag: ValueTag) {
         if cfg!(debug_assertions) && self.1 != tag {
             _vm.fail(VmErrorKind::WrongType(tag.to_expected_type(), self.1));
         }
     }
-    pub fn get_int(&self, _vm: &Vm) -> AbraInt {
+    pub fn get_int(&self, _vm: &VmGreenThread) -> AbraInt {
         self.check_type(_vm, ValueTag::Int);
         self.0 as AbraInt
     }
 
-    pub fn get_float(&self, _vm: &Vm) -> AbraFloat {
+    pub fn get_float(&self, _vm: &VmGreenThread) -> AbraFloat {
         self.check_type(_vm, ValueTag::Float);
         AbraFloat::from_bits(self.0)
     }
 
-    pub fn get_bool(&self, _vm: &Vm) -> bool {
+    pub fn get_bool(&self, _vm: &VmGreenThread) -> bool {
         self.check_type(_vm, ValueTag::Bool);
         self.0 != 0
     }
@@ -903,17 +863,17 @@ impl Value {
         unsafe { &mut *(self.0 as *mut ObjectHeader) }
     }
 
-    fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a StructObject {
+    fn get_struct<'a>(&self, _vm: &mut VmGreenThread) -> &'a StructObject {
         self.check_type(_vm, ValueTag::Struct);
         unsafe { &*(self.0 as *const StructObject) }
     }
 
-    unsafe fn get_struct_mut<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
+    unsafe fn get_struct_mut<'a>(&self, _vm: &mut VmGreenThread) -> &'a mut StructObject {
         self.check_type(_vm, ValueTag::Struct);
         unsafe { &mut *(self.0 as *mut StructObject) }
     }
 
-    fn get_array<'a>(&self, _vm: &mut Vm) -> &'a ArrayObject
+    fn get_array<'a>(&self, _vm: &mut VmGreenThread) -> &'a ArrayObject
     where
         Self: Sized,
     {
@@ -921,7 +881,7 @@ impl Value {
         unsafe { &*(self.0 as *const ArrayObject) }
     }
 
-    unsafe fn get_array_mut<'a>(&self, _vm: &mut Vm) -> &'a mut ArrayObject
+    unsafe fn get_array_mut<'a>(&self, _vm: &mut VmGreenThread) -> &'a mut ArrayObject
     where
         Self: Sized,
     {
@@ -929,7 +889,7 @@ impl Value {
         unsafe { &mut *(self.0 as *mut ArrayObject) }
     }
 
-    fn get_variant<'a>(&self, _vm: &Vm) -> &'a EnumObject
+    fn get_variant<'a>(&self, _vm: &VmGreenThread) -> &'a EnumObject
     where
         Self: Sized,
     {
@@ -937,13 +897,13 @@ impl Value {
         unsafe { &mut *(self.0 as *mut EnumObject) }
     }
 
-    pub fn view_string<'a>(&self, _vm: &Vm) -> &'a str {
+    pub fn view_string<'a>(&self, _vm: &VmGreenThread) -> &'a str {
         self.check_type(_vm, ValueTag::String);
         let so = unsafe { &*(self.0 as *const StringObject) };
         &so.str
     }
 
-    fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
+    fn get_addr(&self, _vm: &VmGreenThread) -> ProgramCounter {
         self.check_type(_vm, ValueTag::Addr);
         ProgramCounter(self.0 as u32)
     }
@@ -1093,7 +1053,7 @@ struct StructObject {
 }
 
 impl StructObject {
-    fn new(data: Vec<Value>, vm: &mut Vm) -> *mut StructObject {
+    fn new(data: Vec<Value>, vm: &mut VmGreenThread) -> *mut StructObject {
         let len = data.len();
         let layout = Self::layout_helper(len);
         let prefix_size = size_of::<StructObject>();
@@ -1181,7 +1141,7 @@ struct ArrayObject {
 }
 
 impl ArrayObject {
-    fn new(data: Vec<Value>, vm: &mut Vm) -> *mut ArrayObject {
+    fn new(data: Vec<Value>, vm: &mut VmGreenThread) -> *mut ArrayObject {
         let header = ObjectHeader {
             kind: ObjectKind::Array,
             visited: match &vm.gc_state {
@@ -1222,7 +1182,7 @@ struct EnumObject {
 }
 
 impl EnumObject {
-    fn new(tag: u16, val: Value, vm: &mut Vm) -> *mut EnumObject {
+    fn new(tag: u16, val: Value, vm: &mut VmGreenThread) -> *mut EnumObject {
         let header = ObjectHeader {
             kind: ObjectKind::Enum,
             visited: match &vm.gc_state {
@@ -1258,7 +1218,7 @@ struct StringObject {
 }
 
 impl StringObject {
-    fn new(str: String, vm: &mut Vm) -> *mut StringObject {
+    fn new(str: String, vm: &mut VmGreenThread) -> *mut StringObject {
         let header = ObjectHeader {
             kind: ObjectKind::String,
             visited: match &vm.gc_state {
@@ -1283,7 +1243,7 @@ impl StringObject {
     }
 
     // TODO; get rid of this soon
-    fn new_vm_static(str: String, vm: &mut Vm) -> *mut StringObject {
+    fn new_vm_static(str: String, vm: &mut VmGreenThread) -> *mut StringObject {
         let header = ObjectHeader {
             kind: ObjectKind::String,
             visited: match &vm.gc_state {
@@ -1319,7 +1279,7 @@ impl StringObject {
     }
 }
 
-impl Vm {
+impl VmGreenThread {
     pub fn run(&mut self) {
         self.validate();
         loop {
@@ -1353,7 +1313,7 @@ impl Vm {
 
     #[inline(always)]
     fn step(&mut self) -> bool {
-        let instr = self.program[self.pc.get()];
+        let instr = self.shared.program[self.pc.get()];
 
         self.pc.0 += 1;
         match instr {
@@ -1363,16 +1323,16 @@ impl Vm {
                 }
             }
             Instr::PushInt(n) => {
-                self.push(self.int_constants[n as usize]);
+                self.push(self.shared.int_constants[n as usize]);
             }
             Instr::PushFloat(f) => {
-                self.push(self.float_constants[f as usize]);
+                self.push(self.shared.float_constants[f as usize]);
             }
             Instr::PushBool(b) => {
                 self.push(b);
             }
             Instr::PushString(idx) => {
-                let s = self.static_strings[idx as usize];
+                let s = self.shared.static_strings[idx as usize];
                 self.push(s);
             }
             Instr::PushAddr(addr) => {
@@ -1394,7 +1354,7 @@ impl Vm {
                 self.store_offset(n, v);
             }
             Instr::StoreOffsetImm(n, imm) => {
-                self.store_offset(n, self.int_constants[imm as usize]);
+                self.store_offset(n, self.shared.int_constants[imm as usize]);
             }
             Instr::AddInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);
@@ -1410,7 +1370,7 @@ impl Vm {
             }
             Instr::AddIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let Some(c) = a.checked_add(self.int_constants[imm as usize]) else {
+                let Some(c) = a.checked_add(self.shared.int_constants[imm as usize]) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
                             .into(),
@@ -1433,7 +1393,7 @@ impl Vm {
             }
             Instr::SubIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let Some(c) = a.checked_sub(self.int_constants[imm as usize]) else {
+                let Some(c) = a.checked_sub(self.shared.int_constants[imm as usize]) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
                             .into(),
@@ -1456,7 +1416,7 @@ impl Vm {
             }
             Instr::MulIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let Some(c) = a.checked_mul(self.int_constants[imm as usize]) else {
+                let Some(c) = a.checked_mul(self.shared.int_constants[imm as usize]) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
                             .into(),
@@ -1480,7 +1440,7 @@ impl Vm {
             }
             Instr::DivideIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let Some(c) = a.checked_div(self.int_constants[imm as usize]) else {
+                let Some(c) = a.checked_div(self.shared.int_constants[imm as usize]) else {
                     self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 };
@@ -1500,7 +1460,7 @@ impl Vm {
             }
             Instr::PowerIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let Some(c) = a.checked_pow(self.int_constants[imm as usize] as u32) else {
+                let Some(c) = a.checked_pow(self.shared.int_constants[imm as usize] as u32) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
                             .into(),
@@ -1520,7 +1480,7 @@ impl Vm {
             }
             Instr::ModuloImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let b = self.int_constants[imm as usize];
+                let b = self.shared.int_constants[imm as usize];
                 let Some(c) = a.checked_rem_euclid(b) else {
                     self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
@@ -1552,7 +1512,7 @@ impl Vm {
             }
             Instr::AddFloatImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_float(self);
-                self.store_offset_or_top(dest, a + self.float_constants[imm as usize]);
+                self.store_offset_or_top(dest, a + self.shared.float_constants[imm as usize]);
             }
             Instr::SubFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
@@ -1561,7 +1521,7 @@ impl Vm {
             }
             Instr::SubFloatImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_float(self);
-                self.store_offset_or_top(dest, a - self.float_constants[imm as usize]);
+                self.store_offset_or_top(dest, a - self.shared.float_constants[imm as usize]);
             }
             Instr::MulFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
@@ -1570,7 +1530,7 @@ impl Vm {
             }
             Instr::MulFloatImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_float(self);
-                self.store_offset_or_top(dest, a * self.float_constants[imm as usize]);
+                self.store_offset_or_top(dest, a * self.shared.float_constants[imm as usize]);
             }
             Instr::DivFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
@@ -1583,7 +1543,7 @@ impl Vm {
             }
             Instr::DivFloatImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_float(self);
-                self.store_offset_or_top(dest, a / self.float_constants[imm as usize]);
+                self.store_offset_or_top(dest, a / self.shared.float_constants[imm as usize]);
             }
             Instr::PowerFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
@@ -1592,7 +1552,7 @@ impl Vm {
             }
             Instr::PowerFloatImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_float(self);
-                self.store_offset_or_top(dest, a.powf(self.float_constants[imm as usize]));
+                self.store_offset_or_top(dest, a.powf(self.shared.float_constants[imm as usize]));
             }
             Instr::Atan2(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
@@ -1661,7 +1621,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a < b);
             }
             Instr::LessThanIntImm(dest, reg1, imm) => {
-                let b = self.int_constants[imm as usize];
+                let b = self.shared.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a < b);
             }
@@ -1671,7 +1631,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a <= b);
             }
             Instr::LessThanOrEqualIntImm(dest, reg1, imm) => {
-                let b = self.int_constants[imm as usize];
+                let b = self.shared.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a <= b);
             }
@@ -1681,7 +1641,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a > b);
             }
             Instr::GreaterThanIntImm(dest, reg1, imm) => {
-                let b = self.int_constants[imm as usize];
+                let b = self.shared.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a > b);
             }
@@ -1691,7 +1651,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a >= b);
             }
             Instr::GreaterThanOrEqualIntImm(dest, reg1, imm) => {
-                let b = self.int_constants[imm as usize];
+                let b = self.shared.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a >= b);
             }
@@ -1701,7 +1661,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_lt());
             }
             Instr::LessThanFloatImm(dest, reg1, imm) => {
-                let b = self.float_constants[imm as usize];
+                let b = self.shared.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_lt());
             }
@@ -1711,7 +1671,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_le());
             }
             Instr::LessThanOrEqualFloatImm(dest, reg1, imm) => {
-                let b = self.float_constants[imm as usize];
+                let b = self.shared.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_le());
             }
@@ -1721,7 +1681,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_gt());
             }
             Instr::GreaterThanFloatImm(dest, reg1, imm) => {
-                let b = self.float_constants[imm as usize];
+                let b = self.shared.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_gt());
             }
@@ -1731,7 +1691,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_ge());
             }
             Instr::GreaterThanOrEqualFloatImm(dest, reg1, imm) => {
-                let b = self.float_constants[imm as usize];
+                let b = self.shared.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_ge());
             }
@@ -1741,7 +1701,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a == b);
             }
             Instr::EqualIntImm(dest, reg1, imm) => {
-                let b = self.int_constants[imm as usize];
+                let b = self.shared.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a == b);
             }
@@ -1751,7 +1711,7 @@ impl Vm {
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_eq());
             }
             Instr::EqualFloatImm(dest, reg1, imm) => {
-                let b = self.float_constants[imm as usize];
+                let b = self.shared.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.total_cmp(&b).is_eq());
             }
@@ -2018,7 +1978,7 @@ impl Vm {
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();
             }
             Instr::ArrayPushIntImm(reg1, imm) => {
-                let rvalue = self.int_constants[imm as usize];
+                let rvalue = self.shared.int_constants[imm as usize];
                 let val = self.load_offset_or_top(reg1);
                 let arr = unsafe { val.get_array_mut(self) };
 
@@ -2117,9 +2077,12 @@ impl Vm {
                 #[cfg(feature = "ffi")]
                 {
                     unsafe {
-                        let vm_ptr = self as *mut Vm as *mut c_void;
+                        let vm_ptr = self as *mut VmGreenThread as *mut c_void;
                         let abra_vm_functions_ptr = &ABRA_VM_FUNCS as *const AbraVmFunctions;
-                        self.foreign_functions[_func_id as usize](vm_ptr, abra_vm_functions_ptr);
+                        self.shared.foreign_functions[_func_id as usize](
+                            vm_ptr,
+                            abra_vm_functions_ptr,
+                        );
                     };
                 }
             }
@@ -2129,37 +2092,40 @@ impl Vm {
 
     fn pc_to_error_location(&self, pc: ProgramCounter) -> VmErrorLocation {
         let file_id = match self
+            .shared
             .filename_table
             .binary_search_by_key(&(pc.0), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
-                self.filename_table[idx].1
+                self.shared.filename_table[idx].1
             }
         };
 
         let lineno = match self
+            .shared
             .lineno_table
             .binary_search_by_key(&(pc.0), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
-                self.lineno_table[idx].1
+                self.shared.lineno_table[idx].1
             }
         };
 
         let function_name_id = match self
+            .shared
             .function_name_table
             .binary_search_by_key(&(pc.0), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
-                self.function_name_table[idx].1
+                self.shared.function_name_table[idx].1
             }
         };
 
-        let filename = self.filename_arena[file_id as usize].clone();
-        let function_name = self.function_name_arena[function_name_id as usize].clone();
+        let filename = self.shared.filename_arena[file_id as usize].clone();
+        let function_name = self.shared.function_name_arena[function_name_id as usize].clone();
 
         VmErrorLocation {
             filename,
@@ -2327,8 +2293,7 @@ impl Vm {
 
     pub fn nbytes(&self) -> usize {
         // TODO: should anything else be taken into account?
-        self.program.len() * size_of::<Instr>()
-            + self.value_stack.len() * size_of::<Value>()
+        self.value_stack.len() * size_of::<Value>()
             + self.call_stack.len() * size_of::<CallFrame>()
             + self.heap_size
     }
@@ -2343,7 +2308,7 @@ impl Drop for Vm {
     }
 }
 
-impl Vm {
+impl VmGreenThread {
     fn push(&mut self, x: impl Into<Value>) {
         self.value_stack.push(x.into());
     }

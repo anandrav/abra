@@ -195,29 +195,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match abra_core::compile_bytecode(main_file_name, file_provider) {
         Ok(program) => {
-            let mut vm = abra_core::vm::Vm::new(program);
+            let mut runtime = abra_core::vm::Runtime::new(program);
             loop {
-                vm.run();
-                if vm.is_done() {
+                runtime.run();
+                if runtime.is_done() {
                     return Ok(());
                 }
-                if let Some(error) = vm.get_error() {
+                if let Some(error) = runtime.thread.get_error() {
                     eprint!("{error}");
                     exit(1);
                 }
-                if let Some(pending_host_func) = vm.get_pending_host_func() {
+                if let Some(pending_host_func) = runtime.thread.get_pending_host_func() {
                     let host_func_args: HostFunctionArgs =
-                        HostFunctionArgs::from_vm(&mut vm, pending_host_func);
+                        HostFunctionArgs::from_vm(&mut *runtime.thread, pending_host_func);
                     match host_func_args {
                         HostFunctionArgs::PrintString(s) => {
                             print!("{s}");
                             io::stdout().flush().unwrap();
-                            HostFunctionRet::PrintString.into_vm(&mut vm);
+                            HostFunctionRet::PrintString.into_vm(&mut *runtime.thread);
                         }
                         HostFunctionArgs::EprintString(s) => {
                             eprint!("{s}");
                             io::stderr().flush().unwrap();
-                            HostFunctionRet::EprintString.into_vm(&mut vm);
+                            HostFunctionRet::EprintString.into_vm(&mut *runtime.thread);
                         }
                         HostFunctionArgs::Readline => {
                             let mut input = String::new();
@@ -228,11 +228,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     input.pop();
                                 }
                             }
-                            HostFunctionRet::Readline(input).into_vm(&mut vm);
+                            HostFunctionRet::Readline(input).into_vm(&mut *runtime.thread);
                         }
                         HostFunctionArgs::GetArgs => {
                             HostFunctionRet::GetArgs(args.abra_program_args.clone())
-                                .into_vm(&mut vm);
+                                .into_vm(&mut *runtime.thread);
                         }
                     }
                 }

@@ -5,7 +5,7 @@
 use crate::ast::{FileAst, ImportKind, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::foreign_bindings::{name_of_ty, name_of_variant_data_ty, run_formatter};
 use crate::statics::StaticsContext;
-use crate::vm::{AbraInt, Vm};
+use crate::vm::{AbraInt, Vm, VmGreenThread};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -121,7 +121,7 @@ pub enum HostFunction {
                     "#,
     );
     output.push_str(
-        r#"pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
+        r#"pub(crate) fn from_vm(vm: &mut VmGreenThread, pending_host_func: u16) -> Self {
                         "#,
     );
     output.push_str("match pending_host_func {");
@@ -195,7 +195,7 @@ pub enum HostFunctionRet {
                     "#,
     );
     output.push_str(
-        r#"pub(crate) fn into_vm(self, vm: &mut Vm,) {
+        r#"pub(crate) fn into_vm(self, vm: &mut VmGreenThread,) {
                         "#,
     );
     output.push_str("match self {");
@@ -348,7 +348,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                             s.name.v
                         );
                         output.push_str(
-                            r#"fn from_vm(vm: &mut Vm) -> Self {
+                            r#"fn from_vm(vm: &mut VmGreenThread) -> Self {
 "#,
                         );
                         output.push('{');
@@ -387,7 +387,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         output.push('}');
 
                         output.push_str(
-                            r#"fn to_vm(self, vm: &mut Vm) {
+                            r#"fn to_vm(self, vm: &mut VmGreenThread) {
 "#,
                         );
                         output.push('{');
@@ -434,7 +434,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                             e.name.v
                         );
                         output.push_str(
-                            r#"fn from_vm(vm: &mut Vm) -> Self {
+                            r#"fn from_vm(vm: &mut VmGreenThread) -> Self {
 "#,
                         );
 
@@ -466,7 +466,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         output.push('}');
 
                         output.push_str(
-                            r#"fn to_vm(self, vm: &mut Vm) {
+                            r#"fn to_vm(self, vm: &mut VmGreenThread) {
 "#,
                         );
                         output.push('{');
@@ -531,49 +531,49 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
 pub trait VmType {
     /// # Safety
     /// vm is non-null and valid
-    fn from_vm(vm: &mut Vm) -> Self;
+    fn from_vm(vm: &mut VmGreenThread) -> Self;
 
     /// # Safety
     /// vm is non-null and valid
-    fn to_vm(self, vm: &mut Vm);
+    fn to_vm(self, vm: &mut VmGreenThread);
 }
 
 impl VmType for AbraInt {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         vm.pop_int()
     }
 
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         vm.push_int(self);
     }
 }
 
 impl VmType for f64 {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         vm.pop_float()
     }
 
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         vm.push_float(self);
     }
 }
 
 impl VmType for bool {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         vm.pop_bool()
     }
 
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         vm.push_bool(self);
     }
 }
 
 impl VmType for String {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         vm.pop().view_string(vm).to_string()
     }
 
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         vm.push_str(self);
     }
 }
@@ -582,11 +582,11 @@ impl VmType for String {
 // This conversion is only used when converting an enum like, for instance, result<void, string>
 // This is because enum variants always need a Value, even if the value is `nil`
 impl VmType for () {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         vm.pop();
     }
 
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         vm.push_int(0);
     }
 }
@@ -595,7 +595,7 @@ impl<T> VmType for Option<T>
 where
     T: VmType,
 {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         vm.deconstruct_variant();
         let tag = vm.pop_int();
         match tag {
@@ -611,7 +611,7 @@ where
         }
     }
 
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         {
             match self {
                 Some(t) => {
@@ -633,7 +633,7 @@ where
     T: VmType,
     E: VmType,
 {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         vm.deconstruct_variant();
         let tag = vm.pop_int();
         match tag {
@@ -649,7 +649,7 @@ where
         }
     }
 
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         {
             match self {
                 Ok(t) => {
@@ -669,7 +669,7 @@ impl<T> VmType for Vec<T>
 where
     T: VmType,
 {
-    fn from_vm(vm: &mut Vm) -> Self {
+    fn from_vm(vm: &mut VmGreenThread) -> Self {
         {
             let len = vm.array_len();
             vm.deconstruct_array();
@@ -681,7 +681,7 @@ where
             ret
         }
     }
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut VmGreenThread) {
         {
             let len = self.len();
             for elem in self.into_iter() {
@@ -701,7 +701,7 @@ macro_rules! replace_expr {
 macro_rules! tuple_impls {
     ( $( $name:ident ),+ $(,)? ) => {
         impl<$($name: VmType),+ > VmType for ( $($name,)+ ) {
-            fn from_vm(vm: &mut Vm) -> Self {
+            fn from_vm(vm: &mut VmGreenThread) -> Self {
                 // Deconstruct the tuple on the VM.
                 vm.deconstruct_struct();
                 // Pop values in normal order.
@@ -709,7 +709,7 @@ macro_rules! tuple_impls {
                 let ($($name,)+) = ($( $name::from_vm(vm), )+);
                 ($($name,)+)
             }
-            fn to_vm(self, vm: &mut Vm) {
+            fn to_vm(self, vm: &mut VmGreenThread) {
                 // Destructure the tuple.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = self;
