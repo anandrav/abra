@@ -6,8 +6,8 @@ use crate::helper::unwrap_or_panic;
 use crate::helper::{expect_value, should_fail};
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::vm::Vm;
 use abra_core::vm::VmStatus;
+use abra_core::vm::{Runtime, Vm};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -211,15 +211,15 @@ print_string("hello world")
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.view_string(&vm), "hello world");
-    vm.pop();
-    vm.clear_pending_host_func();
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    let mut runtime = Runtime::new(program);
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.view_string(&runtime.thread), "hello world");
+    runtime.pop();
+    runtime.clear_pending_host_func();
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 5);
 }
 
 #[test]
@@ -800,17 +800,17 @@ arr.len()
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
+    let mut vm = Runtime::new(program);
     vm.run();
     for n in [1, 2, 3] {
         let top = vm.top();
-        assert_eq!(top.view_string(&vm), n.to_string());
+        assert_eq!(top.view_string(&vm.thread), n.to_string());
         vm.pop();
         vm.clear_pending_host_func();
         vm.run();
     }
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
+    assert_eq!(top.get_int(&vm.thread), 3);
 }
 
 #[test]
@@ -944,9 +944,9 @@ n
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let VmStatus::Error(_) = vm.status() else { panic!() };
+    let mut runtime = Runtime::new(program);
+    runtime.run();
+    let VmStatus::Error(_) = runtime.status() else { panic!() };
 }
 
 #[test]
@@ -970,9 +970,9 @@ n
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let VmStatus::Error(_) = vm.status() else { panic!() };
+    let mut runtime = Runtime::new(program);
+    runtime.run();
+    let VmStatus::Error(_) = runtime.status() else { panic!() };
 }
 
 #[test]
@@ -1094,14 +1094,14 @@ x
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
-    while !vm.is_done() {
-        vm.run_n_steps(1);
+    let mut runtime = Runtime::new(program);
+    while !runtime.is_done() {
+        runtime.run_n_steps(1);
     }
     // vm.gc();
-    assert!(vm.nbytes() < 10000);
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    assert!(runtime.nbytes() < 10000);
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 6);
 }
 
 // TODO: re-enable
@@ -1123,14 +1123,14 @@ x
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
-    while !vm.is_done() {
-        vm.run_n_steps(1);
+    let mut runtime = Runtime::new(program);
+    while !runtime.is_done() {
+        runtime.run_n_steps(1);
         // vm.gc();
-        assert!(vm.nbytes() < 10000); // TODO: this test never fails!
+        assert!(runtime.nbytes() < 10000); // TODO: this test never fails!
     }
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 6);
 }
 
 // #[test]
@@ -1207,10 +1207,10 @@ foo(2, 2)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 4);
 }
 
 #[test]
@@ -1238,10 +1238,10 @@ foo(2, 2)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 4);
 }
 
 #[test]
@@ -1272,10 +1272,10 @@ foo(2, 2)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 4);
 }
 
 #[test]
@@ -1307,10 +1307,10 @@ foo(6, 7)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 42);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 42);
 }
 
 #[test]
@@ -1342,10 +1342,10 @@ foo(6, 7)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 42);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 42);
 }
 
 #[test]
@@ -1381,10 +1381,10 @@ foo(6, 7) + foo2(6, 7)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 84);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 84);
 }
 
 #[test]
@@ -1424,10 +1424,10 @@ foo(6, 7)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 42);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 42);
 }
 
 #[test]
@@ -1457,10 +1457,10 @@ util.foo(6, bar.asdf)
     if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = Vm::new(program.unwrap());
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 204);
+    let mut runtime = Runtime::new(program.unwrap());
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 204);
 }
 
 #[test]
@@ -1528,7 +1528,7 @@ do_stuff()
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
+    let mut vm = Runtime::new(program);
     vm.run();
     let status = vm.status();
     let VmStatus::PendingHostFunc(0) = status else { panic!() };
@@ -1550,15 +1550,15 @@ x + x
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let status = vm.status();
+    let mut runtime = Runtime::new(program);
+    runtime.run();
+    let status = runtime.status();
     let VmStatus::PendingHostFunc(1) = status else { panic!() };
-    vm.push_int(3);
-    vm.clear_pending_host_func();
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    runtime.thread.push_int(3);
+    runtime.clear_pending_host_func();
+    runtime.run();
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.thread), 6);
 }
 
 #[test]

@@ -4,7 +4,7 @@
 
 // functions used for testing
 
-use abra_core::vm::{AbraFloat, AbraInt, Value, Vm};
+use abra_core::vm::{AbraFloat, AbraInt, Runtime, Value, Vm};
 use abra_core::{ErrorSummary, MockFileProvider, compile_bytecode};
 
 pub fn unwrap_or_panic<T>(result: Result<T, ErrorSummary>) -> T {
@@ -17,42 +17,42 @@ pub fn unwrap_or_panic<T>(result: Result<T, ErrorSummary>) -> T {
 }
 
 pub trait ExpectedValue {
-    fn check(self, vm: &mut Vm, val: Value);
+    fn check(self, runtime: &mut Runtime, val: Value);
 }
 
 impl ExpectedValue for AbraInt {
-    fn check(self, vm: &mut Vm, val: Value) {
-        assert_eq!(val.get_int(vm), self);
+    fn check(self, runtime: &mut Runtime, val: Value) {
+        assert_eq!(val.get_int(&runtime.thread), self);
     }
 }
 
 impl ExpectedValue for i32 {
-    fn check(self, vm: &mut Vm, val: Value) {
-        assert_eq!(val.get_int(vm), self as AbraInt);
+    fn check(self, runtime: &mut Runtime, val: Value) {
+        assert_eq!(val.get_int(&runtime.thread), self as AbraInt);
     }
 }
 
 impl ExpectedValue for AbraFloat {
-    fn check(self, vm: &mut Vm, val: Value) {
-        assert_eq!(val.get_float(vm), self);
+    fn check(self, runtime: &mut Runtime, val: Value) {
+        assert_eq!(val.get_float(&runtime.thread), self);
     }
 }
 
 impl ExpectedValue for f32 {
-    fn check(self, vm: &mut Vm, val: Value) {
-        assert_eq!(val.get_float(vm), self as AbraFloat);
+    fn check(self, runtime: &mut Runtime, val: Value) {
+        assert_eq!(val.get_float(&runtime.thread), self as AbraFloat);
     }
 }
 
 impl ExpectedValue for bool {
-    fn check(self, vm: &mut Vm, val: Value) {
-        assert_eq!(val.get_bool(vm), self);
+    fn check(self, runtime: &mut Runtime, val: Value) {
+        assert_eq!(val.get_bool(&runtime.thread), self);
     }
 }
 
 impl ExpectedValue for &str {
-    fn check(self, vm: &mut Vm, val: Value) {
-        assert_eq!(val.view_string(vm), self);
+    fn check(self, runtime: &mut Runtime, val: Value) {
+        assert_eq!(val.view_string(&runtime.thread), self);
     }
 }
 
@@ -61,10 +61,10 @@ pub fn expect_value<T: ExpectedValue>(src: &str, val: T) {
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    val.check(&mut vm, top);
+    let mut runtime = Runtime::new(program);
+    runtime.run();
+    let top = runtime.top();
+    val.check(&mut runtime, top);
 }
 
 pub fn should_fail(src: &str) {

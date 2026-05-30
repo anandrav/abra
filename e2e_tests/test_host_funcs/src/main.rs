@@ -4,10 +4,12 @@
 
 use std::{error::Error, path::PathBuf};
 
+use abra_core::vm::{Runtime, VmGreenThread};
 use abra_core::{
     OsFileProvider,
     vm::{Vm, VmStatus},
 };
+
 mod generated;
 use generated::*;
 
@@ -17,31 +19,31 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let program = abra_core::compile_bytecode("main.abra", file_provider)?;
 
-    let mut vm = Vm::new(program);
-    vm.run();
-    let status = vm.status();
+    let mut runtime = Runtime::new(program);
+    runtime.run();
+    let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
-    handle_host_func(&mut vm, host_func_args);
-    vm.run();
-    let status = vm.status();
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
+    handle_host_func(&mut runtime.thread, host_func_args);
+    runtime.run();
+    let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
-    handle_host_func(&mut vm, host_func_args);
-    vm.run();
-    let status = vm.status();
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
+    handle_host_func(&mut runtime.thread, host_func_args);
+    runtime.run();
+    let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
-    handle_host_func(&mut vm, host_func_args);
-    vm.run();
-    let status = vm.status();
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
+    handle_host_func(&mut runtime.thread, host_func_args);
+    runtime.run();
+    let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
-    handle_host_func(&mut vm, host_func_args);
-    vm.run();
-    let top = vm.top();
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
+    handle_host_func(&mut runtime.thread, host_func_args);
+    runtime.run();
+    let top = runtime.top();
     // 28 (from before) + 30 (p.age) + 42 (bl.n) = 100
-    assert_eq!(top.get_int(&vm), 100);
+    assert_eq!(top.get_int(&runtime.thread), 100);
 
     // prevent warning for unused Color type (not yet tested via host functions)
     let _ = Color::Red;
@@ -49,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn handle_host_func(vm: &mut Vm, host_func_args: HostFunctionArgs) {
+fn handle_host_func(vm: &mut VmGreenThread, host_func_args: HostFunctionArgs) {
     // TODO: flesh this out a bit more.
     // test single argument, multiple argument, no arguments
     // test void return value, single return value, tuple return value
