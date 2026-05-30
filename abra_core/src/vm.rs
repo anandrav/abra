@@ -10,6 +10,7 @@ use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
+use rayon::prelude::*;
 use std::alloc::{Layout, alloc, dealloc};
 use std::cmp::PartialEq;
 use std::collections::VecDeque;
@@ -17,8 +18,8 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::{Arc, mpsc};
 use std::{
     fmt::{Display, Formatter},
     ptr,
@@ -112,16 +113,14 @@ The CLI or some other program will
        - probably a good concurrent queue in parking lot crate. or just use channels? It's MULTI PRODUCER SINGLE CONSUMER
        - probably shoudl use RAYON for the worker pool. or parking lot?
        - the logic from #4 should be done every frame of the program so this will be a routine provided by vm.rs
-       - since shared libraries/foreign functions are loaded *before* the main function is run,
-           need an instruction to signal when this FFI "prelude" is over and the actual program can begin
    Open questions
        - best way to do readonly shared data with ZERO overhead? Even Arc<T> has overhead... Should be safe to just read something...
 
 */
 pub struct Runtime {
-    threads: VecDeque<Box<VmGreenThread>>,
+    threads: Vec<Box<VmGreenThread>>,
 
-    // new_threads: Receiver<Box<VmGreenThread>>,
+    new_threads: Receiver<Box<VmGreenThread>>,
 
     // How do readonly share this with absolutely zero overhead?
     vm_shared_readonly: Arc<VmSharedReadonly>,
@@ -188,17 +187,25 @@ impl Runtime {
 
         let vm_shared_readonly = Arc::new(vm_shared_readonly);
 
-        let mut threads = VecDeque::new();
-        threads.push_back(Box::new(VmGreenThread::new(vm_shared_readonly.clone())));
+        let (sender, receiver) = mpsc::channel();
+
+        let mut threads = vec![Box::new(VmGreenThread::new(vm_shared_readonly.clone()))];
 
         Runtime {
             threads,
-            // new_threads: (),
+            new_threads: receiver,
             vm_shared_readonly: vm_shared_readonly.clone(),
         }
     }
+
+    pub fn run(&mut self) {
+        let mut threads_to_run = vec![];
+        threads_to_run = std::mem::take(&mut self.threads);
+        threads_to_run.par_iter_mut().for_each(|thread| {})
+    }
 }
 
+unsafe impl Send for VmGreenThread {}
 pub struct VmGreenThread {
     pc: ProgramCounter,
     // stack
