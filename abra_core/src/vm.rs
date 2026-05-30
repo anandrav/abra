@@ -186,10 +186,15 @@ impl Runtime {
             }
         }
 
+        let vm_shared_readonly = Arc::new(vm_shared_readonly);
+
+        let mut threads = VecDeque::new();
+        threads.push_back(Box::new(VmGreenThread::new(vm_shared_readonly.clone())));
+
         Runtime {
-            threads: Default::default(),
+            threads,
             // new_threads: (),
-            vm_shared_readonly: Arc::new(vm_shared_readonly),
+            vm_shared_readonly: vm_shared_readonly.clone(),
         }
     }
 }
