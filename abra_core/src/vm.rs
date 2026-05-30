@@ -990,6 +990,7 @@ enum GcState {
 struct ObjectHeader {
     kind: ObjectKind,
     visited: bool,
+    no_gc: bool,
 }
 
 impl ObjectHeader {
@@ -1086,6 +1087,7 @@ impl StructObject {
                             GcState::Idle => false,
                             GcState::Marking | GcState::Sweeping { .. } => true,
                         },
+                        no_gc: false,
                     },
                     len,
                 },
@@ -1159,6 +1161,7 @@ impl ArrayObject {
                 GcState::Idle => false,
                 GcState::Marking | GcState::Sweeping { .. } => true,
             },
+            no_gc: false,
         };
         let b = Box::new(ArrayObject { header, data });
         let arr = Box::leak(b);
@@ -1199,6 +1202,7 @@ impl EnumObject {
                 GcState::Idle => false,
                 GcState::Marking | GcState::Sweeping { .. } => true,
             },
+            no_gc: false,
         };
         let b = Box::new(EnumObject { header, tag, val });
         let variant = Box::leak(b);
@@ -1234,6 +1238,7 @@ impl StringObject {
                 GcState::Idle => false,
                 GcState::Marking | GcState::Sweeping { .. } => true,
             },
+            no_gc: false,
         };
         let b = Box::new(StringObject { header, str });
         let str = Box::leak(b);
