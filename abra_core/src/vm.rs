@@ -370,7 +370,7 @@ impl Vm {
         };
 
         for s in program.static_strings {
-            let s_obj = StringObject::new(s, &mut vm);
+            let s_obj = StringObject::new_vm_static(s, &mut vm);
             vm.static_strings.push(s_obj);
         }
 
@@ -1275,11 +1275,29 @@ impl StringObject {
         str
     }
 
+    // TODO; get rid of this soon
+    fn new_vm_static(str: String, vm: &mut Vm) -> *mut StringObject {
+        let header = ObjectHeader {
+            kind: ObjectKind::String,
+            visited: match &vm.gc_state {
+                GcState::Idle => false,
+                GcState::Marking | GcState::Sweeping { .. } => true,
+            },
+            no_gc: true,
+        };
+        let b = Box::new(StringObject { header, str });
+        let str = Box::leak(b);
+
+        vm.heap_size += str.nbytes();
+
+        str
+    }
+
     fn new_static(str: String, vm_shared_readonly: &mut VmSharedReadonly) -> *mut StringObject {
         let header = ObjectHeader {
             kind: ObjectKind::String,
             visited: false,
-            no_gc: false,
+            no_gc: true,
         };
         let b = Box::new(StringObject { header, str });
         let str = Box::leak(b);
@@ -2173,13 +2191,11 @@ impl Vm {
         }
     }
 
+    // TODO: this is not very incremental.
     fn start_mark_phase(&mut self) {
         // mark roots gray
         for v in self.value_stack.iter() {
             Self::mark(v, &mut self.gray_stack, self.gc_visited);
-        }
-        for s_ptr in self.static_strings.iter().cloned() {
-            Self::mark(&Value::from(s_ptr), &mut self.gray_stack, self.gc_visited);
         }
         Self::mark(&self.string_operand1, &mut self.gray_stack, self.gc_visited);
         Self::mark(&self.string_operand2, &mut self.gray_stack, self.gc_visited);
@@ -2194,6 +2210,9 @@ impl Vm {
         }
 
         let header = unsafe { v.get_object_header() };
+        if header.no_gc {
+            return;
+        }
         if header.visited == gc_visited {
             return;
         }
