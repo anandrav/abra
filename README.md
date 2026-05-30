@@ -2,6 +2,8 @@
 
 [![Build Status](https://github.com/anandrav/abra/workflows/CI/badge.svg)](https://github.com/anandrav/abra/actions?workflow=CI)
 
+Abra is an embeddable scripting language with a strong type system. This repository holds the compiler and language tooling.
+
 ```rust,f#
 fn fib(n) {
   if n < 2 {
