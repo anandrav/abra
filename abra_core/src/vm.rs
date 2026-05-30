@@ -85,6 +85,8 @@ struct VmSharedReadonly {
     function_name_table: Vec<(BytecodeIndex, u32)>,
     filename_arena: Vec<String>,
     function_name_arena: Vec<String>,
+    // heap
+    heap_size: usize,
 
     // FFI
     #[cfg(feature = "ffi")]
@@ -119,64 +121,77 @@ The CLI or some other program will
 pub struct Runtime {
     threads: VecDeque<Box<VmGreenThread>>,
 
-    new_threads: Receiver<Box<VmGreenThread>>,
+    // new_threads: Receiver<Box<VmGreenThread>>,
 
     // How do readonly share this with absolutely zero overhead?
     vm_shared_readonly: Arc<VmSharedReadonly>,
 }
 
 impl Runtime {
-    // pub fn new(program: CompiledProgram) -> Self {
-    //     let mut vm_shared_readonly = Arc::new(VmSharedReadonly {
-    //         program: program.instructions,
-    //
-    //         int_constants: program.int_constants.into_iter().collect(),
-    //         float_constants: program.float_constants.into_iter().collect(),
-    //         static_strings: vec![],
-    //         filename_arena: program.filename_arena.into_iter().collect(),
-    //         function_name_arena: program.function_name_arena.into_iter().collect(),
-    //
-    //         filename_table: program.filename_table,
-    //         lineno_table: program.lineno_table,
-    //         function_name_table: program.function_name_table,
-    //
-    //         #[cfg(feature = "ffi")]
-    //         libs: Vec::new(),
-    //         #[cfg(feature = "ffi")]
-    //         foreign_functions: Vec::new(),
-    //     });
-    //
-    //     for s in program.static_strings {
-    //         let s_obj = StringObject::new(s, &mut vm);
-    //         vm_shared_readonly.static_strings.push(s_obj);
-    //     }
-    //
-    //     #[cfg(feature = "ffi")]
-    //     for lib_data in &program.ffi_libs {
-    //         // pop libname from stack
-    //         // load the library with a certain name and add it to the Vm's Vec of libs
-    //         let libname = &lib_data.lib_name;
-    //         let lib = unsafe { Library::new(libname) };
-    //         let Ok(lib) = lib else { vm.fail(VmErrorKind::LibLoadFailure(libname.to_string())) };
-    //         vm_shared_readonly.libs.push(lib);
-    //
-    //         for symbol_name in &lib_data.function_names {
-    //             // pop foreign func name from stack
-    //             // load symbol from the last library loaded
-    //             let lib = vm_shared_readonly.libs.last().expect("no libraries have been loaded");
-    //             let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
-    //                 unsafe { lib.get(symbol_name.as_bytes()) };
-    //             let Ok(symbol) = symbol else {
-    //                 panic!("could not load symbol {}", symbol_name);
-    //                 // TODO: don't panic, report error in a better way
-    //                 // vm_shared_readonly.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
-    //             };
-    //             vm_shared_readonly.foreign_functions.push(*symbol);
-    //         }
-    //     }
-    //
-    //     vm
-    // }
+    pub fn new(program: CompiledProgram) -> Self {
+        let mut vm_shared_readonly = VmSharedReadonly {
+            program: program.instructions,
+
+            int_constants: program.int_constants.into_iter().collect(),
+            float_constants: program.float_constants.into_iter().collect(),
+            static_strings: vec![],
+            filename_arena: program.filename_arena.into_iter().collect(),
+            function_name_arena: program.function_name_arena.into_iter().collect(),
+
+            filename_table: program.filename_table,
+            lineno_table: program.lineno_table,
+            function_name_table: program.function_name_table,
+
+            heap_size: 0,
+
+            #[cfg(feature = "ffi")]
+            libs: Vec::new(),
+            #[cfg(feature = "ffi")]
+            foreign_functions: Vec::new(),
+        };
+
+        for s in program.static_strings {
+            let s_obj = StringObject::new_static(s, &mut vm_shared_readonly);
+            vm_shared_readonly.static_strings.push(s_obj);
+        }
+
+        #[cfg(feature = "ffi")]
+        for lib_data in &program.ffi_libs {
+            // pop libname from stack
+            // load the library with a certain name and add it to the Vm's Vec of libs
+            let libname = &lib_data.lib_name;
+            let lib = unsafe { Library::new(libname) };
+            // let Ok(lib) = lib else { vm.fail(VmErrorKind::LibLoadFailure(libname.to_string())) };
+            // TODO: don't panic here, do something similar to vm.fail()
+            let Ok(lib) = lib else {
+                panic!("{}", VmErrorKind::LibLoadFailure(libname.to_string()))
+            };
+            vm_shared_readonly.libs.push(lib);
+
+            for symbol_name in &lib_data.function_names {
+                // pop foreign func name from stack
+                // load symbol from the last library loaded
+                let lib = vm_shared_readonly
+                    .libs
+                    .last()
+                    .expect("no libraries have been loaded");
+                let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
+                    unsafe { lib.get(symbol_name.as_bytes()) };
+                let Ok(symbol) = symbol else {
+                    panic!("could not load symbol {}", symbol_name);
+                    // TODO: don't panic, report error in a better way
+                    // vm_shared_readonly.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
+                };
+                vm_shared_readonly.foreign_functions.push(*symbol);
+            }
+        }
+
+        Runtime {
+            threads: Default::default(),
+            // new_threads: (),
+            vm_shared_readonly: Arc::new(vm_shared_readonly),
+        }
+    }
 }
 
 pub struct VmGreenThread {
@@ -1251,6 +1266,20 @@ impl StringObject {
         }
         vm.heap_size += str.nbytes();
         vm.gc_debt += str.nbytes();
+
+        str
+    }
+
+    fn new_static(str: String, vm_shared_readonly: &mut VmSharedReadonly) -> *mut StringObject {
+        let header = ObjectHeader {
+            kind: ObjectKind::String,
+            visited: false,
+            no_gc: false,
+        };
+        let b = Box::new(StringObject { header, str });
+        let str = Box::leak(b);
+
+        vm_shared_readonly.heap_size += str.nbytes();
 
         str
     }
