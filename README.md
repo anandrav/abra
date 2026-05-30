@@ -39,8 +39,8 @@ Optionally install editor extensions:
 
 ```
 ./scripts/install --vim      # Vim syntax highlighting
-./scripts/install --vscode   # VS Code extension (requires Node/npm)
-./scripts/install --intellij   # VS Code extension (requires Java)
+./scripts/install --vscode   # VS Code extension (requires Node 20+)
+./scripts/install --intellij # IntelliJ plugin (requires JDK 21)
 ```
 
 ## Documentation
