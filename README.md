@@ -24,7 +24,7 @@ for i in 10 {
 ### Homebrew (macOS / Linux)
 
 ```
-brew install anandrav/abra/abra
+brew install --HEAD anandrav/abra/abra
 ```
 
 ### From source

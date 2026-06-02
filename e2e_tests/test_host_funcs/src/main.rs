@@ -23,27 +23,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     runtime.run();
     let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
-    handle_host_func(&mut runtime.thread, host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
-    handle_host_func(&mut runtime.thread, host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
-    handle_host_func(&mut runtime.thread, host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let status = runtime.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.thread, i);
-    handle_host_func(&mut runtime.thread, host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let top = runtime.top();
     // 28 (from before) + 30 (p.age) + 42 (bl.n) = 100
-    assert_eq!(top.get_int(&runtime.thread), 100);
+    assert_eq!(top.get_int(&runtime.main_thread), 100);
 
     // prevent warning for unused Color type (not yet tested via host functions)
     let _ = Color::Red;

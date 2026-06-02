@@ -10,10 +10,10 @@ use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 use std::alloc::{Layout, alloc, dealloc};
 use std::cmp::PartialEq;
-use std::collections::VecDeque;
 use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
@@ -118,7 +118,7 @@ The CLI or some other program will
 
 */
 pub struct Runtime {
-    pub thread: Box<VmGreenThread>,
+    pub main_thread: Box<VmGreenThread>,
     // threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
 
@@ -192,7 +192,7 @@ impl Runtime {
         // let mut threads = vec![];
 
         Runtime {
-            thread: Box::new(VmGreenThread::new(vm_shared_readonly.clone())),
+            main_thread: Box::new(VmGreenThread::new(vm_shared_readonly.clone())),
             // threads,
             new_threads: receiver,
             shared: vm_shared_readonly.clone(),
@@ -204,37 +204,37 @@ impl Runtime {
         // threads_to_run = std::mem::take(&mut self.threads);
         // threads_to_run.par_iter_mut().for_each(|thread| {})
 
-        self.thread.run();
+        self.main_thread.run();
     }
 
     // TODO: these do not belong on runtime because they are thread specific I guess? Not totally sure. Is there a "main" thread?
 
     pub fn top(&self) -> Value {
-        self.thread.top()
+        self.main_thread.top()
     }
 
     pub fn pop(&mut self) -> Value {
-        self.thread.pop()
+        self.main_thread.pop()
     }
 
     pub fn clear_pending_host_func(&mut self) {
-        self.thread.clear_pending_host_func()
+        self.main_thread.clear_pending_host_func()
     }
 
     pub fn status(&self) -> VmStatus {
-        self.thread.status()
+        self.main_thread.status()
     }
 
     pub fn is_done(&self) -> bool {
-        self.thread.is_done()
+        self.main_thread.is_done()
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
-        self.thread.run_n_steps(steps)
+        self.main_thread.run_n_steps(steps)
     }
 
     pub fn nbytes(&self) -> usize {
-        self.thread.nbytes()
+        self.main_thread.nbytes()
     }
 }
 
