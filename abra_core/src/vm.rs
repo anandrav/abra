@@ -119,7 +119,7 @@ The CLI or some other program will
 */
 pub struct Runtime {
     pub main_thread: Box<VmGreenThread>,
-    // threads: Vec<Box<VmGreenThread>>,
+    threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
 
     // How do readonly share this with absolutely zero overhead?
@@ -189,22 +189,12 @@ impl Runtime {
 
         let (sender, receiver) = mpsc::channel();
 
-        // let mut threads = vec![];
-
         Runtime {
             main_thread: Box::new(VmGreenThread::new(vm_shared_readonly.clone())),
-            // threads,
+            threads: vec![],
             new_threads: receiver,
             shared: vm_shared_readonly.clone(),
         }
-    }
-
-    pub fn run(&mut self) {
-        // let mut threads_to_run = vec![];
-        // threads_to_run = std::mem::take(&mut self.threads);
-        // threads_to_run.par_iter_mut().for_each(|thread| {})
-
-        self.main_thread.run();
     }
 
     // TODO: these do not belong on runtime because they are thread specific I guess? Not totally sure. Is there a "main" thread?
@@ -237,8 +227,31 @@ impl Runtime {
         matches!(self.main_thread.status(), VmStatus::Done)
     }
 
+    pub fn run(&mut self) {
+        const SCHEDULER_N_STEPS: u32 = 100;
+
+        while matches!(self.main_thread.status(), VmStatus::OutOfSteps) {
+            self.run_n_steps(SCHEDULER_N_STEPS);
+        }
+    }
+
     pub fn run_n_steps(&mut self, steps: u32) {
-        self.main_thread.run_n_steps(steps)
+        let mut threads_to_run = vec![];
+        threads_to_run = std::mem::take(&mut self.threads);
+
+        self.main_thread.run_n_steps(steps);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            threads_to_run.par_iter_mut().for_each(|thread| {
+                thread.run_n_steps(steps);
+            });
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            threads_to_run.iter_mut().for_each(|thread| {
+                thread.run_n_steps(steps);
+            });
+        }
     }
 
     pub fn nbytes(&self) -> usize {
@@ -320,6 +333,13 @@ impl Display for ProgramCounter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
+}
+
+pub enum RuntimeStatus {
+    Done,
+    PendingHostFunc,
+    OutOfSteps,
+    MainThreadError(Box<VmError>),
 }
 
 pub enum VmStatus {
