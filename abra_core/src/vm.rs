@@ -209,14 +209,22 @@ impl Runtime {
 
     // TODO: these do not belong on runtime because they are thread specific I guess? Not totally sure. Is there a "main" thread?
 
+    pub fn main(&self) -> &VmGreenThread {
+        self.main_thread.as_ref()
+    }
+
+    pub fn main_mut(&mut self) -> &mut VmGreenThread {
+        self.main_thread.as_mut()
+    }
+
     pub fn top(&self) -> Value {
         self.main_thread.top()
     }
 
+    // TODO: pop and clear_pending_host_func aren't safe at all. Should not be exposed in public API or should be marked as unsafe
     pub fn pop(&mut self) -> Value {
         self.main_thread.pop()
     }
-
     pub fn clear_pending_host_func(&mut self) {
         self.main_thread.clear_pending_host_func()
     }
