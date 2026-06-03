@@ -202,34 +202,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     eprint!("{error}");
                     exit(1);
                 }
-                if let Some(pending_host_func) = runtime.main_thread.get_pending_host_func() {
-                    let host_func_args: HostFunctionArgs =
-                        HostFunctionArgs::from_vm(&mut *runtime.main_thread, pending_host_func);
-                    match host_func_args {
-                        HostFunctionArgs::PrintString(s) => {
-                            print!("{s}");
-                            io::stdout().flush().unwrap();
-                            HostFunctionRet::PrintString.into_vm(&mut *runtime.main_thread);
-                        }
-                        HostFunctionArgs::EprintString(s) => {
-                            eprint!("{s}");
-                            io::stderr().flush().unwrap();
-                            HostFunctionRet::EprintString.into_vm(&mut *runtime.main_thread);
-                        }
-                        HostFunctionArgs::Readline => {
-                            let mut input = String::new();
-                            io::stdin().read_line(&mut input).unwrap();
-                            if input.ends_with('\n') {
-                                input.pop();
-                                if input.ends_with('\r') {
-                                    input.pop();
-                                }
+                // handle pending host functions
+                for thread in runtime.iter_threads_mut() {
+                    if let Some(pending_host_func) = thread.get_pending_host_func() {
+                        let host_func_args: HostFunctionArgs =
+                            HostFunctionArgs::from_vm(&mut *thread, pending_host_func);
+                        match host_func_args {
+                            HostFunctionArgs::PrintString(s) => {
+                                print!("{s}");
+                                io::stdout().flush().unwrap();
+                                HostFunctionRet::PrintString.into_vm(&mut *thread);
                             }
-                            HostFunctionRet::Readline(input).into_vm(&mut *runtime.main_thread);
-                        }
-                        HostFunctionArgs::GetArgs => {
-                            HostFunctionRet::GetArgs(args.abra_program_args.clone())
-                                .into_vm(&mut *runtime.main_thread);
+                            HostFunctionArgs::EprintString(s) => {
+                                eprint!("{s}");
+                                io::stderr().flush().unwrap();
+                                HostFunctionRet::EprintString.into_vm(&mut *thread);
+                            }
+                            HostFunctionArgs::Readline => {
+                                let mut input = String::new();
+                                io::stdin().read_line(&mut input).unwrap();
+                                if input.ends_with('\n') {
+                                    input.pop();
+                                    if input.ends_with('\r') {
+                                        input.pop();
+                                    }
+                                }
+                                HostFunctionRet::Readline(input).into_vm(&mut *thread);
+                            }
+                            HostFunctionArgs::GetArgs => {
+                                HostFunctionRet::GetArgs(args.abra_program_args.clone())
+                                    .into_vm(&mut *thread);
+                            }
                         }
                     }
                 }

@@ -219,6 +219,7 @@ impl Runtime {
         self.main_thread.clear_pending_host_func()
     }
 
+    // TODO: there could potentially be thousands and thousands of these "threads" so we should never iterate over all of them at once like this
     pub fn status(&self) -> RuntimeStatus {
         match self.main_thread.status() {
             VmStatus::Done => return RuntimeStatus::Done,
@@ -265,6 +266,10 @@ impl Runtime {
         for new_thread in self.new_threads.iter() {
             self.threads.push(new_thread);
         }
+    }
+
+    pub fn iter_threads_mut(&mut self) -> impl Iterator<Item = &mut Box<VmGreenThread>> {
+        std::iter::once(&mut self.main_thread).chain(self.threads.iter_mut())
     }
 
     pub fn nbytes(&self) -> usize {
