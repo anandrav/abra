@@ -6,8 +6,8 @@ use crate::helper::unwrap_or_panic;
 use crate::helper::{expect_value, should_fail};
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::vm::VmStatus;
 use abra_core::vm::{Runtime, Vm};
+use abra_core::vm::{RuntimeStatus, VmStatus};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -800,17 +800,17 @@ arr.len()
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Runtime::new(program);
-    vm.run();
+    let mut runtime = Runtime::new(program);
+    runtime.run();
     for n in [1, 2, 3] {
-        let top = vm.top();
-        assert_eq!(top.view_string(&vm.main_thread), n.to_string());
-        vm.pop();
-        vm.clear_pending_host_func();
-        vm.run();
+        let top = runtime.top();
+        assert_eq!(top.view_string(&runtime.main_thread), n.to_string());
+        runtime.pop();
+        runtime.clear_pending_host_func();
+        runtime.run();
     }
-    let top = vm.top();
-    assert_eq!(top.get_int(&vm.main_thread), 3);
+    let top = runtime.top();
+    assert_eq!(top.get_int(&runtime.main_thread), 3);
 }
 
 #[test]
@@ -946,7 +946,7 @@ n
     ));
     let mut runtime = Runtime::new(program);
     runtime.run();
-    let VmStatus::Error(_) = runtime.status() else { panic!() };
+    let RuntimeStatus::MainThreadError(_) = runtime.status() else { panic!() };
 }
 
 #[test]
@@ -972,7 +972,7 @@ n
     ));
     let mut runtime = Runtime::new(program);
     runtime.run();
-    let VmStatus::Error(_) = runtime.status() else { panic!() };
+    let RuntimeStatus::MainThreadError(_) = runtime.status() else { panic!() };
 }
 
 #[test]
@@ -1528,9 +1528,9 @@ do_stuff()
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Runtime::new(program);
-    vm.run();
-    let status = vm.status();
+    let mut runtime = Runtime::new(program);
+    runtime.run();
+    let status = runtime.main().status();
     let VmStatus::PendingHostFunc(0) = status else { panic!() };
 }
 
@@ -1552,7 +1552,7 @@ x + x
     ));
     let mut runtime = Runtime::new(program);
     runtime.run();
-    let status = runtime.status();
+    let status = runtime.main().status();
     let VmStatus::PendingHostFunc(1) = status else { panic!() };
     runtime.main_thread.push_int(3);
     runtime.clear_pending_host_func();

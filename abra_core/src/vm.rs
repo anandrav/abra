@@ -219,8 +219,20 @@ impl Runtime {
         self.main_thread.clear_pending_host_func()
     }
 
-    pub fn status(&self) -> VmStatus {
-        self.main_thread.status()
+    pub fn status(&self) -> RuntimeStatus {
+        match self.main_thread.status() {
+            VmStatus::Done => return RuntimeStatus::Done,
+            VmStatus::PendingHostFunc(_) => return RuntimeStatus::PendingHostFunc,
+            VmStatus::OutOfSteps => {}
+            VmStatus::Error(e) => return RuntimeStatus::MainThreadError(e),
+        }
+        for thread in self.threads.iter() {
+            match thread.status() {
+                VmStatus::PendingHostFunc(_) => return RuntimeStatus::PendingHostFunc,
+                _ => {}
+            }
+        }
+        RuntimeStatus::OutOfSteps
     }
 
     pub fn is_done(&self) -> bool {
@@ -245,7 +257,7 @@ impl Runtime {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            threads_to_run.iter_mut().for_each(|thread| {
+            self.threads.iter_mut().for_each(|thread| {
                 thread.run_n_steps(steps);
             });
         }

@@ -21,22 +21,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut runtime = Runtime::new(program);
     runtime.run();
-    let status = runtime.status();
+    let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
-    let status = runtime.status();
+    let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
-    let status = runtime.status();
+    let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
-    let status = runtime.status();
+    let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
