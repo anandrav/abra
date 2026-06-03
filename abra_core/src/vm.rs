@@ -236,13 +236,10 @@ impl Runtime {
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
-        let mut threads_to_run = vec![];
-        threads_to_run = std::mem::take(&mut self.threads);
-
         self.main_thread.run_n_steps(steps);
         #[cfg(not(target_arch = "wasm32"))]
         {
-            threads_to_run.par_iter_mut().for_each(|thread| {
+            self.threads.par_iter_mut().for_each(|thread| {
                 thread.run_n_steps(steps);
             });
         }
@@ -251,6 +248,10 @@ impl Runtime {
             threads_to_run.iter_mut().for_each(|thread| {
                 thread.run_n_steps(steps);
             });
+        }
+
+        for new_thread in self.new_threads.iter() {
+            self.threads.push(new_thread);
         }
     }
 
