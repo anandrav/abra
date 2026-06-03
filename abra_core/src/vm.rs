@@ -234,7 +234,7 @@ impl Runtime {
     }
 
     pub fn is_done(&self) -> bool {
-        self.main_thread.is_done()
+        matches!(self.main_thread.status(), VmStatus::Done)
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
@@ -379,7 +379,7 @@ impl VmGreenThread {
     pub fn status(&self) -> VmStatus {
         if let Some(eff) = self.pending_host_func {
             VmStatus::PendingHostFunc(eff)
-        } else if self.is_done() {
+        } else if self.done {
             VmStatus::Done
         } else {
             match &self.error {
@@ -579,10 +579,6 @@ impl VmGreenThread {
             location: self.pc_to_error_location(self.pc),
             trace: self.make_stack_trace(),
         }
-    }
-
-    pub fn is_done(&self) -> bool {
-        self.done
     }
 }
 
