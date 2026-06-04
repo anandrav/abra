@@ -75,12 +75,9 @@ The CLI or some other program will
 
 */
 pub struct Runtime {
-    pub main_thread: Box<VmGreenThread>,
+    main_thread: Box<VmGreenThread>,
     threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
-
-    // How do readonly share this with absolutely zero overhead?
-    shared: Arc<VmSharedReadonly>,
 }
 
 impl Runtime {
@@ -147,10 +144,9 @@ impl Runtime {
         let (sender, receiver) = mpsc::channel();
 
         Runtime {
-            main_thread: Box::new(VmGreenThread::new(vm_shared_readonly.clone(), sender)),
+            main_thread: Box::new(VmGreenThread::new(vm_shared_readonly, sender)),
             threads: vec![],
             new_threads: receiver,
-            shared: vm_shared_readonly.clone(),
         }
     }
 
@@ -1236,24 +1232,6 @@ impl StringObject {
         }
         vm.heap_size += str.nbytes();
         vm.gc_debt += str.nbytes();
-
-        str
-    }
-
-    // TODO; get rid of this soon
-    fn new_vm_static(str: String, vm: &mut VmGreenThread) -> *mut StringObject {
-        let header = ObjectHeader {
-            kind: ObjectKind::String,
-            visited: match &vm.gc_state {
-                GcState::Idle => false,
-                GcState::Marking | GcState::Sweeping { .. } => true,
-            },
-            no_gc: true,
-        };
-        let b = Box::new(StringObject { header, str });
-        let str = Box::leak(b);
-
-        vm.heap_size += str.nbytes();
 
         str
     }
