@@ -193,10 +193,13 @@ impl Runtime {
         matches!(self.main_thread.status(), VmStatus::Done)
     }
 
+    // TODO: this is flawed and shouldn't be used. Lots of tests are using it right now or else I'd delete it immediately
     pub fn run(&mut self) {
         const SCHEDULER_N_STEPS: u32 = 100;
 
-        self.run_n_steps(SCHEDULER_N_STEPS);
+        while matches!(self.main_thread.status(), VmStatus::OutOfSteps) {
+            self.run_n_steps(SCHEDULER_N_STEPS);
+        }
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {

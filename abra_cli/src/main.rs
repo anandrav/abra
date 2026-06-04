@@ -194,7 +194,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(program) => {
             let mut runtime = abra_core::vm::Runtime::new(program);
             loop {
-                runtime.run();
+                runtime.run_n_steps(100);
                 if runtime.is_done() {
                     return Ok(());
                 }
