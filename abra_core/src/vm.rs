@@ -18,9 +18,8 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
-use std::rc::Rc;
-use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{Arc, mpsc};
 use std::{
     fmt::{Display, Formatter},
     ptr,
@@ -140,7 +139,7 @@ impl Runtime {
             }
         }
 
-        let vm_shared_readonly = Rc::new(vm_shared_readonly);
+        let vm_shared_readonly = Arc::new(vm_shared_readonly);
 
         let (sender, receiver) = mpsc::channel();
 
@@ -257,12 +256,12 @@ pub struct VmGreenThread {
     string_operand2: Value,
     concat_string_builder: Vec<u8>,
 
-    shared: Rc<VmSharedReadonly>,
+    shared: Arc<VmSharedReadonly>,
     new_threads_sender: Sender<Box<VmGreenThread>>,
 }
 
 impl VmGreenThread {
-    fn new(shared: Rc<VmSharedReadonly>, new_threads_sender: Sender<Box<VmGreenThread>>) -> Self {
+    fn new(shared: Arc<VmSharedReadonly>, new_threads_sender: Sender<Box<VmGreenThread>>) -> Self {
         Self {
             pc: ProgramCounter(0),
             stack_base: 0,
