@@ -1015,6 +1015,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
         ExprKind::Try(expr) => {
             resolve_names_expr(ctx, symbol_table, expr);
         }
+        ExprKind::TaskBlock => unimplemented!(),
     }
 }
 

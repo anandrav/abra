@@ -3359,6 +3359,7 @@ fn generate_constraints_expr(
                     .push(Error::TryNeedsAnnotation { node: expr.node() });
             }
         }
+        ExprKind::TaskBlock => unimplemented!(),
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
     handle_ana(ctx, mode, node_ty);

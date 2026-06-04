@@ -835,6 +835,7 @@ impl Translator {
                         self.translate_expr(func, offset_table, mono, st);
                         self.translate_lambda_call(st, mono, func.node());
                     }
+                    ExprKind::TaskBlock => unimplemented!(),
                 };
             }
             ExprKind::Block(statements) => {
@@ -1096,6 +1097,7 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
+            ExprKind::TaskBlock => {}
         }
     }
 
@@ -2580,6 +2582,7 @@ impl Translator {
             | ExprKind::Float(..)
             | ExprKind::Bool(..)
             | ExprKind::Str(..) => {}
+            ExprKind::TaskBlock => unimplemented!(),
         }
     }
 
@@ -2796,6 +2799,7 @@ impl Translator {
             | ExprKind::Float(..)
             | ExprKind::Bool(..)
             | ExprKind::Str(..) => {}
+            ExprKind::TaskBlock => unimplemented!(),
         }
     }
 

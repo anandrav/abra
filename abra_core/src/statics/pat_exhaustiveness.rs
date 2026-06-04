@@ -183,6 +183,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
         ExprKind::Try(expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
+        ExprKind::TaskBlock => {}
     }
 }
 
