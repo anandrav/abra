@@ -473,7 +473,7 @@ fn find_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
         | ExprKind::Str(_) => Some(expr.node()),
-        ExprKind::TaskBlock => unimplemented!(),
+        ExprKind::TaskBlock(_) => unimplemented!(),
     }
 }
 
@@ -916,7 +916,7 @@ fn find_ident_in_expr(expr: &Rc<Expr>, offset: usize) -> Option<AstNode> {
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
         | ExprKind::Str(_) => None,
-        ExprKind::TaskBlock => unimplemented!(),
+        ExprKind::TaskBlock(_) => unimplemented!(),
     }
 }
 
@@ -1071,6 +1071,6 @@ fn collect_vars_in_expr(expr: &Rc<Expr>, name: &str, out: &mut Vec<AstNode>) {
             }
         }
         ExprKind::Unwrap(inner) | ExprKind::Try(inner) => collect_vars_in_expr(inner, name, out),
-        ExprKind::TaskBlock => unimplemented!(),
+        ExprKind::TaskBlock(_) => unimplemented!(),
     }
 }
