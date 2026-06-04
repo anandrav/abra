@@ -126,6 +126,7 @@ pub(crate) enum TokenKind {
     In,
     If,
     Else,
+    Task,
     Nil,
     True,
     False,
@@ -205,6 +206,7 @@ impl TokenKind {
             | TokenKind::In
             | TokenKind::If
             | TokenKind::Else
+            | TokenKind::Task
             | TokenKind::Nil
             | TokenKind::True
             | TokenKind::False
