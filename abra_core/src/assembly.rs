@@ -161,6 +161,7 @@ pub enum Instr {
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
+    SpawnTask(Label),
 
     // Data Structures
     ConstructStruct(u16),
@@ -430,6 +431,9 @@ impl Display for Instr {
             Instr::GetIndex(reg1, reg2) => write!(f, "get_index {reg1} {reg2}"),
             Instr::SetIndex(reg1, reg2) => write!(f, "set_index {reg1} {reg2}"),
             Instr::MakeClosure(ncaptures) => {
+                write!(f, "make_closure {ncaptures}")
+            }
+            Instr::SpawnTask(ncaptures) => {
                 write!(f, "make_closure {ncaptures}")
             }
             Instr::ArrayPush(reg1, reg2) => write!(f, "array_push {reg1} {reg2}"),
@@ -738,6 +742,7 @@ fn instr_to_vminstr(
         Instr::ReturnVoid => VmInstr::ReturnVoid,
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
+        Instr::SpawnTask(label) => VmInstr::SpawnTask(ProgramCounter::new(label_to_idx[label])),
         Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n),
         Instr::ConstructArray(n) => VmInstr::ConstructArray(*n),
         Instr::DeconstructStruct => VmInstr::DeconstructStruct,

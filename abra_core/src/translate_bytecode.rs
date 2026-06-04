@@ -45,6 +45,7 @@ impl FuncDesc {
         match &self.kind {
             FuncKind::NamedFunc(f) => f.name.v.clone(),
             FuncKind::AnonymousFunc { .. } => "<lambda>".to_string(),
+            FuncKind::TaskBlock { .. } => "<task>".to_string(),
             FuncKind::IntrinsicWrapper(b, _) => b.name(),
             FuncKind::ForeignFunctionWrapper { func_decl, .. } => func_decl.name.v.clone(),
             FuncKind::HostFunctionWrapper(f) => f.name.v.clone(),
@@ -55,6 +56,7 @@ impl FuncDesc {
         match &self.kind {
             FuncKind::NamedFunc(f) => ctx.fully_qualified_names[&f.name.id].clone(),
             FuncKind::AnonymousFunc { lambda, .. } => format!("<lambda>[{}]", lambda.id),
+            FuncKind::TaskBlock { task_block, .. } => format!("<lambda>[{}]", task_block.id),
             FuncKind::IntrinsicWrapper(b, _) => b.name(),
             FuncKind::ForeignFunctionWrapper { symbol, .. } => symbol.clone(),
             FuncKind::HostFunctionWrapper(f) => ctx.fully_qualified_names[&f.name.id].clone(),
@@ -69,6 +71,9 @@ enum FuncKind {
         lambda: Rc<Expr>,
         capture_types: Vec<SolvedType>, // TODO: don't store this in here, just calculate it using the `lambda` field. (and should be memoizing calculation of captures)
         capture_types_concrete: Vec<SolvedType>,
+    },
+    TaskBlock {
+        task_block: Rc<Expr>,
     },
     IntrinsicWrapper(IntrinsicOperation, AstNode),
     ForeignFunctionWrapper {
@@ -429,6 +434,32 @@ impl Translator {
                                 args,
                                 body,
                             );
+                        }
+                        FuncKind::TaskBlock {
+                            task_block: e,
+                            // capture_types,
+                            // capture_types_concrete,
+                        } => {
+                            let ExprKind::TaskBlock(body) = &*e.kind else { unreachable!() };
+
+                            let func_ty = self.statics.solution_of_node(e.node()).unwrap();
+                            let mono_for_lambda = MonomorphEnv::empty();
+                            // if capture_types.iter().any(|ty| ty.is_overloaded()) {
+                            //     for (overloaded_ty, ty_concrete) in
+                            //         capture_types.iter().zip(capture_types_concrete.iter())
+                            //     {
+                            //         mono_for_lambda.update(overloaded_ty, ty_concrete);
+                            //     }
+                            // }
+                            unimplemented!()
+                            // self.translate_func_body_helper(
+                            //     st,
+                            //     mono_for_lambda,
+                            //     &desc,
+                            //     func_ty,
+                            //     &[],
+                            //     body,
+                            // );
                         }
                         FuncKind::IntrinsicWrapper(b, func_node) => {
                             self.emit_intrinsic(st, &mono, *b, func_node.clone(), true);
@@ -1042,6 +1073,49 @@ impl Translator {
 
                 self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
+            ExprKind::TaskBlock(statements) => {
+                /*
+                - the code in the block is basically a function
+                - so need to queue the bytecode generation for that "function" and get a label back.
+                - emit an instruction that spawns a thread to execute at some address
+                - Instr::SpawnTask(addr)
+                */
+                let func_ty = SolvedType::Function(vec![SolvedType::Void], SolvedType::Void.into());
+                let overload_ty = if !func_ty.is_overloaded() {
+                    None
+                } else {
+                    let substituted_ty = func_ty.subst(mono);
+                    Some(substituted_ty)
+                };
+
+                // let (_, captures, _locals) =
+                //     self.calculate_args_captures_locals(&overload_ty, args, body, mono);
+
+                let desc = FuncDesc {
+                    kind: FuncKind::TaskBlock {
+                        task_block: expr.clone(),
+                        // capture_types: captures
+                        //     .iter()
+                        //     .cloned()
+                        //     .map(|capture| self.statics.solution_of_node(capture).unwrap())
+                        //     .collect(),
+                        // capture_types_concrete: captures
+                        //     .iter()
+                        //     .cloned()
+                        //     .map(|capture| self.get_ty(mono, capture).unwrap())
+                        //     .collect(),
+                    },
+                    overload_ty: overload_ty.clone(),
+                };
+                let label = self.get_func_label(st, desc);
+
+                // for capture in &captures {
+                //     let offs = offset_table.get(&capture.id()).unwrap();
+                //     self.emit(st, Instr::LoadOffset(*offs));
+                // }
+
+                self.emit(st, Instr::SpawnTask(label.clone()));
+            }
             ExprKind::Unwrap(inner_expr) => {
                 self.translate_expr(inner_expr, offset_table, mono, st);
 
@@ -1096,14 +1170,6 @@ impl Translator {
                 if output_ty == &SolvedType::Void {
                     self.emit(st, Instr::Pop);
                 }
-            }
-            ExprKind::TaskBlock(statements) => {
-                /*
-                - the code in the block is basically a function
-                - so need to queue the bytecode generation for that "function" and get a label back.
-                - emit an instruction that spawns a thread to execute at some address
-                - Instr::SpawnTask(addr)
-                */
             }
         }
     }

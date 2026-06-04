@@ -728,6 +728,7 @@ pub enum Instr {
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
+    SpawnTask(ProgramCounter),
 
     // Data Structures
     ConstructStruct(u16),
@@ -1952,6 +1953,9 @@ impl VmGreenThread {
                     self.make_error(VmErrorKind::Panic(msg.to_string())),
                 ));
                 return false;
+            }
+            Instr::SpawnTask(target) => {
+                unimplemented!()
             }
             Instr::ConstructStruct(n) => self.construct_struct(n as usize),
             Instr::ConstructArray(n) => self.construct_array(n as usize),
