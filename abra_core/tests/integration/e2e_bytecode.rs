@@ -214,12 +214,12 @@ print_string("hello world")
     let mut runtime = Runtime::new(program);
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.view_string(&runtime.main()), "hello world");
+    assert_eq!(top.view_string(runtime.main()), "hello world");
     runtime.pop();
     runtime.clear_pending_host_func();
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 5);
+    assert_eq!(top.get_int(runtime.main()), 5);
 }
 
 #[test]
@@ -804,13 +804,13 @@ arr.len()
     runtime.run();
     for n in [1, 2, 3] {
         let top = runtime.top();
-        assert_eq!(top.view_string(&runtime.main()), n.to_string());
+        assert_eq!(top.view_string(runtime.main()), n.to_string());
         runtime.pop();
         runtime.clear_pending_host_func();
         runtime.run();
     }
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 3);
+    assert_eq!(top.get_int(runtime.main()), 3);
 }
 
 #[test]
@@ -1101,7 +1101,7 @@ x
     // vm.gc();
     assert!(runtime.nbytes() < 10000);
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 6);
+    assert_eq!(top.get_int(runtime.main()), 6);
 }
 
 // TODO: re-enable
@@ -1130,7 +1130,7 @@ x
         assert!(runtime.nbytes() < 10000); // TODO: this test never fails!
     }
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 6);
+    assert_eq!(top.get_int(runtime.main()), 6);
 }
 
 // #[test]
@@ -1210,7 +1210,7 @@ foo(2, 2)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 4);
+    assert_eq!(top.get_int(runtime.main()), 4);
 }
 
 #[test]
@@ -1241,7 +1241,7 @@ foo(2, 2)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 4);
+    assert_eq!(top.get_int(runtime.main()), 4);
 }
 
 #[test]
@@ -1275,7 +1275,7 @@ foo(2, 2)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 4);
+    assert_eq!(top.get_int(runtime.main()), 4);
 }
 
 #[test]
@@ -1310,7 +1310,7 @@ foo(6, 7)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 42);
+    assert_eq!(top.get_int(runtime.main()), 42);
 }
 
 #[test]
@@ -1345,7 +1345,7 @@ foo(6, 7)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 42);
+    assert_eq!(top.get_int(runtime.main()), 42);
 }
 
 #[test]
@@ -1384,7 +1384,7 @@ foo(6, 7) + foo2(6, 7)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 84);
+    assert_eq!(top.get_int(runtime.main()), 84);
 }
 
 #[test]
@@ -1427,7 +1427,7 @@ foo(6, 7)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 42);
+    assert_eq!(top.get_int(runtime.main()), 42);
 }
 
 #[test]
@@ -1460,7 +1460,7 @@ util.foo(6, bar.asdf)
     let mut runtime = Runtime::new(program.unwrap());
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 204);
+    assert_eq!(top.get_int(runtime.main()), 204);
 }
 
 #[test]
@@ -1558,7 +1558,7 @@ x + x
     runtime.clear_pending_host_func();
     runtime.run();
     let top = runtime.top();
-    assert_eq!(top.get_int(&runtime.main()), 6);
+    assert_eq!(top.get_int(runtime.main()), 6);
 }
 
 #[test]

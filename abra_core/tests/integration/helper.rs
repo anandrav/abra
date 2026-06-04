@@ -22,37 +22,37 @@ pub trait ExpectedValue {
 
 impl ExpectedValue for AbraInt {
     fn check(self, runtime: &mut Runtime, val: Value) {
-        assert_eq!(val.get_int(&runtime.main()), self);
+        assert_eq!(val.get_int(runtime.main()), self);
     }
 }
 
 impl ExpectedValue for i32 {
     fn check(self, runtime: &mut Runtime, val: Value) {
-        assert_eq!(val.get_int(&runtime.main()), self as AbraInt);
+        assert_eq!(val.get_int(runtime.main()), self as AbraInt);
     }
 }
 
 impl ExpectedValue for AbraFloat {
     fn check(self, runtime: &mut Runtime, val: Value) {
-        assert_eq!(val.get_float(&runtime.main()), self);
+        assert_eq!(val.get_float(runtime.main()), self);
     }
 }
 
 impl ExpectedValue for f32 {
     fn check(self, runtime: &mut Runtime, val: Value) {
-        assert_eq!(val.get_float(&runtime.main()), self as AbraFloat);
+        assert_eq!(val.get_float(runtime.main()), self as AbraFloat);
     }
 }
 
 impl ExpectedValue for bool {
     fn check(self, runtime: &mut Runtime, val: Value) {
-        assert_eq!(val.get_bool(&runtime.main()), self);
+        assert_eq!(val.get_bool(runtime.main()), self);
     }
 }
 
 impl ExpectedValue for &str {
     fn check(self, runtime: &mut Runtime, val: Value) {
-        assert_eq!(val.view_string(&runtime.main()), self);
+        assert_eq!(val.view_string(runtime.main()), self);
     }
 }
 
