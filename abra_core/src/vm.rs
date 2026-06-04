@@ -31,6 +31,8 @@ pub type AbraFloat = f64;
 const GC_PAUSE_FACTOR: usize = 2;
 const GC_STEP_FACTOR: usize = 2;
 
+unsafe impl Send for VmSharedReadonly {}
+unsafe impl Sync for VmSharedReadonly {}
 struct VmSharedReadonly {
     program: Vec<Instr>,
     // constants
@@ -76,6 +78,7 @@ The CLI or some other program will
 */
 pub struct Runtime {
     main_thread: Box<VmGreenThread>,
+    #[allow(clippy::vec_box)]
     threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
 }
@@ -231,6 +234,7 @@ impl Runtime {
 }
 
 unsafe impl Send for VmGreenThread {}
+unsafe impl Sync for VmGreenThread {}
 pub struct VmGreenThread {
     pc: ProgramCounter,
     // stack
