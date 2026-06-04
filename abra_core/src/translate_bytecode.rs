@@ -1073,7 +1073,7 @@ impl Translator {
 
                 self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
-            ExprKind::TaskBlock(statements) => {
+            ExprKind::TaskBlock(_statements) => {
                 /*
                 - the code in the block is basically a function
                 - so need to queue the bytecode generation for that "function" and get a label back.

@@ -5,7 +5,7 @@
 use crate::ast::{FileAst, ImportKind, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::foreign_bindings::{name_of_ty, name_of_variant_data_ty, run_formatter};
 use crate::statics::StaticsContext;
-use crate::vm::{AbraInt, Vm, VmGreenThread};
+use crate::vm::{AbraInt, VmGreenThread};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::fs;
 use std::path::{Component, Path, PathBuf};

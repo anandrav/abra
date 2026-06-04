@@ -5,10 +5,7 @@
 use std::{error::Error, path::PathBuf};
 
 use abra_core::vm::{Runtime, VmGreenThread};
-use abra_core::{
-    OsFileProvider,
-    vm::{Vm, VmStatus},
-};
+use abra_core::{OsFileProvider, vm::VmStatus};
 
 mod generated;
 use generated::*;
@@ -23,22 +20,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     runtime.run();
     let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let status = runtime.main().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut *runtime.main_thread, i);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_thread, i);
     handle_host_func(&mut runtime.main_thread, host_func_args);
     runtime.run();
     let top = runtime.top();

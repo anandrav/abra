@@ -4,7 +4,7 @@
 
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::vm::{Runtime, Vm};
+use abra_core::vm::Runtime;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use std::time::Duration;

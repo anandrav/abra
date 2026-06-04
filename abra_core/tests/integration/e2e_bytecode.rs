@@ -6,7 +6,7 @@ use crate::helper::unwrap_or_panic;
 use crate::helper::{expect_value, should_fail};
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::vm::{Runtime, Vm};
+use abra_core::vm::Runtime;
 use abra_core::vm::{RuntimeStatus, VmStatus};
 use std::collections::HashMap;
 use std::path::PathBuf;

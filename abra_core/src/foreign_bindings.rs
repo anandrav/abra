@@ -4,7 +4,7 @@
 
 // Rust addon API
 
-use crate::vm::{AbraInt, Vm, VmGreenThread};
+use crate::vm::{AbraInt, VmGreenThread};
 use crate::{
     FileAst, FileData, ItemKind, MockFileProvider,
     ast::{Type, TypeDefKind, TypeKind},

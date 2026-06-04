@@ -4,7 +4,7 @@
 
 // functions used for testing
 
-use abra_core::vm::{AbraFloat, AbraInt, Runtime, Value, Vm};
+use abra_core::vm::{AbraFloat, AbraInt, Runtime, Value};
 use abra_core::{ErrorSummary, MockFileProvider, compile_bytecode};
 
 pub fn unwrap_or_panic<T>(result: Result<T, ErrorSummary>) -> T {

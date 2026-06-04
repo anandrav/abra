@@ -18,7 +18,7 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, mpsc};
 use std::{
     fmt::{Display, Formatter},
@@ -30,49 +30,6 @@ pub type AbraFloat = f64;
 
 const GC_PAUSE_FACTOR: usize = 2;
 const GC_STEP_FACTOR: usize = 2;
-
-pub struct Vm {
-    program: Vec<Instr>,
-    pc: ProgramCounter,
-    // stack
-    stack_base: usize,
-    value_stack: Vec<Value>,
-    call_stack: Vec<CallFrame>,
-    // heap
-    heap_list: Vec<*mut ObjectHeader>,
-    gray_stack: Vec<*mut ObjectHeader>,
-    gc_state: GcState,
-    gc_visited: bool,
-    heap_size: usize,
-    gc_debt: usize,
-    last_gc_heap_size: usize,
-    // constants
-    int_constants: Vec<AbraInt>,
-    float_constants: Vec<f64>,
-    static_strings: Vec<*mut StringObject>,
-    // source map
-    filename_table: Vec<(BytecodeIndex, u32)>,
-    lineno_table: Vec<(BytecodeIndex, u32)>,
-    function_name_table: Vec<(BytecodeIndex, u32)>,
-    filename_arena: Vec<String>,
-    function_name_arena: Vec<String>,
-    // status
-    pending_host_func: Option<u16>,
-    error: Option<Box<VmError>>,
-    done: bool,
-    // string op state
-    string_op_index1: usize,
-    string_op_index2: usize,
-    string_operand1: Value,
-    string_operand2: Value,
-    concat_string_builder: Vec<u8>,
-
-    // FFI
-    #[cfg(feature = "ffi")]
-    libs: Vec<Library>,
-    #[cfg(feature = "ffi")]
-    foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
-}
 
 struct VmSharedReadonly {
     program: Vec<Instr>,
@@ -228,9 +185,8 @@ impl Runtime {
             VmStatus::Error(e) => return RuntimeStatus::MainThreadError(e),
         }
         for thread in self.threads.iter() {
-            match thread.status() {
-                VmStatus::PendingHostFunc(_) => return RuntimeStatus::PendingHostFunc,
-                _ => {}
+            if let VmStatus::PendingHostFunc(_) = thread.status() {
+                return RuntimeStatus::PendingHostFunc;
             }
         }
         RuntimeStatus::OutOfSteps
@@ -2347,7 +2303,7 @@ impl VmGreenThread {
     }
 }
 
-impl Drop for Vm {
+impl Drop for VmGreenThread {
     fn drop(&mut self) {
         for header_ptr in &self.heap_list {
             let header = unsafe { &mut **header_ptr };
@@ -2374,7 +2330,7 @@ impl VmGreenThread {
     }
 }
 
-impl Debug for Vm {
+impl Debug for VmGreenThread {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Vm")
             .field("pc", &self.pc)
