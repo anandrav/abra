@@ -178,7 +178,7 @@ impl Runtime {
                     unsafe { lib.get(symbol_name.as_bytes()) };
                 let Ok(symbol) = symbol else {
                     panic!("could not load symbol {}", symbol_name);
-                    // TODO: don't panic, report error in a better way
+                    // TODO: don't panic? report error in a better way?
                     // vm_shared_readonly.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
                 };
                 vm_shared_readonly.foreign_functions.push(*symbol);
@@ -190,7 +190,7 @@ impl Runtime {
         let (sender, receiver) = mpsc::channel();
 
         Runtime {
-            main_thread: Box::new(VmGreenThread::new(vm_shared_readonly.clone())),
+            main_thread: Box::new(VmGreenThread::new(vm_shared_readonly.clone(), sender)),
             threads: vec![],
             new_threads: receiver,
             shared: vm_shared_readonly.clone(),
@@ -243,9 +243,7 @@ impl Runtime {
     pub fn run(&mut self) {
         const SCHEDULER_N_STEPS: u32 = 100;
 
-        while matches!(self.main_thread.status(), VmStatus::OutOfSteps) {
-            self.run_n_steps(SCHEDULER_N_STEPS);
-        }
+        self.run_n_steps(SCHEDULER_N_STEPS);
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
@@ -263,7 +261,7 @@ impl Runtime {
             });
         }
 
-        for new_thread in self.new_threads.iter() {
+        while let Ok(new_thread) = self.new_threads.try_recv() {
             self.threads.push(new_thread);
         }
     }
@@ -304,11 +302,11 @@ pub struct VmGreenThread {
     concat_string_builder: Vec<u8>,
 
     shared: Arc<VmSharedReadonly>,
-    // new_threads_sender: Sender<Box<VmGreenThread>>,
+    new_threads_sender: Sender<Box<VmGreenThread>>,
 }
 
 impl VmGreenThread {
-    fn new(shared: Arc<VmSharedReadonly>) -> Self {
+    fn new(shared: Arc<VmSharedReadonly>, new_threads_sender: Sender<Box<VmGreenThread>>) -> Self {
         Self {
             pc: ProgramCounter(0),
             stack_base: 0,
@@ -333,6 +331,7 @@ impl VmGreenThread {
             concat_string_builder: vec![],
 
             shared,
+            new_threads_sender,
         }
     }
 }
@@ -1955,7 +1954,10 @@ impl VmGreenThread {
                 return false;
             }
             Instr::SpawnTask(target) => {
-                unimplemented!()
+                let mut new_thread =
+                    VmGreenThread::new(self.shared.clone(), self.new_threads_sender.clone());
+                new_thread.pc = target;
+                self.new_threads_sender.send(new_thread.into()).unwrap();
             }
             Instr::ConstructStruct(n) => self.construct_struct(n as usize),
             Instr::ConstructArray(n) => self.construct_array(n as usize),

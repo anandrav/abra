@@ -559,7 +559,7 @@ pub(crate) enum ExprKind {
     IndexAccess(Rc<Expr>, Rc<Expr>),
     Unwrap(Rc<Expr>),
     Try(Rc<Expr>),
-    TaskBlock(Vec<Rc<Stmt>>),
+    TaskBlock(Rc<Expr>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

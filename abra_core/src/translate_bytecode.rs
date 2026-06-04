@@ -442,7 +442,8 @@ impl Translator {
                         } => {
                             let ExprKind::TaskBlock(body) = &*e.kind else { unreachable!() };
 
-                            let func_ty = self.statics.solution_of_node(e.node()).unwrap();
+                            let out_ty = self.statics.solution_of_node(e.node()).unwrap();
+                            let func_ty = SolvedType::Function(vec![], out_ty.into());
                             let mono_for_lambda = MonomorphEnv::empty();
                             // if capture_types.iter().any(|ty| ty.is_overloaded()) {
                             //     for (overloaded_ty, ty_concrete) in
@@ -451,15 +452,14 @@ impl Translator {
                             //         mono_for_lambda.update(overloaded_ty, ty_concrete);
                             //     }
                             // }
-                            unimplemented!()
-                            // self.translate_func_body_helper(
-                            //     st,
-                            //     mono_for_lambda,
-                            //     &desc,
-                            //     func_ty,
-                            //     &[],
-                            //     body,
-                            // );
+                            self.translate_func_body_helper(
+                                st,
+                                mono_for_lambda,
+                                &desc,
+                                func_ty,
+                                &[],
+                                body,
+                            );
                         }
                         FuncKind::IntrinsicWrapper(b, func_node) => {
                             self.emit_intrinsic(st, &mono, *b, func_node.clone(), true);

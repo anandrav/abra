@@ -2669,10 +2669,8 @@ fn generate_constraints_expr(
                 }
             }
         }
-        ExprKind::TaskBlock(statements) => {
-            for statement in statements[..statements.len() - 1].iter() {
-                generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
-            }
+        ExprKind::TaskBlock(block) => {
+            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, block);
             constrain(
                 ctx,
                 &node_ty,

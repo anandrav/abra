@@ -1302,9 +1302,9 @@ impl Parser {
             }
             TokenKind::Task => {
                 self.expect_token(TokenTag::Task);
-                let statements = self.parse_statement_block()?;
+                let block = self.parse_expr()?;
                 Expr {
-                    kind: Rc::new(ExprKind::TaskBlock(statements)),
+                    kind: Rc::new(ExprKind::TaskBlock(block)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

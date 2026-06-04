@@ -958,11 +958,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
                 resolve_names_stmt(ctx, &symbol_table, statement);
             }
         }
-        ExprKind::TaskBlock(stmts) => {
-            let symbol_table = symbol_table.new_scope();
-            for statement in stmts.iter() {
-                resolve_names_stmt(ctx, &symbol_table, statement);
-            }
+        ExprKind::TaskBlock(block) => {
+            resolve_names_expr(ctx, symbol_table, block);
         }
         ExprKind::IfElse(cond, stmt1, expr2) => {
             resolve_names_expr(ctx, symbol_table, cond);
