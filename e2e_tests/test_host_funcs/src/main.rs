@@ -20,27 +20,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     runtime.run();
     let status = runtime.main_mut().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_mut(), i);
-    handle_host_func(&mut runtime.main_mut(), host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
+    handle_host_func(runtime.main_mut(), host_func_args);
     runtime.run();
     let status = runtime.main_mut().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_mut(), i);
-    handle_host_func(&mut runtime.main_mut(), host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
+    handle_host_func(runtime.main_mut(), host_func_args);
     runtime.run();
     let status = runtime.main_mut().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_mut(), i);
-    handle_host_func(&mut runtime.main_mut(), host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
+    handle_host_func(runtime.main_mut(), host_func_args);
     runtime.run();
     let status = runtime.main_mut().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut runtime.main_mut(), i);
-    handle_host_func(&mut runtime.main_mut(), host_func_args);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
+    handle_host_func(runtime.main_mut(), host_func_args);
     runtime.run();
     let top = runtime.top();
     // 28 (from before) + 30 (p.age) + 42 (bl.n) = 100
-    assert_eq!(top.get_int(&runtime.main_mut()), 100);
+    assert_eq!(top.get_int(runtime.main_mut()), 100);
 
     // prevent warning for unused Color type (not yet tested via host functions)
     let _ = Color::Red;
