@@ -1248,15 +1248,6 @@ impl Parser {
                     id: NodeId::new(),
                 }
             }
-            TokenKind::Task => {
-                self.expect_token(TokenTag::Task);
-                let statements = self.parse_statement_block()?;
-                Expr {
-                    kind: Rc::new(ExprKind::TaskBlock(statements)),
-                    loc: self.location(lo),
-                    id: NodeId::new(),
-                }
-            }
             TokenKind::OpenBracket => {
                 self.expect_token(TokenTag::OpenBracket);
                 let args = self.parse_delimited_list(
@@ -1305,6 +1296,15 @@ impl Parser {
                 let statements = self.parse_statement_block()?;
                 Expr {
                     kind: ExprKind::Block(statements).into(),
+                    loc: self.location(lo),
+                    id: NodeId::new(),
+                }
+            }
+            TokenKind::Task => {
+                self.expect_token(TokenTag::Task);
+                let statements = self.parse_statement_block()?;
+                Expr {
+                    kind: Rc::new(ExprKind::TaskBlock(statements)),
                     loc: self.location(lo),
                     id: NodeId::new(),
                 }

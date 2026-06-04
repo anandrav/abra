@@ -2669,6 +2669,16 @@ fn generate_constraints_expr(
                 }
             }
         }
+        ExprKind::TaskBlock(statements) => {
+            for statement in statements[..statements.len() - 1].iter() {
+                generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
+            }
+            constrain(
+                ctx,
+                &node_ty,
+                &TypeVar::make_void(Reason::Node(expr.node())),
+            );
+        }
         ExprKind::IfElse(cond, then_stmt, else_stmt) => {
             generate_constraints_expr(
                 ctx,
@@ -3359,7 +3369,6 @@ fn generate_constraints_expr(
                     .push(Error::TryNeedsAnnotation { node: expr.node() });
             }
         }
-        ExprKind::TaskBlock(_) => unimplemented!(),
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
     handle_ana(ctx, mode, node_ty);

@@ -1097,7 +1097,14 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
-            ExprKind::TaskBlock(_) => {}
+            ExprKind::TaskBlock(statements) => {
+                /*
+                - the code in the block is basically a function
+                - so need to queue the bytecode generation for that "function" and get a label back.
+                - emit an instruction that spawns a thread to execute at some address
+                - Instr::SpawnTask(addr)
+                */
+            }
         }
     }
 
@@ -2581,8 +2588,8 @@ impl Translator {
             | ExprKind::Int(..)
             | ExprKind::Float(..)
             | ExprKind::Bool(..)
-            | ExprKind::Str(..) => {}
-            ExprKind::TaskBlock(_) => unimplemented!(),
+            | ExprKind::Str(..)
+            | ExprKind::TaskBlock(_) => {}
         }
     }
 
