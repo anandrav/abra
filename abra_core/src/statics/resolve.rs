@@ -1147,6 +1147,7 @@ fn resolve_names_member_helper(
                     BuiltinType::String => TypeKey::String,
                     BuiltinType::Tuple(arity) => TypeKey::Tuple(arity),
                     BuiltinType::Array => TypeKey::TyApp(Nominal::Array),
+                    BuiltinType::Channel => TypeKey::TyApp(Nominal::Channel),
                 };
                 if let Some((decl, _)) = ctx.member_functions.get(&(type_key, field.v.clone())) {
                     ctx.resolution_map.insert(field.id, decl.clone());

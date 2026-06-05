@@ -331,6 +331,7 @@ pub enum BuiltinType {
     String,
     Tuple(u8),
     Array,
+    Channel,
 }
 
 impl BuiltinType {
@@ -343,6 +344,7 @@ impl BuiltinType {
             Self::String => "string",
             Self::Tuple(_) => "tuple",
             Self::Array => "array",
+            Self::Channel => "channel",
         }
     }
 
@@ -355,6 +357,7 @@ impl BuiltinType {
             Self::String => TypeKey::String,
             Self::Tuple(arity) => TypeKey::Tuple(arity),
             Self::Array => TypeKey::TyApp(Nominal::Array),
+            Self::Channel => TypeKey::TyApp(Nominal::Channel),
         }
     }
 }
