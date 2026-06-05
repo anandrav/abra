@@ -3434,9 +3434,12 @@ fn tyvar_of_decl(
                 Reason::Node(expr.node()),
             ))
         }
+        Declaration::BuiltinType(_) => {
+            // TODO LAST HERE
+            unimplemented!()
+        }
         Declaration::InterfaceDef(..)
         | Declaration::InterfaceOutputType { .. }
-        | Declaration::BuiltinType(_)
         | Declaration::Polytype(_)
         | Declaration::InterfaceMethod { .. }
         | Declaration::MemberFunction { .. }
