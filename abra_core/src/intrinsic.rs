@@ -87,6 +87,9 @@ pub enum IntrinsicOperation {
     ArrayLength,
     ArrayPop,
 
+    ChannelRead,
+    ChannelWrite,
+
     Panic,
 }
 
@@ -318,6 +321,38 @@ impl IntrinsicOperation {
                 TypeVar::make_never(reason.clone()),
                 reason.clone(),
             ),
+
+            IntrinsicOperation::ChannelRead => {
+                let a = TypeVar::make_poly(
+                    reason.clone(),
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()),
+                );
+                // fn(channel<T>) -> T
+                TypeVar::make_func(
+                    vec![TypeVar::make_nominal(
+                        reason.clone(),
+                        Nominal::Channel,
+                        vec![a.clone()],
+                    )],
+                    a.clone(),
+                    reason.clone(),
+                )
+            }
+            IntrinsicOperation::ChannelWrite => {
+                let a = TypeVar::make_poly(
+                    reason.clone(),
+                    PolytypeDeclaration::IntrinsicOperation(*self, "T".to_string()),
+                );
+                // fn(channel<T>, T) -> void
+                TypeVar::make_func(
+                    vec![
+                        TypeVar::make_nominal(reason.clone(), Nominal::Channel, vec![a.clone()]),
+                        a.clone(),
+                    ],
+                    TypeVar::make_void(reason.clone()),
+                    reason.clone(),
+                )
+            }
         }
     }
 }

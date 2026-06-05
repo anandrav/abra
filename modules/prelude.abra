@@ -373,6 +373,16 @@ fn format_append(s1: T1 ToString, s2: T2 ToString) {
     concat_strings(ToString.str(s1), ToString.str(s2))
 }
 
+extend channel<T> {
+    fn read(self) -> T {
+        channel_read(self)
+    }
+
+    fn write(self, x: T) -> void {
+        channel_write(self, x)
+    }
+}
+
 interface Index {
     outputtype Idx
     outputtype Output

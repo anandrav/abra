@@ -174,6 +174,8 @@ pub enum Instr {
     GetIndex(Reg, Reg),
     SetIndex(Reg, Reg),
     MakeClosure(u16),
+    ChannelRead,
+    ChannelWrite,
 
     ArrayPush(Reg, Reg),
     ArrayPushIntImm(Reg, AbraInt),
@@ -433,6 +435,8 @@ impl Display for Instr {
             Instr::MakeClosure(ncaptures) => {
                 write!(f, "make_closure {ncaptures}")
             }
+            Instr::ChannelRead => write!(f, "channel_read"),
+            Instr::ChannelWrite => write!(f, "channel_write"),
             Instr::SpawnTask(ncaptures) => {
                 write!(f, "make_closure {ncaptures}")
             }
@@ -742,6 +746,8 @@ fn instr_to_vminstr(
         Instr::ReturnVoid => VmInstr::ReturnVoid,
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
+        Instr::ChannelRead => VmInstr::ChannelRead,
+        Instr::ChannelWrite => VmInstr::ChannelWrite,
         Instr::SpawnTask(label) => VmInstr::SpawnTask(ProgramCounter::new(label_to_idx[label])),
         Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n),
         Instr::ConstructArray(n) => VmInstr::ConstructArray(*n),

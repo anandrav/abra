@@ -3434,11 +3434,21 @@ fn tyvar_of_decl(
                 Reason::Node(expr.node()),
             ))
         }
-        Declaration::BuiltinType(_) => {
-            // TODO LAST HERE
-            unimplemented!()
+        Declaration::BuiltinType(BuiltinType::Channel) => {
+            let (def_type, _substitution) = TypeVar::make_nominal_and_substitution(
+                ctx,
+                Reason::Node(expr.node()),
+                Nominal::Channel,
+                expr.node(),
+            );
+            Some(TypeVar::make_func(
+                vec![],
+                def_type,
+                Reason::Node(expr.node()),
+            ))
         }
-        Declaration::InterfaceDef(..)
+        Declaration::BuiltinType(_)
+        | Declaration::InterfaceDef(..)
         | Declaration::InterfaceOutputType { .. }
         | Declaration::Polytype(_)
         | Declaration::InterfaceMethod { .. }

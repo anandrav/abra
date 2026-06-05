@@ -687,6 +687,8 @@ pub enum Instr {
     HostFunc(u16),
     Panic,
     SpawnTask(ProgramCounter),
+    ChannelRead,
+    ChannelWrite,
 
     // Data Structures
     ConstructStruct(u16),
@@ -1955,6 +1957,12 @@ impl VmGreenThread {
                     VmGreenThread::new(self.shared.clone(), self.new_threads_sender.clone());
                 new_thread.pc = target;
                 self.new_threads_sender.send(new_thread.into()).unwrap();
+            }
+            Instr::ChannelRead => {
+                unimplemented!()
+            }
+            Instr::ChannelWrite => {
+                unimplemented!()
             }
             Instr::ConstructStruct(n) => self.construct_struct(n as usize),
             Instr::ConstructArray(n) => self.construct_array(n as usize),

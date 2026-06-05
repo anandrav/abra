@@ -1608,6 +1608,8 @@ impl Translator {
             }
             IntrinsicOperation::ArrayLength => 1,
             IntrinsicOperation::ArrayPop => 1,
+            IntrinsicOperation::ChannelRead => 1,
+            IntrinsicOperation::ChannelWrite => 2,
             IntrinsicOperation::Panic => 1,
         };
         self.wrapper_header(st, nargs, for_function_body);
@@ -1810,6 +1812,8 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
+            IntrinsicOperation::ChannelRead => self.emit(st, Instr::ChannelRead),
+            IntrinsicOperation::ChannelWrite => self.emit(st, Instr::ChannelWrite),
             IntrinsicOperation::Panic => {
                 self.emit(st, Instr::Panic);
             }
