@@ -1009,6 +1009,12 @@ impl ObjectHeader {
                 *heap_size -= obj.nbytes();
                 let _ = unsafe { Box::from_raw(ptr) };
             }
+            ObjectKind::Channel => {
+                let ptr = self as *mut Self as *mut ChannelObject;
+                let obj = unsafe { &mut *ptr };
+                *heap_size -= obj.nbytes();
+                let _ = unsafe { Box::from_raw(ptr) };
+            }
         }
     }
 
@@ -1034,6 +1040,11 @@ impl ObjectHeader {
                 let obj = unsafe { &*ptr };
                 obj.nbytes()
             }
+            ObjectKind::Channel => {
+                let ptr = self as *const Self as *const ChannelObject;
+                let obj = unsafe { &*ptr };
+                obj.nbytes()
+            }
         }
     }
 }
@@ -1045,6 +1056,7 @@ enum ObjectKind {
     Array,
     Struct,
     String,
+    Channel,
 }
 #[repr(C)]
 struct StructObject {
@@ -1172,6 +1184,50 @@ impl ArrayObject {
 
     fn nbytes(&self) -> usize {
         size_of::<Self>() + self.data.capacity() * size_of::<Value>()
+    }
+}
+
+#[repr(C)]
+struct ChannelObject {
+    header: ObjectHeader,
+    data: Arc<Vec<Value>>,
+}
+
+impl ChannelObject {
+    fn new(data: Vec<Value>, vm: &mut VmGreenThread) -> *mut ChannelObject {
+        let header = ObjectHeader {
+            kind: ObjectKind::Channel,
+            visited: match &vm.gc_state {
+                GcState::Idle => false,
+                GcState::Marking | GcState::Sweeping { .. } => true,
+            },
+            no_gc: false,
+        };
+        let b = Box::new(ChannelObject {
+            header,
+            data: Arc::new(vec![]),
+        });
+        let chan = Box::leak(b);
+
+        vm.heap_list
+            .push(chan as *mut ChannelObject as *mut ObjectHeader);
+        if vm.gc_state == GcState::Marking {
+            vm.gray_stack
+                .push(chan as *mut ChannelObject as *mut ObjectHeader);
+        }
+        vm.heap_size += chan.nbytes();
+        vm.gc_debt += chan.nbytes();
+
+        chan
+    }
+
+    fn header_ptr(&mut self) -> *mut ObjectHeader {
+        self as *mut Self as *mut ObjectHeader
+    }
+
+    fn nbytes(&self) -> usize {
+        // TODO: the actual data in the channel should be accounted for. However, it shouldn't be counted for every Vm that shares it...
+        size_of::<Self>() // + self.data.capacity() * size_of::<Value>()
     }
 }
 
@@ -2215,6 +2271,13 @@ impl VmGreenThread {
                     }
                 }
                 ObjectKind::Array => {
+                    let obj = unsafe { &*(header_ptr as *const ArrayObject) };
+                    *batch -= obj.nbytes();
+                    for elem in &obj.data {
+                        Self::mark(elem, &mut self.gray_stack, self.gc_visited);
+                    }
+                }
+                ObjectKind::Channel => {
                     let obj = unsafe { &*(header_ptr as *const ArrayObject) };
                     *batch -= obj.nbytes();
                     for elem in &obj.data {
