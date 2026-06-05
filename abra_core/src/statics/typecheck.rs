@@ -248,6 +248,7 @@ pub(crate) enum Nominal {
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
     Array,
+    Channel,
 }
 
 impl Nominal {
@@ -256,6 +257,7 @@ impl Nominal {
             Self::Struct(struct_def) => &struct_def.name.v,
             Self::Enum(enum_def) => &enum_def.name.v,
             Self::Array => "array",
+            Self::Channel => "channel",
         }
     }
 
@@ -272,6 +274,7 @@ impl Nominal {
                 .map(|a| PolytypeDeclaration::Ordinary(a.clone()))
                 .collect(),
             Self::Array => vec![PolytypeDeclaration::ArrayArg],
+            Self::Channel => vec![PolytypeDeclaration::ChannelArg],
         }
     }
 }
@@ -345,6 +348,7 @@ impl SolvedType {
             Self::Poly(polyty) => match polyty {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
                 PolytypeDeclaration::ArrayArg => true,
+                PolytypeDeclaration::ChannelArg => true,
                 PolytypeDeclaration::IntrinsicOperation(op, _) => matches!(
                     op,
                     IntrinsicOperation::ArrayPush
@@ -1098,7 +1102,9 @@ impl TypeVar {
         match &nominal {
             Nominal::Struct(struct_def) => helper(&struct_def.ty_args),
             Nominal::Enum(enum_def) => helper(&enum_def.ty_args),
-            Nominal::Array => {
+            Nominal::Array | Nominal::Channel => {
+                // TODO: supposed to do something here??
+
                 // TODO: this is wrong!
                 // params.push(TypeVar::fresh(
                 //     ctx,
@@ -1138,7 +1144,7 @@ impl TypeVar {
         match &nominal {
             Nominal::Struct(struct_def) => helper(&struct_def.ty_args),
             Nominal::Enum(enum_def) => helper(&enum_def.ty_args),
-            Nominal::Array => {
+            Nominal::Array | Nominal::Channel => {
                 params.push(TypeVar::fresh(
                     ctx,
                     Prov::InstantiateUdtParam(node.clone(), 0),
@@ -1177,7 +1183,7 @@ impl PolytypeDeclaration {
             PolytypeDeclaration::InterfaceSelf(iface) => {
                 vec![InterfaceConstraint::new(iface.clone(), vec![])]
             }
-            PolytypeDeclaration::ArrayArg => vec![],
+            PolytypeDeclaration::ArrayArg | PolytypeDeclaration::ChannelArg => vec![],
             PolytypeDeclaration::IntrinsicOperation(_, _) => vec![],
             PolytypeDeclaration::Ordinary(polyty) => interfaces_helper(ctx, &polyty.interfaces),
         }
@@ -4066,7 +4072,9 @@ impl Display for PotentialType {
                             }
                         }
                     }
-                    PolytypeDeclaration::ArrayArg => write!(f, "T")?,
+                    PolytypeDeclaration::ArrayArg | PolytypeDeclaration::ChannelArg => {
+                        write!(f, "T")?
+                    }
                     PolytypeDeclaration::IntrinsicOperation(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => write!(f, "Self")?,
                 }
@@ -4139,7 +4147,9 @@ impl Display for SolvedType {
                             }
                         }
                     }
-                    PolytypeDeclaration::ArrayArg => write!(f, "T")?,
+                    PolytypeDeclaration::ArrayArg | PolytypeDeclaration::ChannelArg => {
+                        write!(f, "T")?
+                    }
                     PolytypeDeclaration::IntrinsicOperation(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => {
                         write!(f, "Self")?;

@@ -232,6 +232,7 @@ pub(crate) fn declaration_location(decl: &statics::Declaration) -> Option<Defini
         Declaration::Polytype(
             statics::PolytypeDeclaration::InterfaceSelf(_)
             | statics::PolytypeDeclaration::ArrayArg
+            | statics::PolytypeDeclaration::ChannelArg
             | statics::PolytypeDeclaration::IntrinsicOperation(..),
         ) => return None,
     };

@@ -328,7 +328,8 @@ pub(crate) enum FuncResolutionKind {
 pub(crate) enum PolytypeDeclaration {
     InterfaceSelf(Rc<InterfaceDef>),                // `Self`
     Ordinary(Rc<Polytype>),                         // `T` in `struct Car<T>` in source code
-    ArrayArg, // `T` in `struct array<T> = ` if that was actually in the source
+    ArrayArg,   // `T` in `struct array<T> = ` if that was actually in the source
+    ChannelArg, // `T` in `struct channel<T> = ` if that was actually in the source
     IntrinsicOperation(IntrinsicOperation, String), // `T` in `fn array_push(arr: array<T>) -> void` if that was actually in the source
 }
 
@@ -342,7 +343,10 @@ impl Display for PolytypeDeclaration {
                 write!(f, "{}[{}]", polyty.name.v, polyty.name.id)
             }
             PolytypeDeclaration::ArrayArg => {
-                write!(f, "T from array")
+                write!(f, "T from array<T>")
+            }
+            PolytypeDeclaration::ChannelArg => {
+                write!(f, "T from channel<T>")
             }
             PolytypeDeclaration::IntrinsicOperation(_, _) => {
                 write!(f, "intrinsic's poly")

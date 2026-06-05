@@ -968,7 +968,9 @@ fn ctors_for_ty(ty: &Type) -> ConstructorSet {
         }
         // Structs and arrays have no deconstruction pattern syntax, so they
         // can only be matched with a wildcard/binding — treat as Unlistable.
-        Type::Nominal(Nominal::Struct(_) | Nominal::Array, _) => ConstructorSet::Unlistable,
+        Type::Nominal(Nominal::Struct(_) | Nominal::Array | Nominal::Channel, _) => {
+            ConstructorSet::Unlistable
+        }
         Type::Tuple(..) => ConstructorSet::Product,
         Type::Void => ConstructorSet::Product,
         Type::Int | Type::Float | Type::String | Type::Function(..) => ConstructorSet::Unlistable,

@@ -500,6 +500,7 @@ fn add_detail_for_decl_node(
             PolytypeDeclaration::Ordinary(polyty) => polyty.name.node(),
             PolytypeDeclaration::IntrinsicOperation(..) => return false,
             PolytypeDeclaration::ArrayArg => return false,
+            PolytypeDeclaration::ChannelArg => return false,
             PolytypeDeclaration::InterfaceSelf(iface_def) => iface_def.name.node(), // TODO: this will not result in a good error message
         },
         Declaration::Namespace(_, ast_node) => ast_node.clone(),
