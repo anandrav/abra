@@ -463,10 +463,14 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolT
     // 3. symbols that are always globally available to any file
     let mut effective_namespace = Namespace::new();
 
-    // builtin array type
+    // builtin array and channel type
     effective_namespace.declarations.insert(
         "array".to_string(),
         Declaration::BuiltinType(BuiltinType::Array),
+    );
+    effective_namespace.declarations.insert(
+        "channel".to_string(),
+        Declaration::BuiltinType(BuiltinType::Channel),
     );
     // intrinsic operations
     for intrinsic in IntrinsicOperation::enumerate().iter() {
