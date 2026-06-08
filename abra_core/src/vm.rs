@@ -25,6 +25,7 @@ use std::{
     fmt::{Display, Formatter},
     ptr,
 };
+use utils::dlog;
 
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
@@ -399,6 +400,7 @@ impl VmGreenThread {
     }
 
     pub fn load_offset(&self, offset: i16) -> Value {
+        dlog!("btw, offset = {}", offset);
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
@@ -687,7 +689,7 @@ pub enum Instr {
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
-    SpawnTask(ProgramCounter),
+    SpawnTask(u16, ProgramCounter),
 
     // Data Structures
     ConstructStruct(u16),
@@ -1231,6 +1233,13 @@ struct ChannelObject {
 
 impl ChannelObject {
     fn new(vm: &mut VmGreenThread) -> *mut ChannelObject {
+        ChannelObject::new_with_data(vm, Arc::new(Mutex::new(VecDeque::new())))
+    }
+
+    fn new_with_data(
+        vm: &mut VmGreenThread,
+        data: Arc<Mutex<VecDeque<Value>>>,
+    ) -> *mut ChannelObject {
         let header = ObjectHeader {
             kind: ObjectKind::Channel,
             visited: match &vm.gc_state {
@@ -1239,10 +1248,7 @@ impl ChannelObject {
             },
             no_gc: false,
         };
-        let b = Box::new(ChannelObject {
-            header,
-            data: Arc::new(Mutex::new(VecDeque::new())),
-        });
+        let b = Box::new(ChannelObject { header, data });
         let chan = Box::leak(b);
 
         vm.heap_list
@@ -1265,6 +1271,10 @@ impl ChannelObject {
     fn write_value(&self, val: Value) {
         let mut data = self.data.lock().unwrap();
         data.push_back(val);
+    }
+
+    fn copy(&self, vm: &mut VmGreenThread) -> Value {
+        ChannelObject::new_with_data(vm, self.data.clone()).into()
     }
 
     fn header_ptr(&mut self) -> *mut ObjectHeader {
@@ -2000,10 +2010,17 @@ impl VmGreenThread {
                 let ptr = ChannelObject::new(self);
                 self.push(ptr);
             }
-            Instr::SpawnTask(target) => {
+            Instr::SpawnTask(ncaptures, target) => {
                 let mut new_thread =
                     VmGreenThread::new(self.shared.clone(), self.new_threads_sender.clone());
                 new_thread.pc = target;
+                let captures = self.pop_n(ncaptures as usize);
+                for capture in captures {
+                    let chan = unsafe { capture.get_channel_mut(self) };
+                    let copied_chan = chan.copy(&mut new_thread);
+                    new_thread.push(copied_chan);
+                }
+                // new_thread.stack_base += ncaptures as usize;
                 self.new_threads_sender.send(new_thread.into()).unwrap();
             }
             Instr::ChannelRead => {
@@ -2018,6 +2035,7 @@ impl VmGreenThread {
                 let chan = self.pop(); // TODO: use registers
                 let chan = unsafe { chan.get_channel_mut(self) };
 
+                // TODO: write_barrier not necessary
                 self.write_barrier(chan.header_ptr(), val);
                 chan.write_value(val);
             }

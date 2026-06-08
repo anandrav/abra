@@ -56,7 +56,7 @@ impl FuncDesc {
         match &self.kind {
             FuncKind::NamedFunc(f) => ctx.fully_qualified_names[&f.name.id].clone(),
             FuncKind::AnonymousFunc { lambda, .. } => format!("<lambda>[{}]", lambda.id),
-            FuncKind::TaskBlock { task_block, .. } => format!("<lambda>[{}]", task_block.id),
+            FuncKind::TaskBlock { task_block, .. } => format!("<task>[{}]", task_block.id),
             FuncKind::IntrinsicWrapper(b, _) => b.name(),
             FuncKind::ForeignFunctionWrapper { symbol, .. } => symbol.clone(),
             FuncKind::HostFunctionWrapper(f) => ctx.fully_qualified_names[&f.name.id].clone(),
@@ -515,15 +515,36 @@ impl Translator {
                 .or_insert((i + captures.len()) as i16);
         }
         let nargs = arg_ids.len();
-        st.return_stack.push(nargs as u32);
+        match desc.kind {
+            FuncKind::NamedFunc(_)
+            | FuncKind::AnonymousFunc { .. }
+            | FuncKind::IntrinsicWrapper(_, _)
+            | FuncKind::ForeignFunctionWrapper { .. }
+            | FuncKind::HostFunctionWrapper(_) => {
+                st.return_stack.push(nargs as u32);
+            }
+            // task block function is toplevel
+            FuncKind::TaskBlock { .. } => {}
+        }
         self.translate_expr(body, &offset_table, &mono, st);
-        st.return_stack.pop();
-
-        let SolvedType::Function(_, out_ty) = func_ty else { unreachable!() };
-        if *out_ty == SolvedType::Void {
-            self.emit(st, Instr::ReturnVoid);
-        } else {
-            self.emit(st, Instr::Return(nargs as u32));
+        match desc.kind {
+            FuncKind::NamedFunc(_)
+            | FuncKind::AnonymousFunc { .. }
+            | FuncKind::IntrinsicWrapper(_, _)
+            | FuncKind::ForeignFunctionWrapper { .. }
+            | FuncKind::HostFunctionWrapper(_) => {
+                st.return_stack.pop();
+                let SolvedType::Function(_, out_ty) = func_ty else { unreachable!() };
+                if *out_ty == SolvedType::Void {
+                    self.emit(st, Instr::ReturnVoid);
+                } else {
+                    self.emit(st, Instr::Return(nargs as u32));
+                }
+            }
+            // task block function is toplevel
+            FuncKind::TaskBlock { .. } => {
+                self.emit(st, Instr::Stop);
+            }
         }
     }
 
@@ -1073,7 +1094,7 @@ impl Translator {
 
                 self.emit(st, Instr::MakeClosure(captures.len() as u16));
             }
-            ExprKind::TaskBlock(_statements) => {
+            ExprKind::TaskBlock(body) => {
                 /*
                 - the code in the block is basically a function
                 - so need to queue the bytecode generation for that "function" and get a label back.
@@ -1088,33 +1109,23 @@ impl Translator {
                     Some(substituted_ty)
                 };
 
-                // let (_, captures, _locals) =
-                //     self.calculate_args_captures_locals(&overload_ty, args, body, mono);
+                let (_, captures, _locals) =
+                    self.calculate_args_captures_locals(&overload_ty, &[], body, mono);
 
                 let desc = FuncDesc {
                     kind: FuncKind::TaskBlock {
                         task_block: expr.clone(),
-                        // capture_types: captures
-                        //     .iter()
-                        //     .cloned()
-                        //     .map(|capture| self.statics.solution_of_node(capture).unwrap())
-                        //     .collect(),
-                        // capture_types_concrete: captures
-                        //     .iter()
-                        //     .cloned()
-                        //     .map(|capture| self.get_ty(mono, capture).unwrap())
-                        //     .collect(),
                     },
                     overload_ty: overload_ty.clone(),
                 };
                 let label = self.get_func_label(st, desc);
 
-                // for capture in &captures {
-                //     let offs = offset_table.get(&capture.id()).unwrap();
-                //     self.emit(st, Instr::LoadOffset(*offs));
-                // }
+                for capture in &captures {
+                    let offs = offset_table.get(&capture.id()).unwrap();
+                    self.emit(st, Instr::LoadOffset(*offs));
+                }
 
-                self.emit(st, Instr::SpawnTask(label.clone()));
+                self.emit(st, Instr::SpawnTask(captures.len() as u16, label.clone()));
             }
             ExprKind::Unwrap(inner_expr) => {
                 self.translate_expr(inner_expr, offset_table, mono, st);

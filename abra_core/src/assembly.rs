@@ -161,7 +161,7 @@ pub enum Instr {
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
-    SpawnTask(Label),
+    SpawnTask(u16, Label),
 
     // Data Structures
     ConstructStruct(u16),
@@ -439,8 +439,8 @@ impl Display for Instr {
             Instr::ConstructChannel => write!(f, "construct_channel"),
             Instr::ChannelRead => write!(f, "channel_read"),
             Instr::ChannelWrite => write!(f, "channel_write"),
-            Instr::SpawnTask(ncaptures) => {
-                write!(f, "make_closure {ncaptures}")
+            Instr::SpawnTask(ncaptures, label) => {
+                write!(f, "spawn_task {ncaptures} {label}")
             }
             Instr::ArrayPush(reg1, reg2) => write!(f, "array_push {reg1} {reg2}"),
             Instr::ArrayPushIntImm(reg1, imm) => write!(f, "array_push_int_imm {reg1} {imm}"),
@@ -751,7 +751,9 @@ fn instr_to_vminstr(
         Instr::ConstructChannel => VmInstr::ConstructChannel,
         Instr::ChannelRead => VmInstr::ChannelRead,
         Instr::ChannelWrite => VmInstr::ChannelWrite,
-        Instr::SpawnTask(label) => VmInstr::SpawnTask(ProgramCounter::new(label_to_idx[label])),
+        Instr::SpawnTask(ncaptures, label) => {
+            VmInstr::SpawnTask(*ncaptures, ProgramCounter::new(label_to_idx[label]))
+        }
         Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n),
         Instr::ConstructArray(n) => VmInstr::ConstructArray(*n),
         Instr::DeconstructStruct => VmInstr::DeconstructStruct,
