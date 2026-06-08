@@ -79,12 +79,13 @@ The CLI or some other program will
 
 */
 pub struct Runtime {
-    main_thread: Box<VmGreenThread>,
     #[allow(clippy::vec_box)]
     threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
     new_threads_sender: Sender<Box<VmGreenThread>>,
     vm_shared_readonly: Arc<VmSharedReadonly>,
+    status: RuntimeStatus,
+    err: Option<Box<VmError>>,
 }
 
 impl Runtime {
@@ -150,71 +151,83 @@ impl Runtime {
 
         let (sender, receiver) = mpsc::channel();
 
+        let mut main = Box::new(VmGreenThread::new(
+            vm_shared_readonly.clone(),
+            sender.clone(),
+        ));
+        main.is_main = true;
+
         Runtime {
-            main_thread: Box::new(VmGreenThread::new(
-                vm_shared_readonly.clone(),
-                sender.clone(),
-            )),
-            threads: vec![],
+            threads: vec![main],
             new_threads: receiver,
             new_threads_sender: sender,
             vm_shared_readonly,
+            status: RuntimeStatus::OutOfSteps,
+            err: None,
         }
     }
 
     // TODO: these do not belong on runtime because they are thread specific I guess? Not totally sure. Is there a "main" thread?
 
     pub fn main(&self) -> &VmGreenThread {
-        self.main_thread.as_ref()
+        self.threads
+            .iter()
+            .find(|t| t.is_main)
+            .expect("could not find main thread")
+            .as_ref()
     }
 
     pub fn main_mut(&mut self) -> &mut VmGreenThread {
-        self.main_thread.as_mut()
+        self.threads
+            .iter_mut()
+            .find(|t| t.is_main)
+            .expect("could not find main thread")
+            .as_mut()
+    }
+
+    fn try_get_main(&self) -> Option<&VmGreenThread> {
+        self.threads.iter().find(|t| t.is_main).map(|t| &**t)
     }
 
     pub fn top(&self) -> Value {
-        self.main_thread.top()
+        self.main().top()
     }
 
     // TODO: pop and clear_pending_host_func aren't safe at all. Should not be exposed in public API or should be marked as unsafe
     pub fn pop(&mut self) -> Value {
-        self.main_thread.pop()
+        self.main_mut().pop()
     }
     pub fn clear_pending_host_func(&mut self) {
-        self.main_thread.clear_pending_host_func()
+        self.main_mut().clear_pending_host_func()
     }
 
     // TODO: there could potentially be thousands and thousands of these "threads" so we should never iterate over all of them at once like this
-    pub fn status(&self) -> RuntimeStatus {
-        match self.main_thread.status() {
-            VmStatus::Done => return RuntimeStatus::Done,
-            VmStatus::PendingHostFunc(_) => return RuntimeStatus::PendingHostFunc,
-            VmStatus::OutOfSteps => {}
-            VmStatus::Error(e) => return RuntimeStatus::MainThreadError(e),
+    // TODO: the main thread could be unavailable right now due to FFI
+    pub fn status(&self) -> &RuntimeStatus {
+        &self.status
+    }
+
+    pub fn get_error(&self) -> Option<Box<VmError>> {
+        match &self.status {
+            RuntimeStatus::MainThreadError(e) => Some(e.clone()),
+            _ => None,
         }
-        for thread in self.threads.iter() {
-            if let VmStatus::PendingHostFunc(_) = thread.status() {
-                return RuntimeStatus::PendingHostFunc;
-            }
-        }
-        RuntimeStatus::OutOfSteps
     }
 
     pub fn is_done(&self) -> bool {
-        matches!(self.main_thread.status(), VmStatus::Done)
+        matches!(self.status(), RuntimeStatus::Done)
     }
 
     // TODO: this is flawed and shouldn't be used. Lots of tests are using it right now or else I'd delete it immediately
     pub fn run(&mut self) {
         const SCHEDULER_N_STEPS: u32 = 100;
 
-        while matches!(self.main_thread.status(), VmStatus::OutOfSteps) {
+        while matches!(self.main().status(), VmStatus::OutOfSteps) {
             self.run_n_steps(SCHEDULER_N_STEPS);
         }
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
-        self.main_thread.run_n_steps(steps);
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.threads.par_iter_mut().for_each(|thread| {
@@ -227,8 +240,6 @@ impl Runtime {
                 thread.run_n_steps(steps);
             });
         }
-
-        self.threads.retain(|t| !t.done);
 
         #[cfg(feature = "ffi")]
         {
@@ -255,15 +266,44 @@ impl Runtime {
                 self.threads.push(new_thread);
             }
         }
+
+        self.status = self.update_status_helper();
+
+        self.threads.retain(|t| !t.done);
+    }
+
+    fn update_status_helper(&mut self) -> RuntimeStatus {
+        let main = self.try_get_main();
+        match main {
+            None => {}
+            Some(main) => match main.status() {
+                VmStatus::Done => {
+                    return RuntimeStatus::Done;
+                }
+                VmStatus::PendingHostFunc(_) => {
+                    return RuntimeStatus::PendingHostFunc;
+                }
+                VmStatus::OutOfSteps => {}
+                VmStatus::Error(e) => {
+                    return RuntimeStatus::MainThreadError(e);
+                }
+            },
+        }
+        for thread in self.threads.iter() {
+            if let VmStatus::PendingHostFunc(_) = thread.status() {
+                return RuntimeStatus::PendingHostFunc;
+            }
+        }
+        RuntimeStatus::OutOfSteps
     }
 
     pub fn iter_threads_mut(&mut self) -> impl Iterator<Item = &mut Box<VmGreenThread>> {
-        std::iter::once(&mut self.main_thread).chain(self.threads.iter_mut())
+        self.threads.iter_mut()
     }
 
     pub fn nbytes(&self) -> usize {
         // TODO: need to use the nbytes of all threads
-        self.main_thread.nbytes()
+        self.main().nbytes()
     }
 }
 
@@ -295,6 +335,7 @@ pub struct VmGreenThread {
     string_operand2: Value,
     concat_string_builder: Vec<u8>,
 
+    is_main: bool,
     shared: Arc<VmSharedReadonly>,
     new_threads_sender: Sender<Box<VmGreenThread>>,
 }
@@ -325,6 +366,7 @@ impl VmGreenThread {
             string_operand2: Value::from(0),
             concat_string_builder: vec![],
 
+            is_main: false,
             shared,
             new_threads_sender,
         }

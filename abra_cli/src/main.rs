@@ -198,7 +198,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if runtime.is_done() {
                     return Ok(());
                 }
-                if let Some(error) = runtime.main().get_error() {
+                if let Some(error) = runtime.get_error() {
                     eprint!("{error}");
                     exit(1);
                 }
