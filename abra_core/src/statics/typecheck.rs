@@ -22,7 +22,6 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -2183,7 +2182,6 @@ fn generate_constraints_stmt(
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ty_ann.to_typevar(ctx);
-                dlog!("ty_ann: {}", ty_ann);
 
                 generate_constraints_pat(
                     ctx,
@@ -2191,7 +2189,6 @@ fn generate_constraints_stmt(
                     pat,
                 );
                 let ty_pat = TypeVar::from_node(ctx, pat.node());
-                dlog!("ty_pat: {}", ty_pat);
             } else {
                 generate_constraints_pat(ctx, Mode::Syn, pat)
             };

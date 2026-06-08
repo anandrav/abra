@@ -2395,7 +2395,6 @@ impl VmGreenThread {
             match kind {
                 ObjectKind::String => {
                     let obj = unsafe { &*(header_ptr as *const StringObject) };
-                    dlog!("batch = {}, obj.nbytes = {}", batch, obj.nbytes());
                     *batch = batch.saturating_sub(obj.nbytes());
                 }
                 ObjectKind::Enum => {
