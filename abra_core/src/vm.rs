@@ -979,7 +979,7 @@ impl Value {
 
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
-        Self(if b { 1 } else { 0 }, ValueTag::Bool)
+        Self(b as u64, ValueTag::Bool)
     }
 }
 
