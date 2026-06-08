@@ -687,9 +687,6 @@ pub enum Instr {
     HostFunc(u16),
     Panic,
     SpawnTask(ProgramCounter),
-    ConstructChannel,
-    ChannelRead,
-    ChannelWrite,
 
     // Data Structures
     ConstructStruct(u16),
@@ -699,6 +696,7 @@ pub enum Instr {
     // TODO: pattern matching with primitive enums should also be much much faster, equivalent to a switch.
     // TODO: and equality comparison should be as cheap as int comparison
     ConstructVariant { tag: u16 },
+    ConstructChannel,
     DeconstructStruct,
     DeconstructArray,
     DeconstructVariant,
@@ -721,6 +719,8 @@ pub enum Instr {
     IntFromFloat(u16, u16),
     StringFromInt(u16, u16),
     StringFromFloat(u16, u16),
+    ChannelRead,
+    ChannelWrite,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -896,6 +896,14 @@ impl Value {
     {
         self.check_type(_vm, ValueTag::Array);
         unsafe { &mut *(self.0 as *mut ArrayObject) }
+    }
+
+    unsafe fn get_channel_mut<'a>(&self, _vm: &mut VmGreenThread) -> &'a mut ChannelObject
+    where
+        Self: Sized,
+    {
+        self.check_type(_vm, ValueTag::Channel);
+        unsafe { &mut *(self.0 as *mut ChannelObject) }
     }
 
     fn get_variant<'a>(&self, _vm: &VmGreenThread) -> &'a EnumObject
@@ -1975,7 +1983,8 @@ impl VmGreenThread {
                 self.new_threads_sender.send(new_thread.into()).unwrap();
             }
             Instr::ChannelRead => {
-                unimplemented!()
+                let val = self.pop(); // TODO: use registers
+                let chan = unsafe { val.get_channel_mut(self) };
             }
             Instr::ChannelWrite => {
                 unimplemented!()
