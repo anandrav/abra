@@ -14,12 +14,13 @@ use libloading::Library;
 use rayon::prelude::*;
 use std::alloc::{Layout, alloc, dealloc};
 use std::cmp::PartialEq;
+use std::collections::VecDeque;
 use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, mpsc};
+use std::sync::{Arc, Mutex, mpsc};
 use std::{
     fmt::{Display, Formatter},
     ptr,
@@ -898,12 +899,12 @@ impl Value {
         unsafe { &mut *(self.0 as *mut ArrayObject) }
     }
 
-    unsafe fn get_channel_mut<'a>(&self, _vm: &mut VmGreenThread) -> &'a mut ChannelObject
+    unsafe fn get_channel<'a>(&self, _vm: &mut VmGreenThread) -> &'a ChannelObject
     where
         Self: Sized,
     {
         self.check_type(_vm, ValueTag::Channel);
-        unsafe { &mut *(self.0 as *mut ChannelObject) }
+        unsafe { &*(self.0 as *const ChannelObject) }
     }
 
     fn get_variant<'a>(&self, _vm: &VmGreenThread) -> &'a EnumObject
@@ -1212,7 +1213,8 @@ impl ArrayObject {
 #[repr(C)]
 struct ChannelObject {
     header: ObjectHeader,
-    data: Arc<Vec<Value>>,
+    // TODO: instead of Arc Mutex VecDeque there's probably something much better
+    data: Arc<Mutex<VecDeque<Value>>>,
 }
 
 impl ChannelObject {
@@ -1227,7 +1229,7 @@ impl ChannelObject {
         };
         let b = Box::new(ChannelObject {
             header,
-            data: Arc::new(vec![]),
+            data: Arc::new(Mutex::new(VecDeque::new())),
         });
         let chan = Box::leak(b);
 
@@ -1241,6 +1243,16 @@ impl ChannelObject {
         vm.gc_debt += chan.nbytes();
 
         chan
+    }
+
+    fn read_value(&self) -> Value {
+        let mut data = self.data.lock().unwrap();
+        data.pop_front().unwrap()
+    }
+
+    fn write_value(&self, val: Value) {
+        let mut data = self.data.lock().unwrap();
+        data.push_back(val)
     }
 
     fn header_ptr(&mut self) -> *mut ObjectHeader {
@@ -1983,11 +1995,16 @@ impl VmGreenThread {
                 self.new_threads_sender.send(new_thread.into()).unwrap();
             }
             Instr::ChannelRead => {
-                let val = self.pop(); // TODO: use registers
-                let chan = unsafe { val.get_channel_mut(self) };
+                let chan = self.pop(); // TODO: use registers
+                let chan = unsafe { chan.get_channel(self) };
+                let read_val = chan.read_value();
+                self.push(read_val); // TODO: use registers
             }
             Instr::ChannelWrite => {
-                unimplemented!()
+                let val = self.pop(); // TODO: use registers
+                let chan = self.pop(); // TODO: use registers
+                let chan = unsafe { chan.get_channel(self) };
+                chan.write_value(val);
             }
             Instr::ConstructStruct(n) => self.construct_struct(n as usize),
             Instr::ConstructArray(n) => self.construct_array(n as usize),
@@ -2074,6 +2091,7 @@ impl VmGreenThread {
             Instr::ArrayPop(dest, reg) => {
                 let val = self.load_offset_or_top(reg);
                 let arr = unsafe { val.get_array_mut(self) };
+                // TODO: what if array is empty?? we're just unwrapping here...
                 let lvalue = arr.data.pop().unwrap();
                 self.store_offset_or_top(dest, lvalue);
             }

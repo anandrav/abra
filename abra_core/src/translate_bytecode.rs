@@ -2415,6 +2415,20 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
+            "channel.read" => {
+                self.emit(st, Instr::ChannelRead);
+                // channels of void use dummy values
+                if ret_is_void(&overload_ty) {
+                    self.emit(st, Instr::Pop);
+                }
+            }
+            "channel.write" => {
+                // channels of void use dummy values
+                if second_arg_is_void(&overload_ty) {
+                    self.emit(st, Instr::PushNil(1));
+                }
+                self.emit(st, Instr::ChannelWrite);
+            }
             "prelude.ToString.str"
                 if is_func(&overload_ty, SolvedType::String, SolvedType::String) =>
             { /* noop */ }
