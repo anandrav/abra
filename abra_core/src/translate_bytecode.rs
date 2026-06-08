@@ -1865,7 +1865,7 @@ impl Translator {
         }
 
         let func_id = offset + self.statics.dylib_to_funcs[&lib_id].get_id(symbol) as usize;
-        self.emit(st, Instr::CallExtern(func_id as u32));
+        self.emit(st, Instr::CallForeign(func_id as u32));
 
         self.wrapper_footer(st, nargs, for_function_body);
     }

@@ -684,7 +684,7 @@ pub enum Instr {
     // JumpIfLessThan(ProgramCounter), // TODO: when jumps are relative and only i16, can add this back
     Call(CallData),
     CallFuncObj(u32),
-    CallExtern(u32),
+    CallForeign(u32),
     Return(u32),
     ReturnVoid,
     Stop, // used when returning from main function
@@ -2253,7 +2253,7 @@ impl VmGreenThread {
                 self.pending_host_func = Some(eff);
                 return false;
             }
-            Instr::CallExtern(_func_id) => {
+            Instr::CallForeign(_func_id) => {
                 if cfg!(not(feature = "ffi")) {
                     self.fail(VmErrorKind::FfiNotEnabled);
                 }
