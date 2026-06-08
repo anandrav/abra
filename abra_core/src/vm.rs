@@ -1267,7 +1267,14 @@ impl ChannelObject {
     fn read_value(&self) -> Option<Value> {
         let mut data = self.data.lock().unwrap();
         // TODO: it would be better to put this thread to sleep instead of constantly trying and failing to read from the channel
-        data.pop_front()
+        let read_val = data.pop_front();
+        match read_val {
+            Some(val) => {
+                // must deep copy whatever was read, immediately.
+                Some(val)
+            }
+            None => None,
+        }
     }
 
     fn write_value(&self, val: Value) {
@@ -2284,7 +2291,6 @@ impl VmGreenThread {
     // GARBAGE COLLECTION
 
     pub fn maybe_gc(&mut self) {
-        return;
         match self.gc_state {
             GcState::Idle => {
                 let threshold = self.last_gc_heap_size * GC_PAUSE_FACTOR;
@@ -2351,6 +2357,7 @@ impl VmGreenThread {
             match kind {
                 ObjectKind::String => {
                     let obj = unsafe { &*(header_ptr as *const StringObject) };
+                    dlog!("batch = {}, obj.nbytes = {}", batch, obj.nbytes());
                     *batch -= obj.nbytes();
                 }
                 ObjectKind::Enum => {
