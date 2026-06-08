@@ -946,16 +946,33 @@ impl Value {
     fn deep_copy(self, vm: &mut VmGreenThread) -> Value {
         match self.1 {
             ValueTag::Int | ValueTag::Float | ValueTag::Bool | ValueTag::Addr => self,
-            ValueTag::Struct => unimplemented!(),
-            ValueTag::Array => unimplemented!(),
-            ValueTag::Variant => unimplemented!(),
-            ValueTag::String => {
-                let str = self.view_string(vm);
-                let string_object = StringObject::new(str.to_string(), vm);
-                let new_val = Value::from(string_object);
-                new_val
+            ValueTag::Struct => {
+                let struct_obj = self.get_struct(vm);
+                let mut fields = vec![];
+                for field in struct_obj.get_fields() {
+                    fields.push(field.deep_copy(vm));
+                }
+                StructObject::new(fields, vm).into()
             }
-            ValueTag::Channel => unimplemented!(),
+            ValueTag::Array => {
+                let array_obj = self.get_struct(vm);
+                let mut elems = vec![];
+                for elem in array_obj.get_fields() {
+                    elems.push(elem.deep_copy(vm));
+                }
+                ArrayObject::new(elems, vm).into()
+            }
+            ValueTag::Variant => {
+                let variant_obj = self.get_variant(vm);
+                let tag = variant_obj.tag;
+                let val = variant_obj.val.deep_copy(vm);
+                EnumObject::new(tag, val, vm).into()
+            }
+            ValueTag::String => {
+                let content = self.view_string(vm);
+                StringObject::new(content.to_string(), vm).into()
+            }
+            ValueTag::Channel => unreachable!(), // TODO: does it make sense to send channels over channels?
         }
     }
 }
