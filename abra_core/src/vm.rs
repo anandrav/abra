@@ -942,6 +942,24 @@ impl Value {
     }
 }
 
+impl Value {
+    fn deep_copy(self, vm: &mut VmGreenThread) -> Value {
+        match self.1 {
+            ValueTag::Int | ValueTag::Float | ValueTag::Bool | ValueTag::Addr => self,
+            ValueTag::Struct => unimplemented!(),
+            ValueTag::Array => unimplemented!(),
+            ValueTag::Variant => unimplemented!(),
+            ValueTag::String => {
+                let str = self.view_string(vm);
+                let string_object = StringObject::new(str.to_string(), vm);
+                let new_val = Value::from(string_object);
+                new_val
+            }
+            ValueTag::Channel => unimplemented!(),
+        }
+    }
+}
+
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
         Self(if b { 1 } else { 0 }, ValueTag::Bool)
@@ -2040,7 +2058,10 @@ impl VmGreenThread {
                 let chan_obj = unsafe { chan.get_channel(self) };
                 let read_val = chan_obj.read_value();
                 match read_val {
-                    Some(read_val) => self.push(read_val), // TODO: use registers
+                    Some(read_val) => {
+                        let read_val = read_val.deep_copy(self);
+                        self.push(read_val)
+                    } // TODO: use registers
                     None => {
                         self.push(chan);
                         self.pc.0 -= 1;
@@ -2358,30 +2379,30 @@ impl VmGreenThread {
                 ObjectKind::String => {
                     let obj = unsafe { &*(header_ptr as *const StringObject) };
                     dlog!("batch = {}, obj.nbytes = {}", batch, obj.nbytes());
-                    *batch -= obj.nbytes();
+                    *batch = batch.saturating_sub(obj.nbytes());
                 }
                 ObjectKind::Enum => {
                     let obj = unsafe { &*(header_ptr as *const EnumObject) };
-                    *batch -= obj.nbytes();
+                    *batch = batch.saturating_sub(obj.nbytes());
                     Self::mark(&obj.val, &mut self.gray_stack, self.gc_visited);
                 }
                 ObjectKind::Struct => {
                     let obj = unsafe { &*(header_ptr as *const StructObject) };
-                    *batch -= obj.nbytes();
+                    *batch = batch.saturating_sub(obj.nbytes());
                     for field in obj.get_fields() {
                         Self::mark(field, &mut self.gray_stack, self.gc_visited);
                     }
                 }
                 ObjectKind::Array => {
                     let obj = unsafe { &*(header_ptr as *const ArrayObject) };
-                    *batch -= obj.nbytes();
+                    *batch = batch.saturating_sub(obj.nbytes());
                     for elem in &obj.data {
                         Self::mark(elem, &mut self.gray_stack, self.gc_visited);
                     }
                 }
                 ObjectKind::Channel => {
                     let obj = unsafe { &*(header_ptr as *const ChannelObject) };
-                    *batch -= obj.nbytes();
+                    *batch = batch.saturating_sub(obj.nbytes());
                     let data = obj.data.lock().unwrap();
                     for elem in data.iter() {
                         Self::mark(elem, &mut self.gray_stack, self.gc_visited);
