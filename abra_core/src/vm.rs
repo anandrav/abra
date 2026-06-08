@@ -225,7 +225,7 @@ impl Runtime {
             self.threads.push(new_thread);
         }
 
-        self.threads.retain(|t| t.done);
+        self.threads.retain(|t| !t.done);
     }
 
     pub fn iter_threads_mut(&mut self) -> impl Iterator<Item = &mut Box<VmGreenThread>> {
@@ -402,7 +402,6 @@ impl VmGreenThread {
     }
 
     pub fn load_offset(&self, offset: i16) -> Value {
-        dlog!("btw, offset = {}", offset);
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
@@ -1265,9 +1264,10 @@ impl ChannelObject {
         chan
     }
 
-    fn read_value(&self) -> Value {
+    fn read_value(&self) -> Option<Value> {
         let mut data = self.data.lock().unwrap();
-        data.pop_front().unwrap()
+        // TODO: it would be better to put this thread to sleep instead of constantly trying and failing to read from the channel
+        data.pop_front()
     }
 
     fn write_value(&self, val: Value) {
@@ -2030,10 +2030,15 @@ impl VmGreenThread {
             }
             Instr::ChannelRead => {
                 let chan = self.pop(); // TODO: use registers
-                let chan = unsafe { chan.get_channel(self) };
-                let read_val = chan.read_value();
-
-                self.push(read_val); // TODO: use registers
+                let chan_obj = unsafe { chan.get_channel(self) };
+                let read_val = chan_obj.read_value();
+                match read_val {
+                    Some(read_val) => self.push(read_val), // TODO: use registers
+                    None => {
+                        self.push(chan);
+                        self.pc.0 -= 1;
+                    }
+                }
             }
             Instr::ChannelWrite => {
                 let val = self.pop(); // TODO: use registers

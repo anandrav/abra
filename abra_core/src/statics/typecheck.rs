@@ -2978,7 +2978,6 @@ fn generate_constraints_expr(
                             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, receiver_expr);
 
                             let receiver_ty = TypeVar::from_node(ctx, receiver_expr.node());
-                            dlog!("receiver_ty: {}", receiver_ty);
                             if let Some(potential_ty) =
                                 TypeVar::from_node(ctx, receiver_expr.node()).single()
                             {
