@@ -907,6 +907,14 @@ impl Value {
         unsafe { &*(self.0 as *const ChannelObject) }
     }
 
+    unsafe fn get_channel_mut<'a>(&self, _vm: &mut VmGreenThread) -> &'a mut ChannelObject
+    where
+        Self: Sized,
+    {
+        self.check_type(_vm, ValueTag::Channel);
+        unsafe { &mut *(self.0 as *mut ChannelObject) }
+    }
+
     fn get_variant<'a>(&self, _vm: &VmGreenThread) -> &'a EnumObject
     where
         Self: Sized,
@@ -1251,8 +1259,11 @@ impl ChannelObject {
     }
 
     fn write_value(&self, val: Value) {
+        println!("about to grab mutex");
         let mut data = self.data.lock().unwrap();
-        data.push_back(val)
+        println!("grabbed mutex");
+        data.push_back(val);
+        println!("pushed back");
     }
 
     fn header_ptr(&mut self) -> *mut ObjectHeader {
@@ -1389,6 +1400,7 @@ impl VmGreenThread {
         let instr = self.shared.program[self.pc.get()];
 
         self.pc.0 += 1;
+        println!("instr = {:?}", instr);
         match instr {
             Instr::PushNil(n) => {
                 for _ in 0..n {
@@ -1998,12 +2010,19 @@ impl VmGreenThread {
                 let chan = self.pop(); // TODO: use registers
                 let chan = unsafe { chan.get_channel(self) };
                 let read_val = chan.read_value();
+
                 self.push(read_val); // TODO: use registers
             }
             Instr::ChannelWrite => {
+                println!("get val");
                 let val = self.pop(); // TODO: use registers
+                println!("get channel");
                 let chan = self.pop(); // TODO: use registers
-                let chan = unsafe { chan.get_channel(self) };
+                println!("cast to channel");
+                let chan = unsafe { chan.get_channel_mut(self) };
+                println!("write to channel");
+
+                self.write_barrier(chan.header_ptr(), val);
                 chan.write_value(val);
             }
             Instr::ConstructStruct(n) => self.construct_struct(n as usize),
