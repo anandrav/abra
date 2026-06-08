@@ -779,10 +779,14 @@ pub enum ValueTag {
 
 impl ValueTag {
     fn is_pointer(&self) -> bool {
-        matches!(
-            self,
-            ValueTag::Struct | ValueTag::Array | ValueTag::Variant | ValueTag::String
-        )
+        match self {
+            ValueTag::Int | ValueTag::Float | ValueTag::Bool | ValueTag::Addr => false,
+            ValueTag::Struct
+            | ValueTag::Array
+            | ValueTag::Variant
+            | ValueTag::String
+            | ValueTag::Channel => true,
+        }
     }
 
     fn to_expected_type(self) -> ExpectedType {
@@ -998,7 +1002,7 @@ struct CallFrame {
 
 // NEW reference types
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 enum GcState {
     Idle,
     Marking,
@@ -2348,9 +2352,10 @@ impl VmGreenThread {
                     }
                 }
                 ObjectKind::Channel => {
-                    let obj = unsafe { &*(header_ptr as *const ArrayObject) };
+                    let obj = unsafe { &*(header_ptr as *const ChannelObject) };
                     *batch -= obj.nbytes();
-                    for elem in &obj.data {
+                    let data = obj.data.lock().unwrap();
+                    for elem in data.iter() {
                         Self::mark(elem, &mut self.gray_stack, self.gc_visited);
                     }
                 }
