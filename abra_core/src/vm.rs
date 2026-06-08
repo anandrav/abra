@@ -772,6 +772,7 @@ pub enum ValueTag {
     Array,
     Variant,
     String,
+    Channel,
     Addr,
 }
 
@@ -792,6 +793,7 @@ impl ValueTag {
             ValueTag::Array => ExpectedType::Array,
             ValueTag::Variant => ExpectedType::Variant,
             ValueTag::String => ExpectedType::String,
+            ValueTag::Channel => ExpectedType::Channel,
             ValueTag::Addr => ExpectedType::Addr,
         }
     }
@@ -807,6 +809,7 @@ impl Display for ValueTag {
             ValueTag::Array => write!(f, "array"),
             ValueTag::Variant => write!(f, "variant"),
             ValueTag::String => write!(f, "string"),
+            ValueTag::Channel => write!(f, "channel"),
             ValueTag::Addr => write!(f, "address"),
         }
     }
@@ -823,6 +826,7 @@ pub enum ExpectedType {
     Variant,
     String,
     Addr,
+    Channel,
 }
 
 impl Display for ExpectedType {
@@ -836,6 +840,7 @@ impl Display for ExpectedType {
             ExpectedType::Array => write!(f, "array"),
             ExpectedType::Variant => write!(f, "variant"),
             ExpectedType::String => write!(f, "string"),
+            ExpectedType::Channel => write!(f, "channel"),
             ExpectedType::Addr => write!(f, "address"),
         }
     }
@@ -958,6 +963,12 @@ impl From<*mut EnumObject> for Value {
 impl From<*mut StringObject> for Value {
     fn from(ptr: *mut StringObject) -> Self {
         Self(ptr as u64, ValueTag::String)
+    }
+}
+
+impl From<*mut ChannelObject> for Value {
+    fn from(ptr: *mut ChannelObject) -> Self {
+        Self(ptr as u64, ValueTag::Channel)
     }
 }
 
@@ -1197,7 +1208,7 @@ struct ChannelObject {
 }
 
 impl ChannelObject {
-    fn new(data: Vec<Value>, vm: &mut VmGreenThread) -> *mut ChannelObject {
+    fn new(vm: &mut VmGreenThread) -> *mut ChannelObject {
         let header = ObjectHeader {
             kind: ObjectKind::Channel,
             visited: match &vm.gc_state {
@@ -1954,7 +1965,8 @@ impl VmGreenThread {
                 return false;
             }
             Instr::ConstructChannel => {
-                unimplemented!()
+                let ptr = ChannelObject::new(self);
+                self.push(ptr);
             }
             Instr::SpawnTask(target) => {
                 let mut new_thread =

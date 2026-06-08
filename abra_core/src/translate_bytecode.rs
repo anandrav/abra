@@ -1497,7 +1497,9 @@ impl Translator {
                 );
             }
             Declaration::Intrinsic(b) => self.emit_intrinsic(st, mono, *b, func_node, false),
-            Declaration::BuiltinType(BuiltinType::Channel) => self.emit(st, Instr::ConstructChannel),
+            Declaration::BuiltinType(BuiltinType::Channel) => {
+                self.emit(st, Instr::ConstructChannel)
+            }
             Declaration::InterfaceOutputType { .. }
             | Declaration::InterfaceDef(_)
             | Declaration::Polytype(_)
