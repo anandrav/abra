@@ -23,7 +23,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, mpsc};
 use std::{
     fmt::{Display, Formatter},
-    ptr,
+    mem, ptr, thread,
 };
 use utils::dlog;
 
@@ -83,6 +83,8 @@ pub struct Runtime {
     #[allow(clippy::vec_box)]
     threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
+    new_threads_sender: Sender<Box<VmGreenThread>>,
+    vm_shared_readonly: Arc<VmSharedReadonly>,
 }
 
 impl Runtime {
@@ -149,9 +151,14 @@ impl Runtime {
         let (sender, receiver) = mpsc::channel();
 
         Runtime {
-            main_thread: Box::new(VmGreenThread::new(vm_shared_readonly, sender)),
+            main_thread: Box::new(VmGreenThread::new(
+                vm_shared_readonly.clone(),
+                sender.clone(),
+            )),
             threads: vec![],
             new_threads: receiver,
+            new_threads_sender: sender,
+            vm_shared_readonly,
         }
     }
 
@@ -221,11 +228,33 @@ impl Runtime {
             });
         }
 
-        while let Ok(new_thread) = self.new_threads.try_recv() {
-            self.threads.push(new_thread);
-        }
-
         self.threads.retain(|t| !t.done);
+
+        #[cfg(feature = "ffi")]
+        {
+            let threads = mem::take(&mut self.threads);
+            for thread in threads {
+                if let Some(ffi_id) = thread.pending_ffi_call {
+                    let new_threads_sender = self.new_threads_sender.clone();
+                    thread::spawn(move || {
+                        unsafe {
+                            thread.shared.foreign_functions[ffi_id as usize](
+                                thread.as_ref() as *const VmGreenThread as *mut c_void,
+                                &ABRA_VM_FUNCS as *const AbraVmFunctions,
+                            )
+                        }
+
+                        new_threads_sender.send(thread).unwrap();
+                    });
+                } else {
+                    self.threads.push(thread);
+                }
+            }
+
+            while let Ok(new_thread) = self.new_threads.try_recv() {
+                self.threads.push(new_thread);
+            }
+        }
     }
 
     pub fn iter_threads_mut(&mut self) -> impl Iterator<Item = &mut Box<VmGreenThread>> {
@@ -233,6 +262,7 @@ impl Runtime {
     }
 
     pub fn nbytes(&self) -> usize {
+        // TODO: need to use the nbytes of all threads
         self.main_thread.nbytes()
     }
 }
@@ -256,6 +286,7 @@ pub struct VmGreenThread {
     // status
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
+    pending_ffi_call: Option<u32>,
     done: bool,
     // string op state
     string_op_index1: usize,
@@ -285,6 +316,7 @@ impl VmGreenThread {
 
             pending_host_func: None,
             error: None,
+            pending_ffi_call: None,
             done: false,
 
             string_op_index1: 0,
@@ -2258,17 +2290,8 @@ impl VmGreenThread {
                     self.fail(VmErrorKind::FfiNotEnabled);
                 }
 
-                #[cfg(feature = "ffi")]
-                {
-                    unsafe {
-                        let vm_ptr = self as *mut VmGreenThread as *mut c_void;
-                        let abra_vm_functions_ptr = &ABRA_VM_FUNCS as *const AbraVmFunctions;
-                        self.shared.foreign_functions[_func_id as usize](
-                            vm_ptr,
-                            abra_vm_functions_ptr,
-                        );
-                    };
-                }
+                self.pending_ffi_call = Some(_func_id);
+                return false;
             }
         }
         true
