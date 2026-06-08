@@ -224,6 +224,8 @@ impl Runtime {
         while let Ok(new_thread) = self.new_threads.try_recv() {
             self.threads.push(new_thread);
         }
+
+        self.threads.retain(|t| t.done);
     }
 
     pub fn iter_threads_mut(&mut self) -> impl Iterator<Item = &mut Box<VmGreenThread>> {
@@ -1404,6 +1406,9 @@ impl VmGreenThread {
         if self.error.is_some() {
             panic!("forgot to check error on vm");
         }
+        if self.done {
+            panic!("can't run vm. already done executing");
+        }
     }
 
     #[inline(always)]
@@ -2274,6 +2279,7 @@ impl VmGreenThread {
     // GARBAGE COLLECTION
 
     pub fn maybe_gc(&mut self) {
+        return;
         match self.gc_state {
             GcState::Idle => {
                 let threshold = self.last_gc_heap_size * GC_PAUSE_FACTOR;
