@@ -687,6 +687,7 @@ pub enum Instr {
     HostFunc(u16),
     Panic,
     SpawnTask(ProgramCounter),
+    ConstructChannel,
     ChannelRead,
     ChannelWrite,
 
@@ -1951,6 +1952,9 @@ impl VmGreenThread {
                     self.make_error(VmErrorKind::Panic(msg.to_string())),
                 ));
                 return false;
+            }
+            Instr::ConstructChannel => {
+                unimplemented!()
             }
             Instr::SpawnTask(target) => {
                 let mut new_thread =
