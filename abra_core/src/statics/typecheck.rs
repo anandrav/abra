@@ -22,6 +22,7 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use utils::dlog;
 use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -1270,6 +1271,9 @@ impl AstType {
                     Declaration::BuiltinType(BuiltinType::Array) => {
                         Some(SolvedType::Nominal(Nominal::Array, sargs))
                     }
+                    Declaration::BuiltinType(BuiltinType::Channel) => {
+                        Some(SolvedType::Nominal(Nominal::Channel, sargs))
+                    }
                     Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
                         Nominal::Struct(struct_def.clone()),
                         sargs,
@@ -1344,6 +1348,11 @@ impl AstType {
                     Some(Declaration::BuiltinType(BuiltinType::Array)) => TypeVar::make_nominal(
                         reason,
                         Nominal::Array,
+                        params.iter().map(|param| param.to_typevar(ctx)).collect(),
+                    ),
+                    Some(Declaration::BuiltinType(BuiltinType::Channel)) => TypeVar::make_nominal(
+                        reason,
+                        Nominal::Channel,
                         params.iter().map(|param| param.to_typevar(ctx)).collect(),
                     ),
                     Some(Declaration::Polytype(poly_decl)) => {
@@ -2174,12 +2183,15 @@ fn generate_constraints_stmt(
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ty_ann.to_typevar(ctx);
+                dlog!("ty_ann: {}", ty_ann);
 
                 generate_constraints_pat(
                     ctx,
                     Mode::ana_reason(ty_ann, ConstraintReason::LetStmtAnnotation),
                     pat,
-                )
+                );
+                let ty_pat = TypeVar::from_node(ctx, pat.node());
+                dlog!("ty_pat: {}", ty_pat);
             } else {
                 generate_constraints_pat(ctx, Mode::Syn, pat)
             };
@@ -2853,7 +2865,9 @@ fn generate_constraints_expr(
                         ctx.resolution_map.get(&receiver_expr.id),
                         Some(Declaration::Struct(_))
                             | Some(Declaration::Enum(_))
-                            | Some(Declaration::BuiltinType(BuiltinType::Array))
+                            | Some(Declaration::BuiltinType(
+                                BuiltinType::Array | BuiltinType::Channel
+                            ))
                             | Some(Declaration::InterfaceDef(_))
                     );
                     if let Some(Declaration::Namespace(..)) =
@@ -2963,6 +2977,8 @@ fn generate_constraints_expr(
                             //          ^^^^^^^^type is `array`, therefore member function is `array.push`
                             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, receiver_expr);
 
+                            let receiver_ty = TypeVar::from_node(ctx, receiver_expr.node());
+                            dlog!("receiver_ty: {}", receiver_ty);
                             if let Some(potential_ty) =
                                 TypeVar::from_node(ctx, receiver_expr.node()).single()
                             {

@@ -1289,6 +1289,7 @@ impl Translator {
             Declaration::Struct(_)
             | Declaration::Enum { .. }
             | Declaration::BuiltinType(BuiltinType::Array)
+            | Declaration::BuiltinType(BuiltinType::Channel)
             | Declaration::InterfaceDef(_)
             | Declaration::Namespace(_, _) => {
                 // noop, does not exist at runtime
