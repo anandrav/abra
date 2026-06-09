@@ -190,7 +190,11 @@ impl Runtime {
     }
 
     fn try_get_main(&self) -> Option<&VmGreenThread> {
-        self.threads.iter().find(|t| t.is_main).map(|t| &**t)
+        self.threads
+            .iter()
+            .find(|t| t.is_main)
+            .or(self.main_remnant.as_ref())
+            .map(|t| &**t)
     }
 
     pub fn top(&self) -> Value {
@@ -292,10 +296,10 @@ impl Runtime {
                 VmStatus::PendingHostFunc(_) => {
                     return RuntimeStatus::PendingHostFunc;
                 }
-                VmStatus::OutOfSteps => {}
                 VmStatus::Error(e) => {
                     return RuntimeStatus::MainThreadError(e);
                 }
+                VmStatus::OutOfSteps => {}
             },
         }
         for thread in self.threads.iter() {
@@ -398,6 +402,7 @@ impl Display for ProgramCounter {
     }
 }
 
+#[derive(Debug)]
 pub enum RuntimeStatus {
     Done,
     PendingHostFunc,
@@ -405,6 +410,7 @@ pub enum RuntimeStatus {
     MainThreadError(Box<VmError>),
 }
 
+#[derive(Debug)]
 pub enum VmStatus {
     Done,
     PendingHostFunc(u16),

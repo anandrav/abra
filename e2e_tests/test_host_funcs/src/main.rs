@@ -22,21 +22,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
     handle_host_func(runtime.main_mut(), host_func_args);
+    runtime.clear_pending_host_func();
+    runtime.run();
+    let status = runtime.main_mut().status();
+    let rt_status = runtime.status();
+    let VmStatus::PendingHostFunc(i) = status else {
+        panic!(
+            "vm status is {:?} and runtime status is {:?}",
+            status, rt_status
+        )
+    };
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
+    handle_host_func(runtime.main_mut(), host_func_args);
+    runtime.clear_pending_host_func();
     runtime.run();
     let status = runtime.main_mut().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
     handle_host_func(runtime.main_mut(), host_func_args);
+    runtime.clear_pending_host_func();
     runtime.run();
     let status = runtime.main_mut().status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
     let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
     handle_host_func(runtime.main_mut(), host_func_args);
-    runtime.run();
-    let status = runtime.main_mut().status();
-    let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
-    handle_host_func(runtime.main_mut(), host_func_args);
+    runtime.clear_pending_host_func();
     runtime.run();
     let top = runtime.top();
     // 28 (from before) + 30 (p.age) + 42 (bl.n) = 100
