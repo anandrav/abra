@@ -269,6 +269,7 @@ impl Runtime {
 
         self.status = self.update_status_helper();
 
+        // TODO: main thread shouldn't be removed here, need to keep it for later so the tests pass, at least for now
         self.threads.retain(|t| !t.done);
     }
 
