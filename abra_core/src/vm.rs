@@ -249,8 +249,8 @@ impl Runtime {
         #[cfg(feature = "ffi")]
         {
             let threads = mem::take(&mut self.threads);
-            for thread in threads {
-                if let Some(ffi_id) = thread.pending_ffi_call {
+            for mut thread in threads {
+                if let Some(ffi_id) = thread.pending_ffi_call.take() {
                     let new_threads_sender = self.new_threads_sender.clone();
                     thread::spawn(move || {
                         unsafe {
