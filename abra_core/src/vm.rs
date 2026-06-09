@@ -25,7 +25,6 @@ use std::{
     fmt::{Display, Formatter},
     mem, ptr, thread,
 };
-use utils::dlog;
 
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
@@ -83,9 +82,9 @@ pub struct Runtime {
     threads: Vec<Box<VmGreenThread>>,
     new_threads: Receiver<Box<VmGreenThread>>,
     new_threads_sender: Sender<Box<VmGreenThread>>,
-    vm_shared_readonly: Arc<VmSharedReadonly>,
+    // vm_shared_readonly: Arc<VmSharedReadonly>,
     status: RuntimeStatus,
-    err: Option<Box<VmError>>,
+    // err: Option<Box<VmError>>,
     main_remnant: Option<Box<VmGreenThread>>,
 }
 
@@ -162,9 +161,9 @@ impl Runtime {
             threads: vec![main],
             new_threads: receiver,
             new_threads_sender: sender,
-            vm_shared_readonly,
+            // vm_shared_readonly,
             status: RuntimeStatus::OutOfSteps,
-            err: None,
+            // err: None,
             main_remnant: None,
         }
     }
@@ -175,7 +174,7 @@ impl Runtime {
         self.threads
             .iter()
             .find(|t| t.is_main)
-            .or_else(|| self.main_remnant.as_ref())
+            .or(self.main_remnant.as_ref())
             .expect("could not find main thread")
             .as_ref()
     }
@@ -184,7 +183,7 @@ impl Runtime {
         self.threads
             .iter_mut()
             .find(|t| t.is_main)
-            .or_else(|| self.main_remnant.as_mut())
+            .or(self.main_remnant.as_mut())
             .expect("could not find main thread")
             .as_mut()
     }
@@ -1391,14 +1390,7 @@ impl ChannelObject {
     fn read_value(&self) -> Option<Value> {
         let mut data = self.data.lock().unwrap();
         // TODO: it would be better to put this thread to sleep instead of constantly trying and failing to read from the channel
-        let read_val = data.pop_front();
-        match read_val {
-            Some(val) => {
-                // must deep copy whatever was read, immediately.
-                Some(val)
-            }
-            None => None,
-        }
+        data.pop_front()
     }
 
     fn write_value(&self, val: Value) {

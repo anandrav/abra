@@ -2188,7 +2188,7 @@ fn generate_constraints_stmt(
                     Mode::ana_reason(ty_ann, ConstraintReason::LetStmtAnnotation),
                     pat,
                 );
-                let ty_pat = TypeVar::from_node(ctx, pat.node());
+                let _ty_pat = TypeVar::from_node(ctx, pat.node());
             } else {
                 generate_constraints_pat(ctx, Mode::Syn, pat)
             };
@@ -2974,7 +2974,7 @@ fn generate_constraints_expr(
                             //          ^^^^^^^^type is `array`, therefore member function is `array.push`
                             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, receiver_expr);
 
-                            let receiver_ty = TypeVar::from_node(ctx, receiver_expr.node());
+                            let _receiver_ty = TypeVar::from_node(ctx, receiver_expr.node());
                             if let Some(potential_ty) =
                                 TypeVar::from_node(ctx, receiver_expr.node()).single()
                             {
