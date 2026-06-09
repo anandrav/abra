@@ -21,9 +21,11 @@ use std::ffi::c_void;
 use std::fmt::Debug;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, mpsc};
+#[cfg(feature = "ffi")]
+use std::thread;
 use std::{
     fmt::{Display, Formatter},
-    mem, ptr, thread,
+    mem, ptr,
 };
 
 pub type AbraInt = i64;
@@ -80,7 +82,9 @@ The CLI or some other program will
 pub struct Runtime {
     #[allow(clippy::vec_box)]
     threads: Vec<Box<VmGreenThread>>,
+
     new_threads: Receiver<Box<VmGreenThread>>,
+    #[cfg(feature = "ffi")]
     new_threads_sender: Sender<Box<VmGreenThread>>,
     // vm_shared_readonly: Arc<VmSharedReadonly>,
     status: RuntimeStatus,
@@ -160,6 +164,7 @@ impl Runtime {
         Runtime {
             threads: vec![main],
             new_threads: receiver,
+            #[cfg(feature = "ffi")]
             new_threads_sender: sender,
             // vm_shared_readonly,
             status: RuntimeStatus::OutOfSteps,
@@ -249,12 +254,14 @@ impl Runtime {
             });
         }
 
-        #[cfg(feature = "ffi")]
         {
             let threads = mem::take(&mut self.threads);
+            #[allow(unused_mut)]
             for mut thread in threads {
+                #[cfg(feature = "ffi")]
                 if let Some(ffi_id) = thread.pending_ffi_call.take() {
                     let new_threads_sender = self.new_threads_sender.clone();
+
                     thread::spawn(move || {
                         unsafe {
                             thread.shared.foreign_functions[ffi_id as usize](
@@ -265,7 +272,10 @@ impl Runtime {
 
                         new_threads_sender.send(thread).unwrap();
                     });
-                } else if !thread.done {
+                    continue;
+                }
+
+                if !thread.done {
                     self.threads.push(thread);
                 } else if thread.is_main {
                     self.main_remnant = Some(thread);
