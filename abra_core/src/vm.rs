@@ -86,6 +86,7 @@ pub struct Runtime {
     vm_shared_readonly: Arc<VmSharedReadonly>,
     status: RuntimeStatus,
     err: Option<Box<VmError>>,
+    main_remnant: Option<Box<VmGreenThread>>,
 }
 
 impl Runtime {
@@ -164,6 +165,7 @@ impl Runtime {
             vm_shared_readonly,
             status: RuntimeStatus::OutOfSteps,
             err: None,
+            main_remnant: None,
         }
     }
 
@@ -173,6 +175,7 @@ impl Runtime {
         self.threads
             .iter()
             .find(|t| t.is_main)
+            .or_else(|| self.main_remnant.as_ref())
             .expect("could not find main thread")
             .as_ref()
     }
@@ -181,6 +184,7 @@ impl Runtime {
         self.threads
             .iter_mut()
             .find(|t| t.is_main)
+            .or_else(|| self.main_remnant.as_mut())
             .expect("could not find main thread")
             .as_mut()
     }
@@ -222,7 +226,7 @@ impl Runtime {
     pub fn run(&mut self) {
         const SCHEDULER_N_STEPS: u32 = 100;
 
-        while matches!(self.main().status(), VmStatus::OutOfSteps) {
+        while matches!(self.status(), RuntimeStatus::OutOfSteps) {
             self.run_n_steps(SCHEDULER_N_STEPS);
         }
     }
@@ -257,8 +261,10 @@ impl Runtime {
 
                         new_threads_sender.send(thread).unwrap();
                     });
-                } else {
+                } else if !thread.done {
                     self.threads.push(thread);
+                } else if thread.is_main {
+                    self.main_remnant = Some(thread);
                 }
             }
 
@@ -268,9 +274,6 @@ impl Runtime {
         }
 
         self.status = self.update_status_helper();
-
-        // TODO: main thread shouldn't be removed here, need to keep it for later so the tests pass, at least for now
-        self.threads.retain(|t| !t.done);
     }
 
     fn update_status_helper(&mut self) -> RuntimeStatus {
