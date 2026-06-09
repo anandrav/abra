@@ -202,7 +202,8 @@ impl Runtime {
         self.main_mut().pop()
     }
     pub fn clear_pending_host_func(&mut self) {
-        self.main_mut().clear_pending_host_func()
+        self.main_mut().clear_pending_host_func();
+        self.status = RuntimeStatus::OutOfSteps
     }
 
     // TODO: there could potentially be thousands and thousands of these "threads" so we should never iterate over all of them at once like this
@@ -265,6 +266,7 @@ impl Runtime {
                     self.threads.push(thread);
                 } else if thread.is_main {
                     self.main_remnant = Some(thread);
+                    self.status = RuntimeStatus::Done;
                 }
             }
 
@@ -277,6 +279,9 @@ impl Runtime {
     }
 
     fn update_status_helper(&mut self) -> RuntimeStatus {
+        if matches!(self.status, RuntimeStatus::Done) {
+            return RuntimeStatus::Done;
+        }
         let main = self.try_get_main();
         match main {
             None => {}
