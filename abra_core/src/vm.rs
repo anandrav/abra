@@ -324,8 +324,7 @@ impl Runtime {
     }
 
     pub fn nbytes(&self) -> usize {
-        // TODO: need to use the nbytes of all threads
-        self.main().nbytes()
+        self.threads.iter().map(|t| t.nbytes()).sum()
     }
 }
 
