@@ -10,8 +10,6 @@ use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
-#[cfg(not(target_arch = "wasm32"))]
-use rayon::prelude::*;
 use std::alloc::{Layout, alloc, dealloc};
 use std::cmp::PartialEq;
 use std::collections::VecDeque;
@@ -26,7 +24,7 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::{
     fmt::{Display, Formatter},
-    mem, ptr,
+    ptr,
 };
 
 pub type AbraInt = i64;
@@ -81,9 +79,8 @@ The CLI or some other program will
 
 */
 pub struct Runtime {
-    main_thread: Option<Box<VmGreenThread>>,
     #[allow(clippy::vec_box)]
-    threads: Vec<Box<VmGreenThread>>,
+    run_queue: VecDeque<Box<VmGreenThread>>,
 
     new_threads: Receiver<Box<VmGreenThread>>,
     #[cfg(feature = "ffi")]
@@ -91,7 +88,7 @@ pub struct Runtime {
     // vm_shared_readonly: Arc<VmSharedReadonly>,
     // status: RuntimeStatus,
     // err: Option<Box<VmError>>,
-    main_remnant: Option<Box<VmGreenThread>>,
+    finished_main_thread: Option<Box<VmGreenThread>>,
 }
 
 impl Runtime {
@@ -164,29 +161,29 @@ impl Runtime {
         main.is_main = true;
 
         Runtime {
-            main_thread: Some(main),
-            threads: vec![],
+            run_queue: VecDeque::from([main]),
             new_threads: receiver,
             #[cfg(feature = "ffi")]
             new_threads_sender: sender,
             // vm_shared_readonly,
             // status: RuntimeStatus::OutOfSteps,
             // err: None,
-            main_remnant: None,
+            finished_main_thread: None,
         }
     }
 
     // TODO: these do not belong on runtime because they are thread specific I guess? Not totally sure. Is there a "main" thread?
 
     pub fn main(&self) -> &VmGreenThread {
-        self.main_thread
-            .as_ref()
-            .or(self.main_remnant.as_ref())
-            .unwrap()
+        self.try_get_main().unwrap()
     }
 
-    fn try_get_main(&self) -> Option<&Box<VmGreenThread>> {
-        self.main_thread.as_ref().or(self.main_remnant.as_ref())
+    fn try_get_main(&self) -> Option<&VmGreenThread> {
+        self.run_queue
+            .iter()
+            .find(|thread| thread.is_main)
+            .map(Box::as_ref)
+            .or(self.finished_main_thread.as_deref())
     }
 
     pub fn top(&self) -> Value {
@@ -207,83 +204,14 @@ impl Runtime {
     }
 
     pub fn run_n_steps(&mut self, steps: u32) -> RuntimeStatus {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.main_thread
-                .par_iter_mut()
-                .chain(self.threads.par_iter_mut())
-                .for_each(|thread| {
-                    if thread.can_run() {
-                        thread.run_n_steps(steps);
-                    }
-                });
-        }
-        #[cfg(target_arch = "wasm32")]
-        {
-            self.threads.iter_mut().for_each(|thread| {
-                if thread.can_run() {
-                    thread.run_n_steps(steps);
-                }
-            });
-        }
-
-        let mut done = false;
-
-        {
-            let mut insert_thread = |rt: &mut Runtime, thread: Box<VmGreenThread>| {
-                if thread.is_main {
-                    if thread.done {
-                        rt.main_remnant = Some(thread);
-                        done = true;
-                    } else {
-                        rt.main_thread = Some(thread);
-                    }
-                } else {
-                    if !thread.done {
-                        rt.threads.push(thread);
-                    }
-                }
-            };
-
-            let mut threads = mem::take(&mut self.threads);
-            if let Some(main) = self.main_thread.take() {
-                threads.push(main);
-            }
-            #[allow(unused_mut)]
-            for mut thread in threads {
-                #[cfg(feature = "ffi")]
-                if let Some(ffi_id) = thread.pending_ffi_call.take() {
-                    let new_threads_sender = self.new_threads_sender.clone();
-
-                    thread::spawn(move || {
-                        unsafe {
-                            thread.shared.foreign_functions[ffi_id as usize](
-                                thread.as_ref() as *const VmGreenThread as *mut c_void,
-                                &ABRA_VM_FUNCS as *const AbraVmFunctions,
-                            )
-                        }
-
-                        new_threads_sender.send(thread).unwrap();
-                    });
-                    continue;
-                }
-
-                insert_thread(self, thread);
-            }
-
-            while let Ok(new_thread) = self.new_threads.try_recv() {
-                insert_thread(self, new_thread);
-            }
-        }
-
-        if done {
+        if self.run_threads_round_robin(steps) {
             return RuntimeStatus::Done;
         }
 
         self.update_status_helper()
     }
 
-    fn update_status_helper(&mut self) -> RuntimeStatus {
+    fn update_status_helper(&self) -> RuntimeStatus {
         let main = self.try_get_main();
         match main {
             None => {}
@@ -300,7 +228,7 @@ impl Runtime {
                 VmStatus::OutOfSteps => {}
             },
         }
-        for thread in self.threads.iter() {
+        for thread in self.run_queue.iter() {
             if let VmStatus::PendingHostFunc(_) = thread.status() {
                 return RuntimeStatus::PendingHostFunc;
             }
@@ -308,12 +236,91 @@ impl Runtime {
         RuntimeStatus::OutOfSteps
     }
 
+    fn run_threads_round_robin(&mut self, steps: u32) -> bool {
+        let mut remaining_steps = steps;
+        let mut skipped_threads = 0;
+
+        if self.drain_new_threads() {
+            return true;
+        }
+
+        while remaining_steps > 0 && skipped_threads < self.run_queue.len() {
+            let Some(mut thread) = self.run_queue.pop_front() else {
+                break;
+            };
+
+            if thread.can_run() {
+                thread.run_n_steps(1);
+                remaining_steps -= 1;
+                skipped_threads = 0;
+            } else {
+                skipped_threads += 1;
+            }
+
+            if self.finish_thread_turn(thread) {
+                return true;
+            }
+
+            if self.drain_new_threads() {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn finish_thread_turn(&mut self, thread: Box<VmGreenThread>) -> bool {
+        if thread.is_main && thread.done {
+            self.finished_main_thread = Some(thread);
+            return true;
+        }
+        if !thread.is_main && thread.done {
+            return false;
+        }
+
+        #[cfg(feature = "ffi")]
+        let mut thread = thread;
+
+        #[cfg(feature = "ffi")]
+        if let Some(ffi_id) = thread.pending_ffi_call.take() {
+            self.launch_ffi_call(thread, ffi_id);
+            return false;
+        }
+
+        self.run_queue.push_back(thread);
+        false
+    }
+
+    #[cfg(feature = "ffi")]
+    fn launch_ffi_call(&self, thread: Box<VmGreenThread>, ffi_id: u32) {
+        let new_threads_sender = self.new_threads_sender.clone();
+
+        thread::spawn(move || {
+            unsafe {
+                thread.shared.foreign_functions[ffi_id as usize](
+                    thread.as_ref() as *const VmGreenThread as *mut c_void,
+                    &ABRA_VM_FUNCS as *const AbraVmFunctions,
+                )
+            }
+
+            new_threads_sender.send(thread).unwrap();
+        });
+    }
+
+    fn drain_new_threads(&mut self) -> bool {
+        while let Ok(new_thread) = self.new_threads.try_recv() {
+            if self.finish_thread_turn(new_thread) {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn iter_threads_mut(&mut self) -> impl Iterator<Item = &mut Box<VmGreenThread>> {
-        self.main_thread.iter_mut().chain(self.threads.iter_mut())
+        self.run_queue.iter_mut()
     }
 
     pub fn nbytes(&self) -> usize {
-        self.threads.iter().map(|t| t.nbytes()).sum()
+        self.run_queue.iter().map(|t| t.nbytes()).sum()
     }
 }
 
@@ -389,13 +396,15 @@ impl VmGreenThread {
     }
 
     fn can_run(&self) -> bool {
-        self.pending_host_func.is_none() && self.error.is_none() && !self.done
+        self.pending_host_func.is_none()
+            && self.pending_ffi_call.is_none()
+            && self.error.is_none()
+            && !self.done
     }
 }
 fn new_thread_id() -> u64 {
     static ID_COUNTER: AtomicU64 = AtomicU64::new(0);
-    let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
-    id
+    ID_COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
 #[derive(Copy, Clone, Debug)]
