@@ -4,7 +4,7 @@
 
 use std::{error::Error, path::PathBuf};
 
-use abra_core::vm::{Runtime, VmGreenThread};
+use abra_core::vm::{Runtime, RuntimeStatus};
 use abra_core::{OsFileProvider, vm::VmStatus};
 
 mod generated;
@@ -17,36 +17,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let program = abra_core::compile_bytecode("main.abra", file_provider)?;
 
     let mut runtime = Runtime::new(program);
-    runtime.run();
-    let status = runtime.main_mut().status();
-    let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
-    handle_host_func(runtime.main_mut(), host_func_args);
-    runtime.clear_pending_host_func();
-    runtime.run();
-    let status = runtime.main_mut().status();
-    let rt_status = runtime.status();
-    let VmStatus::PendingHostFunc(i) = status else {
-        panic!(
-            "vm status is {:?} and runtime status is {:?}",
-            status, rt_status
-        )
-    };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
-    handle_host_func(runtime.main_mut(), host_func_args);
-    runtime.clear_pending_host_func();
-    runtime.run();
-    let status = runtime.main_mut().status();
-    let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
-    handle_host_func(runtime.main_mut(), host_func_args);
-    runtime.clear_pending_host_func();
-    runtime.run();
-    let status = runtime.main_mut().status();
-    let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(runtime.main_mut(), i);
-    handle_host_func(runtime.main_mut(), host_func_args);
-    runtime.clear_pending_host_func();
+    for _ in 0..4 {
+        let status = runtime.run();
+        handle_host_func(&mut runtime, status);
+        runtime.clear_pending_host_func();
+    }
     runtime.run();
     let top = runtime.top();
     // 28 (from before) + 30 (p.age) + 42 (bl.n) = 100
@@ -58,39 +33,46 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn handle_host_func(vm: &mut VmGreenThread, host_func_args: HostFunctionArgs) {
-    // TODO: flesh this out a bit more.
-    // test single argument, multiple argument, no arguments
-    // test void return value, single return value, tuple return value
-    match host_func_args {
-        HostFunctionArgs::PrintString(_s) => {
-            let _ = HostFunctionRet::PrintString;
-            panic!()
-        }
-        HostFunctionArgs::EprintString(_s) => {
-            let _ = HostFunctionRet::EprintString;
-            panic!()
-        }
-        HostFunctionArgs::Readline => {
-            let _ = HostFunctionRet::Readline("".into());
-            panic!()
-        }
-        HostFunctionArgs::GetArgs => {
-            let _ = HostFunctionRet::GetArgs(vec![]);
-            panic!()
-        }
-        HostFunctionArgs::Foo(_n, _s) => {
-            let _ = HostFunctionRet::Foo(0);
-            panic!()
-        }
-        HostFunctionArgs::Bar(n1, n2) => {
-            HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(vm);
-        }
-        HostFunctionArgs::MakePerson(name, age) => {
-            HostFunctionRet::MakePerson(Person { name, age }).into_vm(vm);
-        }
-        HostFunctionArgs::GetBlah => {
-            HostFunctionRet::GetBlah(Blah { n: 42 }).into_vm(vm);
+fn handle_host_func(runtime: &mut Runtime, status: RuntimeStatus) {
+    let RuntimeStatus::PendingHostFunc = status else { panic!() };
+    for thread in runtime.iter_threads_mut() {
+        let status = thread.status();
+        let VmStatus::PendingHostFunc(i) = status else { continue };
+        let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(thread, i);
+
+        // TODO: flesh this out a bit more.
+        // test single argument, multiple argument, no arguments
+        // test void return value, single return value, tuple return value
+        match host_func_args {
+            HostFunctionArgs::PrintString(_s) => {
+                let _ = HostFunctionRet::PrintString;
+                panic!()
+            }
+            HostFunctionArgs::EprintString(_s) => {
+                let _ = HostFunctionRet::EprintString;
+                panic!()
+            }
+            HostFunctionArgs::Readline => {
+                let _ = HostFunctionRet::Readline("".into());
+                panic!()
+            }
+            HostFunctionArgs::GetArgs => {
+                let _ = HostFunctionRet::GetArgs(vec![]);
+                panic!()
+            }
+            HostFunctionArgs::Foo(_n, _s) => {
+                let _ = HostFunctionRet::Foo(0);
+                panic!()
+            }
+            HostFunctionArgs::Bar(n1, n2) => {
+                HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(thread);
+            }
+            HostFunctionArgs::MakePerson(name, age) => {
+                HostFunctionRet::MakePerson(Person { name, age }).into_vm(thread);
+            }
+            HostFunctionArgs::GetBlah => {
+                HostFunctionRet::GetBlah(Blah { n: 42 }).into_vm(thread);
+            }
         }
     }
 }

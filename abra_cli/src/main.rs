@@ -194,11 +194,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(program) => {
             let mut runtime = abra_core::vm::Runtime::new(program);
             loop {
-                runtime.run_n_steps(100);
-                if runtime.is_done() {
+                let status = runtime.run_n_steps(100);
+                if status.is_done() {
                     return Ok(());
                 }
-                if let Some(error) = runtime.get_error() {
+                if let Some(error) = status.error() {
                     eprint!("{error}");
                     exit(1);
                 }

@@ -87,7 +87,7 @@ pub struct Runtime {
     #[cfg(feature = "ffi")]
     new_threads_sender: Sender<Box<VmGreenThread>>,
     // vm_shared_readonly: Arc<VmSharedReadonly>,
-    status: RuntimeStatus,
+    // status: RuntimeStatus,
     // err: Option<Box<VmError>>,
     main_remnant: Option<Box<VmGreenThread>>,
 }
@@ -167,7 +167,7 @@ impl Runtime {
             #[cfg(feature = "ffi")]
             new_threads_sender: sender,
             // vm_shared_readonly,
-            status: RuntimeStatus::OutOfSteps,
+            // status: RuntimeStatus::OutOfSteps,
             // err: None,
             main_remnant: None,
         }
@@ -211,36 +211,34 @@ impl Runtime {
     }
     pub fn clear_pending_host_func(&mut self) {
         self.main_mut().clear_pending_host_func();
-        self.status = RuntimeStatus::OutOfSteps
+        // self.status = RuntimeStatus::OutOfSteps
     }
 
     // TODO: there could potentially be thousands and thousands of these "threads" so we should never iterate over all of them at once like this
     // TODO: the main thread could be unavailable right now due to FFI
-    pub fn status(&self) -> &RuntimeStatus {
-        &self.status
-    }
 
-    pub fn get_error(&self) -> Option<Box<VmError>> {
-        match &self.status {
-            RuntimeStatus::MainThreadError(e) => Some(e.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn is_done(&self) -> bool {
-        matches!(self.status(), RuntimeStatus::Done)
-    }
+    // pub fn get_error(&self) -> Option<Box<VmError>> {
+    //     match &self.status {
+    //         RuntimeStatus::MainThreadError(e) => Some(e.clone()),
+    //         _ => None,
+    //     }
+    // }
 
     // TODO: this is flawed and shouldn't be used. Lots of tests are using it right now or else I'd delete it immediately
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> RuntimeStatus {
         const SCHEDULER_N_STEPS: u32 = 100;
 
-        while matches!(self.status(), RuntimeStatus::OutOfSteps) {
-            self.run_n_steps(SCHEDULER_N_STEPS);
+        loop {
+            let status = self.run_n_steps(SCHEDULER_N_STEPS);
+            if matches!(status, RuntimeStatus::OutOfSteps) {
+                continue;
+            }
+
+            return status;
         }
     }
 
-    pub fn run_n_steps(&mut self, steps: u32) {
+    pub fn run_n_steps(&mut self, steps: u32) -> RuntimeStatus {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.threads.par_iter_mut().for_each(|thread| {
@@ -253,6 +251,8 @@ impl Runtime {
                 thread.run_n_steps(steps);
             });
         }
+
+        let mut done = false;
 
         {
             let threads = mem::take(&mut self.threads);
@@ -279,7 +279,8 @@ impl Runtime {
                     self.threads.push(thread);
                 } else if thread.is_main {
                     self.main_remnant = Some(thread);
-                    self.status = RuntimeStatus::Done;
+                    done = true;
+                    // self.status = RuntimeStatus::Done;
                 }
             }
 
@@ -288,13 +289,14 @@ impl Runtime {
             }
         }
 
-        self.status = self.update_status_helper();
+        if done {
+            return RuntimeStatus::Done;
+        }
+
+        self.update_status_helper()
     }
 
     fn update_status_helper(&mut self) -> RuntimeStatus {
-        if matches!(self.status, RuntimeStatus::Done) {
-            return RuntimeStatus::Done;
-        }
         let main = self.try_get_main();
         match main {
             None => {}
@@ -410,12 +412,25 @@ impl Display for ProgramCounter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RuntimeStatus {
     Done,
     PendingHostFunc,
     OutOfSteps,
     MainThreadError(Box<VmError>),
+}
+
+impl RuntimeStatus {
+    pub fn is_done(&self) -> bool {
+        matches!(self, RuntimeStatus::Done)
+    }
+
+    pub fn error(&self) -> Option<&VmError> {
+        match self {
+            RuntimeStatus::MainThreadError(e) => Some(e),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]

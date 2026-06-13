@@ -945,8 +945,8 @@ n
         MockFileProvider::single_file(src),
     ));
     let mut runtime = Runtime::new(program);
-    runtime.run();
-    let RuntimeStatus::MainThreadError(_) = runtime.status() else { panic!() };
+    let status = runtime.run();
+    let RuntimeStatus::MainThreadError(_) = status else { panic!() };
 }
 
 #[test]
@@ -971,8 +971,8 @@ n
         MockFileProvider::single_file(src),
     ));
     let mut runtime = Runtime::new(program);
-    runtime.run();
-    let RuntimeStatus::MainThreadError(_) = runtime.status() else { panic!() };
+    let status = runtime.run();
+    let RuntimeStatus::MainThreadError(_) = status else { panic!() };
 }
 
 #[test]
@@ -1095,8 +1095,11 @@ x
         MockFileProvider::single_file(src),
     ));
     let mut runtime = Runtime::new(program);
-    while !runtime.is_done() {
-        runtime.run_n_steps(1);
+    loop {
+        let status = runtime.run_n_steps(1);
+        if status.is_done() {
+            break;
+        }
     }
     // vm.gc();
     assert!(runtime.nbytes() < 10000);
@@ -1124,8 +1127,11 @@ x
         MockFileProvider::single_file(src),
     ));
     let mut runtime = Runtime::new(program);
-    while !runtime.is_done() {
-        runtime.run_n_steps(1);
+    loop {
+        let status = runtime.run_n_steps(1);
+        if status.is_done() {
+            break;
+        }
         // vm.gc();
         assert!(runtime.nbytes() < 10000); // TODO: this test never fails!
     }
