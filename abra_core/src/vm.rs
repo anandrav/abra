@@ -19,6 +19,7 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, mpsc};
 #[cfg(feature = "ffi")]
@@ -212,13 +213,17 @@ impl Runtime {
                 .par_iter_mut()
                 .chain(self.threads.par_iter_mut())
                 .for_each(|thread| {
-                    thread.run_n_steps(steps);
+                    if thread.can_run() {
+                        thread.run_n_steps(steps);
+                    }
                 });
         }
         #[cfg(target_arch = "wasm32")]
         {
             self.threads.iter_mut().for_each(|thread| {
-                thread.run_n_steps(steps);
+                if thread.can_run() {
+                    thread.run_n_steps(steps);
+                }
             });
         }
 
@@ -341,6 +346,7 @@ pub struct VmGreenThread {
     concat_string_builder: Vec<u8>,
 
     is_main: bool,
+    id: u64,
     shared: Arc<VmSharedReadonly>,
     new_threads_sender: Sender<Box<VmGreenThread>>,
 }
@@ -372,10 +378,24 @@ impl VmGreenThread {
             concat_string_builder: vec![],
 
             is_main: false,
+            id: new_thread_id(),
             shared,
             new_threads_sender,
         }
     }
+
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    fn can_run(&self) -> bool {
+        self.pending_host_func.is_none() && self.error.is_none() && !self.done
+    }
+}
+fn new_thread_id() -> u64 {
+    static ID_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+    id
 }
 
 #[derive(Copy, Clone, Debug)]
