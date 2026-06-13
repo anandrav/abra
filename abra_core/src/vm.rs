@@ -184,15 +184,6 @@ impl Runtime {
             .as_ref()
     }
 
-    pub fn main_mut(&mut self) -> &mut VmGreenThread {
-        self.threads
-            .iter_mut()
-            .find(|t| t.is_main)
-            .or(self.main_remnant.as_mut())
-            .expect("could not find main thread")
-            .as_mut()
-    }
-
     fn try_get_main(&self) -> Option<&VmGreenThread> {
         self.threads
             .iter()

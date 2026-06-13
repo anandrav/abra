@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     runtime.run();
     let top = runtime.top();
     // 28 (from before) + 30 (p.age) + 42 (bl.n) = 100
-    assert_eq!(top.get_int(runtime.main_mut()), 100);
+    assert_eq!(top.get_int(runtime.main()), 100);
 
     // prevent warning for unused Color type (not yet tested via host functions)
     let _ = Color::Red;
