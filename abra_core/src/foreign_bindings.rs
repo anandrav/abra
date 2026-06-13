@@ -382,10 +382,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                     output.push_str("(vm_funcs.deconstruct_struct)(vm);");
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
-                            //     output.push_str(
-                            //         r#"(vm_funcs.pop_nil)(vm);
-                            // "#,
-                            //     );
                         } else {
                             let tyname = name_of_ty(&field.ty);
                             swrite!(
@@ -573,10 +569,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
                 for arg in f.args.iter().rev() {
                     let Some(ty) = &arg.ty else { panic!() };
                     if matches!(&*ty.kind, TypeKind::Void) {
-                        //                         output.push_str(
-                        //                             r#"(vm_funcs.pop_nil)(vm);
-                        // "#,
-                        //                         );
                     } else {
                         let tyname = name_of_ty(ty);
                         swrite!(
