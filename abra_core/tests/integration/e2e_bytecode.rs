@@ -7,7 +7,7 @@ use crate::helper::{expect_value, should_fail};
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Runtime;
-use abra_core::vm::{RuntimeStatus, VmStatus};
+use abra_core::vm::{RuntimeStatusKind, VmStatus};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -908,7 +908,7 @@ n
     ));
     let mut runtime = Runtime::new(program);
     let status = runtime.run();
-    let RuntimeStatus::MainThreadError(_) = status else { panic!() };
+    let RuntimeStatusKind::MainThreadError(_) = status.kind else { panic!() };
 }
 
 #[test]
@@ -934,7 +934,7 @@ n
     ));
     let mut runtime = Runtime::new(program);
     let status = runtime.run();
-    let RuntimeStatus::MainThreadError(_) = status else { panic!() };
+    let RuntimeStatusKind::MainThreadError(_) = status.kind else { panic!() };
 }
 
 #[test]

@@ -195,7 +195,7 @@ impl Runtime {
 
         loop {
             let status = self.run_n_steps(SCHEDULER_N_STEPS);
-            if matches!(status, RuntimeStatus::OutOfSteps) {
+            if matches!(status.kind, RuntimeStatusKind::OutOfSteps) {
                 continue;
             }
 
@@ -204,44 +204,52 @@ impl Runtime {
     }
 
     pub fn run_n_steps(&mut self, steps: u32) -> RuntimeStatus {
-        if self.run_threads_round_robin(steps) {
-            return RuntimeStatus::Done;
+        let (main_thread_done, steps_consumed) = self.run_threads_round_robin(steps);
+        if main_thread_done {
+            return RuntimeStatus {
+                kind: RuntimeStatusKind::Done,
+                steps_consumed,
+            };
         }
 
-        self.update_status_helper()
+        RuntimeStatus {
+            kind: self.update_status_helper(),
+            steps_consumed,
+        }
     }
 
-    fn update_status_helper(&self) -> RuntimeStatus {
+    fn update_status_helper(&self) -> RuntimeStatusKind {
         let main = self.try_get_main();
         match main {
             None => {}
             Some(main) => match main.status() {
                 VmStatus::Done => {
-                    return RuntimeStatus::Done;
+                    return RuntimeStatusKind::Done;
                 }
                 VmStatus::PendingHostFunc(_) => {
-                    return RuntimeStatus::PendingHostFunc;
+                    return RuntimeStatusKind::PendingHostFunc;
                 }
                 VmStatus::Error(e) => {
-                    return RuntimeStatus::MainThreadError(e);
+                    return RuntimeStatusKind::MainThreadError(e);
                 }
                 VmStatus::OutOfSteps => {}
             },
         }
         for thread in self.run_queue.iter() {
             if let VmStatus::PendingHostFunc(_) = thread.status() {
-                return RuntimeStatus::PendingHostFunc;
+                return RuntimeStatusKind::PendingHostFunc;
             }
         }
-        RuntimeStatus::OutOfSteps
+        RuntimeStatusKind::OutOfSteps
     }
 
-    fn run_threads_round_robin(&mut self, steps: u32) -> bool {
+    fn run_threads_round_robin(&mut self, steps: u32) -> (bool, u32) {
         let mut remaining_steps = steps;
+        let mut steps_run = 0;
         let mut skipped_threads = 0;
 
         if self.drain_new_threads() {
-            return true;
+            return (true, steps_run);
         }
 
         while remaining_steps > 0 && skipped_threads < self.run_queue.len() {
@@ -252,20 +260,21 @@ impl Runtime {
             if thread.can_run() {
                 thread.run_n_steps(1);
                 remaining_steps -= 1;
+                steps_run += 1;
                 skipped_threads = 0;
             } else {
                 skipped_threads += 1;
             }
 
             if self.finish_thread_turn(thread) {
-                return true;
+                return (true, steps_run);
             }
 
             if self.drain_new_threads() {
-                return true;
+                return (true, steps_run);
             }
         }
-        false
+        (false, steps_run)
     }
 
     fn finish_thread_turn(&mut self, thread: Box<VmGreenThread>) -> bool {
@@ -424,7 +433,13 @@ impl Display for ProgramCounter {
 }
 
 #[derive(Debug, Clone)]
-pub enum RuntimeStatus {
+pub struct RuntimeStatus {
+    pub kind: RuntimeStatusKind,
+    pub steps_consumed: u32,
+}
+
+#[derive(Debug, Clone)]
+pub enum RuntimeStatusKind {
     Done,
     PendingHostFunc,
     OutOfSteps,
@@ -433,12 +448,12 @@ pub enum RuntimeStatus {
 
 impl RuntimeStatus {
     pub fn is_done(&self) -> bool {
-        matches!(self, RuntimeStatus::Done)
+        matches!(self.kind, RuntimeStatusKind::Done)
     }
 
     pub fn error(&self) -> Option<&VmError> {
-        match self {
-            RuntimeStatus::MainThreadError(e) => Some(e),
+        match &self.kind {
+            RuntimeStatusKind::MainThreadError(e) => Some(e),
             _ => None,
         }
     }

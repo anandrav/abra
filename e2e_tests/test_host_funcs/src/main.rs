@@ -4,7 +4,7 @@
 
 use std::{error::Error, path::PathBuf};
 
-use abra_core::vm::{Runtime, RuntimeStatus};
+use abra_core::vm::{Runtime, RuntimeStatus, RuntimeStatusKind};
 use abra_core::{OsFileProvider, vm::VmStatus};
 
 mod generated;
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn handle_host_func(runtime: &mut Runtime, status: RuntimeStatus) {
-    let RuntimeStatus::PendingHostFunc = status else { panic!() };
+    let RuntimeStatusKind::PendingHostFunc = status.kind else { panic!() };
     for thread in runtime.iter_threads_mut() {
         let status = thread.status();
         let VmStatus::PendingHostFunc(i) = status else { continue };
