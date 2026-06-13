@@ -80,6 +80,7 @@ The CLI or some other program will
 
 */
 pub struct Runtime {
+    main_thread: Option<Box<VmGreenThread>>,
     #[allow(clippy::vec_box)]
     threads: Vec<Box<VmGreenThread>>,
 
@@ -162,7 +163,8 @@ impl Runtime {
         main.is_main = true;
 
         Runtime {
-            threads: vec![main],
+            main_thread: Some(main),
+            threads: vec![],
             new_threads: receiver,
             #[cfg(feature = "ffi")]
             new_threads_sender: sender,
@@ -176,27 +178,20 @@ impl Runtime {
     // TODO: these do not belong on runtime because they are thread specific I guess? Not totally sure. Is there a "main" thread?
 
     pub fn main(&self) -> &VmGreenThread {
-        self.threads
-            .iter()
-            .find(|t| t.is_main)
-            .or(self.main_remnant.as_ref())
-            .expect("could not find main thread")
+        self.main_thread
             .as_ref()
+            .or(self.main_remnant.as_ref())
+            .unwrap()
     }
 
-    fn try_get_main(&self) -> Option<&VmGreenThread> {
-        self.threads
-            .iter()
-            .find(|t| t.is_main)
-            .or(self.main_remnant.as_ref())
-            .map(|t| &**t)
+    fn try_get_main(&self) -> Option<&Box<VmGreenThread>> {
+        self.main_thread.as_ref().or(self.main_remnant.as_ref())
     }
 
     pub fn top(&self) -> Value {
         self.main().top()
     }
 
-    // TODO: this is flawed and shouldn't be used. Lots of tests are using it right now or else I'd delete it immediately
     pub fn run(&mut self) -> RuntimeStatus {
         const SCHEDULER_N_STEPS: u32 = 100;
 
@@ -213,9 +208,12 @@ impl Runtime {
     pub fn run_n_steps(&mut self, steps: u32) -> RuntimeStatus {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.threads.par_iter_mut().for_each(|thread| {
-                thread.run_n_steps(steps);
-            });
+            self.main_thread
+                .par_iter_mut()
+                .chain(self.threads.par_iter_mut())
+                .for_each(|thread| {
+                    thread.run_n_steps(steps);
+                });
         }
         #[cfg(target_arch = "wasm32")]
         {
@@ -227,7 +225,25 @@ impl Runtime {
         let mut done = false;
 
         {
-            let threads = mem::take(&mut self.threads);
+            let mut insert_thread = |rt: &mut Runtime, thread: Box<VmGreenThread>| {
+                if thread.is_main {
+                    if thread.done {
+                        rt.main_remnant = Some(thread);
+                        done = true;
+                    } else {
+                        rt.main_thread = Some(thread);
+                    }
+                } else {
+                    if !thread.done {
+                        rt.threads.push(thread);
+                    }
+                }
+            };
+
+            let mut threads = mem::take(&mut self.threads);
+            if let Some(main) = self.main_thread.take() {
+                threads.push(main);
+            }
             #[allow(unused_mut)]
             for mut thread in threads {
                 #[cfg(feature = "ffi")]
@@ -247,17 +263,11 @@ impl Runtime {
                     continue;
                 }
 
-                if !thread.done {
-                    self.threads.push(thread);
-                } else if thread.is_main {
-                    self.main_remnant = Some(thread);
-                    done = true;
-                    // self.status = RuntimeStatus::Done;
-                }
+                insert_thread(self, thread);
             }
 
             while let Ok(new_thread) = self.new_threads.try_recv() {
-                self.threads.push(new_thread);
+                insert_thread(self, new_thread);
             }
         }
 
@@ -294,7 +304,7 @@ impl Runtime {
     }
 
     pub fn iter_threads_mut(&mut self) -> impl Iterator<Item = &mut Box<VmGreenThread>> {
-        self.threads.iter_mut()
+        self.main_thread.iter_mut().chain(self.threads.iter_mut())
     }
 
     pub fn nbytes(&self) -> usize {
