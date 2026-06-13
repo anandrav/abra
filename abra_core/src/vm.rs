@@ -205,21 +205,6 @@ impl Runtime {
         self.main().top()
     }
 
-    // TODO: pop and clear_pending_host_func aren't safe at all. Should not be exposed in public API or should be marked as unsafe
-    pub fn pop(&mut self) -> Value {
-        self.main_mut().pop()
-    }
-
-    // TODO: there could potentially be thousands and thousands of these "threads" so we should never iterate over all of them at once like this
-    // TODO: the main thread could be unavailable right now due to FFI
-
-    // pub fn get_error(&self) -> Option<Box<VmError>> {
-    //     match &self.status {
-    //         RuntimeStatus::MainThreadError(e) => Some(e.clone()),
-    //         _ => None,
-    //     }
-    // }
-
     // TODO: this is flawed and shouldn't be used. Lots of tests are using it right now or else I'd delete it immediately
     pub fn run(&mut self) -> RuntimeStatus {
         const SCHEDULER_N_STEPS: u32 = 100;
