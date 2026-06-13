@@ -209,10 +209,6 @@ impl Runtime {
     pub fn pop(&mut self) -> Value {
         self.main_mut().pop()
     }
-    pub fn clear_pending_host_func(&mut self) {
-        self.main_mut().clear_pending_host_func();
-        // self.status = RuntimeStatus::OutOfSteps
-    }
 
     // TODO: there could potentially be thousands and thousands of these "threads" so we should never iterate over all of them at once like this
     // TODO: the main thread could be unavailable right now due to FFI

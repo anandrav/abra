@@ -20,7 +20,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     for _ in 0..4 {
         let status = runtime.run();
         handle_host_func(&mut runtime, status);
-        runtime.clear_pending_host_func();
     }
     runtime.run();
     let top = runtime.top();

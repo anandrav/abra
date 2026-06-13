@@ -202,27 +202,6 @@ x
 }
 
 #[test]
-fn print_string() {
-    let src = r#"
-print_string("hello world")
-5
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut runtime = Runtime::new(program);
-    runtime.run();
-    let top = runtime.top();
-    assert_eq!(top.view_string(runtime.main()), "hello world");
-    runtime.pop();
-    runtime.clear_pending_host_func();
-    runtime.run();
-    let top = runtime.top();
-    assert_eq!(top.get_int(runtime.main()), 5);
-}
-
-#[test]
 fn basic_polymorphism() {
     let src = r#"
 fn first(p: (T, T)) -> T {
@@ -791,26 +770,9 @@ fn array_sort() {
     let src = r#"
 let arr = [3, 2, 1]
 arr.sort()
-for n in arr {
-    print(n)
-}
-arr.len()
+ToString.str(arr)
 "#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut runtime = Runtime::new(program);
-    runtime.run();
-    for n in [1, 2, 3] {
-        let top = runtime.top();
-        assert_eq!(top.view_string(runtime.main()), n.to_string());
-        runtime.pop();
-        runtime.clear_pending_host_func();
-        runtime.run();
-    }
-    let top = runtime.top();
-    assert_eq!(top.get_int(runtime.main()), 3);
+    expect_value(src, "[ 1, 2, 3 ]");
 }
 
 #[test]
@@ -1538,33 +1500,6 @@ do_stuff()
     runtime.run();
     let status = runtime.main().status();
     let VmStatus::PendingHostFunc(0) = status else { panic!() };
-}
-
-#[test]
-fn host_function2() {
-    let src = r#"
-#host
-fn do_stuff() -> int
-
-#host
-fn do_stuff2() -> int
-
-let x = do_stuff2()
-x + x
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut runtime = Runtime::new(program);
-    runtime.run();
-    let status = runtime.main().status();
-    let VmStatus::PendingHostFunc(1) = status else { panic!() };
-    runtime.main_mut().push_int(3);
-    runtime.clear_pending_host_func();
-    runtime.run();
-    let top = runtime.top();
-    assert_eq!(top.get_int(runtime.main()), 6);
 }
 
 #[test]
