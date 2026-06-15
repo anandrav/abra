@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{FileAst, ImportKind, ItemKind, Type, TypeDefKind, TypeKind};
-use crate::foreign_bindings::{name_of_ty, name_of_variant_data_ty, run_formatter};
+use crate::bindings_common::{
+    BindingFlavor, emit_enum_def, emit_struct_def, name_of_ty, run_formatter,
+};
 use crate::statics::StaticsContext;
 use crate::vm::{AbraInt, VmGreenThread};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
@@ -329,187 +331,15 @@ impl Namespace {
 fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
         match &*item.kind {
-            ItemKind::TypeDef(tydef) => {
-                match tydef {
-                    TypeDefKind::Struct(s) if s.attributes.iter().any(|a| a.is_host()) => {
-                        swrite!(
-                            output,
-                            r#"pub struct {} {{
-       "#,
-                            s.name.v
-                        );
-                        for field in &s.fields {
-                            let tyname = name_of_ty(&field.ty);
-                            swrite!(
-                                output,
-                                r#"pub {}: {},
-       "#,
-                                field.name.v,
-                                tyname
-                            );
-                        }
-                        output.push('}');
-
-                        swrite!(
-                            output,
-                            r#"impl VmType for {} {{
-       "#,
-                            s.name.v
-                        );
-                        output.push_str(
-                            r#"fn from_vm(vm: &mut VmGreenThread) -> Self {
-"#,
-                        );
-                        output.push('{');
-                        output.push_str("vm.deconstruct_struct();");
-                        for field in s.fields.iter() {
-                            if matches!(&*field.ty.kind, TypeKind::Void) {
-                                //                             output.push_str(
-                                //                                 r#"vm.pop();
-                                // "#,
-                                //                             );
-                            } else {
-                                let tyname = name_of_ty(&field.ty);
-                                swrite!(
-                                    output,
-                                    r#"let {} = <{}>::from_vm(vm);
-       "#,
-                                    field.name.v,
-                                    tyname
-                                );
-                            }
-                        }
-                        output.push_str(
-                            r#"Self {
-"#,
-                        );
-                        for field in &s.fields {
-                            if matches!(&*field.ty.kind, TypeKind::Void) {
-                                swrite!(output, "{}: (),", field.name.v);
-                            } else {
-                                swrite!(output, "{},", field.name.v);
-                            }
-                        }
-                        output.push('}');
-                        output.push('}');
-
-                        output.push('}');
-
-                        output.push_str(
-                            r#"fn to_vm(self, vm: &mut VmGreenThread) {
-"#,
-                        );
-                        output.push('{');
-                        for field in s.fields.iter() {
-                            if matches!(&*field.ty.kind, TypeKind::Void) {
-                                // output.push_str("(vm_funcs.push_int)(vm, 0);"); // TODO: remove need for this dummy value
-                            } else {
-                                swrite!(
-                                    output,
-                                    r#"self.{}.to_vm(vm);
-       "#,
-                                    field.name.v
-                                );
-                            }
-                        }
-
-                        let nfields = s
-                            .fields
-                            .iter()
-                            .filter(|field| !matches!(&*field.ty.kind, TypeKind::Void))
-                            .count();
-                        swrite!(output, "vm.construct_struct({});", nfields);
-
-                        output.push('}');
-
-                        output.push('}');
-                        output.push('}');
-                    }
-                    TypeDefKind::Enum(e) if e.attributes.iter().any(|a| a.is_host()) => {
-                        swrite!(
-                            output,
-                            r#"pub enum {} {{
-       "#,
-                            e.name.v
-                        );
-                        for variant in &e.variants {
-                            swrite!(output, "{}", variant.ctor.v);
-                            if !variant.fields.is_empty() {
-                                output.push('(');
-                                output.push_str(&name_of_variant_data_ty(&variant.fields));
-                                output.push(')');
-                            }
-                            output.push(',');
-                        }
-                        output.push('}');
-
-                        swrite!(
-                            output,
-                            r#"impl VmType for {} {{
-       "#,
-                            e.name.v
-                        );
-                        output.push_str(
-                            r#"fn from_vm(vm: &mut VmGreenThread) -> Self {
-"#,
-                        );
-
-                        output.push('{');
-                        output.push_str("vm.deconstruct_variant();");
-                        output.push_str("let tag = vm.pop_int();");
-                        output.push_str("match tag {");
-                        for (i, variant) in e.variants.iter().enumerate() {
-                            output.push_str(&format!("{i} => {{"));
-                            if !variant.fields.is_empty() {
-                                let tyname = name_of_variant_data_ty(&variant.fields);
-                                swrite!(
-                                    output,
-                                    r#"let value: {tyname} = <{tyname}>::from_vm(vm);
-       "#
-                                );
-                                swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
-                            } else {
-                                output.push_str("vm.pop();");
-                                swrite!(output, "{}::{}", e.name.v, variant.ctor.v);
-                            }
-                            output.push('}');
-                        }
-                        output.push_str(r#"_ => panic!("unexpected tag encountered: {tag}")"#);
-
-                        output.push('}');
-                        output.push('}');
-
-                        output.push('}');
-
-                        output.push_str(
-                            r#"fn to_vm(self, vm: &mut VmGreenThread) {
-"#,
-                        );
-                        output.push('{');
-
-                        output.push_str("match self {");
-                        for (i, variant) in e.variants.iter().enumerate() {
-                            if !variant.fields.is_empty() {
-                                swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
-                                output.push_str("value.to_vm(vm);");
-                                swrite!(output, "vm.construct_variant({i});");
-                            } else {
-                                swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
-                                output.push_str("vm.push_int(0);"); // TODO: remove need for this dummy value
-                                swrite!(output, "vm.construct_variant({i});");
-                            }
-                            output.push('}');
-                        }
-                        output.push('}');
-
-                        output.push('}');
-
-                        output.push('}');
-                        output.push('}');
-                    }
-                    _ => {}
+            ItemKind::TypeDef(tydef) => match tydef {
+                TypeDefKind::Struct(s) if s.attributes.iter().any(|a| a.is_host()) => {
+                    emit_struct_def(output, s, BindingFlavor::Host);
                 }
-            }
+                TypeDefKind::Enum(e) if e.attributes.iter().any(|a| a.is_host()) => {
+                    emit_enum_def(output, e, BindingFlavor::Host);
+                }
+                _ => {}
+            },
             ItemKind::Import(ident, import_kind) => {
                 let module_name = &ident.v.replace("/", "::");
                 match import_kind {

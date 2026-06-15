@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 mod assembly;
 pub mod ast;
+mod bindings_common;
 pub mod environment;
 pub mod foreign_bindings;
 pub mod host_bindings;

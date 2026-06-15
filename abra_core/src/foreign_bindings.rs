@@ -7,7 +7,8 @@
 use crate::vm::{AbraInt, VmGreenThread};
 use crate::{
     FileAst, FileData, ItemKind, MockFileProvider,
-    ast::{Type, TypeDefKind, TypeKind},
+    ast::{TypeDefKind, TypeKind},
+    bindings_common::{BindingFlavor, emit_enum_def, emit_struct_def, name_of_ty, run_formatter},
     parse,
 };
 use core::str;
@@ -222,7 +223,6 @@ unsafe extern "C" fn abra_vm_array_len(vm: *mut c_void) -> usize {
     vm.array_len()
 }
 
-use crate::ast::VariantField;
 use crate::statics::StaticsContext;
 use std::env::current_dir;
 
@@ -297,32 +297,6 @@ pub fn generate_bindings_for_crate() {
     run_formatter(output_path.to_str().unwrap(), true);
 }
 
-pub fn run_formatter(output_path: &str, skip_children: bool) {
-    let mut cmd = std::process::Command::new("rustfmt");
-    cmd.arg("+nightly");
-    if skip_children {
-        cmd.arg("--unstable-features").arg("--skip-children");
-    }
-    cmd.arg(output_path);
-    let status = cmd.status();
-    match status {
-        Ok(status) => {
-            if !status.success() {
-                println!(
-                    "cargo:warning=Failed to format {output_path}. {}. command: rustfmt {output_path}",
-                    status
-                );
-            }
-        }
-        Err(e) => {
-            println!(
-                "cargo:warning=Failed to format {output_path}. error={}. command: rustfmt {output_path}",
-                e
-            );
-        }
-    }
-}
-
 fn write_header(output: &mut String, package_name: &str) {
     swrite!(
         output,
@@ -350,193 +324,11 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
             ItemKind::TypeDef(tydef) => match tydef {
                 TypeDefKind::Struct(s) if s.attributes.iter().any(|a| a.is_foreign()) => {
                     num_items += 1;
-                    swrite!(
-                        output,
-                        r#"pub struct {} {{
-"#,
-                        s.name.v
-                    );
-                    for field in &s.fields {
-                        let tyname = name_of_ty(&field.ty);
-                        swrite!(
-                            output,
-                            r#"pub {}: {},
-"#,
-                            field.name.v,
-                            tyname
-                        );
-                    }
-                    output.push('}');
-
-                    swrite!(
-                        output,
-                        r#"impl VmFfiType for {} {{
-"#,
-                        s.name.v
-                    );
-                    output.push_str(
-                        r#"unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
-"#,
-                    );
-                    output.push_str("unsafe {");
-                    output.push_str("(vm_funcs.deconstruct_struct)(vm);");
-                    for field in s.fields.iter() {
-                        if matches!(&*field.ty.kind, TypeKind::Void) {
-                        } else {
-                            let tyname = name_of_ty(&field.ty);
-                            swrite!(
-                                output,
-                                r#"let {} = <{}>::from_vm_unsafe(vm, vm_funcs);
-"#,
-                                field.name.v,
-                                tyname
-                            );
-                        }
-                    }
-                    output.push_str(
-                        r#"Self {
-"#,
-                    );
-                    for field in &s.fields {
-                        if matches!(&*field.ty.kind, TypeKind::Void) {
-                            swrite!(output, "{}: (),", field.name.v);
-                        } else {
-                            swrite!(output, "{},", field.name.v);
-                        }
-                    }
-                    output.push('}');
-                    output.push('}');
-
-                    output.push('}');
-
-                    output.push_str(
-                        r#"unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
-"#,
-                    );
-                    output.push_str("unsafe {");
-                    for field in s.fields.iter() {
-                        if matches!(&*field.ty.kind, TypeKind::Void) {
-                            // output.push_str("(vm_funcs.push_nil)(vm);");
-                        } else {
-                            swrite!(
-                                output,
-                                r#"self.{}.to_vm_unsafe(vm, vm_funcs);
-"#,
-                                field.name.v
-                            );
-                        }
-                    }
-
-                    let mut nfields = 0;
-                    for field in &*s.fields {
-                        if !matches!(*field.ty.kind, TypeKind::Void) {
-                            nfields += 1;
-                        }
-                    }
-                    swrite!(output, "(vm_funcs.construct_struct)(vm, {});", nfields);
-
-                    output.push('}');
-
-                    output.push('}');
-                    output.push('}');
+                    emit_struct_def(output, s, BindingFlavor::Foreign);
                 }
                 TypeDefKind::Enum(e) if e.attributes.iter().any(|a| a.is_foreign()) => {
                     num_items += 1;
-                    swrite!(
-                        output,
-                        r#"pub enum {} {{
-"#,
-                        e.name.v
-                    );
-                    for variant in &e.variants {
-                        swrite!(output, "{}", variant.ctor.v);
-                        if !variant.fields.is_empty() {
-                            output.push('(');
-                            output.push_str(&name_of_variant_data_ty(&variant.fields));
-                            output.push(')');
-                        }
-                        output.push(',');
-                    }
-                    output.push('}');
-
-                    swrite!(
-                        output,
-                        r#"impl VmFfiType for {} {{
-"#,
-                        e.name.v
-                    );
-                    output.push_str(
-                        r#"unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
-"#,
-                    );
-
-                    output.push_str("unsafe {");
-                    output.push_str("(vm_funcs.deconstruct_variant)(vm);");
-                    output.push_str("let tag = (vm_funcs.pop_int)(vm);");
-                    output.push_str("match tag {");
-                    for (i, variant) in e.variants.iter().enumerate() {
-                        output.push_str(&format!("{i} => {{"));
-                        if !variant.fields.is_empty() {
-                            if variant.fields.len() == 1
-                                && *variant.fields[0].ty.kind == TypeKind::Void
-                            {
-                                output.push_str("(vm_funcs.pop)(vm);");
-                                swrite!(output, "{}::{}(())", e.name.v, variant.ctor.v);
-                            } else {
-                                let tyname = name_of_variant_data_ty(&variant.fields);
-                                swrite!(
-                                    output,
-                                    r#"let value: {tyname} = <{tyname}>::from_vm_unsafe(vm, vm_funcs);
-    "#
-                                );
-                                swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
-                            }
-                        } else {
-                            output.push_str("(vm_funcs.pop)(vm);");
-                            swrite!(output, "{}::{}", e.name.v, variant.ctor.v);
-                        }
-                        output.push('}');
-                    }
-                    output.push_str(r#"_ => panic!("unexpected tag encountered: {tag}")"#);
-
-                    output.push('}');
-                    output.push('}');
-
-                    output.push('}');
-
-                    output.push_str(
-                        r#"unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
-"#,
-                    );
-                    output.push_str("unsafe {");
-
-                    output.push_str("match self {");
-                    for (i, variant) in e.variants.iter().enumerate() {
-                        if !variant.fields.is_empty() {
-                            if variant.fields.len() == 1
-                                && *variant.fields[0].ty.kind == TypeKind::Void
-                            {
-                                swrite!(output, "{}::{}(()) => {{", e.name.v, variant.ctor.v);
-                                output.push_str("0.to_vm_unsafe(vm, vm_funcs);");
-                                swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
-                            } else {
-                                swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
-                                output.push_str("value.to_vm_unsafe(vm, vm_funcs);");
-                                swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
-                            }
-                        } else {
-                            swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
-                            output.push_str("(vm_funcs.push_int)(vm, 0);"); // TODO: remove need for this dummy value
-                            swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
-                        }
-                        output.push('}');
-                    }
-                    output.push('}');
-
-                    output.push('}');
-
-                    output.push('}');
-                    output.push('}');
+                    emit_enum_def(output, e, BindingFlavor::Foreign);
                 }
                 _ => {}
             },
@@ -615,70 +407,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) -> usize {
         }
     }
     num_items
-}
-
-pub(crate) fn name_of_variant_data_ty(elems: &[VariantField]) -> String {
-    if elems.is_empty() {
-        panic!("variant data is empty. You probably didn't mean to call it.")
-    }
-    let mut ret = "".to_string();
-    if elems.len() == 1 {
-        ret.push_str(&name_of_ty(&elems[0].ty));
-        return ret;
-    }
-    ret.push('(');
-    for (i, elem) in elems.iter().enumerate() {
-        if i != 0 {
-            ret.push(',');
-        }
-        ret.push_str(&name_of_ty(&elem.ty));
-    }
-    ret.push(')');
-    ret
-}
-
-pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
-    match &*ty.kind {
-        TypeKind::Bool => "bool".to_string(),
-        TypeKind::Float => "f64".to_string(),
-        TypeKind::Int => "AbraInt".to_string(),
-        TypeKind::Str => "String".to_string(),
-        TypeKind::Void => "()".to_string(),
-        TypeKind::Tuple(elems) => {
-            let mut s = "(".to_string();
-            for elem in elems {
-                s.push_str(&name_of_ty(elem));
-                s.push(',');
-            }
-            s.push(')');
-            s
-        }
-        TypeKind::NamedWithParams {
-            package: _,
-            name: ident,
-            params,
-        } => {
-            // special-case
-            let mut s = ident.v.clone();
-            if s == "option" {
-                s = "Option".into();
-            } else if s == "array" {
-                s = "Vec".into();
-            } else if s == "result" {
-                s = "Result".into();
-            }
-            s.push('<');
-            for param in params {
-                s.push_str(&name_of_ty(param));
-                s.push(',');
-            }
-            s.push('>');
-            s
-        }
-        TypeKind::Wildcard => "WildcardNotSupported".into(),
-        TypeKind::Function(..) => "FunctionNotSupported".into(),
-        TypeKind::Poly(..) => "PolyNotSupported".into(),
-    }
 }
 
 fn find_abra_files(
