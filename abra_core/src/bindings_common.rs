@@ -20,7 +20,7 @@ impl BindingFlavor {
         }
     }
 
-    fn from_vm_sig(self) -> &'static str {
+    fn vm_from_sig(self) -> &'static str {
         match self {
             BindingFlavor::Host => "fn from_vm(vm: &mut VmGreenThread) -> Self",
             BindingFlavor::Foreign => {
@@ -94,7 +94,7 @@ impl BindingFlavor {
         }
     }
 
-    fn from_vm_call(self, output: &mut String, tyname: &str) {
+    fn vm_from_call(self, output: &mut String, tyname: &str) {
         match self {
             BindingFlavor::Host => swrite!(output, "<{tyname}>::from_vm(vm)"),
             BindingFlavor::Foreign => swrite!(output, "<{tyname}>::from_vm_unsafe(vm, vm_funcs)"),
@@ -112,7 +112,8 @@ impl BindingFlavor {
 pub(crate) fn emit_struct_def(output: &mut String, s: &StructDef, flavor: BindingFlavor) {
     swrite!(
         output,
-        r#"pub struct {} {{
+        r#"#[allow(dead_code)]
+pub struct {} {{
 "#,
         s.name.v
     );
@@ -135,14 +136,14 @@ pub(crate) fn emit_struct_def(output: &mut String, s: &StructDef, flavor: Bindin
         flavor.trait_name(),
         s.name.v
     );
-    swrite!(output, "{} {{", flavor.from_vm_sig());
+    swrite!(output, "{} {{", flavor.vm_from_sig());
     flavor.open_body(output);
     flavor.deconstruct_struct(output);
     for field in s.fields.iter() {
         if !matches!(&*field.ty.kind, TypeKind::Void) {
             let tyname = name_of_ty(&field.ty);
             swrite!(output, "let {}: {tyname} = ", field.name.v);
-            flavor.from_vm_call(output, &tyname);
+            flavor.vm_from_call(output, &tyname);
             output.push(';');
         }
     }
@@ -181,7 +182,8 @@ pub(crate) fn emit_struct_def(output: &mut String, s: &StructDef, flavor: Bindin
 pub(crate) fn emit_enum_def(output: &mut String, e: &EnumDef, flavor: BindingFlavor) {
     swrite!(
         output,
-        r#"pub enum {} {{
+        r#"#[allow(dead_code)]
+pub enum {} {{
 "#,
         e.name.v
     );
@@ -203,7 +205,7 @@ pub(crate) fn emit_enum_def(output: &mut String, e: &EnumDef, flavor: BindingFla
         flavor.trait_name(),
         e.name.v
     );
-    swrite!(output, "{} {{", flavor.from_vm_sig());
+    swrite!(output, "{} {{", flavor.vm_from_sig());
     flavor.open_body(output);
     flavor.deconstruct_variant(output);
     output.push_str("let tag = ");
@@ -215,7 +217,7 @@ pub(crate) fn emit_enum_def(output: &mut String, e: &EnumDef, flavor: BindingFla
         if !variant.fields.is_empty() {
             let tyname = name_of_variant_data_ty(&variant.fields);
             swrite!(output, "let value: {tyname} = ");
-            flavor.from_vm_call(output, &tyname);
+            flavor.vm_from_call(output, &tyname);
             output.push(';');
             swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
         } else {
