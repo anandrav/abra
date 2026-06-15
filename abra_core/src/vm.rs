@@ -1113,7 +1113,10 @@ impl Value {
                 let content = self.view_string(vm);
                 StringObject::new(content.to_string(), vm).into()
             }
-            ValueTag::Channel => unreachable!(), // TODO: does it make sense to send channels over channels?
+            ValueTag::Channel => {
+                let channel_obj = unsafe { self.get_channel(vm) };
+                ChannelObject::new_with_data(vm, channel_obj.data.clone()).into()
+            }
         }
     }
 }
