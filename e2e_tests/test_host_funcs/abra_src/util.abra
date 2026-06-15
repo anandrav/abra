@@ -16,7 +16,7 @@ type Color =
     | Green
 
 #host
-fn make_person(name: string, age: int) -> Person
+fn make_person(name: string, dummy: void, age: int) -> Person
 
 #host
 fn get_blah() -> Blah

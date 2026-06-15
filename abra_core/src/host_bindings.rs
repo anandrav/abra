@@ -131,12 +131,21 @@ pub enum HostFunction {
         for (i, arg) in f.args.iter().enumerate().rev() {
             let ty = arg.ty.clone().unwrap();
             let tyname = name_of_ty(&ty);
-            swrite!(
-                output,
-                r#"let arg{}: {tyname} = <{tyname}>::from_vm(vm);
+            if matches!(&*ty.kind, TypeKind::Void) {
+                swrite!(
+                    output,
+                    r#"let arg{}: {tyname} = ();
                             "#,
-                i
-            );
+                    i
+                );
+            } else {
+                swrite!(
+                    output,
+                    r#"let arg{}: {tyname} = <{tyname}>::from_vm(vm);
+                            "#,
+                    i
+                );
+            }
         }
         let args = &mut String::new();
         if !f.args.is_empty() {
@@ -404,7 +413,12 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                             }
                         }
 
-                        swrite!(output, "vm.construct_struct({});", s.fields.len());
+                        let nfields = s
+                            .fields
+                            .iter()
+                            .filter(|field| !matches!(&*field.ty.kind, TypeKind::Void))
+                            .count();
+                        swrite!(output, "vm.construct_struct({});", nfields);
 
                         output.push('}');
 
@@ -421,7 +435,9 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         for variant in &e.variants {
                             swrite!(output, "{}", variant.ctor.v);
                             if !variant.fields.is_empty() {
+                                output.push('(');
                                 output.push_str(&name_of_variant_data_ty(&variant.fields));
+                                output.push(')');
                             }
                             output.push(',');
                         }

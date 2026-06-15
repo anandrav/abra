@@ -66,8 +66,8 @@ fn handle_host_func(runtime: &mut Runtime, status: RuntimeStatus) {
             HostFunctionArgs::Bar(n1, n2) => {
                 HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(thread);
             }
-            HostFunctionArgs::MakePerson(name, age) => {
-                HostFunctionRet::MakePerson(Person { name, age }).into_vm(thread);
+            HostFunctionArgs::MakePerson(name, dummy, age) => {
+                HostFunctionRet::MakePerson(Person { name, dummy, age }).into_vm(thread);
             }
             HostFunctionArgs::GetBlah => {
                 HostFunctionRet::GetBlah(Blah { n: 42 }).into_vm(thread);

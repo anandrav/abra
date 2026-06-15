@@ -1001,6 +1001,7 @@ impl Value {
             _vm.fail(VmErrorKind::WrongType(tag.to_expected_type(), self.1));
         }
     }
+    // TODO: basically all of these are actually unsafe functions, they should never be used directly by a user
     pub fn get_int(&self, _vm: &VmGreenThread) -> AbraInt {
         self.check_type(_vm, ValueTag::Int);
         self.0 as AbraInt
