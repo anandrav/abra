@@ -62,7 +62,7 @@ pub fn expect_value<T: ExpectedValue>(src: &str, val: T) {
         MockFileProvider::single_file(src),
     ));
     let mut runtime = Runtime::new(program);
-    runtime.run();
+    runtime.run_with_granularity(1);
     let top = runtime.top();
     val.check(&mut runtime, top);
 }

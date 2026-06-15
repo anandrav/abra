@@ -191,10 +191,13 @@ impl Runtime {
     }
 
     pub fn run(&mut self) -> RuntimeStatus {
-        const SCHEDULER_N_STEPS: u32 = 100;
+        const SCHEDULER_N_STEPS: u32 = u32::MAX;
+        self.run_with_granularity(SCHEDULER_N_STEPS)
+    }
 
+    pub fn run_with_granularity(&mut self, n_steps: u32) -> RuntimeStatus {
         loop {
-            let status = self.run_n_steps(SCHEDULER_N_STEPS);
+            let status = self.run_n_steps(n_steps);
             if matches!(status.kind, RuntimeStatusKind::OutOfSteps) {
                 continue;
             }
