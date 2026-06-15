@@ -89,6 +89,8 @@ pub(crate) struct StaticsContext {
     // dylibs (for bytecode translation)
     pub(crate) dylibs: IdSet<PathBuf>,
     pub(crate) dylib_to_funcs: HashMap<u32, IdSet<String>>,
+    #[cfg(feature = "ffi")]
+    pub(crate) dylib_func_policies: Vec<Vec<crate::ast::ForeignCallPolicy>>,
     // host functions
     pub(crate) host_funcs: IdSet<Rc<FuncDecl>>,
 
@@ -139,6 +141,8 @@ impl StaticsContext {
             // string_constants: Default::default(),
             dylibs: Default::default(),
             dylib_to_funcs: Default::default(),
+            #[cfg(feature = "ffi")]
+            dylib_func_policies: Default::default(),
             host_funcs: IdSet::new(),
 
             unifvars: Default::default(),

@@ -271,12 +271,7 @@ impl Parser {
         let lo = self.current_token().span.lo;
         Ok(Rc::new(match current.kind {
             TokenKind::Pound => {
-                self.consume_token();
-                let name = self.expect_ident()?;
-                attributes.push(Attribute {
-                    name,
-                    _args: vec![], // TODO: parse attribute args
-                });
+                attributes.push(self.parse_attribute()?);
                 return self.parse_item_with_attributes(attributes);
             }
             TokenKind::Use => {
@@ -441,10 +436,13 @@ impl Parser {
     fn parse_attribute(&mut self) -> Result<Attribute, Box<Error>> {
         self.consume_token();
         let name = self.expect_ident()?;
-        Ok(Attribute {
-            name,
-            _args: vec![], // TODO: parse attribute args
-        })
+        let args = if self.current_token().tag() == TokenTag::OpenParen {
+            self.expect_token(TokenTag::OpenParen);
+            self.parse_delimited_list(TokenTag::CloseParen, TokenTag::Comma, Self::expect_ident)?
+        } else {
+            vec![]
+        };
+        Ok(Attribute { name, args })
     }
 
     fn parse_type_args(&mut self) -> Result<Vec<Rc<Polytype>>, Box<Error>> {

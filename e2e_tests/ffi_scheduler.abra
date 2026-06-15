@@ -1,0 +1,14 @@
+use test_c_ffi
+
+var c: channel<string> = channel()
+
+task {
+    sleep_ms(200)
+    c.write("sleep done")
+}
+
+task {
+    c.write("scheduler alive")
+}
+
+println(c.read())

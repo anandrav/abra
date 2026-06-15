@@ -1,0 +1,8 @@
+use raylib
+
+let c = red()
+println(key_escape())
+println(c.r)
+println(c.g)
+println(c.b)
+println(c.a)

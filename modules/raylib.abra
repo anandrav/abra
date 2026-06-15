@@ -1,0 +1,167 @@
+#foreign
+type Color = {
+    r: int
+    g: int
+    b: int
+    a: int
+}
+
+fn color(r: int, g: int, b: int, a: int) -> Color = Color(r, g, b, a)
+
+fn light_gray() -> Color = color(200, 200, 200, 255)
+fn gray() -> Color = color(130, 130, 130, 255)
+fn dark_gray() -> Color = color(80, 80, 80, 255)
+fn yellow() -> Color = color(253, 249, 0, 255)
+fn gold() -> Color = color(255, 203, 0, 255)
+fn orange() -> Color = color(255, 161, 0, 255)
+fn pink() -> Color = color(255, 109, 194, 255)
+fn red() -> Color = color(230, 41, 55, 255)
+fn maroon() -> Color = color(190, 33, 55, 255)
+fn green() -> Color = color(0, 228, 48, 255)
+fn lime() -> Color = color(0, 158, 47, 255)
+fn sky_blue() -> Color = color(102, 191, 255, 255)
+fn blue() -> Color = color(0, 121, 241, 255)
+fn dark_blue() -> Color = color(0, 82, 172, 255)
+fn purple() -> Color = color(200, 122, 255, 255)
+fn violet() -> Color = color(135, 60, 190, 255)
+fn dark_purple() -> Color = color(112, 31, 126, 255)
+fn beige() -> Color = color(211, 176, 131, 255)
+fn brown() -> Color = color(127, 106, 79, 255)
+fn dark_brown() -> Color = color(76, 63, 47, 255)
+fn white() -> Color = color(255, 255, 255, 255)
+fn black() -> Color = color(0, 0, 0, 255)
+fn blank() -> Color = color(0, 0, 0, 0)
+fn magenta() -> Color = color(255, 0, 255, 255)
+fn ray_white() -> Color = color(245, 245, 245, 255)
+
+fn key_apostrophe() -> int = 39
+fn key_comma() -> int = 44
+fn key_minus() -> int = 45
+fn key_period() -> int = 46
+fn key_slash() -> int = 47
+fn key_zero() -> int = 48
+fn key_one() -> int = 49
+fn key_two() -> int = 50
+fn key_three() -> int = 51
+fn key_four() -> int = 52
+fn key_five() -> int = 53
+fn key_six() -> int = 54
+fn key_seven() -> int = 55
+fn key_eight() -> int = 56
+fn key_nine() -> int = 57
+fn key_semicolon() -> int = 59
+fn key_equal() -> int = 61
+fn key_a() -> int = 65
+fn key_b() -> int = 66
+fn key_c() -> int = 67
+fn key_d() -> int = 68
+fn key_e() -> int = 69
+fn key_f() -> int = 70
+fn key_g() -> int = 71
+fn key_h() -> int = 72
+fn key_i() -> int = 73
+fn key_j() -> int = 74
+fn key_k() -> int = 75
+fn key_l() -> int = 76
+fn key_m() -> int = 77
+fn key_n() -> int = 78
+fn key_o() -> int = 79
+fn key_p() -> int = 80
+fn key_q() -> int = 81
+fn key_r() -> int = 82
+fn key_s() -> int = 83
+fn key_t() -> int = 84
+fn key_u() -> int = 85
+fn key_v() -> int = 86
+fn key_w() -> int = 87
+fn key_x() -> int = 88
+fn key_y() -> int = 89
+fn key_z() -> int = 90
+fn key_space() -> int = 32
+fn key_escape() -> int = 256
+fn key_enter() -> int = 257
+fn key_tab() -> int = 258
+fn key_backspace() -> int = 259
+fn key_right() -> int = 262
+fn key_left() -> int = 263
+fn key_down() -> int = 264
+fn key_up() -> int = 265
+
+fn mouse_button_left() -> int = 0
+fn mouse_button_right() -> int = 1
+fn mouse_button_middle() -> int = 2
+
+#foreign(sync)
+fn init_window(width: int, height: int, title: string) -> void
+
+#foreign(sync)
+fn close_window() -> void
+
+#foreign(sync)
+fn window_should_close() -> bool
+
+#foreign(sync)
+fn begin_drawing() -> void
+
+#foreign(sync)
+fn end_drawing() -> void
+
+#foreign(sync)
+fn clear_background(color: Color) -> void
+
+#foreign(sync)
+fn set_target_fps(fps: int) -> void
+
+#foreign(sync)
+fn get_frame_time() -> float
+
+#foreign(sync)
+fn get_screen_width() -> int
+
+#foreign(sync)
+fn get_screen_height() -> int
+
+#foreign(sync)
+fn draw_text(text: string, x: int, y: int, font_size: int, color: Color) -> void
+
+#foreign(sync)
+fn draw_rectangle(x: int, y: int, width: int, height: int, color: Color) -> void
+
+#foreign(sync)
+fn draw_rectangle_lines(x: int, y: int, width: int, height: int, color: Color) -> void
+
+#foreign(sync)
+fn draw_circle(center_x: int, center_y: int, radius: float, color: Color) -> void
+
+#foreign(sync)
+fn draw_circle_lines(center_x: int, center_y: int, radius: float, color: Color) -> void
+
+#foreign(sync)
+fn draw_line(start_x: int, start_y: int, end_x: int, end_y: int, color: Color) -> void
+
+#foreign(sync)
+fn draw_fps(x: int, y: int) -> void
+
+#foreign(sync)
+fn is_key_down(key: int) -> bool
+
+#foreign(sync)
+fn is_key_pressed(key: int) -> bool
+
+#foreign(sync)
+fn get_mouse_x() -> int
+
+#foreign(sync)
+fn get_mouse_y() -> int
+
+#foreign(sync)
+fn is_mouse_button_down(button: int) -> bool
+
+#foreign(sync)
+fn is_mouse_button_pressed(button: int) -> bool
+
+#foreign(sync)
+fn get_time() -> float
+
+#foreign(sync)
+fn get_random_value(min: int, max: int) -> int

@@ -1,0 +1,250 @@
+use raylib
+
+fn clamp(v: float, lo: float, hi: float) -> float {
+    if v < lo {
+        return lo
+    }
+    if v > hi {
+        return hi
+    }
+    v
+}
+
+fn abs(v: float) -> float {
+    if v < 0.0 {
+        return -v
+    }
+    v
+}
+
+fn reset_bricks(count: int) -> array<bool> {
+    array.filled(true, count)
+}
+
+fn count_live_bricks(bricks: array<bool>) -> int {
+    var n = 0
+    for alive in bricks {
+        if alive {
+            n = n + 1
+        }
+    }
+    n
+}
+
+fn brick_color(row: int) -> Color {
+    match row {
+        0 -> pink()
+        1 -> orange()
+        2 -> yellow()
+        3 -> sky_blue()
+        4 -> lime()
+        _ -> violet()
+    }
+}
+
+fn draw_bricks(bricks: array<bool>, rows: int, cols: int, left: int, top: int, w: int, h: int, gap: int) {
+    for row in rows {
+        for col in cols {
+            let idx = row * cols + col
+            if bricks[idx] {
+                let x = left + col * (w + gap)
+                let y = top + row * (h + gap)
+                draw_rectangle(x, y, w, h, brick_color(row))
+                draw_rectangle_lines(x, y, w, h, color(255, 255, 255, 130))
+            }
+        }
+    }
+}
+
+fn circle_hits_rect(cx: float, cy: float, radius: float, rx: float, ry: float, rw: float, rh: float) -> bool {
+    let closest_x = clamp(cx, rx, rx + rw)
+    let closest_y = clamp(cy, ry, ry + rh)
+    let dx = cx - closest_x
+    let dy = cy - closest_y
+    dx * dx + dy * dy <= radius * radius
+}
+
+fn main() {
+    let screen_w = 960
+    let screen_h = 620
+    let rows = 6
+    let cols = 11
+    let brick_w = 72
+    let brick_h = 24
+    let brick_gap = 8
+    let brick_left = 44
+    let brick_top = 82
+
+    let paddle_w = 132.0
+    let paddle_h = 18.0
+    let paddle_y = 560.0
+    let ball_r = 9.0
+
+    init_window(screen_w, screen_h, "Abra Raylib: Breakout")
+    set_target_fps(60)
+
+    var bricks = reset_bricks(rows * cols)
+    var score = 0
+    var lives = 3
+    var level = 1
+    var paddle_x = float_from_int(screen_w / 2) - paddle_w / 2.0
+    var ball_x = float_from_int(screen_w / 2)
+    var ball_y = paddle_y - 28.0
+    var ball_vx = 260.0
+    var ball_vy = -330.0
+    var stuck = true
+    var game_over = false
+    var win_flash = 0.0
+
+    while not window_should_close() and not is_key_pressed(key_escape()) {
+        let dt = get_frame_time()
+
+        if is_key_pressed(key_r()) {
+            bricks = reset_bricks(rows * cols)
+            score = 0
+            lives = 3
+            level = 1
+            game_over = false
+            stuck = true
+            ball_x = float_from_int(screen_w / 2)
+            ball_y = paddle_y - 28.0
+            ball_vx = 260.0
+            ball_vy = -330.0
+        }
+
+        if not game_over {
+            if is_key_down(key_left()) or is_key_down(key_a()) {
+                paddle_x = paddle_x - 620.0 * dt
+            }
+            if is_key_down(key_right()) or is_key_down(key_d()) {
+                paddle_x = paddle_x + 620.0 * dt
+            }
+            if get_mouse_x() > 0 {
+                paddle_x = float_from_int(get_mouse_x()) - paddle_w / 2.0
+            }
+            paddle_x = clamp(paddle_x, 18.0, float_from_int(screen_w) - paddle_w - 18.0)
+
+            if stuck {
+                ball_x = paddle_x + paddle_w / 2.0
+                ball_y = paddle_y - 24.0
+                if is_key_pressed(key_space()) or is_mouse_button_pressed(mouse_button_left()) {
+                    stuck = false
+                }
+            } else {
+                ball_x = ball_x + ball_vx * dt
+                ball_y = ball_y + ball_vy * dt
+
+                if ball_x - ball_r < 0.0 {
+                    ball_x = ball_r
+                    ball_vx = abs(ball_vx)
+                }
+                if ball_x + ball_r > float_from_int(screen_w) {
+                    ball_x = float_from_int(screen_w) - ball_r
+                    ball_vx = -abs(ball_vx)
+                }
+                if ball_y - ball_r < 0.0 {
+                    ball_y = ball_r
+                    ball_vy = abs(ball_vy)
+                }
+
+                if circle_hits_rect(ball_x, ball_y, ball_r, paddle_x, paddle_y, paddle_w, paddle_h) and ball_vy > 0.0 {
+                    let hit = (ball_x - (paddle_x + paddle_w / 2.0)) / (paddle_w / 2.0)
+                    ball_vx = hit * (360.0 + float_from_int(level) * 35.0)
+                    ball_vy = -abs(ball_vy) - 18.0
+                    ball_y = paddle_y - ball_r - 1.0
+                }
+
+                var hit_brick = false
+                for row in rows {
+                    for col in cols {
+                        let idx = row * cols + col
+                        if bricks[idx] and not hit_brick {
+                            let bx = float_from_int(brick_left + col * (brick_w + brick_gap))
+                            let by = float_from_int(brick_top + row * (brick_h + brick_gap))
+                            if circle_hits_rect(ball_x, ball_y, ball_r, bx, by, float_from_int(brick_w), float_from_int(brick_h)) {
+                                bricks[idx] = false
+                                score = score + (rows - row) * 10
+                                ball_vy = ball_vy * -1.0
+                                hit_brick = true
+                            }
+                        }
+                    }
+                }
+
+                if ball_y - ball_r > float_from_int(screen_h) {
+                    lives = lives - 1
+                    if lives <= 0 {
+                        game_over = true
+                    }
+                    stuck = true
+                    ball_vx = 240.0
+                    ball_vy = -330.0
+                }
+            }
+
+            if count_live_bricks(bricks) == 0 {
+                level = level + 1
+                win_flash = 1.0
+                bricks = reset_bricks(rows * cols)
+                stuck = true
+                ball_vx = ball_vx + 45.0
+                ball_vy = ball_vy - 35.0
+            }
+        }
+
+        win_flash = clamp(win_flash - dt * 1.8, 0.0, 1.0)
+        let glow = int_from_float(win_flash * 70.0)
+
+        begin_drawing()
+        clear_background(color(8 + glow, 10 + glow, 22 + glow, 255))
+
+        var grid_x = 0
+        while grid_x < screen_w {
+            draw_line(grid_x, 0, grid_x, screen_h, color(18, 24, 38, 255))
+            grid_x = grid_x + 48
+        }
+
+        draw_bricks(bricks, rows, cols, brick_left, brick_top, brick_w, brick_h, brick_gap)
+
+        draw_rectangle(
+            int_from_float(paddle_x),
+            int_from_float(paddle_y),
+            int_from_float(paddle_w),
+            int_from_float(paddle_h),
+            sky_blue()
+        )
+        draw_rectangle_lines(
+            int_from_float(paddle_x),
+            int_from_float(paddle_y),
+            int_from_float(paddle_w),
+            int_from_float(paddle_h),
+            ray_white()
+        )
+
+        draw_circle(int_from_float(ball_x), int_from_float(ball_y), ball_r, ray_white())
+        draw_circle_lines(int_from_float(ball_x), int_from_float(ball_y), ball_r + 6.0, yellow())
+
+        draw_text("Abra Breakout", 28, 22, 28, ray_white())
+        draw_text("score " .. ToString.str(score), 302, 29, 20, yellow())
+        draw_text("lives " .. ToString.str(lives), 438, 29, 20, pink())
+        draw_text("level " .. ToString.str(level), 552, 29, 20, sky_blue())
+        draw_fps(screen_w - 92, 24)
+
+        if stuck and not game_over {
+            draw_text("Space/click to launch", 360, 500, 24, gold())
+        }
+        if game_over {
+            draw_rectangle(300, 246, 360, 104, color(0, 0, 0, 180))
+            draw_rectangle_lines(300, 246, 360, 104, red())
+            draw_text("GAME OVER", 390, 264, 32, red())
+            draw_text("Press R to reset", 394, 308, 22, ray_white())
+        }
+
+        draw_text("Move with arrows/A-D or mouse  |  Esc quits  |  R resets", 28, screen_h - 34, 18, light_gray())
+        end_drawing()
+    }
+
+    close_window()
+}
+
+main()

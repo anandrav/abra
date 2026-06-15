@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_constants};
+#[cfg(feature = "ffi")]
+use crate::ast::ForeignCallPolicy;
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDecl, FuncDef, InterfaceDef,
     ItemKind,
@@ -190,6 +192,7 @@ pub struct CompiledProgram {
 pub struct FfiLib {
     pub lib_name: String,
     pub function_names: Vec<String>,
+    pub function_policies: Vec<ForeignCallPolicy>,
 }
 
 pub type BytecodeIndex = u32;
@@ -315,10 +318,13 @@ impl Translator {
                     .enumerate()
                     .map(|(i, lib)| FfiLib {
                         lib_name: lib.to_str().unwrap().to_string(),
-                        function_names: self.statics.dylib_to_funcs[&(i as u32)]
-                            .iter()
-                            .cloned()
-                            .collect(),
+                        function_names: {
+                            self.statics.dylib_to_funcs[&(i as u32)]
+                                .iter()
+                                .cloned()
+                                .collect()
+                        },
+                        function_policies: { self.statics.dylib_func_policies[i].clone() },
                     })
                     .collect()
             },

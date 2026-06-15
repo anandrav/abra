@@ -16,6 +16,8 @@ use crate::foreign_bindings::make_foreign_func_name;
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
+#[cfg(feature = "ffi")]
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use utils::hash::{HashMap, HashSet};
 use utils::id_set::IdSet;
@@ -26,6 +28,72 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<Fil
         let name = file.package_name_str.clone();
         let namespace = gather_declarations_file(ctx, file);
         ctx.root_namespace.namespaces.insert(name, namespace.into());
+    }
+}
+
+#[cfg(feature = "ffi")]
+fn native_module_library_candidates(
+    file_ast: &FileAst,
+    package_name: &str,
+    filename: &str,
+    profile: &str,
+) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    for dir in native_module_dirs(file_ast, package_name) {
+        push_unique(&mut candidates, dir.join(filename));
+        push_unique(&mut candidates, dir.join("lib").join(filename));
+        push_unique(&mut candidates, dir.join("build").join(filename));
+        push_unique(
+            &mut candidates,
+            dir.join("target").join(profile).join(filename),
+        );
+        push_unique(
+            &mut candidates,
+            dir.join("rust_project")
+                .join("target")
+                .join(profile)
+                .join(filename),
+        );
+    }
+
+    let mut path = file_ast.absolute_path.clone();
+    while path.pop() {
+        if path.join("target").is_dir() && path.join("Cargo.toml").is_file() {
+            push_unique(
+                &mut candidates,
+                path.join("target").join(profile).join(filename),
+            );
+            break;
+        }
+    }
+
+    candidates
+}
+
+#[cfg(feature = "ffi")]
+fn native_module_dirs(file_ast: &FileAst, package_name: &str) -> Vec<PathBuf> {
+    let package_component_count = file_ast.package_name.components().count().max(1);
+    let mut search_root = file_ast.absolute_path.clone();
+    search_root.pop();
+    for _ in 1..package_component_count {
+        search_root.pop();
+    }
+
+    let mut dirs = Vec::new();
+    push_unique(&mut dirs, search_root.join(package_name));
+    if let Some(parent) = file_ast.absolute_path.parent() {
+        push_unique(&mut dirs, parent);
+    }
+    push_unique(&mut dirs, search_root);
+    dirs
+}
+
+#[cfg(feature = "ffi")]
+fn push_unique(paths: &mut Vec<PathBuf>, path: impl AsRef<Path>) {
+    let path = path.as_ref().to_path_buf();
+    if !paths.iter().any(|existing| existing == &path) {
+        paths.push(path);
     }
 }
 
@@ -214,8 +282,6 @@ fn gather_declarations_item(
             if foreign {
                 #[cfg(feature = "ffi")]
                 {
-                    use std::path::PathBuf;
-
                     let func_name = func_decl.name.v.clone();
 
                     let path = _file_ast.package_name.clone();
@@ -234,29 +300,18 @@ fn gather_declarations_item(
                         std::env::consts::DLL_SUFFIX
                     );
 
-                    let mut target_directory = None;
-                    let mut path = _file_ast.absolute_path.clone();
-                    while path.pop() {
-                        if path.join("target").is_dir() && path.join("Cargo.toml").is_file() {
-                            target_directory = Some(path.join("target"));
-                            break;
-                        }
-                    }
-
                     #[cfg(debug_assertions)]
                     let profile = "debug";
                     #[cfg(not(debug_assertions))]
                     let profile = "release";
 
-                    let libname = match target_directory {
-                        Some(target_directory) => {
-                            Some(target_directory.join(profile).join(filename))
-                        }
-                        None => {
-                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate target directory for `{}`. Was the native module compiled?", _file_ast.absolute_path.display()) });
-                            None
-                        }
-                    };
+                    let candidates = native_module_library_candidates(
+                        _file_ast,
+                        &package_name,
+                        &filename,
+                        profile,
+                    );
+                    let libname = candidates.iter().find(|path| path.exists()).cloned();
 
                     // TODO: code duplication
                     // TODO: kinda sloppy and unnecessary
@@ -269,14 +324,34 @@ fn gather_declarations_item(
 
                     // add symbol to statics ctx
                     if let Some(libname) = &libname {
-                        if !libname.exists() {
-                            ctx.errors.push(Error::CantLocateDylib { node: item.node(), msg: format!("Could not locate dynamic library `{}`. Was the native module compiled?", libname.display()) });
-                        }
                         let lib_id = ctx.dylibs.insert(libname.clone());
-                        ctx.dylib_to_funcs
+                        let func_id = ctx
+                            .dylib_to_funcs
                             .entry(lib_id)
                             .or_default()
-                            .insert(symbol.clone());
+                            .insert(symbol.clone()) as usize;
+                        ctx.dylib_func_policies.resize(
+                            ctx.dylib_func_policies.len().max(lib_id as usize + 1),
+                            Vec::new(),
+                        );
+                        let policies = &mut ctx.dylib_func_policies[lib_id as usize];
+                        policies.resize(
+                            policies.len().max(func_id + 1),
+                            crate::ast::ForeignCallPolicy::AsyncThread,
+                        );
+                        policies[func_id] = func_decl.foreign_call_policy();
+                    } else {
+                        let searched = candidates
+                            .iter()
+                            .map(|path| format!("\n  - {}", path.display()))
+                            .collect::<String>();
+                        ctx.errors.push(Error::CantLocateDylib {
+                            node: item.node(),
+                            msg: format!(
+                                "Could not locate dynamic library for foreign module `{}`. Searched:{}",
+                                package_name, searched
+                            ),
+                        });
                     }
 
                     namespace.add_declaration(

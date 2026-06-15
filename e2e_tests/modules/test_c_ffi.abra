@@ -1,0 +1,8 @@
+#foreign
+fn add_ints(a: int, b: int) -> int
+
+#foreign
+fn not_bool(b: bool) -> bool
+
+#foreign
+fn sleep_ms(ms: int) -> void

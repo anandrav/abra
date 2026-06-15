@@ -429,12 +429,28 @@ impl FuncDecl {
     pub(crate) fn is_host(&self) -> bool {
         self.attributes.iter().any(Attribute::is_host)
     }
+
+    #[cfg(feature = "ffi")]
+    pub(crate) fn foreign_call_policy(&self) -> ForeignCallPolicy {
+        if self.attributes.iter().any(Attribute::is_foreign_sync) {
+            ForeignCallPolicy::VmThread
+        } else {
+            ForeignCallPolicy::AsyncThread
+        }
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) enum ForeignCallPolicy {
+    AsyncThread,
+    VmThread,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Attribute {
     pub(crate) name: Rc<Identifier>,
-    pub(crate) _args: Vec<Rc<Identifier>>, // unused right now
+    pub(crate) args: Vec<Rc<Identifier>>,
 }
 
 impl Attribute {
@@ -444,6 +460,11 @@ impl Attribute {
 
     pub(crate) fn is_host(&self) -> bool {
         self.name.v == "host"
+    }
+
+    #[cfg(feature = "ffi")]
+    pub(crate) fn is_foreign_sync(&self) -> bool {
+        self.is_foreign() && self.args.iter().any(|arg| arg.v == "sync")
     }
 }
 

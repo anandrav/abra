@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #[cfg(feature = "ffi")]
+use crate::ast::ForeignCallPolicy;
+#[cfg(feature = "ffi")]
 use crate::foreign_bindings::ABRA_VM_FUNCS;
 #[cfg(feature = "ffi")]
 use crate::foreign_bindings::AbraVmFunctions;
@@ -55,6 +57,8 @@ struct VmSharedReadonly {
     libs: Vec<Library>,
     #[cfg(feature = "ffi")]
     foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
+    #[cfg(feature = "ffi")]
+    foreign_function_policies: Vec<ForeignCallPolicy>,
 }
 
 /*
@@ -112,6 +116,8 @@ impl Runtime {
             libs: Vec::new(),
             #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
+            #[cfg(feature = "ffi")]
+            foreign_function_policies: Vec::new(),
         };
 
         for s in program.static_strings {
@@ -148,6 +154,9 @@ impl Runtime {
                 };
                 vm_shared_readonly.foreign_functions.push(*symbol);
             }
+            vm_shared_readonly
+                .foreign_function_policies
+                .extend(lib_data.function_policies.iter().copied());
         }
 
         let vm_shared_readonly = Arc::new(vm_shared_readonly);
@@ -294,7 +303,15 @@ impl Runtime {
 
         #[cfg(feature = "ffi")]
         if let Some(ffi_id) = thread.pending_ffi_call.take() {
-            self.launch_ffi_call(thread, ffi_id);
+            match thread.shared.foreign_function_policies[ffi_id as usize] {
+                ForeignCallPolicy::AsyncThread => {
+                    self.launch_ffi_call(thread, ffi_id);
+                }
+                ForeignCallPolicy::VmThread => {
+                    run_ffi_call(&thread, ffi_id);
+                    self.run_queue.push_back(thread);
+                }
+            }
             return false;
         }
 
@@ -307,13 +324,7 @@ impl Runtime {
         let new_threads_sender = self.new_threads_sender.clone();
 
         thread::spawn(move || {
-            unsafe {
-                thread.shared.foreign_functions[ffi_id as usize](
-                    thread.as_ref() as *const VmGreenThread as *mut c_void,
-                    &ABRA_VM_FUNCS as *const AbraVmFunctions,
-                )
-            }
-
+            run_ffi_call(&thread, ffi_id);
             new_threads_sender.send(thread).unwrap();
         });
     }
@@ -333,6 +344,16 @@ impl Runtime {
 
     pub fn nbytes(&self) -> usize {
         self.run_queue.iter().map(|t| t.nbytes()).sum()
+    }
+}
+
+#[cfg(feature = "ffi")]
+fn run_ffi_call(thread: &VmGreenThread, ffi_id: u32) {
+    unsafe {
+        thread.shared.foreign_functions[ffi_id as usize](
+            thread as *const VmGreenThread as *mut c_void,
+            &ABRA_VM_FUNCS as *const AbraVmFunctions,
+        )
     }
 }
 
