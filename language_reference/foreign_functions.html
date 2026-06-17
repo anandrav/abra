@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-967fed6a.js";
+            window.path_to_searchindex_js = "../searchindex-1af9c72d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-c59473e4.js"></script>
@@ -194,6 +194,7 @@ fn fwrite(path: string, contents: string) -&gt; void
 <p>Each top-level namespace that has foreign declarations gets one Rust project, in a <code>rust_project/</code> directory next to the Abra modules. So if your top-level namespace is <code>os</code>, the layout looks like this:</p>
 <pre><code>- os.abra
 - os/
+    - abra_foreign_module.txt
     - exec.abra
     - rust_project/
         - Cargo.toml
@@ -222,6 +223,11 @@ abra_core = { workspace = true }
 [build-dependencies]
 abra_core = { workspace = true }
 </code></pre>
+<h2 id="abra_foreign_moduletxt"><a class="header" href="#abra_foreign_moduletxt">abra_foreign_module.txt</a></h2>
+<p>Every foreign module has a manifest next to the native module sources. The manifest tells the Abra runtime exactly where to load the dynamic library from:</p>
+<pre><code class="language-txt">../../target/{profile}/{library_prefix}abra_module_os{library_suffix}
+</code></pre>
+<p>The library path is relative to the directory containing <code>abra_foreign_module.txt</code>. The runtime expands <code>{profile}</code> to <code>debug</code> or <code>release</code> based on the build profile of the running Abra executable, <code>{library_prefix}</code> to the platform dynamic-library prefix, and <code>{library_suffix}</code> to the platform dynamic-library suffix.</p>
 <h2 id="buildrs"><a class="header" href="#buildrs">build.rs</a></h2>
 <p>The build script reads your <code>.abra</code> files, finds the <code>#foreign</code> declarations, and generates the unsafe glue code that bridges the VM to your safe Rust functions. You only need one line:</p>
 <pre class="playground"><code class="language-rust">fn main() {
@@ -291,7 +297,7 @@ pub fn read(path: String) -&gt; Result&lt;String, FsError&gt; {
 <p>Build the native module with cargo:</p>
 <pre><code>cargo build --package abra_module_os
 </code></pre>
-<p>The Abra runtime loads the resulting <code>cdylib</code> the first time your program calls one of its foreign functions.</p>
+<p>The Abra runtime loads the <code>cdylib</code> declared by <code>abra_foreign_module.txt</code> the first time your program calls one of its foreign functions.</p>
 <h2 id="host-functions"><a class="header" href="#host-functions">Host functions</a></h2>
 <p>There’s a related attribute, <code>#host</code>, for functions provided directly by the runtime that’s running your Abra program (rather than loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>readline</code>, and <code>get_args</code>. Most users never need to write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.</p>
 
