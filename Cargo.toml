@@ -6,6 +6,8 @@ members = [
     "abra_lsp",
     # Abra libraries with Rust implementations
     "modules/*/rust_project",
+    # Abra libraries with C implementations
+    "modules/raylib",
     # end-to-end tests
     "e2e_tests",
     "e2e_tests/modules/*/rust_project",

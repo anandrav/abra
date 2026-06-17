@@ -87,7 +87,7 @@ impl Error {
                 labels.push(Label::secondary(file, range))
             }
             #[cfg(feature = "ffi")]
-            Error::CantLocateDylib { node, msg } => {
+            Error::ForeignModuleLibrary { node, msg } => {
                 let (file, range) = node.get_file_and_range();
                 diagnostic = diagnostic.with_message(msg);
                 labels.push(Label::secondary(file, range))

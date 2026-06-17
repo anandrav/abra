@@ -483,7 +483,7 @@ pub(crate) enum Error {
         node: AstNode,
     },
     #[cfg(feature = "ffi")]
-    CantLocateDylib {
+    ForeignModuleLibrary {
         node: AstNode,
         msg: String,
     },

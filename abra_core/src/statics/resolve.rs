@@ -17,7 +17,7 @@ use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 #[cfg(feature = "ffi")]
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use utils::hash::{HashMap, HashSet};
 use utils::id_set::IdSet;
@@ -32,69 +32,66 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<Fil
 }
 
 #[cfg(feature = "ffi")]
-fn native_module_library_candidates(
-    file_ast: &FileAst,
-    package_name: &str,
-    filename: &str,
-    profile: &str,
-) -> Vec<PathBuf> {
-    let mut candidates = Vec::new();
-
-    for dir in native_module_dirs(file_ast, package_name) {
-        push_unique(&mut candidates, dir.join(filename));
-        push_unique(&mut candidates, dir.join("lib").join(filename));
-        push_unique(&mut candidates, dir.join("build").join(filename));
-        push_unique(
-            &mut candidates,
-            dir.join("target").join(profile).join(filename),
-        );
-        push_unique(
-            &mut candidates,
-            dir.join("rust_project")
-                .join("target")
-                .join(profile)
-                .join(filename),
-        );
-    }
-
-    let mut path = file_ast.absolute_path.clone();
-    while path.pop() {
-        if path.join("target").is_dir() && path.join("Cargo.toml").is_file() {
-            push_unique(
-                &mut candidates,
-                path.join("target").join(profile).join(filename),
-            );
-            break;
-        }
-    }
-
-    candidates
-}
+const FOREIGN_MODULE_MANIFEST: &str = "abra_foreign_module.txt";
 
 #[cfg(feature = "ffi")]
-fn native_module_dirs(file_ast: &FileAst, package_name: &str) -> Vec<PathBuf> {
+fn native_module_library_path(
+    file_ast: &FileAst,
+    package_name: &str,
+    profile: &str,
+) -> Result<PathBuf, String> {
     let package_component_count = file_ast.package_name.components().count().max(1);
     let mut search_root = file_ast.absolute_path.clone();
     search_root.pop();
     for _ in 1..package_component_count {
         search_root.pop();
     }
-
-    let mut dirs = Vec::new();
-    push_unique(&mut dirs, search_root.join(package_name));
-    if let Some(parent) = file_ast.absolute_path.parent() {
-        push_unique(&mut dirs, parent);
+    let module_dir = search_root.join(package_name);
+    let manifest_path = module_dir.join(FOREIGN_MODULE_MANIFEST);
+    let manifest_source = std::fs::read_to_string(&manifest_path).map_err(|err| {
+        format!(
+            "Could not read foreign module manifest for `{}` at `{}`: {}",
+            package_name,
+            manifest_path.display(),
+            err
+        )
+    })?;
+    let manifest_library_path = manifest_source.trim();
+    if manifest_library_path.is_empty() {
+        return Err(format!(
+            "Could not parse foreign module manifest for `{}` at `{}`: {}",
+            package_name,
+            manifest_path.display(),
+            "missing library path"
+        ));
     }
-    push_unique(&mut dirs, search_root);
-    dirs
+
+    let lib_path = expand_foreign_module_template(manifest_library_path, profile);
+    let lib_path = PathBuf::from(lib_path);
+    let lib_path = if lib_path.is_absolute() {
+        lib_path
+    } else {
+        module_dir.join(lib_path)
+    };
+
+    if lib_path.exists() {
+        Ok(lib_path)
+    } else {
+        Err(format!(
+            "Foreign module `{}` declares library path `{}` in `{}`, but no file exists there.",
+            package_name,
+            lib_path.display(),
+            manifest_path.display(),
+        ))
+    }
 }
 
 #[cfg(feature = "ffi")]
-fn push_unique(paths: &mut Vec<PathBuf>, path: impl AsRef<Path>) {
-    let path = path.as_ref().to_path_buf();
-    if !paths.iter().any(|existing| existing == &path) {
-        paths.push(path);
-    }
+fn expand_foreign_module_template(value: &str, profile: &str) -> String {
+    value
+        .replace("{profile}", profile)
+        .replace("{library_prefix}", std::env::consts::DLL_PREFIX)
+        .replace("{library_suffix}", std::env::consts::DLL_SUFFIX)
 }
 
 fn gather_declarations_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> Namespace {
@@ -284,34 +281,31 @@ fn gather_declarations_item(
                 {
                     let func_name = func_decl.name.v.clone();
 
-                    let path = _file_ast.package_name.clone();
-                    let mut package_name =
-                        path.iter().next().unwrap().to_str().unwrap().to_string();
-                    if package_name.ends_with(".abra") {
-                        package_name =
-                            package_name[..package_name.len() - ".abra".len()].to_string();
-                    }
-
-                    let filename = format!(
-                        "{}{}{}{}",
-                        std::env::consts::DLL_PREFIX,
-                        "abra_module_",
-                        package_name,
-                        std::env::consts::DLL_SUFFIX
-                    );
+                    let package_name = _file_ast
+                        .package_name
+                        .iter()
+                        .next()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .trim_end_matches(".abra");
 
                     #[cfg(debug_assertions)]
                     let profile = "debug";
                     #[cfg(not(debug_assertions))]
                     let profile = "release";
 
-                    let candidates = native_module_library_candidates(
-                        _file_ast,
-                        &package_name,
-                        &filename,
-                        profile,
-                    );
-                    let libname = candidates.iter().find(|path| path.exists()).cloned();
+                    let libname = match native_module_library_path(_file_ast, package_name, profile)
+                    {
+                        Ok(libname) => libname,
+                        Err(msg) => {
+                            ctx.errors.push(Error::ForeignModuleLibrary {
+                                node: item.node(),
+                                msg,
+                            });
+                            PathBuf::from("LIBNAME_COULD_NOT_BE_LOADED")
+                        }
+                    };
 
                     // TODO: code duplication
                     // TODO: kinda sloppy and unnecessary
@@ -323,7 +317,7 @@ fn gather_declarations_item(
                     let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
 
                     // add symbol to statics ctx
-                    if let Some(libname) = &libname {
+                    if libname.exists() {
                         let lib_id = ctx.dylibs.insert(libname.clone());
                         let func_id = ctx
                             .dylib_to_funcs
@@ -340,18 +334,6 @@ fn gather_declarations_item(
                             crate::ast::ForeignCallPolicy::AsyncThread,
                         );
                         policies[func_id] = func_decl.foreign_call_policy();
-                    } else {
-                        let searched = candidates
-                            .iter()
-                            .map(|path| format!("\n  - {}", path.display()))
-                            .collect::<String>();
-                        ctx.errors.push(Error::CantLocateDylib {
-                            node: item.node(),
-                            msg: format!(
-                                "Could not locate dynamic library for foreign module `{}`. Searched:{}",
-                                package_name, searched
-                            ),
-                        });
                     }
 
                     namespace.add_declaration(
@@ -359,8 +341,7 @@ fn gather_declarations_item(
                         func_name,
                         Declaration::FreeFunction(FuncResolutionKind::_Foreign {
                             decl: func_decl.clone(),
-                            libname: libname
-                                .unwrap_or(PathBuf::from("LIBNAME_COULD_NOT_BE_LOADED")),
+                            libname,
                             symbol,
                         }),
                     );

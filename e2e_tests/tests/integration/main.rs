@@ -44,9 +44,10 @@ fn build_raylib_module() {
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let repo_dir = manifest_dir.parent().unwrap();
-    let output = Command::new("make")
-        .arg("-C")
-        .arg("modules/raylib")
+    let output = Command::new("cargo")
+        .arg("build")
+        .arg("--package")
+        .arg("abra_module_raylib")
         .current_dir(repo_dir)
         .output()
         .unwrap();

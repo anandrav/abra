@@ -53,7 +53,17 @@ mkdir -p "$ABRA_SHARE"
 cp ./Cargo.toml "$ABRA_SHARE/Cargo.toml"
 cp -R ./modules "$ABRA_SHARE/"
 mkdir -p "$ABRA_SHARE/target/$CARGO_BUILD_SUBDIR"
-cp ./target/$CARGO_BUILD_SUBDIR/lib* "$ABRA_SHARE/target/$CARGO_BUILD_SUBDIR/"
+for manifest in ./modules/*/rust_project/Cargo.toml; do
+  package=$(sed -n 's/^name = "\(.*\)"/\1/p' "$manifest" | head -1)
+  for lib in \
+    "./target/$CARGO_BUILD_SUBDIR/lib$package.dylib" \
+    "./target/$CARGO_BUILD_SUBDIR/lib$package.so" \
+    "./target/$CARGO_BUILD_SUBDIR/$package.dll"; do
+    if [ -f "$lib" ]; then
+      cp "$lib" "$ABRA_SHARE/target/$CARGO_BUILD_SUBDIR/"
+    fi
+  done
+done
 printf "Done\n"
 
 install_vim_syntax_highlighting() {

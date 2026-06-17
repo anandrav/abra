@@ -26,6 +26,7 @@ Each top-level namespace that has foreign declarations gets one Rust project, in
 ```
 - os.abra
 - os/
+    - abra_foreign_module.txt
     - exec.abra
     - rust_project/
         - Cargo.toml
@@ -59,6 +60,16 @@ abra_core = { workspace = true }
 [build-dependencies]
 abra_core = { workspace = true }
 ```
+
+## abra_foreign_module.txt
+
+Every foreign module has a manifest next to the native module sources. The manifest tells the Abra runtime exactly where to load the dynamic library from:
+
+```txt
+../../target/{profile}/{library_prefix}abra_module_os{library_suffix}
+```
+
+The library path is relative to the directory containing `abra_foreign_module.txt`. The runtime expands `{profile}` to `debug` or `release` based on the build profile of the running Abra executable, `{library_prefix}` to the platform dynamic-library prefix, and `{library_suffix}` to the platform dynamic-library suffix.
 
 ## build.rs
 
@@ -144,7 +155,7 @@ Build the native module with cargo:
 cargo build --package abra_module_os
 ```
 
-The Abra runtime loads the resulting `cdylib` the first time your program calls one of its foreign functions.
+The Abra runtime loads the `cdylib` declared by `abra_foreign_module.txt` the first time your program calls one of its foreign functions.
 
 ## Host functions
 

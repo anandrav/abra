@@ -1,9 +1,7 @@
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "build/generated/abra_raylib.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -11,44 +9,16 @@
 #include <dlfcn.h>
 #endif
 
-typedef int64_t AbraInt;
-
-typedef struct StringView {
-    const char *ptr;
-    size_t len;
-} StringView;
-
-typedef struct AbraVmFunctions {
-    void (*push_int)(void *vm, AbraInt n);
-    void (*push_float)(void *vm, double f);
-    void (*push_bool)(void *vm, bool b);
-    AbraInt (*pop_int)(void *vm);
-    double (*pop_float)(void *vm);
-    bool (*pop_bool)(void *vm);
-    void (*pop)(void *vm);
-    StringView (*view_string)(void *vm);
-    void (*push_string)(void *vm, StringView string_view);
-    void (*construct_struct)(void *vm, size_t arity);
-    void (*construct_array)(void *vm, size_t len);
-    void (*construct_variant)(void *vm, uint16_t tag);
-    void (*deconstruct_struct)(void *vm);
-    void (*deconstruct_array)(void *vm);
-    void (*deconstruct_variant)(void *vm);
-    size_t (*array_len)(void *vm);
-} AbraVmFunctions;
-
-typedef struct Color {
+typedef struct RaylibColor {
     unsigned char r;
     unsigned char g;
     unsigned char b;
     unsigned char a;
-} Color;
+} RaylibColor;
 
 #if defined(_WIN32)
-#define ABRA_EXPORT __declspec(dllexport)
 typedef HMODULE RaylibHandle;
 #else
-#define ABRA_EXPORT __attribute__((visibility("default")))
 typedef void *RaylibHandle;
 #endif
 
@@ -64,32 +34,14 @@ static unsigned char byte_from_int(AbraInt n) {
     return (unsigned char)n;
 }
 
-static char *pop_c_string(void *vm, const AbraVmFunctions *vm_funcs) {
-    StringView view = vm_funcs->view_string(vm);
-    char *copy = (char *)malloc(view.len + 1);
-    if (copy == NULL) {
-        fprintf(stderr, "raylib Abra module: out of memory while reading string\n");
-        abort();
-    }
-    memcpy(copy, view.ptr, view.len);
-    copy[view.len] = '\0';
-    vm_funcs->pop(vm);
-    return copy;
-}
-
-static Color pop_color(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->deconstruct_struct(vm);
-    AbraInt r = vm_funcs->pop_int(vm);
-    AbraInt g = vm_funcs->pop_int(vm);
-    AbraInt b = vm_funcs->pop_int(vm);
-    AbraInt a = vm_funcs->pop_int(vm);
-    Color color = {
-        .r = byte_from_int(r),
-        .g = byte_from_int(g),
-        .b = byte_from_int(b),
-        .a = byte_from_int(a),
+static RaylibColor raylib_color(Color color) {
+    RaylibColor ret = {
+        .r = byte_from_int(color.r),
+        .g = byte_from_int(color.g),
+        .b = byte_from_int(color.b),
+        .a = byte_from_int(color.a),
     };
-    return color;
+    return ret;
 }
 
 static RaylibHandle open_raylib(void) {
@@ -163,17 +115,17 @@ typedef void (*CloseWindowFn)(void);
 typedef bool (*WindowShouldCloseFn)(void);
 typedef void (*BeginDrawingFn)(void);
 typedef void (*EndDrawingFn)(void);
-typedef void (*ClearBackgroundFn)(Color);
+typedef void (*ClearBackgroundFn)(RaylibColor);
 typedef void (*SetTargetFPSFn)(int);
 typedef float (*GetFrameTimeFn)(void);
 typedef int (*GetScreenWidthFn)(void);
 typedef int (*GetScreenHeightFn)(void);
-typedef void (*DrawTextFn)(const char *, int, int, int, Color);
-typedef void (*DrawRectangleFn)(int, int, int, int, Color);
-typedef void (*DrawRectangleLinesFn)(int, int, int, int, Color);
-typedef void (*DrawCircleFn)(int, int, float, Color);
-typedef void (*DrawCircleLinesFn)(int, int, float, Color);
-typedef void (*DrawLineFn)(int, int, int, int, Color);
+typedef void (*DrawTextFn)(const char *, int, int, int, RaylibColor);
+typedef void (*DrawRectangleFn)(int, int, int, int, RaylibColor);
+typedef void (*DrawRectangleLinesFn)(int, int, int, int, RaylibColor);
+typedef void (*DrawCircleFn)(int, int, float, RaylibColor);
+typedef void (*DrawCircleLinesFn)(int, int, float, RaylibColor);
+typedef void (*DrawLineFn)(int, int, int, int, RaylibColor);
 typedef void (*DrawFPSFn)(int, int);
 typedef bool (*IsKeyDownFn)(int);
 typedef bool (*IsKeyPressedFn)(int);
@@ -334,151 +286,102 @@ static GetRandomValueFn rl_GetRandomValue(void) {
     return fn;
 }
 
-ABRA_EXPORT void abra_ffi$raylib$init_window(void *vm, const AbraVmFunctions *vm_funcs) {
-    char *title = pop_c_string(vm, vm_funcs);
-    int height = (int)vm_funcs->pop_int(vm);
-    int width = (int)vm_funcs->pop_int(vm);
-    rl_InitWindow()(width, height, title);
-    free(title);
+void abra_impl_raylib_init_window(AbraInt width, AbraInt height, AbraString title) {
+    rl_InitWindow()((int)width, (int)height, title.ptr);
 }
 
-ABRA_EXPORT void abra_ffi$raylib$close_window(void *vm, const AbraVmFunctions *vm_funcs) {
-    (void)vm;
-    (void)vm_funcs;
+void abra_impl_raylib_close_window(void) {
     rl_CloseWindow()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$window_should_close(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->push_bool(vm, rl_WindowShouldClose()());
+bool abra_impl_raylib_window_should_close(void) {
+    return rl_WindowShouldClose()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$begin_drawing(void *vm, const AbraVmFunctions *vm_funcs) {
-    (void)vm;
-    (void)vm_funcs;
+void abra_impl_raylib_begin_drawing(void) {
     rl_BeginDrawing()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$end_drawing(void *vm, const AbraVmFunctions *vm_funcs) {
-    (void)vm;
-    (void)vm_funcs;
+void abra_impl_raylib_end_drawing(void) {
     rl_EndDrawing()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$clear_background(void *vm, const AbraVmFunctions *vm_funcs) {
-    Color color = pop_color(vm, vm_funcs);
-    rl_ClearBackground()(color);
+void abra_impl_raylib_clear_background(Color color) {
+    rl_ClearBackground()(raylib_color(color));
 }
 
-ABRA_EXPORT void abra_ffi$raylib$set_target_fps(void *vm, const AbraVmFunctions *vm_funcs) {
-    int fps = (int)vm_funcs->pop_int(vm);
-    rl_SetTargetFPS()(fps);
+void abra_impl_raylib_set_target_fps(AbraInt fps) {
+    rl_SetTargetFPS()((int)fps);
 }
 
-ABRA_EXPORT void abra_ffi$raylib$get_frame_time(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->push_float(vm, (double)rl_GetFrameTime()());
+double abra_impl_raylib_get_frame_time(void) {
+    return (double)rl_GetFrameTime()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$get_screen_width(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->push_int(vm, (AbraInt)rl_GetScreenWidth()());
+AbraInt abra_impl_raylib_get_screen_width(void) {
+    return (AbraInt)rl_GetScreenWidth()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$get_screen_height(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->push_int(vm, (AbraInt)rl_GetScreenHeight()());
+AbraInt abra_impl_raylib_get_screen_height(void) {
+    return (AbraInt)rl_GetScreenHeight()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$draw_text(void *vm, const AbraVmFunctions *vm_funcs) {
-    Color color = pop_color(vm, vm_funcs);
-    int font_size = (int)vm_funcs->pop_int(vm);
-    int y = (int)vm_funcs->pop_int(vm);
-    int x = (int)vm_funcs->pop_int(vm);
-    char *text = pop_c_string(vm, vm_funcs);
-    rl_DrawText()(text, x, y, font_size, color);
-    free(text);
+void abra_impl_raylib_draw_text(AbraString text, AbraInt x, AbraInt y, AbraInt font_size, Color color) {
+    rl_DrawText()(text.ptr, (int)x, (int)y, (int)font_size, raylib_color(color));
 }
 
-ABRA_EXPORT void abra_ffi$raylib$draw_rectangle(void *vm, const AbraVmFunctions *vm_funcs) {
-    Color color = pop_color(vm, vm_funcs);
-    int height = (int)vm_funcs->pop_int(vm);
-    int width = (int)vm_funcs->pop_int(vm);
-    int y = (int)vm_funcs->pop_int(vm);
-    int x = (int)vm_funcs->pop_int(vm);
-    rl_DrawRectangle()(x, y, width, height, color);
+void abra_impl_raylib_draw_rectangle(AbraInt x, AbraInt y, AbraInt width, AbraInt height, Color color) {
+    rl_DrawRectangle()((int)x, (int)y, (int)width, (int)height, raylib_color(color));
 }
 
-ABRA_EXPORT void abra_ffi$raylib$draw_rectangle_lines(void *vm, const AbraVmFunctions *vm_funcs) {
-    Color color = pop_color(vm, vm_funcs);
-    int height = (int)vm_funcs->pop_int(vm);
-    int width = (int)vm_funcs->pop_int(vm);
-    int y = (int)vm_funcs->pop_int(vm);
-    int x = (int)vm_funcs->pop_int(vm);
-    rl_DrawRectangleLines()(x, y, width, height, color);
+void abra_impl_raylib_draw_rectangle_lines(AbraInt x, AbraInt y, AbraInt width, AbraInt height, Color color) {
+    rl_DrawRectangleLines()((int)x, (int)y, (int)width, (int)height, raylib_color(color));
 }
 
-ABRA_EXPORT void abra_ffi$raylib$draw_circle(void *vm, const AbraVmFunctions *vm_funcs) {
-    Color color = pop_color(vm, vm_funcs);
-    float radius = (float)vm_funcs->pop_float(vm);
-    int center_y = (int)vm_funcs->pop_int(vm);
-    int center_x = (int)vm_funcs->pop_int(vm);
-    rl_DrawCircle()(center_x, center_y, radius, color);
+void abra_impl_raylib_draw_circle(AbraInt center_x, AbraInt center_y, double radius, Color color) {
+    rl_DrawCircle()((int)center_x, (int)center_y, (float)radius, raylib_color(color));
 }
 
-ABRA_EXPORT void abra_ffi$raylib$draw_circle_lines(void *vm, const AbraVmFunctions *vm_funcs) {
-    Color color = pop_color(vm, vm_funcs);
-    float radius = (float)vm_funcs->pop_float(vm);
-    int center_y = (int)vm_funcs->pop_int(vm);
-    int center_x = (int)vm_funcs->pop_int(vm);
-    rl_DrawCircleLines()(center_x, center_y, radius, color);
+void abra_impl_raylib_draw_circle_lines(AbraInt center_x, AbraInt center_y, double radius, Color color) {
+    rl_DrawCircleLines()((int)center_x, (int)center_y, (float)radius, raylib_color(color));
 }
 
-ABRA_EXPORT void abra_ffi$raylib$draw_line(void *vm, const AbraVmFunctions *vm_funcs) {
-    Color color = pop_color(vm, vm_funcs);
-    int end_y = (int)vm_funcs->pop_int(vm);
-    int end_x = (int)vm_funcs->pop_int(vm);
-    int start_y = (int)vm_funcs->pop_int(vm);
-    int start_x = (int)vm_funcs->pop_int(vm);
-    rl_DrawLine()(start_x, start_y, end_x, end_y, color);
+void abra_impl_raylib_draw_line(AbraInt start_x, AbraInt start_y, AbraInt end_x, AbraInt end_y, Color color) {
+    rl_DrawLine()((int)start_x, (int)start_y, (int)end_x, (int)end_y, raylib_color(color));
 }
 
-ABRA_EXPORT void abra_ffi$raylib$draw_fps(void *vm, const AbraVmFunctions *vm_funcs) {
-    int y = (int)vm_funcs->pop_int(vm);
-    int x = (int)vm_funcs->pop_int(vm);
-    rl_DrawFPS()(x, y);
+void abra_impl_raylib_draw_fps(AbraInt x, AbraInt y) {
+    rl_DrawFPS()((int)x, (int)y);
 }
 
-ABRA_EXPORT void abra_ffi$raylib$is_key_down(void *vm, const AbraVmFunctions *vm_funcs) {
-    int key = (int)vm_funcs->pop_int(vm);
-    vm_funcs->push_bool(vm, rl_IsKeyDown()(key));
+bool abra_impl_raylib_is_key_down(AbraInt key) {
+    return rl_IsKeyDown()((int)key);
 }
 
-ABRA_EXPORT void abra_ffi$raylib$is_key_pressed(void *vm, const AbraVmFunctions *vm_funcs) {
-    int key = (int)vm_funcs->pop_int(vm);
-    vm_funcs->push_bool(vm, rl_IsKeyPressed()(key));
+bool abra_impl_raylib_is_key_pressed(AbraInt key) {
+    return rl_IsKeyPressed()((int)key);
 }
 
-ABRA_EXPORT void abra_ffi$raylib$get_mouse_x(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->push_int(vm, (AbraInt)rl_GetMouseX()());
+AbraInt abra_impl_raylib_get_mouse_x(void) {
+    return (AbraInt)rl_GetMouseX()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$get_mouse_y(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->push_int(vm, (AbraInt)rl_GetMouseY()());
+AbraInt abra_impl_raylib_get_mouse_y(void) {
+    return (AbraInt)rl_GetMouseY()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$is_mouse_button_down(void *vm, const AbraVmFunctions *vm_funcs) {
-    int button = (int)vm_funcs->pop_int(vm);
-    vm_funcs->push_bool(vm, rl_IsMouseButtonDown()(button));
+bool abra_impl_raylib_is_mouse_button_down(AbraInt button) {
+    return rl_IsMouseButtonDown()((int)button);
 }
 
-ABRA_EXPORT void abra_ffi$raylib$is_mouse_button_pressed(void *vm, const AbraVmFunctions *vm_funcs) {
-    int button = (int)vm_funcs->pop_int(vm);
-    vm_funcs->push_bool(vm, rl_IsMouseButtonPressed()(button));
+bool abra_impl_raylib_is_mouse_button_pressed(AbraInt button) {
+    return rl_IsMouseButtonPressed()((int)button);
 }
 
-ABRA_EXPORT void abra_ffi$raylib$get_time(void *vm, const AbraVmFunctions *vm_funcs) {
-    vm_funcs->push_float(vm, rl_GetTime()());
+double abra_impl_raylib_get_time(void) {
+    return rl_GetTime()();
 }
 
-ABRA_EXPORT void abra_ffi$raylib$get_random_value(void *vm, const AbraVmFunctions *vm_funcs) {
-    int max = (int)vm_funcs->pop_int(vm);
-    int min = (int)vm_funcs->pop_int(vm);
-    vm_funcs->push_int(vm, (AbraInt)rl_GetRandomValue()(min, max));
+AbraInt abra_impl_raylib_get_random_value(AbraInt min, AbraInt max) {
+    return (AbraInt)rl_GetRandomValue()((int)min, (int)max);
 }

@@ -1,13 +1,17 @@
 # Raylib Abra Module
 
-This is a pure C Abra foreign module. It exports `abra_ffi$raylib$...` symbols
-directly and loads Raylib dynamically when a Raylib function is first called.
+This is a pure C Abra foreign module. Its Cargo build script regenerates the C
+Abra glue from `../raylib.abra`, compiles that generated glue with `raylib.c`,
+and loads Raylib dynamically when a Raylib function is first called.
 
 Build the Abra module dynamic library:
 
 ```sh
-make -C modules/raylib
+cargo build --package abra_module_raylib
 ```
+
+`abra_foreign_module.txt` contains the resulting dynamic library path
+(`build/{library_prefix}abra_module_raylib{library_suffix}`).
 
 If Raylib is not in the platform dynamic loader path, point the module at it:
 
