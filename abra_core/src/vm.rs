@@ -1137,7 +1137,7 @@ impl Value {
             }
             ValueTag::Channel => {
                 let channel_obj = unsafe { self.get_channel(vm) };
-                ChannelObject::new_with_data(vm, channel_obj.data.clone()).into()
+                channel_obj.copy(vm)
             }
         }
     }
@@ -2221,10 +2221,10 @@ impl VmGreenThread {
                     VmGreenThread::new(self.shared.clone(), self.new_threads_sender.clone());
                 new_thread.pc = target;
                 let captures = self.pop_n(ncaptures as usize);
+                // TODO: must be made incremental
                 for capture in captures {
-                    let chan = unsafe { capture.get_channel_mut(self) };
-                    let copied_chan = chan.copy(&mut new_thread);
-                    new_thread.push(copied_chan);
+                    let copied_val = capture.deep_copy(&mut new_thread);
+                    new_thread.push(copied_val);
                 }
                 // new_thread.stack_base += ncaptures as usize;
                 self.new_threads_sender.send(new_thread.into()).unwrap();
