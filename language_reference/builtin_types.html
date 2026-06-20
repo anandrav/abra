@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-1af9c72d.js";
+            window.path_to_searchindex_js = "../searchindex-582e3c8a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-c59473e4.js"></script>
+        <script src="../toc-caa4a953.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -229,6 +229,8 @@ let person = ("Lancelot", 19)
 <pre><code>let (name, age) = person
 </code></pre>
 <p>The prelude provides equality, comparison, hashing, and <code>ToString</code> for tuples up to size 4.</p>
+<h3 id="channelt"><a class="header" href="#channelt">channel&lt;T&gt;</a></h3>
+<p>A typed message path used to communicate between tasks. Create a channel with <code>channel()</code>, write values with <code>.write(...)</code>, and read them with <code>.read()</code>. See <a href="./tasks_and_channels.html">Tasks and Channels</a> for the full model.</p>
 <h3 id="void"><a class="header" href="#void">void</a></h3>
 <p>Represents nothing. Its only value is <code>nil</code>. Functions that don’t return anything meaningful return <code>void</code>:</p>
 <pre><code>fn greet(name: string) {

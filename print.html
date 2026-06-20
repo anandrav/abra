@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-1af9c72d.js";
+            window.path_to_searchindex_js = "searchindex-582e3c8a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c59473e4.js"></script>
+        <script src="toc-caa4a953.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -325,6 +325,8 @@ let person = ("Lancelot", 19)
 <pre><code>let (name, age) = person
 </code></pre>
 <p>The prelude provides equality, comparison, hashing, and <code>ToString</code> for tuples up to size 4.</p>
+<h3 id="channelt"><a class="header" href="#channelt">channel&lt;T&gt;</a></h3>
+<p>A typed message path used to communicate between tasks. Create a channel with <code>channel()</code>, write values with <code>.write(...)</code>, and read them with <code>.read()</code>. See <a href="#tasks-and-channels">Tasks and Channels</a> for the full model.</p>
 <h3 id="void"><a class="header" href="#void">void</a></h3>
 <p>Represents nothing. Its only value is <code>nil</code>. Functions that don’t return anything meaningful return <code>void</code>:</p>
 <pre><code>fn greet(name: string) {
@@ -672,6 +674,97 @@ let p: (string) -&gt; bool = s -&gt; s.starts_with("yes")
 </code></pre>
 <h3 id="limitations"><a class="header" href="#limitations">Limitations</a></h3>
 <p>Lambdas do not support default argument values or named-argument calls. Those features only work on named functions declared with <code>fn</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tasks-and-channels"><a class="header" href="#tasks-and-channels">Tasks and Channels</a></h1>
+<p>Sometimes you want your program to start one piece of work and then keep going. For example, a game might listen for input while something else is loading, or a program might start a slow calculation and wait for the answer later.</p>
+<p>In Abra, use <code>task</code> to start another piece of code:</p>
+<pre><code>task {
+    println("hello from the task")
+}
+
+println("hello from the main program")
+</code></pre>
+<p>The code inside the <code>task</code> can run alongside the code after it. Abra’s scheduler decides when each task gets a turn, so you should not write code that depends on which <code>println</code> happens first.</p>
+<p>A task does not return a value to the place where it was created. If you want a task to send a value back, use a channel.</p>
+<h3 id="capturing-values-1"><a class="header" href="#capturing-values-1">Capturing values</a></h3>
+<p>A task can use values from the surrounding code:</p>
+<pre><code>let name = "Ada"
+
+task {
+    println("hello, " .. name)
+}
+</code></pre>
+<p>When a task starts, Abra gives it its own copy of the values it uses. This is important for arrays, structs, strings, and other data that could otherwise be changed from two places at once.</p>
+<pre><code>let numbers = [1, 2, 3]
+let done: channel&lt;int&gt; = channel()
+
+task {
+    numbers.push(4)
+    done.write(numbers.len())
+}
+
+println(numbers.len())   // 3
+println(done.read())     // 4
+</code></pre>
+<p>The task gets a copy of <code>numbers</code>, so changing it inside the task does not change <code>numbers</code> in the main program.</p>
+<h3 id="channels"><a class="header" href="#channels">Channels</a></h3>
+<p>A channel is a way for tasks to pass messages to each other. A channel has a type, so a <code>channel&lt;string&gt;</code> can carry strings, and a <code>channel&lt;int&gt;</code> can carry integers.</p>
+<pre><code>let messages: channel&lt;string&gt; = channel()
+</code></pre>
+<p>Use <code>.write(...)</code> to send a value into a channel, and <code>.read()</code> to take a value out:</p>
+<pre><code>messages.write("done")
+let msg = messages.read()
+</code></pre>
+<p>If a task tries to read from an empty channel, it waits until some other task writes a value.</p>
+<p>Channels are also how you intentionally share something between tasks. Ordinary captured values are copied, but a captured channel still points to the same channel.</p>
+<h3 id="sending-a-result-back"><a class="header" href="#sending-a-result-back">Sending a result back</a></h3>
+<p>Here is a task that doubles a number and sends the answer back:</p>
+<pre><code>let answers: channel&lt;int&gt; = channel()
+
+task {
+    let n = 21
+    answers.write(n * 2)
+}
+
+println(answers.read())   // 42
+</code></pre>
+<p>The main program waits at <code>answers.read()</code> until the task writes the answer.</p>
+<p>You can also use one channel for work going into a task, and another channel for results coming back:</p>
+<pre><code>let jobs: channel&lt;int&gt; = channel()
+let results: channel&lt;int&gt; = channel()
+
+task {
+    for _ in 10 {
+        let n = jobs.read()
+        results.write(n * 2)
+    }
+}
+
+for i in 10 {
+    jobs.write(i)
+}
+
+var sum = 0
+for _ in 10 {
+    sum += results.read()
+}
+
+println(sum)   // 90
+</code></pre>
+<h3 id="waiting-for-a-task"><a class="header" href="#waiting-for-a-task">Waiting for a task</a></h3>
+<p>The main program does not automatically wait for every task to finish. When the main program is done, the whole program is done.</p>
+<p>If the main program needs to wait for a task, have the task send a message:</p>
+<pre><code>let done: channel&lt;void&gt; = channel()
+
+task {
+    println("working")
+    done.write(nil)
+}
+
+done.read()
+println("finished")
+</code></pre>
+<p>This pattern is common: start a task, let it do work, and use a channel when you need to hear back from it.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
 <p>A struct groups several named fields into one value. Use them when you have a few related pieces of data that belong together — coordinates, user records, configuration, anything where naming the fields makes the code clearer.</p>
