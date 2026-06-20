@@ -1,0 +1,31 @@
+use core/signals
+use core/time
+
+fn main() {
+  watch(Signal.Interrupt).unwrap()
+  watch(Signal.Terminate).unwrap()
+  clear()
+
+  println('watching SIGINT and SIGTERM')
+  println('press Ctrl+C to send SIGINT')
+
+  var ticks = 0
+  while true {
+    sleep(0.25)
+
+    match poll() {
+      .some(sig) -> {
+        println('received ' .. signal_name(sig).unwrap())
+        return
+      }
+      .none -> {}
+    }
+
+    ticks = ticks + 1
+    if ticks % 4 == 0 {
+      println('still running')
+    }
+  }
+}
+
+main()

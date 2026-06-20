@@ -1,0 +1,60 @@
+// Signal handling is poll-based: watch a signal, then consume it with poll().
+// The raw OS signal handler only records the signal number.
+
+#foreign
+type Signal =
+    | Abort
+    | Alarm
+    | Child
+    | FloatingPointException
+    | Hangup
+    | IllegalInstruction
+    | Interrupt
+    | Kill
+    | Pipe
+    | Quit
+    | SegmentationFault
+    | Stop
+    | Terminate
+    | User1
+    | User2
+    | WindowChange
+
+implement Equal for Signal {
+    fn equal(a, b) {
+        match (a, b) {
+            (.Abort, .Abort) |
+            (.Alarm, .Alarm) |
+            (.Child, .Child) |
+            (.FloatingPointException, .FloatingPointException) |
+            (.Hangup, .Hangup) |
+            (.IllegalInstruction, .IllegalInstruction) |
+            (.Interrupt, .Interrupt) |
+            (.Kill, .Kill) |
+            (.Pipe, .Pipe) |
+            (.Quit, .Quit) |
+            (.SegmentationFault, .SegmentationFault) |
+            (.Stop, .Stop) |
+            (.Terminate, .Terminate) |
+            (.User1, .User1) |
+            (.User2, .User2) |
+            (.WindowChange, .WindowChange) -> true
+            _ -> false
+        }
+    }
+}
+
+#foreign
+fn watch(signal: Signal) -> result<void, string>
+
+#foreign
+fn poll() -> option<Signal>
+
+#foreign
+fn clear() -> void
+
+#foreign
+fn raise(signal: Signal) -> result<void, string>
+
+#foreign
+fn signal_name(signal: Signal) -> option<string>

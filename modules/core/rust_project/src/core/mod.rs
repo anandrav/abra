@@ -18,6 +18,7 @@ pub(crate) mod http;
 
 pub(crate) mod crypto;
 pub(crate) mod encoding;
+pub(crate) mod signals;
 
 use abra_core::vm::AbraInt;
 

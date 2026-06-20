@@ -19,6 +19,7 @@ sha2 = "0.11"
 hmac = "0.13"
 hex = "0.4"
 base64 = "0.22"
+signal-hook = "0.3"
 
 [build-dependencies]
 abra_core = { workspace = true }

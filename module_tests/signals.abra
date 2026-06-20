@@ -1,0 +1,60 @@
+use core/signals
+use core/time
+use test_runner
+
+let t = TestRunner.new("signals")
+t.run("signal_names", test_signal_names())
+t.run("watch_poll_and_clear", test_watch_poll_and_clear())
+t.run("watch_ctrl_c", test_watch_ctrl_c())
+t.run("invalid_watch", test_invalid_watch())
+t.finish()
+
+fn wait_for_signal(timeout: float) -> option<Signal> {
+    let start = get_time()
+    while elapsed(start) < timeout {
+        let sig = poll()
+        if sig.is_some() {
+            return sig
+        }
+        sleep(0.01)
+    }
+    .none
+}
+
+fn test_signal_names() -> result<void, string> {
+    check(signal_name(Signal.Interrupt).unwrap() == "SIGINT", "SIGINT name")?
+    check(signal_name(Signal.Terminate).unwrap() == "SIGTERM", "SIGTERM name")?
+    .ok(nil)
+}
+
+fn test_watch_poll_and_clear() -> result<void, string> {
+    let sig = Signal.User1
+    watch(sig)?
+    clear()
+    check(poll().is_none(), "clear should remove pending signal")?
+
+    raise(sig)?
+    let received = wait_for_signal(1.0)
+    check(received.is_some(), "should receive raised signal")?
+    check(received.unwrap() == sig, "should receive SIGUSR1")?
+    check(poll().is_none(), "poll should consume pending signal")?
+    .ok(nil)
+}
+
+fn test_watch_ctrl_c() -> result<void, string> {
+    let sig = Signal.Interrupt
+    watch(sig)?
+    clear()
+
+    raise(sig)?
+    let received = wait_for_signal(1.0)
+    check(received.is_some(), "should receive raised SIGINT")?
+    check(received.unwrap() == sig, "should receive ctrl_c signal")?
+    .ok(nil)
+}
+
+fn test_invalid_watch() -> result<void, string> {
+    check(watch(Signal.Kill).is_err(), "SIGKILL should be rejected")?
+    check(watch(Signal.Stop).is_err(), "SIGSTOP should be rejected")?
+    .ok(nil)
+}

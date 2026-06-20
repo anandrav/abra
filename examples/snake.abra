@@ -102,7 +102,7 @@ fn main() {
     while term.poll_event(0) {
       let snake = st.snake
       match term.get_event() {
-        .Key(key, _) -> match key {
+        .Key(key, modifiers) -> match key {
           .Left |
           .Char('a') -> snake.direction = .Left
           .Right |
@@ -111,6 +111,11 @@ fn main() {
           .Char('w') -> snake.direction = .Up
           .Down |
           .Char('s') -> snake.direction = .Down
+          .Char('c') -> {
+            if modifiers.ctrl {
+              st.quit = true
+            }
+          }
           .Char('q') |
           .Esc -> st.quit = true
           _ -> {}
