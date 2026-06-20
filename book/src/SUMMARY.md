@@ -15,6 +15,7 @@
 - [Control Flow](./language_reference/control_flow.md)
 - [Functions](./language_reference/functions.md)
 - [Lambdas](./language_reference/lambdas.md)
+- [Tasks and Channels](./language_reference/tasks_and_channels.md)
 - [Structs](./language_reference/structs.md)
 - [Enums](./language_reference/enums.md)
 - [Patterns](./language_reference/patterns.md)

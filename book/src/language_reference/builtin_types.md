@@ -83,6 +83,10 @@ let (name, age) = person
 
 The prelude provides equality, comparison, hashing, and `ToString` for tuples up to size 4.
 
+### channel&lt;T&gt;
+
+A typed message path used to communicate between tasks. Create a channel with `channel()`, write values with `.write(...)`, and read them with `.read()`. See [Tasks and Channels](./tasks_and_channels.md) for the full model.
+
 ### void
 
 Represents nothing. Its only value is `nil`. Functions that don't return anything meaningful return `void`:
