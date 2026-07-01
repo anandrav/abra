@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-582e3c8a.js";
+            window.path_to_searchindex_js = "../searchindex-26f67b64.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -270,6 +270,29 @@ for pair in pairs {
     let (number, word) = pair
     println(number .. " = " .. word)
 }
+</code></pre>
+<h3 id="pull-structs-apart"><a class="header" href="#pull-structs-apart">Pull structs apart</a></h3>
+<p>Struct patterns destructure a struct by naming each of its fields:</p>
+<pre><code>type Point = {
+    x: int
+    y: int
+}
+
+match point {
+    Point(x = 0, y = 0) -&gt; "at the origin"
+    Point(x = 0, y = y) -&gt; "on the y-axis at height " .. y
+    Point(x = x, y = 0) -&gt; "on the x-axis at position " .. x
+    Point(x = x, y = y) -&gt; "somewhere at (" .. x .. ", " .. y .. ")"
+}
+</code></pre>
+<p>Every field must be mentioned by name — there are no positional struct patterns. This is deliberate: if you add a field to a struct or reorder its fields, the compiler points at every pattern that needs updating instead of silently binding the wrong values. Use <code>_</code> when you don’t care about a field’s value:</p>
+<pre><code>match person {
+    Person(name = "Alice", age = _) -&gt; "hi, Alice!"
+    Person(name = n, age = _) -&gt; "hello, " .. n
+}
+</code></pre>
+<p>Fields may be listed in any order, and struct patterns work in <code>let</code> too:</p>
+<pre><code>let Point(x = a, y = b) = get_position()
 </code></pre>
 <h3 id="combine-patterns-inside-other-patterns"><a class="header" href="#combine-patterns-inside-other-patterns">Combine patterns inside other patterns</a></h3>
 <p>Patterns nest. You can put a variant pattern inside a tuple pattern, a tuple pattern inside a variant pattern, and so on. This is useful when you want to handle several pieces of state together:</p>

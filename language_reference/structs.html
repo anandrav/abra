@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-582e3c8a.js";
+            window.path_to_searchindex_js = "../searchindex-26f67b64.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -229,6 +229,15 @@ let int_ref = Ref(42)         // Ref&lt;int&gt;
 let str_ref = Ref("hello")    // Ref&lt;string&gt;
 </code></pre>
 <p>See <a href="./generics.html">Generics</a> for more.</p>
+<h3 id="pattern-matching"><a class="header" href="#pattern-matching">Pattern matching</a></h3>
+<p>Structs can be destructured with patterns, in <code>match</code> and <code>let</code>. Every field must be named — see <a href="./patterns.html">Patterns</a> for details:</p>
+<pre><code>match p {
+    Point(x = 0, y = 0) -&gt; "origin"
+    Point(x = a, y = b) -&gt; "(" .. a .. ", " .. b .. ")"
+}
+
+let Point(x = a, y = b) = p
+</code></pre>
 <h3 id="adding-behavior"><a class="header" href="#adding-behavior">Adding behavior</a></h3>
 <p>To attach methods to a struct, use <a href="./member_functions.html"><code>extend</code></a>. To make it work with <code>==</code>, sorting, printing, or other operators, <a href="./interfaces.html">implement an interface</a> for it.</p>
 
