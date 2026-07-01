@@ -811,6 +811,20 @@ fn find_ident_in_pat(pat: &Rc<Pat>, offset: usize) -> Option<AstNode> {
             }
             None
         }
+        PatKind::Struct(name, fields) => {
+            if name.loc.contains_offset(offset) {
+                return Some(name.node());
+            }
+            for (field_name, p) in fields {
+                if field_name.loc.contains_offset(offset) {
+                    return Some(field_name.node());
+                }
+                if let Some(node) = find_ident_in_pat(p, offset) {
+                    return Some(node);
+                }
+            }
+            None
+        }
         PatKind::Or(left, right) => {
             if let Some(node) = find_ident_in_pat(left, offset) {
                 return Some(node);
@@ -966,6 +980,11 @@ fn collect_bindings_in_pat(pat: &Rc<Pat>, name: &str, out: &mut Vec<AstNode>) {
     match &*pat.kind {
         PatKind::Binding(n) if n == name => out.push(pat.node()),
         PatKind::Variant(_, _, Some(data)) => collect_bindings_in_pat(data, name, out),
+        PatKind::Struct(_, fields) => {
+            for (_, p) in fields {
+                collect_bindings_in_pat(p, name, out);
+            }
+        }
         PatKind::Tuple(pats) => {
             for p in pats {
                 collect_bindings_in_pat(p, name, out);

@@ -3907,6 +3907,50 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                 }
             }
         }
+        PatKind::Struct(name, fields) => {
+            if let Some(Declaration::Struct(struct_def)) = ctx.resolution_map.get(&name.id).cloned()
+            {
+                let (struct_ty, substitution) = TypeVar::make_nominal_and_substitution(
+                    ctx,
+                    Reason::Node(pat.node()),
+                    Nominal::Struct(struct_def.clone()),
+                    pat.node(),
+                );
+                constrain(ctx, &ty_pat, &struct_ty);
+
+                let expected_subst = if let Mode::Ana { expected, .. } = &mode {
+                    let original_ty = TypeVar::make_nominal_original(
+                        ctx,
+                        Reason::Node(pat.node()),
+                        Nominal::Struct(struct_def.clone()),
+                    );
+                    let subst = get_substitution_of_typ2(ctx, &original_ty, expected);
+                    if subst.is_empty() { None } else { Some(subst) }
+                } else {
+                    None
+                };
+
+                for (field_name, field_pat) in fields {
+                    match struct_def.fields.iter().find(|f| f.name.v == field_name.v) {
+                        Some(field_def) => {
+                            let field_ty = field_def.ty.to_typevar(ctx);
+                            let field_ty = match &expected_subst {
+                                Some(subst) => field_ty.subst(subst),
+                                None => field_ty.subst(&substitution),
+                            };
+                            generate_constraints_pat(ctx, Mode::ana(field_ty), field_pat);
+                        }
+                        // unknown field; an error was already logged during resolution
+                        None => generate_constraints_pat(ctx, Mode::Syn, field_pat),
+                    }
+                }
+            } else {
+                ty_pat.set_flag_missing_info();
+                for (_, field_pat) in fields {
+                    generate_constraints_pat(ctx, Mode::Syn, field_pat);
+                }
+            }
+        }
         PatKind::Or(left, right) => {
             generate_constraints_pat(ctx, mode.clone(), left);
             generate_constraints_pat(ctx, mode.clone(), right);

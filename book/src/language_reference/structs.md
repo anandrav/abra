@@ -77,6 +77,19 @@ let str_ref = Ref("hello")    // Ref<string>
 
 See [Generics](./generics.md) for more.
 
+### Pattern matching
+
+Structs can be destructured with patterns, in `match` and `let`. Every field must be named — see [Patterns](./patterns.md) for details:
+
+```
+match p {
+    Point(x = 0, y = 0) -> "origin"
+    Point(x = a, y = b) -> "(" .. a .. ", " .. b .. ")"
+}
+
+let Point(x = a, y = b) = p
+```
+
 ### Adding behavior
 
 To attach methods to a struct, use [`extend`](./member_functions.md). To make it work with `==`, sorting, printing, or other operators, [implement an interface](./interfaces.md) for it.

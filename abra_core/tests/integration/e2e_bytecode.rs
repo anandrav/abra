@@ -2421,3 +2421,313 @@ fn foo(x: int) -> int {
 "#;
     should_fail(src);
 }
+
+#[test]
+fn match_struct_basic() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(x = 0, y = 0) -> 0
+    Point(x = a, y = b) -> a + b
+}
+"#;
+    expect_value(src, 7);
+}
+
+#[test]
+fn match_struct_literal_arm() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(0, 5)
+match p {
+    Point(x = 0, y = y) -> 100 + y
+    Point(x = x, y = _) -> x
+}
+"#;
+    expect_value(src, 105);
+}
+
+#[test]
+fn match_struct_fields_out_of_order() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(y = b, x = a) -> a * 10 + b
+}
+"#;
+    expect_value(src, 34);
+}
+
+#[test]
+fn match_struct_nested_struct() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+type Segment = {
+    from: Point
+    to: Point
+}
+let s = Segment(Point(1, 2), Point(3, 4))
+match s {
+    Segment(from = Point(x = a, y = b), to = Point(x = c, y = d)) -> a + b + c + d
+}
+"#;
+    expect_value(src, 10);
+}
+
+#[test]
+fn match_struct_nested_enum_field() {
+    let src = r#"
+type Wrapper = {
+    inner: option<int>
+}
+let w = Wrapper(.some(5))
+match w {
+    Wrapper(inner = .some(n)) -> n
+    Wrapper(inner = .none) -> 0
+}
+"#;
+    expect_value(src, 5);
+}
+
+#[test]
+fn match_struct_generic() {
+    let src = r#"
+type Ref<T> = {
+    value: T
+}
+let r = Ref(41)
+match r {
+    Ref(value = v) -> v + 1
+}
+"#;
+    expect_value(src, 42);
+}
+
+#[test]
+fn match_struct_generic_bool_exhaustive() {
+    let src = r#"
+type Ref<T> = {
+    value: T
+}
+let r = Ref(true)
+match r {
+    Ref(value = true) -> 1
+    Ref(value = false) -> 2
+}
+"#;
+    expect_value(src, 1);
+}
+
+#[test]
+fn match_struct_string_field() {
+    let src = r#"
+type Person = {
+    name: string
+    age: int
+}
+let p = Person("Alice", 30)
+match p {
+    Person(name = "Bob", age = _) -> 0
+    Person(name = "Alice", age = a) -> a
+    Person(name = _, age = _) -> 1
+}
+"#;
+    expect_value(src, 30);
+}
+
+#[test]
+fn match_struct_or_pattern() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(0, 7)
+match p {
+    Point(x = 0, y = n) | Point(x = n, y = 0) -> n
+    Point(x = a, y = b) -> a + b
+}
+"#;
+    expect_value(src, 7);
+}
+
+#[test]
+fn match_struct_inside_tuple_pattern() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let pair = (Point(1, 2), Point(3, 4))
+match pair {
+    (Point(x = a, y = _), Point(x = _, y = b)) -> a + b
+}
+"#;
+    expect_value(src, 5);
+}
+
+#[test]
+fn match_struct_with_void_field() {
+    let src = r#"
+type Person = {
+    name: string
+    blah: void
+    age: int
+}
+let p = Person("Alice", nil, 30)
+match p {
+    Person(name = "Bob", blah = _, age = _) -> "bob"
+    Person(name = n, blah = _, age = a) -> n .. " " .. a
+}
+"#;
+    expect_value(src, "Alice 30");
+}
+
+#[test]
+fn let_struct_destructure() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let Point(x = a, y = b) = Point(3, 4)
+a + b
+"#;
+    expect_value(src, 7);
+}
+
+#[test]
+fn match_struct_exhaustive_bool_fields() {
+    let src = r#"
+type Flags = {
+    a: bool
+    b: bool
+}
+let f = Flags(false, true)
+match f {
+    Flags(a = true, b = true) -> 3
+    Flags(a = true, b = false) -> 2
+    Flags(a = false, b = true) -> 1
+    Flags(a = false, b = false) -> 0
+}
+"#;
+    expect_value(src, 1);
+}
+
+#[test]
+fn match_struct_missing_field_fails() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(x = a) -> a
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_struct_unknown_field_fails() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(x = a, z = b) -> a
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_struct_duplicate_field_fails() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(x = a, x = b) -> a + b
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_struct_positional_fields_fails() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(a, b) -> a + b
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_struct_nonexhaustive_fails() {
+    let src = r#"
+type Flags = {
+    a: bool
+    b: bool
+}
+let f = Flags(false, true)
+match f {
+    Flags(a = true, b = true) -> 3
+    Flags(a = false, b = false) -> 0
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_struct_wrong_field_type_fails() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(x = "hello", y = _) -> 0
+    Point(x = _, y = _) -> 1
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_struct_not_a_struct_fails() {
+    let src = r#"
+type Color = Red | Green | Blue
+let c = Color.Red
+match c {
+    Color(x = a) -> a
+}
+"#;
+    should_fail(src);
+}

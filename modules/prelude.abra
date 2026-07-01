@@ -34,6 +34,38 @@ implement Num for float {
     fn power(a, b) = power_float(a, b)
 }
 
+extend int {
+    fn to_float(self) -> float {
+        float_from_int(self)
+    }
+}
+
+extend float {
+    fn to_int(self) -> int {
+        int_from_float(self)
+    }
+
+    fn floor(self) -> float {
+        floor(self)
+    }
+
+    fn ceil(self) -> float {
+        ceil(self)
+    }
+
+    fn round(self) -> float {
+        round(self)
+    }
+
+    fn pow(self, n: float) -> float {
+        power_float(self, n)
+    }
+
+    fn sqrt(self) -> float {
+        sqrt(self)
+    }
+}
+
 type option<T> = some(T) | none
 
 extend option<T> {

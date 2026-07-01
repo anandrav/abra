@@ -4,17 +4,20 @@
 
 use crate::ast::{
     AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, Stmt, StmtKind,
+    StructDef,
 };
 
 use core::panic;
 
 use super::typecheck::Nominal;
-use super::{Declaration, EnumDef, Error, SolvedType as Type, StaticsContext, TypeKind};
+use super::{
+    Declaration, EnumDef, Error, PolytypeDeclaration, SolvedType as Type, StaticsContext, TypeKind,
+};
 use crate::vm::AbraInt;
 use std::fmt::{self, Display};
 use std::rc::Rc;
 use strum_macros::Display;
-use utils::hash::HashSet;
+use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,
@@ -252,6 +255,9 @@ impl Matrix {
                 Type::Tuple(tys) => {
                     new_types.extend(tys.clone());
                 }
+                Type::Nominal(Nominal::Struct(struct_def), args) => {
+                    new_types.extend(struct_field_tys(statics, struct_def, args));
+                }
                 Type::Void => {}
                 _ => unreachable!(),
             },
@@ -419,6 +425,24 @@ impl DeconstructedPat {
                     .collect();
                 Constructor::Product
             }
+            PatKind::Struct(name, field_pats) => {
+                let Some(Declaration::Struct(struct_def)) = statics.resolution_map.get(&name.id)
+                else {
+                    panic!()
+                };
+                fields = struct_def
+                    .fields
+                    .iter()
+                    .map(|field_def| {
+                        let (_, pat) = field_pats
+                            .iter()
+                            .find(|(n, _)| n.v == field_def.name.v)
+                            .unwrap();
+                        DeconstructedPat::from_ast_pat(statics, pat)
+                    })
+                    .collect();
+                Constructor::Product
+            }
             PatKind::Variant(_prefixes, ident, data) => {
                 let Some(Declaration::EnumVariant {
                     e: enum_def,
@@ -476,6 +500,11 @@ impl DeconstructedPat {
             | Type::InterfaceOutput(..)
             | Type::Function(..) => vec![],
             Type::Tuple(tys) => tys.clone(),
+            Type::Nominal(Nominal::Struct(struct_def), args)
+                if matches!(ctor, Constructor::Product) =>
+            {
+                struct_field_tys(statics, struct_def, args)
+            }
             Type::Nominal(_, _) => match ctor {
                 Constructor::Variant((enum_def, idx)) => {
                     let data_ty = data_ty_of_variant(statics, enum_def, *idx);
@@ -495,16 +524,22 @@ impl DeconstructedPat {
         }
     }
 
-    fn missing_from_ctor(ctor: &Constructor, ty: Type) -> Self {
-        let fields = match ty.clone() {
-            Type::Tuple(tys) | Type::Nominal(_, tys) => tys
-                .iter()
-                .map(|ty| DeconstructedPat {
-                    ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
-                    fields: vec![],
-                    ty: ty.clone(),
-                })
-                .collect(),
+    fn missing_from_ctor(ctor: &Constructor, ty: Type, statics: &StaticsContext) -> Self {
+        let wildcard_of = |ty: &Type| DeconstructedPat {
+            ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
+            fields: vec![],
+            ty: ty.clone(),
+        };
+        let fields = match &ty {
+            Type::Nominal(Nominal::Struct(struct_def), args)
+                if matches!(ctor, Constructor::Product) =>
+            {
+                struct_field_tys(statics, struct_def, args)
+                    .iter()
+                    .map(wildcard_of)
+                    .collect()
+            }
+            Type::Tuple(tys) | Type::Nominal(_, tys) => tys.iter().map(wildcard_of).collect(),
             _ => vec![],
         };
         Self {
@@ -512,6 +547,43 @@ impl DeconstructedPat {
             fields,
             ty,
         }
+    }
+}
+
+fn struct_field_tys(
+    statics: &StaticsContext,
+    struct_def: &Rc<StructDef>,
+    args: &[Type],
+) -> Vec<Type> {
+    let mut subst: HashMap<PolytypeDeclaration, Type> = HashMap::default();
+    for (i, ty_arg) in struct_def.ty_args.iter().enumerate() {
+        if let Some(Declaration::Polytype(decl)) = statics.resolution_map.get(&ty_arg.name.id) {
+            subst.insert(decl.clone(), args[i].clone());
+        }
+    }
+    struct_def
+        .fields
+        .iter()
+        .map(|field| {
+            let ty = field.ty.to_solved_type(statics).unwrap();
+            subst_solved_ty(&ty, &subst)
+        })
+        .collect()
+}
+
+fn subst_solved_ty(ty: &Type, subst: &HashMap<PolytypeDeclaration, Type>) -> Type {
+    match ty {
+        Type::Poly(decl) => subst.get(decl).cloned().unwrap_or_else(|| ty.clone()),
+        Type::Tuple(tys) => Type::Tuple(tys.iter().map(|t| subst_solved_ty(t, subst)).collect()),
+        Type::Nominal(nominal, tys) => Type::Nominal(
+            nominal.clone(),
+            tys.iter().map(|t| subst_solved_ty(t, subst)).collect(),
+        ),
+        Type::Function(args, out) => Type::Function(
+            args.iter().map(|t| subst_solved_ty(t, subst)).collect(),
+            Box::new(subst_solved_ty(out, subst)),
+        ),
+        _ => ty.clone(),
     }
 }
 
@@ -539,6 +611,18 @@ impl Display for DeconstructedPat {
             Constructor::Float(fl) => write!(f, "{fl}"),
             Constructor::String(s) => write!(f, "{s}"),
             Constructor::Product => {
+                if let Type::Nominal(Nominal::Struct(struct_def), _) = &self.ty {
+                    write!(f, "{}(", struct_def.name.v)?;
+                    for (i, (field_def, field)) in
+                        struct_def.fields.iter().zip(self.fields.iter()).enumerate()
+                    {
+                        if i != 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{} = {}", field_def.name.v, field)?;
+                    }
+                    return write!(f, ")");
+                }
                 write!(f, "(")?;
                 for (i, field) in self.fields.iter().enumerate() {
                     if i != 0 {
@@ -630,6 +714,7 @@ impl Constructor {
             | Constructor::Wildcard(..) => 0,
             Constructor::Product => match &matrix_tys[0] {
                 Type::Tuple(tys) => tys.len(),
+                Type::Nominal(Nominal::Struct(struct_def), _) => struct_def.fields.len(),
                 Type::Void => 0,
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
@@ -701,7 +786,12 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_missing_constructors(&mut self, missing_ctors: &[Constructor], head_ty: &Type) {
+    fn apply_missing_constructors(
+        &mut self,
+        missing_ctors: &[Constructor],
+        head_ty: &Type,
+        statics: &StaticsContext,
+    ) {
         if missing_ctors.is_empty() {
             return;
         }
@@ -709,7 +799,7 @@ impl WitnessMatrix {
         let mut ret = Self::empty();
         for ctor in missing_ctors.iter() {
             let mut witness_matrix = self.clone();
-            let missing_pat = DeconstructedPat::missing_from_ctor(ctor, head_ty.clone());
+            let missing_pat = DeconstructedPat::missing_from_ctor(ctor, head_ty.clone(), statics);
             witness_matrix.push_pattern(missing_pat);
             ret.extend(&witness_matrix);
         }
@@ -941,7 +1031,7 @@ fn compute_exhaustiveness_and_usefulness(
 
         if ctor.is_wildcard_nonexhaustive() {
             // special constructor representing cases not listed by user
-            witnesses.apply_missing_constructors(&missing_ctors, &head_ty);
+            witnesses.apply_missing_constructors(&missing_ctors, &head_ty, statics);
         } else {
             witnesses.apply_constructor(&ctor, ctor_arity, &head_ty);
         }
@@ -966,12 +1056,11 @@ fn ctors_for_ty(ty: &Type) -> ConstructorSet {
                 .collect();
             ConstructorSet::EnumVariants(variants)
         }
-        // Structs and arrays have no deconstruction pattern syntax, so they
+        // Arrays and channels have no deconstruction pattern syntax, so they
         // can only be matched with a wildcard/binding — treat as Unlistable.
-        Type::Nominal(Nominal::Struct(_) | Nominal::Array | Nominal::Channel, _) => {
-            ConstructorSet::Unlistable
-        }
+        Type::Nominal(Nominal::Array | Nominal::Channel, _) => ConstructorSet::Unlistable,
         Type::Tuple(..) => ConstructorSet::Product,
+        Type::Nominal(Nominal::Struct(_), _) => ConstructorSet::Product,
         Type::Void => ConstructorSet::Product,
         Type::Int | Type::Float | Type::String | Type::Function(..) => ConstructorSet::Unlistable,
         Type::Poly(..) => ConstructorSet::Unlistable,

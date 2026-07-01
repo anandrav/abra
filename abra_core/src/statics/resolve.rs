@@ -1386,6 +1386,81 @@ fn resolve_names_pat(
                 resolve_names_pat(ctx, symbol_table, pat, pat_can_extend_symbol_table);
             }
         }
+        PatKind::Struct(name, fields) => {
+            match symbol_table.lookup_declaration(&name.v) {
+                Some(Declaration::Struct(struct_def)) => {
+                    ctx.resolution_map
+                        .insert(name.id, Declaration::Struct(struct_def.clone()));
+
+                    let mut seen: HashSet<String> = HashSet::default();
+                    for (field_name, _) in fields {
+                        match struct_def
+                            .fields
+                            .iter()
+                            .position(|f| f.name.v == field_name.v)
+                        {
+                            Some(idx) => {
+                                ctx.resolution_map.insert(
+                                    field_name.id,
+                                    Declaration::StructField {
+                                        s: struct_def.clone(),
+                                        field: idx,
+                                    },
+                                );
+                                if !seen.insert(field_name.v.clone()) {
+                                    ctx.errors.push(Error::GenericWithNode {
+                                        msg: format!(
+                                            "Duplicate field `{}` in struct pattern",
+                                            field_name.v
+                                        ),
+                                        node: field_name.node(),
+                                    });
+                                }
+                            }
+                            None => {
+                                ctx.errors.push(Error::GenericWithNode {
+                                    msg: format!(
+                                        "Struct `{}` has no field named `{}`",
+                                        name.v, field_name.v
+                                    ),
+                                    node: field_name.node(),
+                                });
+                            }
+                        }
+                    }
+
+                    let missing: Vec<String> = struct_def
+                        .fields
+                        .iter()
+                        .filter(|f| !fields.iter().any(|(n, _)| n.v == f.name.v))
+                        .map(|f| format!("`{}`", f.name.v))
+                        .collect();
+                    if !missing.is_empty() {
+                        ctx.errors.push(Error::GenericWithNode {
+                            msg: format!(
+                                "Struct pattern for `{}` is missing field(s) {}. Every field must be matched by name; use `_` to ignore a field's value",
+                                name.v,
+                                missing.join(", ")
+                            ),
+                            node: pat.node(),
+                        });
+                    }
+                }
+                Some(_) => {
+                    ctx.errors.push(Error::GenericWithNode {
+                        msg: format!("`{}` is not a struct", name.v),
+                        node: name.node(),
+                    });
+                }
+                None => {
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: name.node() });
+                }
+            }
+            for (_, subpat) in fields {
+                resolve_names_pat(ctx, symbol_table, subpat, pat_can_extend_symbol_table);
+            }
+        }
         PatKind::Or(left, right) => {
             // resolve names. Only the pattern on the left of the OR can extend with new symbols
             resolve_names_pat(ctx, symbol_table, left, pat_can_extend_symbol_table);
@@ -1431,6 +1506,11 @@ fn record_bindings_introduced(pat: &Rc<Pat>, required_bindings: &mut HashSet<Str
                 record_bindings_introduced(pat, required_bindings);
             }
         }
+        PatKind::Struct(_, fields) => {
+            for (_, pat) in fields {
+                record_bindings_introduced(pat, required_bindings);
+            }
+        }
         PatKind::Or(left, right) => {
             record_bindings_introduced(left, required_bindings);
             record_bindings_introduced(right, required_bindings);
@@ -1456,6 +1536,11 @@ fn gather_required_bindings(pat: &Rc<Pat>, required_bindings: &mut HashSet<Strin
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
+                gather_required_bindings(pat, required_bindings);
+            }
+        }
+        PatKind::Struct(_, fields) => {
+            for (_, pat) in fields {
                 gather_required_bindings(pat, required_bindings);
             }
         }
@@ -1493,6 +1578,11 @@ fn record_pat_mutability(ctx: &mut StaticsContext, pat: &Rc<Pat>, is_mutable: bo
         PatKind::Tuple(elems) => {
             for elem in elems {
                 record_pat_mutability(ctx, elem, is_mutable)
+            }
+        }
+        PatKind::Struct(_, fields) => {
+            for (_, pat) in fields {
+                record_pat_mutability(ctx, pat, is_mutable)
             }
         }
         PatKind::Or(left, right) => {

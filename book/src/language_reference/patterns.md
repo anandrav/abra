@@ -129,6 +129,39 @@ for pair in pairs {
 }
 ```
 
+### Pull structs apart
+
+Struct patterns destructure a struct by naming each of its fields:
+
+```
+type Point = {
+    x: int
+    y: int
+}
+
+match point {
+    Point(x = 0, y = 0) -> "at the origin"
+    Point(x = 0, y = y) -> "on the y-axis at height " .. y
+    Point(x = x, y = 0) -> "on the x-axis at position " .. x
+    Point(x = x, y = y) -> "somewhere at (" .. x .. ", " .. y .. ")"
+}
+```
+
+Every field must be mentioned by name — there are no positional struct patterns. This is deliberate: if you add a field to a struct or reorder its fields, the compiler points at every pattern that needs updating instead of silently binding the wrong values. Use `_` when you don't care about a field's value:
+
+```
+match person {
+    Person(name = "Alice", age = _) -> "hi, Alice!"
+    Person(name = n, age = _) -> "hello, " .. n
+}
+```
+
+Fields may be listed in any order, and struct patterns work in `let` too:
+
+```
+let Point(x = a, y = b) = get_position()
+```
+
 ### Combine patterns inside other patterns
 
 Patterns nest. You can put a variant pattern inside a tuple pattern, a tuple pattern inside a variant pattern, and so on. This is useful when you want to handle several pieces of state together:

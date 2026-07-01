@@ -1359,11 +1359,15 @@ impl Parser {
                     prefixes.push(self.expect_ident()?);
                     return self.parse_match_pattern_with_prefixes(prefixes);
                 }
-                self.consume_token();
-                Pat {
-                    kind: Rc::new(PatKind::Binding(s)),
-                    loc: self.location(lo),
-                    id: NodeId::new(),
+                if self.peek_token(1).tag() == TokenTag::OpenParen {
+                    self.parse_struct_pattern(lo)?
+                } else {
+                    self.consume_token();
+                    Pat {
+                        kind: Rc::new(PatKind::Binding(s)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
                 }
             }
             TokenKind::Wildcard => {
@@ -1498,6 +1502,43 @@ impl Parser {
         Ok(ret)
     }
 
+    fn parse_struct_pattern(&mut self, lo: usize) -> Result<Pat, Box<Error>> {
+        let name = self.expect_ident()?;
+        self.expect_token(TokenTag::OpenParen);
+        let fields = self.parse_delimited_list(
+            TokenTag::CloseParen,
+            TokenTag::Comma,
+            Self::parse_struct_pattern_field,
+        )?;
+        Ok(Pat {
+            kind: Rc::new(PatKind::Struct(name, fields)),
+            loc: self.location(lo),
+            id: NodeId::new(),
+        })
+    }
+
+    fn parse_struct_pattern_field(&mut self) -> Result<(Rc<Identifier>, Rc<Pat>), Box<Error>> {
+        self.skip_newlines();
+        let field_loc = self.current_token_location();
+        let not_named_error = || {
+            Err(Error::ProblematicToken(
+                "Struct patterns require field names, e.g. `Point(x = a, y = b)`".into(),
+                field_loc.clone(),
+            )
+            .into())
+        };
+        if !matches!(self.current_token().kind, TokenKind::Ident(_)) {
+            return not_named_error();
+        }
+        let name = self.expect_ident()?;
+        if self.current_token().tag() != TokenTag::Eq {
+            return not_named_error();
+        }
+        self.consume_token();
+        let pat = self.parse_match_pattern()?;
+        Ok((name, pat))
+    }
+
     fn handle_postfix_pat(
         &mut self,
         lhs: &mut Rc<Pat>,
@@ -1531,11 +1572,15 @@ impl Parser {
                 }
             }
             TokenKind::Ident(s) => {
-                self.consume_token();
-                Pat {
-                    kind: Rc::new(PatKind::Binding(s)),
-                    loc: self.location(lo),
-                    id: NodeId::new(),
+                if self.peek_token(1).tag() == TokenTag::OpenParen {
+                    self.parse_struct_pattern(lo)?
+                } else {
+                    self.consume_token();
+                    Pat {
+                        kind: Rc::new(PatKind::Binding(s)),
+                        loc: self.location(lo),
+                        id: NodeId::new(),
+                    }
                 }
             }
             // TODO: code duplication with parse_match_pattern(). Make a helper function used by both

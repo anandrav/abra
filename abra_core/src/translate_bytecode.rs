@@ -6,8 +6,8 @@ use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_co
 #[cfg(feature = "ffi")]
 use crate::ast::ForeignCallPolicy;
 use crate::ast::{
-    ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDecl, FuncDef, InterfaceDef,
-    ItemKind,
+    ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDecl, FuncDef, Identifier,
+    InterfaceDef, ItemKind,
 };
 use crate::ast::{FileAst, NodeId};
 use crate::environment::Environment;
@@ -2001,47 +2001,25 @@ impl Translator {
 
                     self.emit(st, Line::Label(end_label));
                 }
+                PatKind::Struct(name, field_pats) => {
+                    let pats = self.struct_pat_fields_in_order(name, field_pats);
+                    let types = pats
+                        .iter()
+                        .map(|pat| self.get_ty(mono, pat.node()).unwrap())
+                        .collect::<Vec<_>>();
+                    self.translate_product_pat_comparison(
+                        &types,
+                        &pats,
+                        st,
+                        mono,
+                        or_pat_decisions,
+                    );
+                }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             Type::Tuple(types) => match &*pat.kind {
                 PatKind::Tuple(pats) => {
-                    let final_element_success_label = make_label("tuple_success");
-                    let end_label = make_label("endtuple");
-                    // spill tuple elements onto stack
-                    self.emit(st, Instr::DeconstructStruct);
-                    // for each element of tuple pattern, compare to TOS
-                    // if the comparison fails, pop all remaining tuple elements and jump to the next arm
-                    // if it makes it through each tuple element, jump to the arm's expression
-                    let failure_labels = (0..pats.len())
-                        .map(|_| make_label("tuple_fail"))
-                        .collect::<Vec<_>>();
-                    for (i, pat) in pats.iter().enumerate() {
-                        let ty = &types[i];
-                        self.translate_pat_comparison(ty, pat, st, mono, or_pat_decisions);
-                        let is_last = i == pats.len() - 1;
-                        self.emit(st, Instr::JumpIfFalse(failure_labels[i].clone()));
-                        // SUCCESS
-                        if is_last {
-                            self.emit(st, Instr::Jump(final_element_success_label.clone()));
-                        }
-                    }
-                    // SUCCESS CASE
-                    self.emit(st, Line::Label(final_element_success_label));
-                    self.emit(st, Instr::PushBool(true));
-                    self.emit(st, Instr::Jump(end_label.clone()));
-
-                    // FAILURE CASE
-                    // clean up the remaining tuple elements before yielding false
-                    self.emit(st, Line::Label(failure_labels[0].clone()));
-                    for (i, label) in failure_labels[1..].iter().enumerate() {
-                        if SolvedType::Void != types[i + 1] {
-                            self.emit(st, Instr::Pop);
-                        }
-                        self.emit(st, Line::Label(label.clone()));
-                    }
-                    self.emit(st, Instr::PushBool(false));
-
-                    self.emit(st, Line::Label(end_label));
+                    self.translate_product_pat_comparison(types, pats, st, mono, or_pat_decisions);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -2057,6 +2035,81 @@ impl Translator {
             SolvedType::Poly(_) => unreachable!(),
             Type::InterfaceOutput(_) => unreachable!(),
         }
+    }
+
+    fn translate_product_pat_comparison(
+        &self,
+        types: &[Type],
+        pats: &[Rc<Pat>],
+        st: &mut TranslatorState,
+        mono: &MonomorphEnv,
+        or_pat_decisions: &mut HashSet<NodeId>,
+    ) {
+        // a product with no fields can only match
+        if pats.is_empty() {
+            self.emit(st, Instr::Pop);
+            self.emit(st, Instr::PushBool(true));
+            return;
+        }
+        let final_element_success_label = make_label("tuple_success");
+        let end_label = make_label("endtuple");
+        // spill tuple elements onto stack
+        self.emit(st, Instr::DeconstructStruct);
+        // for each element of tuple pattern, compare to TOS
+        // if the comparison fails, pop all remaining tuple elements and jump to the next arm
+        // if it makes it through each tuple element, jump to the arm's expression
+        let failure_labels = (0..pats.len())
+            .map(|_| make_label("tuple_fail"))
+            .collect::<Vec<_>>();
+        for (i, pat) in pats.iter().enumerate() {
+            let ty = &types[i];
+            self.translate_pat_comparison(ty, pat, st, mono, or_pat_decisions);
+            let is_last = i == pats.len() - 1;
+            self.emit(st, Instr::JumpIfFalse(failure_labels[i].clone()));
+            // SUCCESS
+            if is_last {
+                self.emit(st, Instr::Jump(final_element_success_label.clone()));
+            }
+        }
+        // SUCCESS CASE
+        self.emit(st, Line::Label(final_element_success_label));
+        self.emit(st, Instr::PushBool(true));
+        self.emit(st, Instr::Jump(end_label.clone()));
+
+        // FAILURE CASE
+        // clean up the remaining tuple elements before yielding false
+        self.emit(st, Line::Label(failure_labels[0].clone()));
+        for (i, label) in failure_labels[1..].iter().enumerate() {
+            if SolvedType::Void != types[i + 1] {
+                self.emit(st, Instr::Pop);
+            }
+            self.emit(st, Line::Label(label.clone()));
+        }
+        self.emit(st, Instr::PushBool(false));
+
+        self.emit(st, Line::Label(end_label));
+    }
+
+    fn struct_pat_fields_in_order(
+        &self,
+        name: &Rc<Identifier>,
+        field_pats: &[(Rc<Identifier>, Rc<Pat>)],
+    ) -> Vec<Rc<Pat>> {
+        let Declaration::Struct(struct_def) = &self.statics.resolution_map[&name.id] else {
+            panic!("expected struct pattern name to resolve to a struct");
+        };
+        struct_def
+            .fields
+            .iter()
+            .map(|field_def| {
+                field_pats
+                    .iter()
+                    .find(|(n, _)| n.v == field_def.name.v)
+                    .unwrap()
+                    .1
+                    .clone()
+            })
+            .collect()
     }
 
     fn translate_stmt(
@@ -2529,6 +2582,11 @@ impl Translator {
                     self.traverse_arm_pat(pat, mono, or_pat_decisions, went_left);
                 }
             }
+            PatKind::Struct(name, field_pats) => {
+                for pat in self.struct_pat_fields_in_order(name, field_pats) {
+                    self.traverse_arm_pat(&pat, mono, or_pat_decisions, went_left);
+                }
+            }
             PatKind::Variant(_prefixes, _, inner) => {
                 if let Some(inner) = inner {
                     let pat_ty = self.get_ty(mono, pat.node()).unwrap();
@@ -2587,6 +2645,12 @@ impl Translator {
                     self.handle_pat_binding(pat, locals, st, mono, or_pat_decisions);
                 }
             }
+            PatKind::Struct(name, field_pats) => {
+                self.emit(st, Instr::DeconstructStruct);
+                for pat in self.struct_pat_fields_in_order(name, field_pats) {
+                    self.handle_pat_binding(&pat, locals, st, mono, or_pat_decisions);
+                }
+            }
             PatKind::Variant(_prefixes, _, inner) => {
                 let mut void_case = || {
                     self.emit(st, Instr::Pop);
@@ -2619,11 +2683,13 @@ impl Translator {
             PatKind::Void => {
                 // noop
             }
-            PatKind::Bool(..)
-            | PatKind::Int(..)
-            | PatKind::Float(..)
-            | PatKind::Str(..)
-            | PatKind::Wildcard => {
+            PatKind::Wildcard => {
+                let pat_ty = self.get_ty(mono, pat.node()).unwrap();
+                if pat_ty != SolvedType::Void {
+                    self.emit(st, Instr::Pop);
+                }
+            }
+            PatKind::Bool(..) | PatKind::Int(..) | PatKind::Float(..) | PatKind::Str(..) => {
                 self.emit(st, Instr::Pop);
             }
         }
@@ -2763,6 +2829,11 @@ impl Translator {
             }
             PatKind::Tuple(pats) => {
                 for pat in pats {
+                    self.collect_locals_pat(pat, locals, mono);
+                }
+            }
+            PatKind::Struct(_, field_pats) => {
+                for (_, pat) in field_pats {
                     self.collect_locals_pat(pat, locals, mono);
                 }
             }

@@ -684,6 +684,7 @@ pub(crate) enum PatKind {
     Bool(bool),
     Str(String),
     Tuple(Vec<Rc<Pat>>),
+    Struct(Rc<Identifier>, Vec<(Rc<Identifier>, Rc<Pat>)>),
     Or(Rc<Pat>, Rc<Pat>),
 }
 
