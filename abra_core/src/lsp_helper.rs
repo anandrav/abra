@@ -2,7 +2,7 @@
 
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Item, ItemKind, Pat, PatKind,
-    PatVariantData, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    PatStructFields, PatVariantData, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::{
     CompletionCandidate, CompletionCandidateKind, DefinitionInfo, FileId, LspAnalysisResult, ast,
@@ -826,10 +826,14 @@ fn find_ident_in_pat(pat: &Rc<Pat>, offset: usize) -> Option<AstNode> {
             if name.loc.contains_offset(offset) {
                 return Some(name.node());
             }
-            for (field_name, p) in fields {
-                if field_name.loc.contains_offset(offset) {
-                    return Some(field_name.node());
+            if let PatStructFields::Named(named) = fields {
+                for (field_name, _) in named {
+                    if field_name.loc.contains_offset(offset) {
+                        return Some(field_name.node());
+                    }
                 }
+            }
+            for p in fields.subpats() {
                 if let Some(node) = find_ident_in_pat(p, offset) {
                     return Some(node);
                 }
@@ -999,7 +1003,7 @@ fn collect_bindings_in_pat(pat: &Rc<Pat>, name: &str, out: &mut Vec<AstNode>) {
             }
         }
         PatKind::Struct(_, fields) => {
-            for (_, p) in fields {
+            for p in fields.subpats() {
                 collect_bindings_in_pat(p, name, out);
             }
         }

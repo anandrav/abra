@@ -69,7 +69,7 @@ At a call site, named arguments may appear in any order, but must come after any
 
 A variant's fields must be either all named or all unnamed — you can't mix the two within a single variant.
 
-When a variant's fields are named, patterns must match them by name too, using the same `=` syntax. Every field must be mentioned, in any order — use `_` to ignore a field's value:
+When a variant's fields are named, patterns can match them by name too, using the same `=` syntax. Named fields may appear in any order, but every field must be mentioned — use `_` to ignore a field's value. Use the names for all of the fields or none of them:
 
 ```
 match c {

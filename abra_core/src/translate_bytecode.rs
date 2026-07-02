@@ -7,7 +7,7 @@ use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_co
 use crate::ast::ForeignCallPolicy;
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDecl, FuncDef, Identifier,
-    InterfaceDef, ItemKind, PatVariantData,
+    InterfaceDef, ItemKind, PatStructFields, PatVariantData,
 };
 use crate::ast::{FileAst, NodeId};
 use crate::environment::Environment;
@@ -2127,23 +2127,29 @@ impl Translator {
     fn struct_pat_fields_in_order(
         &self,
         name: &Rc<Identifier>,
-        field_pats: &[(Rc<Identifier>, Rc<Pat>)],
+        field_pats: &PatStructFields,
     ) -> Vec<Rc<Pat>> {
-        let Declaration::Struct(struct_def) = &self.statics.resolution_map[&name.id] else {
-            panic!("expected struct pattern name to resolve to a struct");
-        };
-        struct_def
-            .fields
-            .iter()
-            .map(|field_def| {
-                field_pats
+        match field_pats {
+            // positional fields are already in declaration order
+            PatStructFields::Positional(pats) => pats.clone(),
+            PatStructFields::Named(named) => {
+                let Declaration::Struct(struct_def) = &self.statics.resolution_map[&name.id] else {
+                    panic!("expected struct pattern name to resolve to a struct");
+                };
+                struct_def
+                    .fields
                     .iter()
-                    .find(|(n, _)| n.v == field_def.name.v)
-                    .unwrap()
-                    .1
-                    .clone()
-            })
-            .collect()
+                    .map(|field_def| {
+                        named
+                            .iter()
+                            .find(|(n, _)| n.v == field_def.name.v)
+                            .unwrap()
+                            .1
+                            .clone()
+                    })
+                    .collect()
+            }
+        }
     }
 
     // subpatterns of a variant pattern with named fields, ordered by the variant's
@@ -2920,7 +2926,7 @@ impl Translator {
                 }
             }
             PatKind::Struct(_, field_pats) => {
-                for (_, pat) in field_pats {
+                for pat in field_pats.subpats() {
                     self.collect_locals_pat(pat, locals, mono);
                 }
             }

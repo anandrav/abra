@@ -2674,7 +2674,7 @@ match p {
 }
 
 #[test]
-fn match_struct_positional_fields_fails() {
+fn match_struct_positional_fields() {
     let src = r#"
 type Point = {
     x: int
@@ -2682,10 +2682,54 @@ type Point = {
 }
 let p = Point(3, 4)
 match p {
-    Point(a, b) -> a + b
+    Point(0, 0) -> 0
+    Point(a, b) -> a * 10 + b
+}
+"#;
+    expect_value(src, 34);
+}
+
+#[test]
+fn match_struct_positional_wrong_count_fails() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(a) -> a
 }
 "#;
     should_fail(src);
+}
+
+#[test]
+fn match_struct_mixed_named_positional_fails() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let p = Point(3, 4)
+match p {
+    Point(x = a, b) -> a + b
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn let_struct_destructure_positional() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+let Point(a, b) = Point(3, 4)
+a * 10 + b
+"#;
+    expect_value(src, 34);
 }
 
 #[test]
@@ -2814,31 +2858,45 @@ match s {
 }
 
 #[test]
-fn match_variant_positional_on_named_fields_fails() {
+fn match_variant_positional_on_named_fields() {
     let src = r#"
 type Color =
   | Rgb(red: int, green: int, blue: int)
 
 let c = Color.Rgb(red = 1, green = 2, blue = 3)
 match c {
-    .Rgb(r, g, b) -> r + g + b
+    .Rgb(r, g, b) -> r * 100 + g * 10 + b
+}
+"#;
+    expect_value(src, 123);
+}
+
+#[test]
+fn match_variant_mixed_named_positional_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(red = r, g, b) -> r + g + b
 }
 "#;
     should_fail(src);
 }
 
 #[test]
-fn match_variant_positional_on_named_fields_qualified_fails() {
+fn match_variant_positional_on_named_fields_qualified() {
     let src = r#"
 type Color =
   | Rgb(red: int, green: int, blue: int)
 
 let c = Color.Rgb(red = 1, green = 2, blue = 3)
 match c {
-    Color.Rgb(r, g, b) -> r + g + b
+    Color.Rgb(r, g, b) -> r * 100 + g * 10 + b
 }
 "#;
-    should_fail(src);
+    expect_value(src, 123);
 }
 
 #[test]
@@ -2898,15 +2956,18 @@ match s {
 }
 
 #[test]
-fn match_variant_named_fields_wildcard_payload_fails() {
+fn match_variant_named_fields_bind_whole_payload() {
     let src = r#"
 type Color =
   | Rgb(red: int, green: int, blue: int)
 
 let c = Color.Rgb(red = 1, green = 2, blue = 3)
 match c {
-    .Rgb(rgb) -> 1
+    .Rgb(rgb) -> {
+        let (r, g, b) = rgb
+        r * 100 + g * 10 + b
+    }
 }
 "#;
-    should_fail(src);
+    expect_value(src, 123);
 }

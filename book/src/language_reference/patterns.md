@@ -89,7 +89,7 @@ fn area(s: Shape) -> float {
 
 `.Circle(r)` says "if `s` is a `Circle`, run this branch — and let me call its inner float `r`".
 
-If a variant's fields are named, the pattern must name them too, just like [struct patterns](#pull-structs-apart):
+If a variant's fields are named, the pattern can name them too, just like [struct patterns](#pull-structs-apart) — use the names for all of the fields or none of them:
 
 ```
 type Color =
@@ -144,7 +144,7 @@ for pair in pairs {
 
 ### Pull structs apart
 
-Struct patterns destructure a struct by naming each of its fields:
+Struct patterns destructure a struct by matching each of its fields. Naming the fields makes each arm explicit:
 
 ```
 type Point = {
@@ -160,7 +160,16 @@ match point {
 }
 ```
 
-Every field must be mentioned by name — there are no positional struct patterns. This is deliberate: if you add a field to a struct or reorder its fields, the compiler points at every pattern that needs updating instead of silently binding the wrong values. Use `_` when you don't care about a field's value:
+Fields can also be matched positionally, in declaration order, which is convenient for small structs:
+
+```
+match point {
+    Point(0, 0) -> "at the origin"
+    Point(x, y) -> "somewhere at (" .. x .. ", " .. y .. ")"
+}
+```
+
+Either way, every field must be matched — use `_` when you don't care about a field's value. Use the names for all of the fields or none of them; mixing the two in one pattern is an error. Named fields may be listed in any order, and are the safer choice for structs with many fields: if you reorder a struct's fields, patterns that name them keep working instead of silently binding the wrong values.
 
 ```
 match person {
@@ -169,9 +178,10 @@ match person {
 }
 ```
 
-Fields may be listed in any order, and struct patterns work in `let` too:
+Struct patterns work in `let` too:
 
 ```
+let Point(a, b) = get_position()
 let Point(x = a, y = b) = get_position()
 ```
 

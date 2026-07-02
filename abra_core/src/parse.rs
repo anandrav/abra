@@ -1469,19 +1469,23 @@ impl Parser {
                 let ident = self.expect_ident()?;
                 if self.current_token().tag() == TokenTag::OpenParen {
                     // `.my_enum_variant(`
-                    // `field =` after the paren means the variant's fields are matched by name
-                    let data = if matches!(self.peek_token(1).kind, TokenKind::Ident(_))
-                        && self.peek_token(2).tag() == TokenTag::Eq
-                    {
-                        self.consume_token();
-                        let fields = self.parse_delimited_list(
-                            TokenTag::CloseParen,
-                            TokenTag::Comma,
-                            Self::parse_struct_pattern_field,
-                        )?;
-                        PatVariantData::Named(fields)
-                    } else {
-                        PatVariantData::Positional(self.parse_match_pattern()?)
+                    let paren_lo = self.current_token().span.lo;
+                    let data = match self.parse_pat_fields()? {
+                        ParsedPatFields::Named(fields) => PatVariantData::Named(fields),
+                        ParsedPatFields::Positional(pats) => {
+                            if pats.is_empty() {
+                                return Err(Error::EmptyParentheses(self.location(paren_lo)).into());
+                            } else if pats.len() == 1 {
+                                // parenthesized pattern
+                                PatVariantData::Positional(pats[0].clone())
+                            } else {
+                                PatVariantData::Positional(Rc::new(Pat {
+                                    kind: Rc::new(PatKind::Tuple(pats)),
+                                    loc: self.location(paren_lo),
+                                    id: NodeId::new(),
+                                }))
+                            }
+                        }
                     };
                     Pat {
                         kind: PatKind::Variant(prefixes, ident, Some(data)).into(),
@@ -1514,14 +1518,14 @@ impl Parser {
         Ok(ret)
     }
 
+    // parses `Name(pat1, pat2, ...)` or `Name(field1 = pat1, field2 = pat2, ...)`
+    // fields are matched either all positionally or all by name
     fn parse_struct_pattern(&mut self, lo: usize) -> Result<Pat, Box<Error>> {
         let name = self.expect_ident()?;
-        self.expect_token(TokenTag::OpenParen);
-        let fields = self.parse_delimited_list(
-            TokenTag::CloseParen,
-            TokenTag::Comma,
-            Self::parse_struct_pattern_field,
-        )?;
+        let fields = match self.parse_pat_fields()? {
+            ParsedPatFields::Positional(pats) => PatStructFields::Positional(pats),
+            ParsedPatFields::Named(fields) => PatStructFields::Named(fields),
+        };
         Ok(Pat {
             kind: Rc::new(PatKind::Struct(name, fields)),
             loc: self.location(lo),
@@ -1529,26 +1533,50 @@ impl Parser {
         })
     }
 
-    fn parse_struct_pattern_field(&mut self) -> Result<(Rc<Identifier>, Rc<Pat>), Box<Error>> {
-        self.skip_newlines();
-        let field_loc = self.current_token_location();
-        let not_named_error = || {
+    // parses a parenthesized, comma-separated list of subpatterns, where each
+    // subpattern may be prefixed with a field name: `field = pat`.
+    // Field names must be used for all of the subpatterns or none of them.
+    fn parse_pat_fields(&mut self) -> Result<ParsedPatFields, Box<Error>> {
+        let lo = self.current_token().span.lo;
+        self.expect_token(TokenTag::OpenParen);
+        let elems = self.parse_delimited_list(
+            TokenTag::CloseParen,
+            TokenTag::Comma,
+            Self::parse_pat_field,
+        )?;
+        let named_count = elems.iter().filter(|(name, _)| name.is_some()).count();
+        if named_count == 0 {
+            Ok(ParsedPatFields::Positional(
+                elems.into_iter().map(|(_, pat)| pat).collect(),
+            ))
+        } else if named_count == elems.len() {
+            Ok(ParsedPatFields::Named(
+                elems
+                    .into_iter()
+                    .map(|(name, pat)| (name.unwrap(), pat))
+                    .collect(),
+            ))
+        } else {
             Err(Error::ProblematicToken(
-                "Struct patterns require field names, e.g. `Point(x = a, y = b)`".into(),
-                field_loc.clone(),
+                "Fields must be matched by name for all of the fields, or none of them".into(),
+                self.location(lo),
             )
             .into())
-        };
-        if !matches!(self.current_token().kind, TokenKind::Ident(_)) {
-            return not_named_error();
         }
-        let name = self.expect_ident()?;
-        if self.current_token().tag() != TokenTag::Eq {
-            return not_named_error();
+    }
+
+    fn parse_pat_field(&mut self) -> Result<ParsedPatField, Box<Error>> {
+        self.skip_newlines();
+        if matches!(self.current_token().kind, TokenKind::Ident(_))
+            && self.peek_token(1).tag() == TokenTag::Eq
+        {
+            let name = self.expect_ident()?;
+            self.consume_token(); // =
+            let pat = self.parse_match_pattern()?;
+            Ok((Some(name), pat))
+        } else {
+            Ok((None, self.parse_match_pattern()?))
         }
-        self.consume_token();
-        let pat = self.parse_match_pattern()?;
-        Ok((name, pat))
     }
 
     fn handle_postfix_pat(
@@ -1950,3 +1978,12 @@ impl PostfixOp {
 enum PostfixOpPat {
     Or,
 }
+
+// a parenthesized list of subpatterns, either all positional or all named
+enum ParsedPatFields {
+    Positional(Vec<Rc<Pat>>),
+    Named(Vec<(Rc<Identifier>, Rc<Pat>)>),
+}
+
+// a single subpattern, optionally prefixed with a field name: `field = pat`
+type ParsedPatField = (Option<Rc<Identifier>>, Rc<Pat>);

@@ -8,8 +8,8 @@ use super::{
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
-    ImportKind, InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, PatVariantData, Polytype, Stmt,
-    StmtKind, Type, TypeDefKind, TypeKind,
+    ImportKind, InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, PatStructFields,
+    PatVariantData, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 #[cfg(feature = "ffi")]
 use crate::foreign_bindings::make_foreign_func_name;
@@ -1400,58 +1400,76 @@ fn resolve_names_pat(
                     ctx.resolution_map
                         .insert(name.id, Declaration::Struct(struct_def.clone()));
 
-                    let mut seen: HashSet<String> = HashSet::default();
-                    for (field_name, _) in fields {
-                        match struct_def
-                            .fields
-                            .iter()
-                            .position(|f| f.name.v == field_name.v)
-                        {
-                            Some(idx) => {
-                                ctx.resolution_map.insert(
-                                    field_name.id,
-                                    Declaration::StructField {
-                                        s: struct_def.clone(),
-                                        field: idx,
-                                    },
-                                );
-                                if !seen.insert(field_name.v.clone()) {
-                                    ctx.errors.push(Error::GenericWithNode {
-                                        msg: format!(
-                                            "Duplicate field `{}` in struct pattern",
-                                            field_name.v
-                                        ),
-                                        node: field_name.node(),
-                                    });
+                    match fields {
+                        PatStructFields::Named(fields) => {
+                            let mut seen: HashSet<String> = HashSet::default();
+                            for (field_name, _) in fields {
+                                match struct_def
+                                    .fields
+                                    .iter()
+                                    .position(|f| f.name.v == field_name.v)
+                                {
+                                    Some(idx) => {
+                                        ctx.resolution_map.insert(
+                                            field_name.id,
+                                            Declaration::StructField {
+                                                s: struct_def.clone(),
+                                                field: idx,
+                                            },
+                                        );
+                                        if !seen.insert(field_name.v.clone()) {
+                                            ctx.errors.push(Error::GenericWithNode {
+                                                msg: format!(
+                                                    "Duplicate field `{}` in struct pattern",
+                                                    field_name.v
+                                                ),
+                                                node: field_name.node(),
+                                            });
+                                        }
+                                    }
+                                    None => {
+                                        ctx.errors.push(Error::GenericWithNode {
+                                            msg: format!(
+                                                "Struct `{}` has no field named `{}`",
+                                                name.v, field_name.v
+                                            ),
+                                            node: field_name.node(),
+                                        });
+                                    }
                                 }
                             }
-                            None => {
+
+                            let missing: Vec<String> = struct_def
+                                .fields
+                                .iter()
+                                .filter(|f| !fields.iter().any(|(n, _)| n.v == f.name.v))
+                                .map(|f| format!("`{}`", f.name.v))
+                                .collect();
+                            if !missing.is_empty() {
                                 ctx.errors.push(Error::GenericWithNode {
                                     msg: format!(
-                                        "Struct `{}` has no field named `{}`",
-                                        name.v, field_name.v
+                                        "Struct pattern for `{}` is missing field(s) {}. Every field must be matched; use `_` to ignore a field's value",
+                                        name.v,
+                                        missing.join(", ")
                                     ),
-                                    node: field_name.node(),
+                                    node: pat.node(),
                                 });
                             }
                         }
-                    }
-
-                    let missing: Vec<String> = struct_def
-                        .fields
-                        .iter()
-                        .filter(|f| !fields.iter().any(|(n, _)| n.v == f.name.v))
-                        .map(|f| format!("`{}`", f.name.v))
-                        .collect();
-                    if !missing.is_empty() {
-                        ctx.errors.push(Error::GenericWithNode {
-                            msg: format!(
-                                "Struct pattern for `{}` is missing field(s) {}. Every field must be matched by name; use `_` to ignore a field's value",
-                                name.v,
-                                missing.join(", ")
-                            ),
-                            node: pat.node(),
-                        });
+                        PatStructFields::Positional(pats) => {
+                            if pats.len() != struct_def.fields.len() {
+                                ctx.errors.push(Error::GenericWithNode {
+                                    msg: format!(
+                                        "Struct pattern for `{}` has {} field(s), but `{}` has {}",
+                                        name.v,
+                                        pats.len(),
+                                        name.v,
+                                        struct_def.fields.len()
+                                    ),
+                                    node: pat.node(),
+                                });
+                            }
+                        }
                     }
                 }
                 Some(_) => {
@@ -1465,7 +1483,7 @@ fn resolve_names_pat(
                         .push(Error::UnresolvedIdentifier { node: name.node() });
                 }
             }
-            for (_, subpat) in fields {
+            for subpat in fields.subpats() {
                 resolve_names_pat(ctx, symbol_table, subpat, pat_can_extend_symbol_table);
             }
         }
@@ -1521,7 +1539,7 @@ fn record_bindings_introduced(pat: &Rc<Pat>, required_bindings: &mut HashSet<Str
             }
         }
         PatKind::Struct(_, fields) => {
-            for (_, pat) in fields {
+            for pat in fields.subpats() {
                 record_bindings_introduced(pat, required_bindings);
             }
         }
@@ -1560,7 +1578,7 @@ fn gather_required_bindings(pat: &Rc<Pat>, required_bindings: &mut HashSet<Strin
             }
         }
         PatKind::Struct(_, fields) => {
-            for (_, pat) in fields {
+            for pat in fields.subpats() {
                 gather_required_bindings(pat, required_bindings);
             }
         }
@@ -1605,7 +1623,7 @@ fn record_pat_mutability(ctx: &mut StaticsContext, pat: &Rc<Pat>, is_mutable: bo
             }
         }
         PatKind::Struct(_, fields) => {
-            for (_, pat) in fields {
+            for pat in fields.subpats() {
                 record_pat_mutability(ctx, pat, is_mutable)
             }
         }

@@ -675,10 +675,27 @@ impl Pat {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum PatVariantData {
-    // data of a variant with unnamed fields, e.g. .Circle(r) or .Rectangle(w, h)
+    // fields matched positionally, e.g. .Circle(r) or .Rectangle(w, h)
     Positional(Rc<Pat>),
-    // data of a variant with named fields, e.g. .Rgb(red = r, green = g, blue = b)
+    // fields matched by name, e.g. .Rgb(red = r, green = g, blue = b)
     Named(Vec<(Rc<Identifier>, Rc<Pat>)>),
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) enum PatStructFields {
+    // fields matched positionally in declaration order, e.g. Point(a, b)
+    Positional(Vec<Rc<Pat>>),
+    // fields matched by name in any order, e.g. Point(x = a, y = b)
+    Named(Vec<(Rc<Identifier>, Rc<Pat>)>),
+}
+
+impl PatStructFields {
+    pub(crate) fn subpats(&self) -> Box<dyn Iterator<Item = &Rc<Pat>> + '_> {
+        match self {
+            PatStructFields::Positional(pats) => Box::new(pats.iter()),
+            PatStructFields::Named(fields) => Box::new(fields.iter().map(|(_, pat)| pat)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -692,7 +709,9 @@ pub(crate) enum PatKind {
     Bool(bool),
     Str(String),
     Tuple(Vec<Rc<Pat>>),
-    Struct(Rc<Identifier>, Vec<(Rc<Identifier>, Rc<Pat>)>),
+    // struct patterns match every field, either all positionally or all by name,
+    // e.g. Point(a, b) or Point(x = a, y = b)
+    Struct(Rc<Identifier>, PatStructFields),
     Or(Rc<Pat>, Rc<Pat>),
 }
 

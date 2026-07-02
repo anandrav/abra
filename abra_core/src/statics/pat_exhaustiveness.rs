@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, PatVariantData, Stmt,
-    StmtKind, StructDef,
+    AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, PatStructFields,
+    PatVariantData, Stmt, StmtKind, StructDef,
 };
 
 use core::panic;
@@ -430,17 +430,25 @@ impl DeconstructedPat {
                 else {
                     panic!()
                 };
-                fields = struct_def
-                    .fields
-                    .iter()
-                    .map(|field_def| {
-                        let (_, pat) = field_pats
-                            .iter()
-                            .find(|(n, _)| n.v == field_def.name.v)
-                            .unwrap();
-                        DeconstructedPat::from_ast_pat(statics, pat)
-                    })
-                    .collect();
+                fields = match field_pats {
+                    // positional fields are already in declaration order
+                    PatStructFields::Positional(pats) => pats
+                        .iter()
+                        .map(|pat| DeconstructedPat::from_ast_pat(statics, pat))
+                        .collect(),
+                    // matrix columns are positional, so order named subpatterns
+                    // by the struct's field declaration order. Resolution already
+                    // guaranteed that every field is present exactly once.
+                    PatStructFields::Named(named) => struct_def
+                        .fields
+                        .iter()
+                        .map(|field_def| {
+                            let (_, pat) =
+                                named.iter().find(|(n, _)| n.v == field_def.name.v).unwrap();
+                            DeconstructedPat::from_ast_pat(statics, pat)
+                        })
+                        .collect(),
+                };
                 Constructor::Product
             }
             PatKind::Variant(_prefixes, ident, data) => {

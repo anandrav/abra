@@ -7,8 +7,8 @@ use super::{
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncCallArg, Identifier,
-    Interface, InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, PatVariantData, Stmt,
-    StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    Interface, InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, PatStructFields,
+    PatVariantData, Stmt, StmtKind, StructField, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::environment::Environment;
@@ -3764,8 +3764,6 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(prefixes, tag, data) => {
-            // for positional data, the type of the data node.
-            // named fields don't have a single data node; they are constrained per-field
             let ty_data = match data {
                 Some(PatVariantData::Positional(data)) => {
                     Some(TypeVar::from_node(ctx, data.node()))
@@ -3801,8 +3799,6 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                             &substitution,
                         );
                     } else {
-                        error_if_variant_requires_named_fields(ctx, pat, tag, &enum_def, variant);
-
                         let variant_def = &enum_def.variants[variant];
                         // TODO: duplicated
                         let variant_data_ty = match &variant_def.fields.len() {
@@ -3873,8 +3869,6 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                             &substitution,
                         );
                     } else {
-                        error_if_variant_requires_named_fields(ctx, pat, tag, &enum_def, idx);
-
                         let variant_def = &enum_def.variants[idx];
                         // TODO: duplicated
                         let variant_data_ty = match &variant_def.fields.len() {
@@ -3968,23 +3962,39 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                     None
                 };
 
-                for (field_name, field_pat) in fields {
-                    match struct_def.fields.iter().find(|f| f.name.v == field_name.v) {
-                        Some(field_def) => {
-                            let field_ty = field_def.ty.to_typevar(ctx);
-                            let field_ty = match &expected_subst {
-                                Some(subst) => field_ty.subst(subst),
-                                None => field_ty.subst(&substitution),
-                            };
-                            generate_constraints_pat(ctx, Mode::ana(field_ty), field_pat);
+                let constrain_field =
+                    |ctx: &mut StaticsContext, field_def: &Rc<StructField>, field_pat: &Rc<Pat>| {
+                        let field_ty = field_def.ty.to_typevar(ctx);
+                        let field_ty = match &expected_subst {
+                            Some(subst) => field_ty.subst(subst),
+                            None => field_ty.subst(&substitution),
+                        };
+                        generate_constraints_pat(ctx, Mode::ana(field_ty), field_pat);
+                    };
+
+                match fields {
+                    PatStructFields::Named(fields) => {
+                        for (field_name, field_pat) in fields {
+                            match struct_def.fields.iter().find(|f| f.name.v == field_name.v) {
+                                Some(field_def) => constrain_field(ctx, field_def, field_pat),
+                                // unknown field; an error was already logged during resolution
+                                None => generate_constraints_pat(ctx, Mode::Syn, field_pat),
+                            }
                         }
-                        // unknown field; an error was already logged during resolution
-                        None => generate_constraints_pat(ctx, Mode::Syn, field_pat),
+                    }
+                    PatStructFields::Positional(pats) => {
+                        for (i, field_pat) in pats.iter().enumerate() {
+                            match struct_def.fields.get(i) {
+                                Some(field_def) => constrain_field(ctx, field_def, field_pat),
+                                // extra field; an error was already logged during resolution
+                                None => generate_constraints_pat(ctx, Mode::Syn, field_pat),
+                            }
+                        }
                     }
                 }
             } else {
                 ty_pat.set_flag_missing_info();
-                for (_, field_pat) in fields {
+                for field_pat in fields.subpats() {
                     generate_constraints_pat(ctx, Mode::Syn, field_pat);
                 }
             }
@@ -4019,43 +4029,6 @@ fn generate_constraints_pat_ana_variant_data(
     // then expected_data_ty = FsError by substitution
     let expected_data_ty = data_ty.subst(&subst);
     generate_constraints_pat(ctx, Mode::ana(expected_data_ty), data);
-}
-
-// if the variant's fields are named, they must be matched by name, e.g. `.Rgb(red = r, green = g, blue = b)`
-fn error_if_variant_requires_named_fields(
-    ctx: &mut StaticsContext,
-    pat: &Rc<Pat>,
-    tag: &Rc<Identifier>,
-    enum_def: &Rc<EnumDef>,
-    variant_idx: usize,
-) {
-    let variant_def = &enum_def.variants[variant_idx];
-    if !matches!(
-        &*pat.kind,
-        PatKind::Variant(_, _, Some(PatVariantData::Positional(_)))
-    ) {
-        return;
-    }
-    if variant_def
-        .fields
-        .first()
-        .is_some_and(|field| field.name.is_some())
-    {
-        let example = variant_def
-            .fields
-            .iter()
-            .filter_map(|field| field.name.as_ref())
-            .map(|name| format!("{} = ...", name.v))
-            .collect::<Vec<_>>()
-            .join(", ");
-        ctx.errors.push(Error::GenericWithNode {
-            msg: format!(
-                "The fields of variant `{}` are named and must be matched by name, e.g. `.{}({})`",
-                tag.v, tag.v, example
-            ),
-            node: pat.node(),
-        });
-    }
 }
 
 // generate constraints for the named fields of a variant pattern, e.g. `.Rgb(red = r, green = g, blue = b)`.

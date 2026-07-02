@@ -79,14 +79,15 @@ See [Generics](./generics.md) for more.
 
 ### Pattern matching
 
-Structs can be destructured with patterns, in `match` and `let`. Every field must be named — see [Patterns](./patterns.md) for details:
+Structs can be destructured with patterns, in `match` and `let`. Every field must be matched, either all positionally (in declaration order) or all by name — see [Patterns](./patterns.md) for details:
 
 ```
 match p {
-    Point(x = 0, y = 0) -> "origin"
+    Point(0, 0) -> "origin"
     Point(x = a, y = b) -> "(" .. a .. ", " .. b .. ")"
 }
 
+let Point(a, b) = p
 let Point(x = a, y = b) = p
 ```
 
