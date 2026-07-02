@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-26f67b64.js";
+            window.path_to_searchindex_js = "../searchindex-02ea6d78.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -241,6 +241,16 @@ fn area(s: Shape) -&gt; float {
 }
 </code></pre>
 <p><code>.Circle(r)</code> says “if <code>s</code> is a <code>Circle</code>, run this branch — and let me call its inner float <code>r</code>”.</p>
+<p>If a variant’s fields are named, the pattern can name them too, just like <a href="#pull-structs-apart">struct patterns</a> — use the names for all of the fields or none of them:</p>
+<pre><code>type Color =
+    | Rgb(red: int, green: int, blue: int)
+    | Named(string)
+
+match c {
+    .Rgb(red = r, green = g, blue = b) -&gt; "rgb(" .. r .. "," .. g .. "," .. b .. ")"
+    .Named(name) -&gt; name
+}
+</code></pre>
 <p>This is the most common use of patterns. It’s how you handle <code>option</code> and <code>result</code>:</p>
 <pre><code>match read("config.txt") {
     .ok(text) -&gt; println(text)
@@ -272,7 +282,7 @@ for pair in pairs {
 }
 </code></pre>
 <h3 id="pull-structs-apart"><a class="header" href="#pull-structs-apart">Pull structs apart</a></h3>
-<p>Struct patterns destructure a struct by naming each of its fields:</p>
+<p>Struct patterns destructure a struct by matching each of its fields. Naming the fields makes each arm explicit:</p>
 <pre><code>type Point = {
     x: int
     y: int
@@ -285,14 +295,21 @@ match point {
     Point(x = x, y = y) -&gt; "somewhere at (" .. x .. ", " .. y .. ")"
 }
 </code></pre>
-<p>Every field must be mentioned by name — there are no positional struct patterns. This is deliberate: if you add a field to a struct or reorder its fields, the compiler points at every pattern that needs updating instead of silently binding the wrong values. Use <code>_</code> when you don’t care about a field’s value:</p>
+<p>Fields can also be matched positionally, in declaration order, which is convenient for small structs:</p>
+<pre><code>match point {
+    Point(0, 0) -&gt; "at the origin"
+    Point(x, y) -&gt; "somewhere at (" .. x .. ", " .. y .. ")"
+}
+</code></pre>
+<p>Either way, every field must be matched — use <code>_</code> when you don’t care about a field’s value. Use the names for all of the fields or none of them; mixing the two in one pattern is an error. Named fields may be listed in any order, and are the safer choice for structs with many fields: if you reorder a struct’s fields, patterns that name them keep working instead of silently binding the wrong values.</p>
 <pre><code>match person {
     Person(name = "Alice", age = _) -&gt; "hi, Alice!"
     Person(name = n, age = _) -&gt; "hello, " .. n
 }
 </code></pre>
-<p>Fields may be listed in any order, and struct patterns work in <code>let</code> too:</p>
-<pre><code>let Point(x = a, y = b) = get_position()
+<p>Struct patterns work in <code>let</code> too:</p>
+<pre><code>let Point(a, b) = get_position()
+let Point(x = a, y = b) = get_position()
 </code></pre>
 <h3 id="combine-patterns-inside-other-patterns"><a class="header" href="#combine-patterns-inside-other-patterns">Combine patterns inside other patterns</a></h3>
 <p>Patterns nest. You can put a variant pattern inside a tuple pattern, a tuple pattern inside a variant pattern, and so on. This is useful when you want to handle several pieces of state together:</p>

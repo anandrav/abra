@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-26f67b64.js";
+            window.path_to_searchindex_js = "../searchindex-02ea6d78.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -224,6 +224,13 @@ let teal   = Color.Rgb(green = 128, blue = 128)
 </code></pre>
 <p>At a call site, named arguments may appear in any order, but must come after any positional ones. If every field has a default, you can call the constructor with no arguments at all (<code>Color.Rgb()</code>).</p>
 <p>A variant’s fields must be either all named or all unnamed — you can’t mix the two within a single variant.</p>
+<p>When a variant’s fields are named, patterns can match them by name too, using the same <code>=</code> syntax. Named fields may appear in any order, but every field must be mentioned — use <code>_</code> to ignore a field’s value. Use the names for all of the fields or none of them:</p>
+<pre><code>match c {
+    .Rgb(red = 255, green = 0, blue = 0) -&gt; "pure red"
+    .Rgb(red = r, green = _, blue = _) -&gt; "red component is " .. r
+    .Named(name) -&gt; name
+}
+</code></pre>
 <h3 id="handling-all-the-variants"><a class="header" href="#handling-all-the-variants">Handling all the variants</a></h3>
 <p>Use <code>match</code> to do something different for each case. The compiler checks that you’ve covered every variant, so you can’t forget one:</p>
 <pre><code>let pi = 3.14159
