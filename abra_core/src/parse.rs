@@ -1468,9 +1468,21 @@ impl Parser {
                 self.consume_token();
                 let ident = self.expect_ident()?;
                 if self.current_token().tag() == TokenTag::OpenParen {
-                    // member func call
                     // `.my_enum_variant(`
-                    let data = self.parse_match_pattern()?;
+                    // `field =` after the paren means the variant's fields are matched by name
+                    let data = if matches!(self.peek_token(1).kind, TokenKind::Ident(_))
+                        && self.peek_token(2).tag() == TokenTag::Eq
+                    {
+                        self.consume_token();
+                        let fields = self.parse_delimited_list(
+                            TokenTag::CloseParen,
+                            TokenTag::Comma,
+                            Self::parse_struct_pattern_field,
+                        )?;
+                        PatVariantData::Named(fields)
+                    } else {
+                        PatVariantData::Positional(self.parse_match_pattern()?)
+                    };
                     Pat {
                         kind: PatKind::Variant(prefixes, ident, Some(data)).into(),
                         loc: self.location(lo),

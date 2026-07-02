@@ -89,6 +89,19 @@ fn area(s: Shape) -> float {
 
 `.Circle(r)` says "if `s` is a `Circle`, run this branch — and let me call its inner float `r`".
 
+If a variant's fields are named, the pattern must name them too, just like [struct patterns](#pull-structs-apart):
+
+```
+type Color =
+    | Rgb(red: int, green: int, blue: int)
+    | Named(string)
+
+match c {
+    .Rgb(red = r, green = g, blue = b) -> "rgb(" .. r .. "," .. g .. "," .. b .. ")"
+    .Named(name) -> name
+}
+```
+
 This is the most common use of patterns. It's how you handle `option` and `result`:
 
 ```

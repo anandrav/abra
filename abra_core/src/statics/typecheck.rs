@@ -7,8 +7,8 @@ use super::{
 };
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncCallArg, Identifier,
-    Interface, InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, Stmt, StmtKind,
-    Type as AstType, TypeDefKind, TypeKind,
+    Interface, InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, PatVariantData, Stmt,
+    StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::environment::Environment;
@@ -3764,9 +3764,14 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(prefixes, tag, data) => {
+            // for positional data, the type of the data node.
+            // named fields don't have a single data node; they are constrained per-field
             let ty_data = match data {
-                Some(data) => TypeVar::from_node(ctx, data.node()),
-                None => TypeVar::make_void(Reason::VariantNoData(pat.node())),
+                Some(PatVariantData::Positional(data)) => {
+                    Some(TypeVar::from_node(ctx, data.node()))
+                }
+                Some(PatVariantData::Named(_)) => None,
+                None => Some(TypeVar::make_void(Reason::VariantNoData(pat.node()))),
             };
 
             if !prefixes.is_empty() {
@@ -3782,39 +3787,55 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         pat.node(),
                     );
 
-                    let variant_def = &enum_def.variants[variant];
-                    // TODO: duplicated
-                    let variant_data_ty = match &variant_def.fields.len() {
-                        0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
-                        1 => variant_def.fields[0].ty.to_typevar(ctx),
-                        _ => TypeVar::make_tuple(
-                            variant_def
-                                .fields
-                                .iter()
-                                .map(|field| field.ty.to_typevar(ctx))
-                                .collect(),
-                            Reason::Node(pat.node()),
-                        ),
-                    };
-                    let variant_data_ty = variant_data_ty.subst(&substitution);
-                    constrain(ctx, &ty_data, &variant_data_ty);
-
                     constrain(ctx, &ty_pat, &enum_ty);
 
-                    if let Some(data) = data {
-                        if let Mode::Ana { expected, .. } = &mode {
-                            generate_constraints_pat_ana_variant_data(
-                                ctx,
-                                &enum_def,
-                                pat,
-                                expected,
-                                data,
-                                variant_data_ty,
-                            );
-                        } else {
-                            generate_constraints_pat(ctx, Mode::ana(ty_data), data)
-                        }
-                    };
+                    if let Some(PatVariantData::Named(fields)) = data {
+                        generate_constraints_pat_variant_named_fields(
+                            ctx,
+                            &mode,
+                            pat,
+                            tag,
+                            &enum_def,
+                            variant,
+                            fields,
+                            &substitution,
+                        );
+                    } else {
+                        error_if_variant_requires_named_fields(ctx, pat, tag, &enum_def, variant);
+
+                        let variant_def = &enum_def.variants[variant];
+                        // TODO: duplicated
+                        let variant_data_ty = match &variant_def.fields.len() {
+                            0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
+                            1 => variant_def.fields[0].ty.to_typevar(ctx),
+                            _ => TypeVar::make_tuple(
+                                variant_def
+                                    .fields
+                                    .iter()
+                                    .map(|field| field.ty.to_typevar(ctx))
+                                    .collect(),
+                                Reason::Node(pat.node()),
+                            ),
+                        };
+                        let variant_data_ty = variant_data_ty.subst(&substitution);
+                        let ty_data = ty_data.unwrap();
+                        constrain(ctx, &ty_data, &variant_data_ty);
+
+                        if let Some(PatVariantData::Positional(data)) = data {
+                            if let Mode::Ana { expected, .. } = &mode {
+                                generate_constraints_pat_ana_variant_data(
+                                    ctx,
+                                    &enum_def,
+                                    pat,
+                                    expected,
+                                    data,
+                                    variant_data_ty,
+                                );
+                            } else {
+                                generate_constraints_pat(ctx, Mode::ana(ty_data), data)
+                            }
+                        };
+                    }
                 } else {
                     ty_pat.set_flag_missing_info();
                 }
@@ -3838,35 +3859,52 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         pat.node(),
                     );
 
-                    let variant_def = &enum_def.variants[idx];
-                    // TODO: duplicated
-                    let variant_data_ty = match &variant_def.fields.len() {
-                        0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
-                        1 => variant_def.fields[0].ty.to_typevar(ctx),
-                        _ => TypeVar::make_tuple(
-                            variant_def
-                                .fields
-                                .iter()
-                                .map(|field| field.ty.to_typevar(ctx))
-                                .collect(),
-                            Reason::Node(pat.node()),
-                        ),
-                    };
-                    let variant_data_ty_instantiated = variant_data_ty.clone().subst(&substitution);
-                    constrain(ctx, &ty_data, &variant_data_ty_instantiated);
-
                     constrain(ctx, &ty_pat, &def_type);
 
-                    if let Some(data) = data {
-                        generate_constraints_pat_ana_variant_data(
+                    if let Some(PatVariantData::Named(fields)) = data {
+                        generate_constraints_pat_variant_named_fields(
                             ctx,
-                            &enum_def,
+                            &mode,
                             pat,
-                            expected,
-                            data,
-                            variant_data_ty,
+                            tag,
+                            &enum_def,
+                            idx,
+                            fields,
+                            &substitution,
                         );
-                    };
+                    } else {
+                        error_if_variant_requires_named_fields(ctx, pat, tag, &enum_def, idx);
+
+                        let variant_def = &enum_def.variants[idx];
+                        // TODO: duplicated
+                        let variant_data_ty = match &variant_def.fields.len() {
+                            0 => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
+                            1 => variant_def.fields[0].ty.to_typevar(ctx),
+                            _ => TypeVar::make_tuple(
+                                variant_def
+                                    .fields
+                                    .iter()
+                                    .map(|field| field.ty.to_typevar(ctx))
+                                    .collect(),
+                                Reason::Node(pat.node()),
+                            ),
+                        };
+                        let variant_data_ty_instantiated =
+                            variant_data_ty.clone().subst(&substitution);
+                        let ty_data = ty_data.unwrap();
+                        constrain(ctx, &ty_data, &variant_data_ty_instantiated);
+
+                        if let Some(PatVariantData::Positional(data)) = data {
+                            generate_constraints_pat_ana_variant_data(
+                                ctx,
+                                &enum_def,
+                                pat,
+                                expected,
+                                data,
+                                variant_data_ty,
+                            );
+                        };
+                    }
                 } else {
                     ctx.errors
                         .push(Error::UnqualifiedEnumNeedsAnnotation { node: pat.node() });
@@ -3981,6 +4019,137 @@ fn generate_constraints_pat_ana_variant_data(
     // then expected_data_ty = FsError by substitution
     let expected_data_ty = data_ty.subst(&subst);
     generate_constraints_pat(ctx, Mode::ana(expected_data_ty), data);
+}
+
+// if the variant's fields are named, they must be matched by name, e.g. `.Rgb(red = r, green = g, blue = b)`
+fn error_if_variant_requires_named_fields(
+    ctx: &mut StaticsContext,
+    pat: &Rc<Pat>,
+    tag: &Rc<Identifier>,
+    enum_def: &Rc<EnumDef>,
+    variant_idx: usize,
+) {
+    let variant_def = &enum_def.variants[variant_idx];
+    if !matches!(
+        &*pat.kind,
+        PatKind::Variant(_, _, Some(PatVariantData::Positional(_)))
+    ) {
+        return;
+    }
+    if variant_def
+        .fields
+        .first()
+        .is_some_and(|field| field.name.is_some())
+    {
+        let example = variant_def
+            .fields
+            .iter()
+            .filter_map(|field| field.name.as_ref())
+            .map(|name| format!("{} = ...", name.v))
+            .collect::<Vec<_>>()
+            .join(", ");
+        ctx.errors.push(Error::GenericWithNode {
+            msg: format!(
+                "The fields of variant `{}` are named and must be matched by name, e.g. `.{}({})`",
+                tag.v, tag.v, example
+            ),
+            node: pat.node(),
+        });
+    }
+}
+
+// generate constraints for the named fields of a variant pattern, e.g. `.Rgb(red = r, green = g, blue = b)`.
+// every field must be present exactly once, by name
+#[allow(clippy::too_many_arguments)]
+fn generate_constraints_pat_variant_named_fields(
+    ctx: &mut StaticsContext,
+    mode: &Mode,
+    pat: &Rc<Pat>,
+    tag: &Rc<Identifier>,
+    enum_def: &Rc<EnumDef>,
+    variant_idx: usize,
+    fields: &[(Rc<Identifier>, Rc<Pat>)],
+    substitution: &Substitution,
+) {
+    let variant_def = &enum_def.variants[variant_idx];
+    if variant_def
+        .fields
+        .first()
+        .is_none_or(|field| field.name.is_none())
+    {
+        ctx.errors.push(Error::GenericWithNode {
+            msg: format!(
+                "The fields of variant `{}` are not named and cannot be matched by name",
+                tag.v
+            ),
+            node: pat.node(),
+        });
+        for (_, field_pat) in fields {
+            generate_constraints_pat(ctx, Mode::Syn, field_pat);
+        }
+        return;
+    }
+
+    let expected_subst = if let Mode::Ana { expected, .. } = mode {
+        let original_ty = TypeVar::make_nominal_original(
+            ctx,
+            Reason::Node(pat.node()),
+            Nominal::Enum(enum_def.clone()),
+        );
+        let subst = get_substitution_of_typ2(ctx, &original_ty, expected);
+        if subst.is_empty() { None } else { Some(subst) }
+    } else {
+        None
+    };
+
+    let mut seen: HashSet<String> = HashSet::default();
+    for (field_name, field_pat) in fields {
+        match variant_def
+            .fields
+            .iter()
+            .find(|f| f.name.as_ref().is_some_and(|n| n.v == field_name.v))
+        {
+            Some(field_def) => {
+                if !seen.insert(field_name.v.clone()) {
+                    ctx.errors.push(Error::GenericWithNode {
+                        msg: format!("Duplicate field `{}` in variant pattern", field_name.v),
+                        node: field_name.node(),
+                    });
+                }
+                let field_ty = field_def.ty.to_typevar(ctx);
+                let field_ty = match &expected_subst {
+                    Some(subst) => field_ty.subst(subst),
+                    None => field_ty.subst(substitution),
+                };
+                generate_constraints_pat(ctx, Mode::ana(field_ty), field_pat);
+            }
+            None => {
+                ctx.errors.push(Error::GenericWithNode {
+                    msg: format!("Variant `{}` has no field named `{}`", tag.v, field_name.v),
+                    node: field_name.node(),
+                });
+                generate_constraints_pat(ctx, Mode::Syn, field_pat);
+            }
+        }
+    }
+
+    let missing: Vec<String> = variant_def
+        .fields
+        .iter()
+        .filter_map(|f| f.name.as_ref())
+        .filter(|n| !fields.iter().any(|(fname, _)| fname.v == n.v))
+        .map(|n| format!("`{}`", n.v))
+        .collect();
+    if !missing.is_empty() {
+        ctx.errors.push(Error::GenericWithNode {
+            msg: format!(
+                "Pattern for variant `{}` is missing field(s) {}. Every field must be matched by name; use `_` to ignore a field's value",
+                tag.v,
+                missing.join(", ")
+            ),
+            node: pat.node(),
+        });
+    }
 }
 
 fn handle_ana(ctx: &mut StaticsContext, mode: Mode, node_ty: TypeVar) {

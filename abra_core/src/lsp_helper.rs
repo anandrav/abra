@@ -2,7 +2,7 @@
 
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Item, ItemKind, Pat, PatKind,
-    Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    PatVariantData, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::{
     CompletionCandidate, CompletionCandidateKind, DefinitionInfo, FileId, LspAnalysisResult, ast,
@@ -798,10 +798,21 @@ fn find_ident_in_pat(pat: &Rc<Pat>, offset: usize) -> Option<AstNode> {
             if tag.loc.contains_offset(offset) {
                 return Some(tag.node());
             }
-            if let Some(data) = data {
-                return find_ident_in_pat(data, offset);
+            match data {
+                Some(PatVariantData::Positional(data)) => find_ident_in_pat(data, offset),
+                Some(PatVariantData::Named(fields)) => {
+                    for (field_name, p) in fields {
+                        if field_name.loc.contains_offset(offset) {
+                            return Some(field_name.node());
+                        }
+                        if let Some(node) = find_ident_in_pat(p, offset) {
+                            return Some(node);
+                        }
+                    }
+                    None
+                }
+                None => None,
             }
-            None
         }
         PatKind::Tuple(pats) => {
             for p in pats {
@@ -979,7 +990,14 @@ fn collect_vars_in_item(item: &Rc<Item>, name: &str, out: &mut Vec<AstNode>) {
 fn collect_bindings_in_pat(pat: &Rc<Pat>, name: &str, out: &mut Vec<AstNode>) {
     match &*pat.kind {
         PatKind::Binding(n) if n == name => out.push(pat.node()),
-        PatKind::Variant(_, _, Some(data)) => collect_bindings_in_pat(data, name, out),
+        PatKind::Variant(_, _, Some(PatVariantData::Positional(data))) => {
+            collect_bindings_in_pat(data, name, out)
+        }
+        PatKind::Variant(_, _, Some(PatVariantData::Named(fields))) => {
+            for (_, p) in fields {
+                collect_bindings_in_pat(p, name, out);
+            }
+        }
         PatKind::Struct(_, fields) => {
             for (_, p) in fields {
                 collect_bindings_in_pat(p, name, out);

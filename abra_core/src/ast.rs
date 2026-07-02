@@ -674,10 +674,18 @@ impl Pat {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) enum PatVariantData {
+    // data of a variant with unnamed fields, e.g. .Circle(r) or .Rectangle(w, h)
+    Positional(Rc<Pat>),
+    // data of a variant with named fields, e.g. .Rgb(red = r, green = g, blue = b)
+    Named(Vec<(Rc<Identifier>, Rc<Pat>)>),
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum PatKind {
     Wildcard,
     Binding(String),
-    Variant(Vec<Rc<Identifier>>, Rc<Identifier>, Option<Rc<Pat>>),
+    Variant(Vec<Rc<Identifier>>, Rc<Identifier>, Option<PatVariantData>),
     Void,
     Int(AbraInt),
     Float(String),

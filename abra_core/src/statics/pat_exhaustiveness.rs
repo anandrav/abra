@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, Stmt, StmtKind,
-    StructDef,
+    AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, PatVariantData, Stmt,
+    StmtKind, StructDef,
 };
 
 use core::panic;
@@ -451,10 +451,38 @@ impl DeconstructedPat {
                 else {
                     panic!()
                 };
-                fields = data
-                    .iter()
-                    .map(|pat| DeconstructedPat::from_ast_pat(statics, pat))
-                    .collect();
+                fields = match data {
+                    None => vec![],
+                    Some(PatVariantData::Positional(pat)) => {
+                        vec![DeconstructedPat::from_ast_pat(statics, pat)]
+                    }
+                    Some(PatVariantData::Named(named)) => {
+                        let variant_def = &enum_def.variants[*variant];
+                        let ordered: Vec<DeconstructedPat> = variant_def
+                            .fields
+                            .iter()
+                            .map(|field_def| {
+                                let name = field_def.name.as_ref().unwrap();
+                                let (_, pat) = named.iter().find(|(n, _)| n.v == name.v).unwrap();
+                                DeconstructedPat::from_ast_pat(statics, pat)
+                            })
+                            .collect();
+                        if ordered.len() == 1 {
+                            if matches!(ordered[0].ty, Type::Void) {
+                                vec![]
+                            } else {
+                                ordered
+                            }
+                        } else {
+                            let ty = Type::Tuple(ordered.iter().map(|p| p.ty.clone()).collect());
+                            vec![DeconstructedPat {
+                                ctor: Constructor::Product,
+                                fields: ordered,
+                                ty,
+                            }]
+                        }
+                    }
+                };
                 Constructor::Variant((enum_def.clone(), *variant))
             }
             PatKind::Or(left, right) => {

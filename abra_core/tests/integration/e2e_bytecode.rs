@@ -2163,7 +2163,7 @@ type color =
 
 let c = color.Rgb(red = 1, green = 2, blue = 3)
 match c {
-    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+    .Rgb(red = r, green = g, blue = b) -> r .. ':' .. g .. ':' .. b
 }
 "#;
     expect_value(src, "1:2:3");
@@ -2177,7 +2177,7 @@ type color =
 
 let c = color.Rgb(blue = 3, red = 1, green = 2)
 match c {
-    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+    .Rgb(red = r, green = g, blue = b) -> r .. ':' .. g .. ':' .. b
 }
 "#;
     expect_value(src, "1:2:3");
@@ -2191,7 +2191,7 @@ type color =
 
 let c = color.Rgb()
 match c {
-    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+    .Rgb(red = r, green = g, blue = b) -> r .. ':' .. g .. ':' .. b
 }
 "#;
     expect_value(src, "10:20:30");
@@ -2205,7 +2205,7 @@ type color =
 
 let c = color.Rgb(red = 1, blue = 99)
 match c {
-    .Rgb(r, g, b) -> r .. ':' .. g .. ':' .. b
+    .Rgb(red = r, green = g, blue = b) -> r .. ':' .. g .. ':' .. b
 }
 "#;
     expect_value(src, "1:20:99");
@@ -2727,6 +2727,185 @@ type Color = Red | Green | Blue
 let c = Color.Red
 match c {
     Color(x = a) -> a
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_named_fields_out_of_order() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+  | Named(string)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(blue = b, red = r, green = g) -> r * 100 + g * 10 + b
+    .Named(_) -> 0
+}
+"#;
+    expect_value(src, 123);
+}
+
+#[test]
+fn match_variant_named_fields_qualified() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    Color.Rgb(red = r, green = _, blue = _) -> r
+}
+"#;
+    expect_value(src, 1);
+}
+
+#[test]
+fn match_variant_single_named_field() {
+    let src = r#"
+type Shape =
+  | Circle(radius: float)
+  | Origin
+
+let s = Shape.Circle(radius = 2.0)
+match s {
+    .Circle(radius = r) -> r * 2.0
+    .Origin -> 0.0
+}
+"#;
+    expect_value(src, 4.0);
+}
+
+#[test]
+fn match_variant_named_fields_literals_exhaustive() {
+    let src = r#"
+type Toggle =
+  | Switch(on: bool)
+  | Broken
+
+let t = Toggle.Switch(on = true)
+match t {
+    .Switch(on = true) -> 1
+    .Switch(on = false) -> 2
+    .Broken -> 3
+}
+"#;
+    expect_value(src, 1);
+}
+
+#[test]
+fn match_variant_named_fields_nested_pattern() {
+    let src = r#"
+type Point = {
+    x: int
+    y: int
+}
+type Shape =
+  | Circle(center: Point, radius: int)
+
+let s = Shape.Circle(center = Point(3, 4), radius = 5)
+match s {
+    .Circle(center = Point(x = a, y = b), radius = r) -> a + b + r
+}
+"#;
+    expect_value(src, 12);
+}
+
+#[test]
+fn match_variant_positional_on_named_fields_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(r, g, b) -> r + g + b
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_positional_on_named_fields_qualified_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    Color.Rgb(r, g, b) -> r + g + b
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_named_fields_missing_field_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(red = r, green = g) -> r + g
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_named_fields_unknown_field_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(red = r, green = g, alpha = a) -> r + g + a
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_named_fields_duplicate_field_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(red = r, red = r2, blue = b) -> r + r2 + b
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_named_on_unnamed_fields_fails() {
+    let src = r#"
+type Shape =
+  | Rectangle(float, float)
+
+let s = Shape.Rectangle(2.0, 4.0)
+match s {
+    .Rectangle(width = w, height = h) -> w * h
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_named_fields_wildcard_payload_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(rgb) -> 1
 }
 "#;
     should_fail(src);

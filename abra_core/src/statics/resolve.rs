@@ -8,8 +8,8 @@ use super::{
 };
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncCallArg, FuncDef, Identifier,
-    ImportKind, InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type,
-    TypeDefKind, TypeKind,
+    ImportKind, InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, PatVariantData, Polytype, Stmt,
+    StmtKind, Type, TypeDefKind, TypeKind,
 };
 #[cfg(feature = "ffi")]
 use crate::foreign_bindings::make_foreign_func_name;
@@ -1377,9 +1377,17 @@ fn resolve_names_pat(
                 //                ^^^^
             }
 
-            if let Some(data) = data {
-                resolve_names_pat(ctx, symbol_table, data, pat_can_extend_symbol_table);
-            };
+            match data {
+                Some(PatVariantData::Positional(data)) => {
+                    resolve_names_pat(ctx, symbol_table, data, pat_can_extend_symbol_table);
+                }
+                Some(PatVariantData::Named(fields)) => {
+                    for (_, pat) in fields {
+                        resolve_names_pat(ctx, symbol_table, pat, pat_can_extend_symbol_table);
+                    }
+                }
+                None => {}
+            }
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
@@ -1496,11 +1504,17 @@ fn record_bindings_introduced(pat: &Rc<Pat>, required_bindings: &mut HashSet<Str
         PatKind::Binding(identifier) => {
             required_bindings.remove(identifier);
         }
-        PatKind::Variant(_, _, data) => {
-            if let Some(data) = data {
+        PatKind::Variant(_, _, data) => match data {
+            Some(PatVariantData::Positional(data)) => {
                 record_bindings_introduced(data, required_bindings);
-            };
-        }
+            }
+            Some(PatVariantData::Named(fields)) => {
+                for (_, pat) in fields {
+                    record_bindings_introduced(pat, required_bindings);
+                }
+            }
+            None => {}
+        },
         PatKind::Tuple(pats) => {
             for pat in pats {
                 record_bindings_introduced(pat, required_bindings);
@@ -1529,11 +1543,17 @@ fn gather_required_bindings(pat: &Rc<Pat>, required_bindings: &mut HashSet<Strin
         PatKind::Binding(identifier) => {
             required_bindings.insert(identifier.clone());
         }
-        PatKind::Variant(_, _, data) => {
-            if let Some(data) = data {
+        PatKind::Variant(_, _, data) => match data {
+            Some(PatVariantData::Positional(data)) => {
                 gather_required_bindings(data, required_bindings);
-            };
-        }
+            }
+            Some(PatVariantData::Named(fields)) => {
+                for (_, pat) in fields {
+                    gather_required_bindings(pat, required_bindings);
+                }
+            }
+            None => {}
+        },
         PatKind::Tuple(pats) => {
             for pat in pats {
                 gather_required_bindings(pat, required_bindings);
@@ -1570,11 +1590,15 @@ fn record_pat_mutability(ctx: &mut StaticsContext, pat: &Rc<Pat>, is_mutable: bo
         PatKind::Binding(_) => {
             ctx.pat_is_mutable.insert(pat.id, is_mutable);
         }
-        PatKind::Variant(_, _, data) => {
-            if let Some(data) = data {
-                record_pat_mutability(ctx, data, is_mutable)
-            };
-        }
+        PatKind::Variant(_, _, data) => match data {
+            Some(PatVariantData::Positional(data)) => record_pat_mutability(ctx, data, is_mutable),
+            Some(PatVariantData::Named(fields)) => {
+                for (_, pat) in fields {
+                    record_pat_mutability(ctx, pat, is_mutable)
+                }
+            }
+            None => {}
+        },
         PatKind::Tuple(elems) => {
             for elem in elems {
                 record_pat_mutability(ctx, elem, is_mutable)

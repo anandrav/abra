@@ -7,7 +7,7 @@ use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_co
 use crate::ast::ForeignCallPolicy;
 use crate::ast::{
     ArgMaybeAnnotated, AssignOperator, AstNode, BinaryOperator, FuncDecl, FuncDef, Identifier,
-    InterfaceDef, ItemKind,
+    InterfaceDef, ItemKind, PatVariantData,
 };
 use crate::ast::{FileAst, NodeId};
 use crate::environment::Environment;
@@ -1975,22 +1975,56 @@ impl Translator {
                         self.emit(st, Instr::PushBool(true));
                         self.emit(st, Instr::Jump(end_label.clone()));
                     };
-                    if let Some(inner) = inner {
-                        let inner_ty = self.get_ty(mono, inner.node()).unwrap();
-                        if inner_ty != SolvedType::Void {
-                            self.translate_pat_comparison(
-                                &inner_ty,
-                                inner,
-                                st,
-                                mono,
-                                or_pat_decisions,
-                            );
-                            self.emit(st, Instr::Jump(end_label.clone()));
-                        } else {
+                    match inner {
+                        Some(PatVariantData::Positional(inner)) => {
+                            let inner_ty = self.get_ty(mono, inner.node()).unwrap();
+                            if inner_ty != SolvedType::Void {
+                                self.translate_pat_comparison(
+                                    &inner_ty,
+                                    inner,
+                                    st,
+                                    mono,
+                                    or_pat_decisions,
+                                );
+                                self.emit(st, Instr::Jump(end_label.clone()));
+                            } else {
+                                void_case();
+                            }
+                        }
+                        Some(PatVariantData::Named(named)) => {
+                            let pats = self.variant_named_pats_in_order(ctor, named);
+                            if pats.len() == 1 {
+                                let field_ty = self.get_ty(mono, pats[0].node()).unwrap();
+                                if field_ty != SolvedType::Void {
+                                    self.translate_pat_comparison(
+                                        &field_ty,
+                                        &pats[0],
+                                        st,
+                                        mono,
+                                        or_pat_decisions,
+                                    );
+                                    self.emit(st, Instr::Jump(end_label.clone()));
+                                } else {
+                                    void_case();
+                                }
+                            } else {
+                                let types = pats
+                                    .iter()
+                                    .map(|pat| self.get_ty(mono, pat.node()).unwrap())
+                                    .collect::<Vec<_>>();
+                                self.translate_product_pat_comparison(
+                                    &types,
+                                    &pats,
+                                    st,
+                                    mono,
+                                    or_pat_decisions,
+                                );
+                                self.emit(st, Instr::Jump(end_label.clone()));
+                            }
+                        }
+                        None => {
                             void_case();
                         }
-                    } else {
-                        void_case();
                     }
 
                     // FAILURE
@@ -2105,6 +2139,35 @@ impl Translator {
                 field_pats
                     .iter()
                     .find(|(n, _)| n.v == field_def.name.v)
+                    .unwrap()
+                    .1
+                    .clone()
+            })
+            .collect()
+    }
+
+    // subpatterns of a variant pattern with named fields, ordered by the variant's
+    // field declaration order (the order fields are laid out in memory)
+    fn variant_named_pats_in_order(
+        &self,
+        tag: &Rc<Identifier>,
+        field_pats: &[(Rc<Identifier>, Rc<Pat>)],
+    ) -> Vec<Rc<Pat>> {
+        let Declaration::EnumVariant {
+            e: enum_def,
+            variant,
+        } = &self.statics.resolution_map[&tag.id]
+        else {
+            panic!("expected variant pattern tag to resolve to an enum variant");
+        };
+        enum_def.variants[*variant]
+            .fields
+            .iter()
+            .map(|field_def| {
+                let name = field_def.name.as_ref().unwrap();
+                field_pats
+                    .iter()
+                    .find(|(n, _)| n.v == name.v)
                     .unwrap()
                     .1
                     .clone()
@@ -2587,14 +2650,20 @@ impl Translator {
                     self.traverse_arm_pat(&pat, mono, or_pat_decisions, went_left);
                 }
             }
-            PatKind::Variant(_prefixes, _, inner) => {
-                if let Some(inner) = inner {
+            PatKind::Variant(_prefixes, tag, inner) => match inner {
+                Some(PatVariantData::Positional(inner)) => {
                     let pat_ty = self.get_ty(mono, pat.node()).unwrap();
                     if pat_ty != SolvedType::Void {
                         self.traverse_arm_pat(inner, mono, or_pat_decisions, went_left);
                     }
                 }
-            }
+                Some(PatVariantData::Named(named)) => {
+                    for pat in self.variant_named_pats_in_order(tag, named) {
+                        self.traverse_arm_pat(&pat, mono, or_pat_decisions, went_left);
+                    }
+                }
+                None => {}
+            },
             PatKind::Or(left, right) => {
                 if !or_pat_decisions.contains(&pat.id) {
                     self.traverse_arm_pat(left, mono, or_pat_decisions, went_left);
@@ -2651,24 +2720,42 @@ impl Translator {
                     self.handle_pat_binding(&pat, locals, st, mono, or_pat_decisions);
                 }
             }
-            PatKind::Variant(_prefixes, _, inner) => {
+            PatKind::Variant(_prefixes, tag, inner) => {
                 let mut void_case = || {
                     self.emit(st, Instr::Pop);
                 };
-                if let Some(inner) = inner {
-                    let pat_ty = self.get_ty(mono, pat.node()).unwrap();
+                match inner {
+                    Some(PatVariantData::Positional(inner)) => {
+                        let pat_ty = self.get_ty(mono, pat.node()).unwrap();
 
-                    if pat_ty != SolvedType::Void {
+                        if pat_ty != SolvedType::Void {
+                            // unpack tag and associated data
+                            self.emit(st, Instr::DeconstructVariant);
+                            // pop tag
+                            self.emit(st, Instr::Pop);
+                            self.handle_pat_binding(inner, locals, st, mono, or_pat_decisions);
+                        } else {
+                            void_case();
+                        }
+                    }
+                    Some(PatVariantData::Named(named)) => {
                         // unpack tag and associated data
                         self.emit(st, Instr::DeconstructVariant);
                         // pop tag
                         self.emit(st, Instr::Pop);
-                        self.handle_pat_binding(inner, locals, st, mono, or_pat_decisions);
-                    } else {
+                        let pats = self.variant_named_pats_in_order(tag, named);
+                        if pats.len() == 1 {
+                            self.handle_pat_binding(&pats[0], locals, st, mono, or_pat_decisions);
+                        } else {
+                            self.emit(st, Instr::DeconstructStruct);
+                            for pat in pats {
+                                self.handle_pat_binding(&pat, locals, st, mono, or_pat_decisions);
+                            }
+                        }
+                    }
+                    None => {
                         void_case();
                     }
-                } else {
-                    void_case();
                 }
             }
             PatKind::Or(left, right) => {
@@ -2837,8 +2924,13 @@ impl Translator {
                     self.collect_locals_pat(pat, locals, mono);
                 }
             }
-            PatKind::Variant(_prefixes, _, Some(inner)) => {
+            PatKind::Variant(_prefixes, _, Some(PatVariantData::Positional(inner))) => {
                 self.collect_locals_pat(inner, locals, mono);
+            }
+            PatKind::Variant(_prefixes, _, Some(PatVariantData::Named(named))) => {
+                for (_, pat) in named {
+                    self.collect_locals_pat(pat, locals, mono);
+                }
             }
             PatKind::Or(left, _right) => {
                 self.collect_locals_pat(left, locals, mono);
