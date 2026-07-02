@@ -2956,18 +2956,45 @@ match s {
 }
 
 #[test]
-fn match_variant_named_fields_bind_whole_payload() {
+fn match_variant_bind_whole_payload_fails() {
     let src = r#"
 type Color =
   | Rgb(red: int, green: int, blue: int)
 
 let c = Color.Rgb(red = 1, green = 2, blue = 3)
 match c {
-    .Rgb(rgb) -> {
-        let (r, g, b) = rgb
-        r * 100 + g * 10 + b
-    }
+    .Rgb(rgb) -> 1
 }
 "#;
-    expect_value(src, 123);
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_wildcard_whole_payload_fails() {
+    let src = r#"
+type Color =
+  | Rgb(red: int, green: int, blue: int)
+
+let c = Color.Rgb(red = 1, green = 2, blue = 3)
+match c {
+    .Rgb(_) -> 1
+}
+"#;
+    should_fail(src);
+}
+
+#[test]
+fn match_variant_unnamed_bind_whole_payload_fails() {
+    let src = r#"
+type Shape =
+  | Rectangle(float, float)
+  | Origin
+
+let s = Shape.Rectangle(2.0, 4.0)
+match s {
+    .Rectangle(dims) -> 1
+    .Origin -> 0
+}
+"#;
+    should_fail(src);
 }

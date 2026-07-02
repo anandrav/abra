@@ -2130,7 +2130,6 @@ impl Translator {
         field_pats: &PatStructFields,
     ) -> Vec<Rc<Pat>> {
         match field_pats {
-            // positional fields are already in declaration order
             PatStructFields::Positional(pats) => pats.clone(),
             PatStructFields::Named(named) => {
                 let Declaration::Struct(struct_def) = &self.statics.resolution_map[&name.id] else {

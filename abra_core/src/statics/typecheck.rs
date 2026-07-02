@@ -3799,6 +3799,10 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                             &substitution,
                         );
                     } else {
+                        error_if_variant_payload_not_destructured(
+                            ctx, pat, tag, &enum_def, variant, data,
+                        );
+
                         let variant_def = &enum_def.variants[variant];
                         // TODO: duplicated
                         let variant_data_ty = match &variant_def.fields.len() {
@@ -3869,6 +3873,10 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                             &substitution,
                         );
                     } else {
+                        error_if_variant_payload_not_destructured(
+                            ctx, pat, tag, &enum_def, idx, data,
+                        );
+
                         let variant_def = &enum_def.variants[idx];
                         // TODO: duplicated
                         let variant_data_ty = match &variant_def.fields.len() {
@@ -4029,6 +4037,34 @@ fn generate_constraints_pat_ana_variant_data(
     // then expected_data_ty = FsError by substitution
     let expected_data_ty = data_ty.subst(&subst);
     generate_constraints_pat(ctx, Mode::ana(expected_data_ty), data);
+}
+
+// a variant with multiple fields must have each of its fields matched individually.
+// A single subpattern must not bind the whole payload as a tuple, e.g. `.Rgb(rgb)` or `.Rgb(_)`
+fn error_if_variant_payload_not_destructured(
+    ctx: &mut StaticsContext,
+    pat: &Rc<Pat>,
+    tag: &Rc<Identifier>,
+    enum_def: &Rc<EnumDef>,
+    variant_idx: usize,
+    data: &Option<PatVariantData>,
+) {
+    let variant_def = &enum_def.variants[variant_idx];
+    if variant_def.fields.len() < 2 {
+        return;
+    }
+    if let Some(PatVariantData::Positional(inner)) = data
+        && !matches!(&*inner.kind, PatKind::Tuple(_))
+    {
+        ctx.errors.push(Error::GenericWithNode {
+            msg: format!(
+                "Each of variant `{}`'s {} fields must be matched; use `_` to ignore a field's value",
+                tag.v,
+                variant_def.fields.len()
+            ),
+            node: pat.node(),
+        });
+    }
 }
 
 // generate constraints for the named fields of a variant pattern, e.g. `.Rgb(red = r, green = g, blue = b)`.

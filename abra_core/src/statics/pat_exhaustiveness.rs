@@ -431,14 +431,10 @@ impl DeconstructedPat {
                     panic!()
                 };
                 fields = match field_pats {
-                    // positional fields are already in declaration order
                     PatStructFields::Positional(pats) => pats
                         .iter()
                         .map(|pat| DeconstructedPat::from_ast_pat(statics, pat))
                         .collect(),
-                    // matrix columns are positional, so order named subpatterns
-                    // by the struct's field declaration order. Resolution already
-                    // guaranteed that every field is present exactly once.
                     PatStructFields::Named(named) => struct_def
                         .fields
                         .iter()
