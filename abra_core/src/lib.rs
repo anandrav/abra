@@ -19,6 +19,8 @@ pub mod ast;
 mod bindings_common;
 pub mod environment;
 pub mod foreign_bindings;
+
+mod hir;
 pub mod host_bindings;
 pub mod install;
 mod intrinsic;
@@ -27,8 +29,9 @@ mod optimize_bytecode;
 mod parse;
 pub mod prelude;
 pub mod statics;
-mod translate_bytecode;
+mod translate_ast_to_bytecode;
 pub mod vm;
+mod translate_ast_to_hir;
 
 use crate::lsp_helper::{declaration_location, extract_primary_from_diagnostic};
 use crate::statics::StaticsContext;
@@ -38,8 +41,8 @@ pub use host_bindings::*;
 pub use prelude::PRELUDE;
 use statics::Error;
 use std::ops::Range;
-use translate_bytecode::CompiledProgram;
-use translate_bytecode::Translator;
+use translate_ast_to_bytecode::CompiledProgram;
+use translate_ast_to_bytecode::Translator;
 
 pub fn abra_hello_world() {
     println!("hello from abra_core");

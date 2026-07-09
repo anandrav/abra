@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::translate_bytecode::{ConstantsHolder, LabelMap, TranslatorState};
+use crate::translate_ast_to_bytecode::{ConstantsHolder, LabelMap, TranslatorState};
 use crate::vm::{AbraInt, CallData, Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
 use utils::hash::HashMap;

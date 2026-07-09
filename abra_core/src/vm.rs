@@ -8,7 +8,7 @@ use crate::ast::ForeignCallPolicy;
 use crate::foreign_bindings::ABRA_VM_FUNCS;
 #[cfg(feature = "ffi")]
 use crate::foreign_bindings::AbraVmFunctions;
-use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
+use crate::translate_ast_to_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
