@@ -1,8 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use std::rc::Rc;
-use crate::ast::{BinaryOperator, Location, NodeId};
+use crate::ast::{BinaryOperator, Location};
 use crate::parse::PrefixOp;
 use crate::vm::AbraInt;
 
@@ -14,7 +13,12 @@ pub(crate) struct Function {
     pub(crate) body: Expr,
 }
 
-pub(crate) enum Expr {
+pub(crate) struct Expr {
+    pub(crate) kind: ExprKind,
+    pub(crate) span: Location,
+}
+
+pub(crate) enum ExprKind {
     Variable(String),
     Int(i64),
     Float(String),
@@ -52,7 +56,12 @@ pub(crate) enum Expr {
     TaskBlock(Rc<Expr>),
 */
 
-pub(crate) enum Stmt {
+pub(crate) struct Stmt {
+    pub(crate) kind: StmtKind,
+    pub(crate) span: Location,
+}
+
+pub(crate) enum StmtKind {
     Let(Pat, Box<Expr>),
     Assign(Box<Expr>, Box<Expr>),
     Expr(Box<Expr>),
@@ -62,7 +71,12 @@ pub(crate) enum Stmt {
     Loop,
 }
 
-pub(crate) enum Pat {
+pub(crate) struct Pat {
+    pub(crate) kind: PatKind,
+    pub(crate) span: Location,
+}
+
+pub(crate) enum PatKind {
     Wildcard,
     Binding(String),
     // Variant
@@ -71,7 +85,7 @@ pub(crate) enum Pat {
     Float(String),
     Bool(bool),
     Str(String),
-    Tuple(Vec<Box<Pat>>)
+    Tuple(Vec<Box<Pat>>),
 }
 
 /*

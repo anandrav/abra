@@ -30,8 +30,8 @@ mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_ast_to_bytecode;
-pub mod vm;
 mod translate_ast_to_hir;
+pub mod vm;
 
 use crate::lsp_helper::{declaration_location, extract_primary_from_diagnostic};
 use crate::statics::StaticsContext;
