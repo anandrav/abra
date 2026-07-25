@@ -86,7 +86,7 @@ enum FuncKind {
     HostFunctionWrapper(Rc<FuncDecl>),
 }
 
-pub(crate) struct Translator {
+pub(crate) struct BytecodeTranslator {
     statics: StaticsContext,
     file_asts: Vec<Rc<FileAst>>,
 }
@@ -197,7 +197,7 @@ pub struct FfiLib {
 
 pub type BytecodeIndex = u32;
 
-impl Translator {
+impl BytecodeTranslator {
     pub(crate) fn new(statics: StaticsContext, file_asts: Vec<Rc<FileAst>>) -> Self {
         Self { statics, file_asts }
     }

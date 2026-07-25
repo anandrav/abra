@@ -6,7 +6,7 @@ use abra_core::OsFileProvider;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::exit;
+use std::process::{Command, exit};
 
 mod generated;
 use generated::*;
@@ -17,6 +17,8 @@ struct Args {
     import_dir: Option<String>,
     check: bool,
     assembly: bool,
+    native: bool,
+    output: Option<String>,
     debug_log: bool,
     abra_program_args: Vec<String>,
 }
@@ -30,6 +32,8 @@ impl Args {
         let mut import_dir = None;
         let mut check = false;
         let mut assembly = false;
+        let mut native = false;
+        let mut output: Option<String> = None;
         let mut debug_log = false;
         let mut abra_program_args = Vec::new();
         let mut parser = lexopt::Parser::from_env();
@@ -47,6 +51,12 @@ impl Args {
                 }
                 Short('a') | Long("assembly") => {
                     assembly = true;
+                }
+                Long("native") => {
+                    native = true;
+                }
+                Long("output") => {
+                    output = Some(parser.value()?.parse()?);
                 }
                 Long("debug-log") => {
                     debug_log = true;
@@ -78,6 +88,8 @@ impl Args {
             import_dir,
             check,
             assembly,
+            native,
+            output,
             debug_log,
             abra_program_args,
         })
@@ -113,6 +125,8 @@ fn print_help() {
 {title}{bold}Additional options:{reset}
     {cyan}--standard-modules <DIRECTORY>{reset}     Override the default standard modules directory
     {cyan}-a, --assembly{reset}                     Print the assembly for the Abra program
+    {cyan}--native{reset}                           Compile and run a native executable
+    {cyan}--output <FILE>{reset}                    Set the native executable path
     {cyan}--debug-log{reset}                        Enable internal debug logging (debug builds only)"
     );
 }
@@ -183,6 +197,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.assembly {
         match abra_core::compile_and_dump_assembly(main_file_name, file_provider) {
             Ok(_) => return Ok(()),
+            Err(err) => {
+                err.emit();
+                exit(1);
+            }
+        }
+    }
+
+    if args.native {
+        let output_path = match &args.output {
+            Some(output) => PathBuf::from(output),
+            None => {
+                let mut output = main_file_path.clone();
+                if output.extension().is_some() {
+                    output.set_extension("");
+                } else {
+                    output.set_extension("out");
+                }
+                output
+            }
+        };
+        let output_path = if output_path.is_absolute() {
+            output_path
+        } else {
+            std::env::current_dir()?.join(output_path)
+        };
+        match abra_core::compile_to_native(main_file_name, file_provider, &output_path) {
+            Ok(_) => {
+                let status = Command::new(output_path)
+                    .args(&args.abra_program_args)
+                    .status()?;
+                if !status.success() {
+                    exit(status.code().unwrap_or(1));
+                }
+                return Ok(());
+            }
             Err(err) => {
                 err.emit();
                 exit(1);

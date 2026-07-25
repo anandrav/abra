@@ -1,25 +1,32 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::ast::{BinaryOperator, Location};
+use crate::ast::{BinaryOperator, Location, NodeId};
 use crate::parse::PrefixOp;
+pub(crate) use crate::statics::Type;
 use crate::vm::AbraInt;
 
+#[derive(Debug)]
 pub(crate) struct Program {
     pub(crate) funcs: Vec<Function>,
 }
 
+#[derive(Debug)]
 pub(crate) struct Function {
+    pub(crate) return_ty: Type,
     pub(crate) body: Expr,
 }
 
+#[derive(Debug)]
 pub(crate) struct Expr {
+    pub(crate) ty: Type,
     pub(crate) kind: ExprKind,
     pub(crate) span: Location,
 }
 
+#[derive(Debug)]
 pub(crate) enum ExprKind {
-    Variable(String),
+    Variable(NodeId),
     Int(i64),
     Float(String),
     Bool(bool),
@@ -56,13 +63,16 @@ pub(crate) enum ExprKind {
     TaskBlock(Rc<Expr>),
 */
 
+#[derive(Debug)]
 pub(crate) struct Stmt {
     pub(crate) kind: StmtKind,
     pub(crate) span: Location,
 }
 
+#[derive(Debug)]
 pub(crate) enum StmtKind {
     Let(Pat, Box<Expr>),
+    Var(Pat, Box<Expr>),
     Assign(Box<Expr>, Box<Expr>),
     Expr(Box<Expr>),
     Continue,
@@ -71,14 +81,17 @@ pub(crate) enum StmtKind {
     Loop,
 }
 
+#[derive(Debug)]
 pub(crate) struct Pat {
+    pub(crate) ty: Type,
     pub(crate) kind: PatKind,
     pub(crate) span: Location,
 }
 
+#[derive(Debug)]
 pub(crate) enum PatKind {
     Wildcard,
-    Binding(String),
+    Binding(NodeId),
     // Variant
     Void,
     Int(AbraInt),

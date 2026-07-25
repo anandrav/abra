@@ -25,12 +25,15 @@ pub mod host_bindings;
 pub mod install;
 mod intrinsic;
 mod lsp_helper;
+mod mir;
 mod optimize_bytecode;
 mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_ast_to_bytecode;
 mod translate_ast_to_hir;
+mod translate_hir_to_mir;
+mod translate_mir_to_cranelift;
 pub mod vm;
 
 use crate::lsp_helper::{declaration_location, extract_primary_from_diagnostic};
@@ -41,8 +44,8 @@ pub use host_bindings::*;
 pub use prelude::PRELUDE;
 use statics::Error;
 use std::ops::Range;
+use translate_ast_to_bytecode::BytecodeTranslator;
 use translate_ast_to_bytecode::CompiledProgram;
-use translate_ast_to_bytecode::Translator;
 
 pub fn abra_hello_world() {
     println!("hello from abra_core");
@@ -65,8 +68,42 @@ pub fn compile_and_dump_assembly(
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
-    let translator = Translator::new(ctx, file_asts);
+    let translator = BytecodeTranslator::new(ctx, file_asts);
     translator.dump_assembly();
+    Ok(())
+}
+
+pub fn compile_to_native(
+    main_file_name: &str,
+    file_provider: Box<dyn FileProvider>,
+    output: &Path,
+) -> Result<(), ErrorSummary> {
+    let roots = vec![main_file_name];
+
+    let mut ctx = StaticsContext::new(file_provider);
+    let file_asts = get_files(&mut ctx, &roots)?;
+    statics::analyze(&mut ctx, &file_asts)?;
+
+    let hir = translate_ast_to_hir::translate(&ctx, &file_asts);
+    let mir = translate_hir_to_mir::translate(&hir);
+    let object = translate_mir_to_cranelift::translate(&mir);
+    let object_path = std::env::temp_dir().join(format!(
+        "abra-{}-{}.o",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(&object_path, object).unwrap();
+    let status = std::process::Command::new("cc")
+        .arg(&object_path)
+        .arg("-o")
+        .arg(output)
+        .status()
+        .expect("failed to run the system linker");
+    std::fs::remove_file(object_path).unwrap();
+    assert!(status.success(), "system linker failed");
     Ok(())
 }
 
@@ -94,7 +131,7 @@ fn compile_bytecode_(
     let mut ctx = StaticsContext::new(file_provider);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
-    let translator = Translator::new(ctx, file_asts);
+    let translator = BytecodeTranslator::new(ctx, file_asts);
     Ok(translator.translate())
 }
 
