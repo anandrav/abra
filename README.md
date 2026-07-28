@@ -2,7 +2,11 @@
 
 [![Build Status](https://github.com/anandrav/abra/workflows/CI/badge.svg)](https://github.com/anandrav/abra/actions?workflow=CI)
 
-Abra is an embeddable scripting language with a strong type system. This repository holds the compiler and language tooling.
+Abra is an embeddable scripting language with a strong type system.
+
+Untrusted code can be run in a host program (plugins, game scripts, mods) without worrying about memory/CPU exhaustion or unsafe memory access.
+
+This repository holds the compiler and language tooling.
 
 ```rust,f#
 fn fib(n) {
@@ -54,4 +58,4 @@ reference: [https://anandrav.github.io/abra/about.html](https://anandrav.github.
 
 Abra is distributed under the [Mozilla Public License 2.0](LICENSE.txt).
 
-The MPL is a file-level copyleft license: you can use Abra in your own projects (including proprietary ones), but modifications to Abra's source files must be released under the same license. If you ship Abra as part of a product, include the MPL 2.0 license text and a link to this repository in your third-party notices.
+The MPL is a file-level copyleft license: you can use Abra in your own projects (including closed-source, proprietary ones), as long as any modifications made to Abra's source files are released under MPL 2.0. If you ship Abra as part of a product, include the MPL 2.0 license text and a link to this repository in your third-party notices.
