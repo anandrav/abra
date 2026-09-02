@@ -1,7 +1,9 @@
 let x = 40
 let y = 2
+let short_or = true or 1 / 0 == 0
+let short_and = false and 1 / 0 == 0
 
-if x + y == 42 {
+if x + y == 42 and short_or and not short_and {
   0
 } else {
   1 / 0

@@ -25,15 +25,13 @@ pub mod host_bindings;
 pub mod install;
 mod intrinsic;
 mod lsp_helper;
-mod mir;
 mod optimize_bytecode;
 mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_ast_to_bytecode;
 mod translate_ast_to_hir;
-mod translate_hir_to_mir;
-mod translate_mir_to_cranelift;
+mod translate_hir_to_cranelift;
 pub mod vm;
 
 use crate::lsp_helper::{declaration_location, extract_primary_from_diagnostic};
@@ -85,8 +83,7 @@ pub fn compile_to_native(
     statics::analyze(&mut ctx, &file_asts)?;
 
     let hir = translate_ast_to_hir::translate(&ctx, &file_asts);
-    let mir = translate_hir_to_mir::translate(&hir);
-    let object = translate_mir_to_cranelift::translate(&mir);
+    let object = translate_hir_to_cranelift::translate(&hir);
     let object_path = std::env::temp_dir().join(format!(
         "abra-{}-{}.o",
         std::process::id(),

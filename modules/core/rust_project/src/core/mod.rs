@@ -14,8 +14,6 @@ pub(crate) mod env;
 
 pub(crate) mod regex;
 
-pub(crate) mod http;
-
 pub(crate) mod crypto;
 pub(crate) mod encoding;
 pub(crate) mod signals;
