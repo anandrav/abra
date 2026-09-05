@@ -95,6 +95,8 @@ pub fn compile_to_native(
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
+    let mir = translate_ast_to_mir::translate(&ctx, &file_asts);
+
     unimplemented!();
 
     // let translator = NativeTranslator::new(ctx, file_asts);

@@ -1,8 +1,9 @@
-use crate::ast::{Expr, ExprKind, FileAst, ItemKind, Pat, PatKind, Stmt, StmtKind};
+use crate::ast::{Expr, ExprKind, FileAst, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind};
 use crate::mir;
+use crate::statics::StaticsContext;
 use std::rc::Rc;
 
-pub(crate) fn translate(file_asts: &[Rc<FileAst>]) -> mir::Program {
+pub(crate) fn translate(ctx: &StaticsContext, file_asts: &[Rc<FileAst>]) -> mir::Program {
     let mut funcs = vec![];
 
     // main function
@@ -23,6 +24,7 @@ pub(crate) fn translate(file_asts: &[Rc<FileAst>]) -> mir::Program {
         let body = mir::Expr {
             kind: mir::ExprKind::Block(stmts),
             span: main_ast.loc.clone(),
+            id: NodeId::new(),
         };
         funcs.push(mir::Function { body })
     }
@@ -91,6 +93,7 @@ impl Expr {
         mir::Expr {
             kind,
             span: self.loc.clone(),
+            id: NodeId::new(),
         }
     }
 }

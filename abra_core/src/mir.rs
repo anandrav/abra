@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::ast::{BinaryOperator, Location};
+use crate::ast::{BinaryOperator, Location, NodeId};
 use crate::parse::PrefixOp;
 use crate::vm::AbraInt;
 
@@ -16,6 +16,7 @@ pub(crate) struct Function {
 pub(crate) struct Expr {
     pub(crate) kind: ExprKind,
     pub(crate) span: Location,
+    pub(crate) id: NodeId,
 }
 
 pub(crate) enum ExprKind {
