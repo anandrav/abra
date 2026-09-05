@@ -254,7 +254,7 @@ pub fn generate_bindings_for_crate() {
 
     write_header(output, &package_name);
 
-    let mut ctx = StaticsContext::new(file_provider);
+    let mut ctx = StaticsContext::new(file_provider, false, None); // TODO: feels weird to write false, None here...
 
     // handle toplevel .abra file
     if let Ok(source) = read_to_string(&toplevel_abra_file) {
@@ -338,7 +338,7 @@ pub fn generate_c_bindings(config: &CBindingsConfig) -> CResult<()> {
 }
 
 fn parse_c_binding_files(config: &CBindingsConfig) -> CResult<Vec<CBindingFile>> {
-    let mut ctx = StaticsContext::new(MockFileProvider::new(Default::default()));
+    let mut ctx = StaticsContext::new(MockFileProvider::new(Default::default()), false, None);
     let mut files = Vec::new();
 
     let top_level_file = config.root.join(format!("{}.abra", config.module));

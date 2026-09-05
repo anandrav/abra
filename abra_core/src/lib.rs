@@ -52,7 +52,7 @@ pub fn compile_bytecode(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, ErrorSummary> {
-    compile_bytecode_(main_file_name, None, file_provider)
+    compile_(main_file_name, None, file_provider, false, None)
 }
 
 pub fn compile_and_dump_assembly(
@@ -61,7 +61,7 @@ pub fn compile_and_dump_assembly(
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
 
-    let mut ctx = StaticsContext::new(file_provider);
+    let mut ctx = StaticsContext::new(file_provider, false, None);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
@@ -75,10 +75,12 @@ pub fn compile_bytecode_with_host_funcs(
     main_host_func_file_name: &str,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, ErrorSummary> {
-    compile_bytecode_(
+    compile_(
         main_file_name,
         Some(main_host_func_file_name),
         file_provider,
+        false,
+        None,
     )
 }
 
@@ -90,16 +92,19 @@ pub fn compile_to_native(
     unimplemented!()
 }
 
-fn compile_bytecode_(
+fn compile_(
     main_file_name: &str,
     main_host_func_file_name: Option<&str>,
     file_provider: Box<dyn FileProvider>,
+
+    native: bool,
+    output_file: Option<PathBuf>,
 ) -> Result<CompiledProgram, ErrorSummary> {
     let mut roots = vec![main_file_name];
     if let Some(host) = main_host_func_file_name {
         roots.push(host);
     }
-    let mut ctx = StaticsContext::new(file_provider);
+    let mut ctx = StaticsContext::new(file_provider, native, output_file);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
     let translator = Translator::new(ctx, file_asts);
@@ -111,7 +116,7 @@ pub fn check(
     file_provider: Box<dyn FileProvider>,
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
-    let mut ctx = StaticsContext::new(file_provider);
+    let mut ctx = StaticsContext::new(file_provider, false, None);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
     Ok(())
@@ -437,7 +442,7 @@ pub enum CompletionCandidateKind {
 /// Run parse + type checking without bytecode translation.
 /// Always returns results, even when there are errors.
 pub fn check_lsp(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> LspAnalysisResult {
-    let mut ctx = StaticsContext::new(file_provider);
+    let mut ctx = StaticsContext::new(file_provider, false, None); // TODO: feels weird to specify native and output file here...
     let file_asts = match get_files(&mut ctx, &[main_file_name]) {
         Ok(asts) => asts,
         Err(e) => {
