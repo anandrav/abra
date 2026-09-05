@@ -6,6 +6,12 @@ Cargo.lock
 .cargo/
 vendor/
 
+# CMake build artifacts
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
 temp/
 flamegraph.svg
 
