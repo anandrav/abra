@@ -20,7 +20,7 @@ mod bindings_common;
 pub mod environment;
 pub mod foreign_bindings;
 
-mod hir;
+mod mir;
 pub mod host_bindings;
 pub mod install;
 mod intrinsic;
