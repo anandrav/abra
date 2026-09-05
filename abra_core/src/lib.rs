@@ -82,6 +82,14 @@ pub fn compile_bytecode_with_host_funcs(
     )
 }
 
+pub fn compile_to_native(
+    main_file_name: &str,
+    file_provider: Box<dyn FileProvider>,
+    output_file: PathBuf,
+) -> Result<CompiledProgram, ErrorSummary> {
+    unimplemented!()
+}
+
 fn compile_bytecode_(
     main_file_name: &str,
     main_host_func_file_name: Option<&str>,

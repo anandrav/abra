@@ -17,6 +17,8 @@ struct Args {
     import_dir: Option<String>,
     check: bool,
     assembly: bool,
+    native: bool,
+    output: Option<String>,
     debug_log: bool,
     abra_program_args: Vec<String>,
 }
@@ -30,6 +32,8 @@ impl Args {
         let mut import_dir = None;
         let mut check = false;
         let mut assembly = false;
+        let mut native = false;
+        let mut output = None;
         let mut debug_log = false;
         let mut abra_program_args = Vec::new();
         let mut parser = lexopt::Parser::from_env();
@@ -47,6 +51,12 @@ impl Args {
                 }
                 Short('a') | Long("assembly") => {
                     assembly = true;
+                }
+                Short('n') | Long("native") => {
+                    native = true;
+                }
+                Short('o') | Long("output") => {
+                    output = Some(parser.value()?.parse()?);
                 }
                 Long("debug-log") => {
                     debug_log = true;
@@ -78,6 +88,8 @@ impl Args {
             import_dir,
             check,
             assembly,
+            native,
+            output,
             debug_log,
             abra_program_args,
         })
@@ -113,6 +125,8 @@ fn print_help() {
 {title}{bold}Additional options:{reset}
     {cyan}--standard-modules <DIRECTORY>{reset}     Override the default standard modules directory
     {cyan}-a, --assembly{reset}                     Print the assembly for the Abra program
+    {cyan}-n, --native{reset}                       Compile the program to a native executable
+    {cyan}-o, --output{reset}                       Specify output file for native executable
     {cyan}--debug-log{reset}                        Enable internal debug logging (debug builds only)"
     );
 }
@@ -182,6 +196,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.assembly {
         match abra_core::compile_and_dump_assembly(main_file_name, file_provider) {
+            Ok(_) => return Ok(()),
+            Err(err) => {
+                err.emit();
+                exit(1);
+            }
+        }
+    }
+
+    if args.native {
+        let output_file = match args.output {
+            Some(s) => {
+                PathBuf::new().join(s)
+            }
+            None => PathBuf::new().join(main_file_name),
+        };
+        match abra_core::compile_to_native(main_file_name, file_provider, output_file) {
             Ok(_) => return Ok(()),
             Err(err) => {
                 err.emit();
