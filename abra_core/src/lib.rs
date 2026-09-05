@@ -20,11 +20,11 @@ mod bindings_common;
 pub mod environment;
 pub mod foreign_bindings;
 
-mod mir;
 pub mod host_bindings;
 pub mod install;
 mod intrinsic;
 mod lsp_helper;
+mod mir;
 mod optimize_bytecode;
 mod parse;
 pub mod prelude;

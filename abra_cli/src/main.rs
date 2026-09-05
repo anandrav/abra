@@ -11,6 +11,7 @@ use std::process::exit;
 mod generated;
 use generated::*;
 
+#[derive(Debug)]
 struct Args {
     file: String,
     modules: Option<String>,
@@ -156,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         abra_core::prelude::PRELUDE.to_string(),
     ));
 
-    let standard_modules_dir: PathBuf = match args.modules {
+    let standard_modules_dir: PathBuf = match &args.modules {
         Some(standard_modules) => {
             let current_dir = std::env::current_dir().expect("Can't get current directory.");
             current_dir.join(standard_modules)
@@ -165,7 +166,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut import_dirs = vec![];
-    if let Some(import_dir) = args.import_dir {
+    if let Some(import_dir) = &args.import_dir {
         import_dirs.push(PathBuf::from(import_dir));
     }
 
@@ -206,10 +207,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.native {
         let output_file = match args.output {
-            Some(s) => {
-                PathBuf::new().join(s)
-            }
-            None => PathBuf::new().join(main_file_name),
+            Some(s) => PathBuf::new().join(s),
+            None => PathBuf::new().join(main_file_name).with_extension("out"),
         };
         match abra_core::compile_to_native(main_file_name, file_provider, output_file) {
             Ok(_) => return Ok(()),

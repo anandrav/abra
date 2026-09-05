@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use rustc_hash::FxHashMap;
+use std::marker::PhantomData;
 
 // This is a simple arena
 // - backed by a Vec
@@ -22,7 +22,7 @@ impl<T> Index<T> {
     fn new(index: usize) -> Self {
         Index {
             index,
-            _tag: PhantomData::default()
+            _tag: PhantomData::default(),
         }
     }
 }
