@@ -87,7 +87,7 @@ pub fn compile_bytecode_with_host_funcs(
 pub fn compile_to_native(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
-    output_file: PathBuf,
+    _output_file: PathBuf,
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
 
@@ -107,8 +107,8 @@ fn compile_(
     main_host_func_file_name: Option<&str>,
     file_provider: Box<dyn FileProvider>,
 
-    native: bool,
-    output_file: Option<PathBuf>,
+    _native: bool,
+    _output_file: Option<PathBuf>,
 ) -> Result<CompiledProgram, ErrorSummary> {
     let mut roots = vec![main_file_name];
     if let Some(host) = main_host_func_file_name {

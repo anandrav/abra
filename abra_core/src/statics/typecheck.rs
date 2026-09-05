@@ -293,10 +293,9 @@ impl SolvedType {
             Self::Function(args, out) => {
                 let mut args2: Vec<Monotype> = vec![];
                 for arg in args {
-                    if let Some(arg) = arg.monotype() {
+                    {
+                        let arg = arg.monotype()?;
                         args2.push(arg);
-                    } else {
-                        return None;
                     }
                 }
                 let out = out.monotype()?;
@@ -305,10 +304,9 @@ impl SolvedType {
             Self::Tuple(elems) => {
                 let mut elems2 = vec![];
                 for elem in elems {
-                    if let Some(elem) = elem.monotype() {
+                    {
+                        let elem = elem.monotype()?;
                         elems2.push(elem);
-                    } else {
-                        return None;
                     }
                 }
                 Some(Monotype::Tuple(elems2))
@@ -316,10 +314,9 @@ impl SolvedType {
             Self::Nominal(ident, params) => {
                 let mut params2: Vec<Monotype> = vec![];
                 for param in params {
-                    if let Some(param) = param.monotype() {
+                    {
+                        let param = param.monotype()?;
                         params2.push(param);
-                    } else {
-                        return None;
                     }
                 }
                 Some(Monotype::Nominal(ident.clone(), params2))
@@ -535,10 +532,9 @@ impl PotentialType {
             Self::Function(_, args, out) => {
                 let mut args2: Vec<SolvedType> = vec![];
                 for arg in args {
-                    if let Some(arg) = arg.solution() {
+                    {
+                        let arg = arg.solution()?;
                         args2.push(arg);
-                    } else {
-                        return None;
                     }
                 }
                 let out = out.solution()?;
@@ -547,10 +543,9 @@ impl PotentialType {
             Self::Tuple(_, elems) => {
                 let mut elems2: Vec<SolvedType> = vec![];
                 for elem in elems {
-                    if let Some(elem) = elem.solution() {
+                    {
+                        let elem = elem.solution()?;
                         elems2.push(elem);
-                    } else {
-                        return None;
                     }
                 }
                 Some(SolvedType::Tuple(elems2))
@@ -558,10 +553,9 @@ impl PotentialType {
             Self::Nominal(_, ident, params) => {
                 let mut params2: Vec<SolvedType> = vec![];
                 for param in params {
-                    if let Some(param) = param.solution() {
+                    {
+                        let param = param.solution()?;
                         params2.push(param);
-                    } else {
-                        return None;
                     }
                 }
                 Some(SolvedType::Nominal(ident.clone(), params2))
@@ -4285,7 +4279,7 @@ impl Display for TypeVar {
             return Ok(());
         }
         write!(f, " impl ")?;
-        for (constraint, _) in iface_constraints.iter() {
+        for constraint in iface_constraints.keys() {
             write!(f, "{}", constraint.iface.name.v)?;
             if !constraint.args.is_empty() {
                 write!(f, "<")?;

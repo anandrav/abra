@@ -1806,10 +1806,9 @@ fn fqn_of_type(ctx: &mut StaticsContext, ty: &Rc<Type>) -> Option<String> {
         TypeKind::Tuple(elems) => {
             let mut builder = "(".to_string();
             for elem in elems {
-                if let Some(s) = fqn_of_type(ctx, elem) {
+                {
+                    let s = fqn_of_type(ctx, elem)?;
                     builder.push_str(&s);
-                } else {
-                    return None;
                 }
             }
             builder.push(')');
