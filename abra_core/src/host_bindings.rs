@@ -20,7 +20,7 @@ pub fn generate_host_function_enum(
     file_provider: Box<dyn FileProvider>,
     destination: &Path,
 ) -> Result<(), ErrorSummary> {
-    let mut ctx = StaticsContext::new(file_provider, false, None); // TODO: feels weird to write false, None here...
+    let mut ctx = StaticsContext::new(file_provider);
     let file_asts = get_files(&mut ctx, &[main_host_func_file_name])?;
     statics::analyze(&mut ctx, &file_asts)?;
 

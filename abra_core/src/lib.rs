@@ -61,7 +61,7 @@ pub fn compile_and_dump_assembly(
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
 
-    let mut ctx = StaticsContext::new(file_provider, false, None);
+    let mut ctx = StaticsContext::new(file_provider);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
@@ -88,8 +88,18 @@ pub fn compile_to_native(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
     output_file: PathBuf,
-) -> Result<CompiledProgram, ErrorSummary> {
-    unimplemented!()
+) -> Result<(), ErrorSummary> {
+    let roots = vec![main_file_name];
+
+    let mut ctx = StaticsContext::new(file_provider);
+    let file_asts = get_files(&mut ctx, &roots)?;
+    statics::analyze(&mut ctx, &file_asts)?;
+
+    unimplemented!();
+
+    // let translator = NativeTranslator::new(ctx, file_asts);
+    // translator.write_to_output_file(output_file);
+    Ok(())
 }
 
 fn compile_(
@@ -104,7 +114,7 @@ fn compile_(
     if let Some(host) = main_host_func_file_name {
         roots.push(host);
     }
-    let mut ctx = StaticsContext::new(file_provider, native, output_file);
+    let mut ctx = StaticsContext::new(file_provider);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
     let translator = Translator::new(ctx, file_asts);
@@ -116,7 +126,7 @@ pub fn check(
     file_provider: Box<dyn FileProvider>,
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
-    let mut ctx = StaticsContext::new(file_provider, false, None);
+    let mut ctx = StaticsContext::new(file_provider);
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
     Ok(())
@@ -442,7 +452,7 @@ pub enum CompletionCandidateKind {
 /// Run parse + type checking without bytecode translation.
 /// Always returns results, even when there are errors.
 pub fn check_lsp(main_file_name: &str, file_provider: Box<dyn FileProvider>) -> LspAnalysisResult {
-    let mut ctx = StaticsContext::new(file_provider, false, None); // TODO: feels weird to specify native and output file here...
+    let mut ctx = StaticsContext::new(file_provider);
     let file_asts = match get_files(&mut ctx, &[main_file_name]) {
         Ok(asts) => asts,
         Err(e) => {

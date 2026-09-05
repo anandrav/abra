@@ -101,17 +101,10 @@ pub(crate) struct StaticsContext {
 
     // ERRORS
     pub(crate) errors: Vec<Error>,
-
-    pub(crate) native: bool,
-    pub(crate) output_file: Option<PathBuf>,
 }
 
 impl StaticsContext {
-    pub(crate) fn new(
-        file_provider: Box<dyn FileProvider>,
-        native: bool,
-        output_file: Option<PathBuf>,
-    ) -> Self {
+    pub(crate) fn new(file_provider: Box<dyn FileProvider>) -> Self {
         Self {
             file_db: FileDatabase::new(),
             file_provider,
@@ -154,9 +147,6 @@ impl StaticsContext {
 
             unifvars: Default::default(),
             errors: Default::default(),
-
-            native,
-            output_file,
         }
     }
 
