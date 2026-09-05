@@ -30,7 +30,7 @@ mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_ast_to_bytecode;
-mod translate_ast_to_hir;
+mod translate_ast_to_mir;
 pub mod vm;
 
 use crate::lsp_helper::{declaration_location, extract_primary_from_diagnostic};
