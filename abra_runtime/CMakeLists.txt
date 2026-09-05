@@ -1,6 +1,6 @@
 include_directories(.)
 
-add_library(abra_runtime SHARED
+add_library(abra_runtime
         abra_runtime.c)
 
 set_target_properties(abra_runtime PROPERTIES

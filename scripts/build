@@ -1,0 +1,14 @@
+#!/bin/bash
+set -eou pipefail
+
+if [[ -n "${ABRA_REPOSITORY_ROOT-}" ]]; then
+  export WD="$ABRA_REPOSITORY_ROOT"
+else
+  export WD="$PWD"
+fi
+
+cmake -S . -B build
+cmake --build build
+
+cargo build
+
