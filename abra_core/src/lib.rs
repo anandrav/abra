@@ -23,6 +23,7 @@ pub mod foreign_bindings;
 pub mod host_bindings;
 pub mod install;
 mod intrinsic;
+mod lower_mir_to_binary;
 mod lsp_helper;
 mod mir;
 mod optimize_bytecode;
@@ -96,11 +97,8 @@ pub fn compile_to_native(
     statics::analyze(&mut ctx, &file_asts)?;
 
     let mir = translate_ast_to_mir::translate(&ctx, &file_asts);
+    lower_mir_to_binary::lower(mir);
 
-    unimplemented!();
-
-    // let translator = NativeTranslator::new(ctx, file_asts);
-    // translator.write_to_output_file(output_file);
     Ok(())
 }
 
