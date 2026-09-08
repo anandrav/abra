@@ -88,7 +88,7 @@ pub fn compile_bytecode_with_host_funcs(
 pub fn compile_to_native(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
-    _output_file: PathBuf,
+    output_file: PathBuf,
 ) -> Result<(), ErrorSummary> {
     let roots = vec![main_file_name];
 
@@ -97,7 +97,7 @@ pub fn compile_to_native(
     statics::analyze(&mut ctx, &file_asts)?;
 
     let mir = translate_ast_to_mir::translate(&ctx, &file_asts);
-    lower_mir_to_binary::lower(mir);
+    lower_mir_to_binary::lower(mir, &output_file);
 
     Ok(())
 }

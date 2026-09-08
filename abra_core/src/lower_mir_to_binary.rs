@@ -2,19 +2,13 @@ use crate::mir;
 use cranelift::prelude::*;
 use cranelift_module::{Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
-use std::{fs::File, io::Write};
+use std::env::temp_dir;
+use std::path::PathBuf;
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fs, fs::File, io::Write, process};
 
-pub(crate) fn lower(program: mir::Program) {
-    // TODO: lower mir to cranelift blocks
-
-    generate_object_file();
-
-    // TODO: then link to runtime and generate binary?
-
-    unimplemented!()
-}
-
-fn generate_object_file() {
+pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
     let isa = {
         let mut builder = settings::builder();
 
@@ -40,4 +34,44 @@ fn generate_object_file() {
             ObjectBuilder::new(isa.clone(), translation_unit_name, libcall_names).unwrap();
         ObjectModule::new(builder)
     };
+
+    // main function shim
+    {
+        let config = module.target_config();
+        let mut signature = module.make_signature();
+        signature.returns.push(AbiParam::new(types::I32));
+        let main = module
+            .declare_function("main", Linkage::Export, &signature)
+            .unwrap();
+        let mut context = module.make_context();
+        context.func.signature = signature;
+        let mut builder_context = FunctionBuilderContext::new();
+        let mut builder = FunctionBuilder::new(&mut context.func, &mut builder_context);
+        let block = builder.create_block();
+        builder.switch_to_block(block);
+        builder.seal_block(block);
+        let status = builder.ins().iconst(types::I32, 0);
+        builder.ins().return_(&[status]);
+        builder.finalize(config);
+        module.define_function(main, &mut context).unwrap();
+    }
+
+    let object_contents = module.finish().emit().unwrap();
+    let object_path = temp_dir().join(format!(
+        "abra-object-{}-{}.o",
+        process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::write(&object_path, object_contents).unwrap();
+    // link
+    Command::new("cc")
+        .arg(&object_path)
+        .arg("-o")
+        .arg(output_path)
+        .status()
+        .unwrap();
+    fs::remove_file(object_path).unwrap()
 }
