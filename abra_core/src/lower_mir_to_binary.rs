@@ -28,13 +28,14 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
     };
 
     let mut module = {
-        let translation_unit_name = b"output_a_binary";
+        let translation_unit_name = b"output_a_binary"; // TODO: use a name derived from the program's mainfile name
         let libcall_names = cranelift_module::default_libcall_names();
         let builder =
             ObjectBuilder::new(isa.clone(), translation_unit_name, libcall_names).unwrap();
         ObjectModule::new(builder)
     };
 
+    // TODO: make this shim actually call the main function instead of just returning 0
     // main function shim
     {
         let config = module.target_config();
@@ -66,7 +67,9 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
             .as_nanos()
     ));
     fs::write(&object_path, object_contents).unwrap();
+
     // link
+    // TODO: Compile and link the runtime.
     Command::new("cc")
         .arg(&object_path)
         .arg("-o")
