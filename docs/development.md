@@ -1,5 +1,9 @@
 # Development
 
+Needed to build the project
+- cmake
+- cargo
+
 ```
 ./scripts/setup              # Install dev dependencies (wasm target, cargo-deny, mdbook, etc.)
 ./scripts/test               # Run full test suite
