@@ -3,7 +3,7 @@ use crate::ast::{
 };
 use crate::environment::Environment;
 use crate::mir;
-use crate::statics::{FuncResolutionKind, PolytypeDeclaration, StaticsContext, Type};
+use crate::statics::{PolytypeDeclaration, StaticsContext, Type};
 use std::rc::Rc;
 use utils::id_set::IdSet;
 
@@ -71,7 +71,7 @@ impl Translator {
             StmtKind::Expr(expr) => mir::StmtKind::Expr(self.translate_expr(expr).into()),
             StmtKind::Continue => mir::StmtKind::Continue,
             StmtKind::Break => mir::StmtKind::Break,
-            StmtKind::Return(expr) => unimplemented!(),
+            StmtKind::Return(_expr) => unimplemented!(),
 
             StmtKind::WhileLoop(_, _) => unimplemented!(),
             StmtKind::ForLoop(_, _, _) => unimplemented!(),
@@ -91,20 +91,20 @@ impl Translator {
             ExprKind::Float(f) => mir::ExprKind::Float(f.clone()),
             ExprKind::Bool(b) => mir::ExprKind::Bool(*b),
             ExprKind::Str(s) => mir::ExprKind::String(s.clone()),
-            ExprKind::Array(arr) => unimplemented!(),
+            ExprKind::Array(_arr) => unimplemented!(),
             ExprKind::AnonymousFunction(_, _, _) => unimplemented!(),
-            ExprKind::IfElse(cond, tbranch, ebranch) => unimplemented!(),
+            ExprKind::IfElse(_cond, _tbranch, _ebranch) => unimplemented!(),
             ExprKind::Match(_, _) => unimplemented!(),
             ExprKind::Block(stmts) => {
                 mir::ExprKind::Block(stmts.iter().map(|s| self.translate_stmt(s)).collect())
             }
             ExprKind::BinOp(_, _, _) => unimplemented!(),
             ExprKind::Unop(_, _) => unimplemented!(),
-            ExprKind::FuncCall(expr, args) => {
+            ExprKind::FuncCall(_expr, _args) => {
                 //let args = args.iter().map(|e| self.translate_expr(e).into()).collect();
                 unimplemented!()
             }
-            ExprKind::Tuple(elems) => unimplemented!(),
+            ExprKind::Tuple(_elems) => unimplemented!(),
             ExprKind::MemberAccess(_, _) => unimplemented!(),
             ExprKind::MemberAccessLeadingDot(_) => unimplemented!(),
             ExprKind::IndexAccess(_, _) => unimplemented!(),
@@ -133,7 +133,7 @@ impl Translator {
             PatKind::Tuple(elems) => mir::PatKind::Tuple(
                 elems
                     .iter()
-                    .map(|p| self.translate_pat(pat).into())
+                    .map(|_p| self.translate_pat(pat).into())
                     .collect(),
             ),
             PatKind::Struct(_, _) => unimplemented!(),

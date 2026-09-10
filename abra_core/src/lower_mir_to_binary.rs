@@ -6,9 +6,9 @@ use std::env::temp_dir;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{fs, fs::File, io::Write, process};
+use std::{fs, process};
 
-pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
+pub(crate) fn lower(_program: mir::Program, output_path: &PathBuf) {
     let isa = {
         let mut builder = settings::builder();
 
