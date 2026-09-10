@@ -118,7 +118,7 @@ impl Translator {
             ),
             ExprKind::BinOp(_, _, _) => unimplemented!(),
             ExprKind::Unop(_, _) => unimplemented!(),
-            ExprKind::FuncCall(func, args) => match &*expr.kind {
+            ExprKind::FuncCall(func, args) => match &*func.kind {
                 ExprKind::Variable(_) => {
                     let decl = &self.statics.resolution_map[&func.id];
                     let args: Vec<mir::Expr> = if let Some(reordered_args) =
@@ -136,7 +136,7 @@ impl Translator {
                     let id = self.translate_func_call(decl, func.node(), mono, st);
                     mir::ExprKind::FuncCall(id, args)
                 }
-                _ => unimplemented!(),
+                _ => unimplemented!("{:#?}", func.kind),
             },
             ExprKind::Tuple(_elems) => unimplemented!(),
             ExprKind::MemberAccess(_, _) => unimplemented!(),
