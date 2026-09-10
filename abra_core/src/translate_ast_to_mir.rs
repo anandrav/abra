@@ -4,6 +4,7 @@ use crate::ast::{
 use crate::environment::Environment;
 use crate::mir;
 use crate::statics::{PolytypeDeclaration, StaticsContext, Type};
+use crate::translate_helpers::*;
 use std::rc::Rc;
 use utils::id_set::IdSet;
 
@@ -27,8 +28,6 @@ struct FuncDesc {
 enum FuncKind {
     NamedFunc(Rc<FuncDef>),
 }
-
-type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
 
 impl Translator {
     pub(crate) fn new(statics: StaticsContext, file_asts: Vec<Rc<FileAst>>) -> Self {
