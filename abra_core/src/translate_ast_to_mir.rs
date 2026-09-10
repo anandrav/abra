@@ -99,10 +99,22 @@ impl Translator {
             }
             ExprKind::BinOp(_, _, _) => unimplemented!(),
             ExprKind::Unop(_, _) => unimplemented!(),
-            ExprKind::FuncCall(_expr, _args) => {
-                //let args = args.iter().map(|e| self.translate_expr(e).into()).collect();
-                unimplemented!()
-            }
+            ExprKind::FuncCall(expr, args) => match &*expr.kind {
+                ExprKind::Variable(_) => {
+                    let args: Vec<mir::Expr> = if let Some(reordered_args) =
+                        self.statics.function_call_arg_order.get(&expr.id).cloned()
+                    {
+                        reordered_args
+                            .iter()
+                            .map(|e| self.translate_expr(e))
+                            .collect()
+                    } else {
+                        args.iter().map(|e| self.translate_expr(&e.val)).collect()
+                    };
+                    unimplemented!()
+                }
+                _ => unimplemented!(),
+            },
             ExprKind::Tuple(_elems) => unimplemented!(),
             ExprKind::MemberAccess(_, _) => unimplemented!(),
             ExprKind::MemberAccessLeadingDot(_) => unimplemented!(),
