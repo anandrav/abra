@@ -1,9 +1,9 @@
 use crate::ast::{
-    Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
+    AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
 };
 use crate::environment::Environment;
 use crate::mir;
-use crate::statics::{PolytypeDeclaration, StaticsContext, Type};
+use crate::statics::{Declaration, FuncResolutionKind, PolytypeDeclaration, StaticsContext, Type};
 use crate::translate_helpers::*;
 use std::rc::Rc;
 use utils::id_set::IdSet;
@@ -35,6 +35,8 @@ impl Translator {
     }
 
     pub(crate) fn translate(&self) -> mir::Program {
+        let mut st = &mut TranslatorState::default();
+        let mono = MonomorphEnv::empty();
         let mut funcs = vec![];
 
         // main function
@@ -49,7 +51,7 @@ impl Translator {
                     | ItemKind::InterfaceImpl(_)
                     | ItemKind::Extension(_)
                     | ItemKind::Import(_, _) => {}
-                    ItemKind::Stmt(stmt) => stmts.push(self.translate_stmt(stmt)),
+                    ItemKind::Stmt(stmt) => stmts.push(self.translate_stmt(stmt, st, &mono)),
                 }
             }
             let body = mir::Expr {
@@ -63,11 +65,20 @@ impl Translator {
         mir::Program { funcs }
     }
 
-    fn translate_stmt(&self, stmt: &Rc<Stmt>) -> mir::Stmt {
+    fn get_ty(&self, mono: &MonomorphEnv, node: AstNode) -> Option<Type> {
+        self.statics.solution_of_node(node).map(|t| t.subst(mono))
+    }
+
+    fn translate_stmt(
+        &self,
+        stmt: &Rc<Stmt>,
+        st: &mut TranslatorState,
+        mono: &MonomorphEnv,
+    ) -> mir::Stmt {
         let kind = match &*stmt.kind {
             StmtKind::Let(_, _, _) => unimplemented!(),
             StmtKind::Assign(_, _, _) => unimplemented!(),
-            StmtKind::Expr(expr) => mir::StmtKind::Expr(self.translate_expr(expr).into()),
+            StmtKind::Expr(expr) => mir::StmtKind::Expr(self.translate_expr(expr, st, mono).into()),
             StmtKind::Continue => mir::StmtKind::Continue,
             StmtKind::Break => mir::StmtKind::Break,
             StmtKind::Return(_expr) => unimplemented!(),
@@ -82,7 +93,12 @@ impl Translator {
         }
     }
 
-    fn translate_expr(&self, expr: &Rc<Expr>) -> mir::Expr {
+    fn translate_expr(
+        &self,
+        expr: &Rc<Expr>,
+        st: &mut TranslatorState,
+        mono: &MonomorphEnv,
+    ) -> mir::Expr {
         let kind = match &*expr.kind {
             ExprKind::Variable(_) => unimplemented!(),
             ExprKind::Nil => unimplemented!(),
@@ -94,24 +110,31 @@ impl Translator {
             ExprKind::AnonymousFunction(_, _, _) => unimplemented!(),
             ExprKind::IfElse(_cond, _tbranch, _ebranch) => unimplemented!(),
             ExprKind::Match(_, _) => unimplemented!(),
-            ExprKind::Block(stmts) => {
-                mir::ExprKind::Block(stmts.iter().map(|s| self.translate_stmt(s)).collect())
-            }
+            ExprKind::Block(stmts) => mir::ExprKind::Block(
+                stmts
+                    .iter()
+                    .map(|s| self.translate_stmt(s, st, mono))
+                    .collect(),
+            ),
             ExprKind::BinOp(_, _, _) => unimplemented!(),
             ExprKind::Unop(_, _) => unimplemented!(),
-            ExprKind::FuncCall(expr, args) => match &*expr.kind {
+            ExprKind::FuncCall(func, args) => match &*expr.kind {
                 ExprKind::Variable(_) => {
+                    let decl = &self.statics.resolution_map[&func.id];
                     let args: Vec<mir::Expr> = if let Some(reordered_args) =
-                        self.statics.function_call_arg_order.get(&expr.id).cloned()
+                        self.statics.function_call_arg_order.get(&func.id).cloned()
                     {
                         reordered_args
                             .iter()
-                            .map(|e| self.translate_expr(e))
+                            .map(|e| self.translate_expr(e, st, mono))
                             .collect()
                     } else {
-                        args.iter().map(|e| self.translate_expr(&e.val)).collect()
+                        args.iter()
+                            .map(|e| self.translate_expr(&e.val, st, mono))
+                            .collect()
                     };
-                    unimplemented!()
+                    let id = self.translate_func_call(decl, func.node(), mono, st);
+                    mir::ExprKind::FuncCall(id, args)
                 }
                 _ => unimplemented!(),
             },
@@ -131,7 +154,46 @@ impl Translator {
         }
     }
 
-    fn translate_pat(&self, pat: &Rc<Pat>) -> mir::Pat {
+    fn translate_func_call(
+        &self,
+        decl: &Declaration,
+        func_node: AstNode,
+        mono: &MonomorphEnv,
+        st: &mut TranslatorState,
+    ) -> u32 {
+        match decl {
+            Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
+                let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
+                let id =
+                    self.translate_func_call_helper(f, f_fully_qualified_name, func_node, mono, st);
+                id
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    fn translate_func_call_helper(
+        &self,
+        f: &Rc<FuncDef>,
+        f_fully_qualified_name: &str,
+        func_node: AstNode,
+        mono: &MonomorphEnv,
+        st: &mut TranslatorState,
+    ) -> u32 {
+        let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+        let overload_ty = if !func_ty.is_overloaded() {
+            None
+        } else {
+            Some(self.get_ty(mono, func_node).unwrap())
+        };
+        let id = st.funcs_to_generate.insert(FuncDesc {
+            kind: FuncKind::NamedFunc(f.clone()),
+            overload_ty,
+        });
+        id
+    }
+
+    fn translate_pat(&self, pat: &Rc<Pat>, st: &mut TranslatorState) -> mir::Pat {
         let kind = match &*pat.kind {
             PatKind::Wildcard => mir::PatKind::Wildcard,
             PatKind::Binding(s) => mir::PatKind::Binding(s.clone()),
@@ -144,7 +206,7 @@ impl Translator {
             PatKind::Tuple(elems) => mir::PatKind::Tuple(
                 elems
                     .iter()
-                    .map(|_p| self.translate_pat(pat).into())
+                    .map(|_p| self.translate_pat(pat, st).into())
                     .collect(),
             ),
             PatKind::Struct(_, _) => unimplemented!(),

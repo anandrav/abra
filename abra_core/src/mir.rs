@@ -32,7 +32,7 @@ pub(crate) enum ExprKind {
     // Match(Box<Expr>, Vec<Box<MatchArm>>), // replace this with a switch?
     BinOp(Box<Expr>, BinaryOperator, Box<Expr>),
     Unop(PrefixOp, Box<Expr>),
-    FuncCall(Box<Expr>, Vec<Box<Expr>>),
+    FuncCall(u32 /*function id */, Vec<Expr>),
     Tuple(Vec<Box<Expr>>),
     // MemberAccess
     // MemberAccessLeadingDot
