@@ -1,9 +1,9 @@
 use crate::ast::{
     Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
 };
+use crate::environment::Environment;
 use crate::mir;
-use crate::statics::StaticsContext;
-use crate::statics::typecheck::SolvedType;
+use crate::statics::{FuncResolutionKind, PolytypeDeclaration, StaticsContext, Type};
 use std::rc::Rc;
 use utils::id_set::IdSet;
 
@@ -20,13 +20,15 @@ pub(crate) struct TranslatorState {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 struct FuncDesc {
     kind: FuncKind,
-    overload_ty: Option<SolvedType>,
+    overload_ty: Option<Type>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum FuncKind {
     NamedFunc(Rc<FuncDef>),
 }
+
+type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
 
 impl Translator {
     pub(crate) fn new(statics: StaticsContext, file_asts: Vec<Rc<FileAst>>) -> Self {
