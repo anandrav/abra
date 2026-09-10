@@ -19,7 +19,7 @@ use std::{fmt, hash::Hash};
 //
 // requirements:
 // - values must be immutable
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct IdSet<T: Hash + Eq> {
     map: HashMap<Ptr<T>, u32>,
     current_buf: Vec<T>, // TODO: instead of using Vec<T> for a buffer, maybe use a [MaybeUninit<T>], or even a raw buffer of bytes...
@@ -51,6 +51,12 @@ impl<T: Hash + Eq> PartialEq for Ptr<T> {
 }
 
 impl<T: Hash + Eq> Eq for Ptr<T> {}
+
+impl<T: Hash + Eq> Default for IdSet<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T: Hash + Eq> IdSet<T> {
     #[inline]

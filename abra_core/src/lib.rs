@@ -96,7 +96,8 @@ pub fn compile_to_native(
     let file_asts = get_files(&mut ctx, &roots)?;
     statics::analyze(&mut ctx, &file_asts)?;
 
-    let mir = translate_ast_to_mir::translate(&ctx, &file_asts);
+    let mir_translator = translate_ast_to_mir::Translator::new(ctx, file_asts);
+    let mir = mir_translator.translate();
     lower_mir_to_binary::lower(mir, &output_file);
 
     Ok(())

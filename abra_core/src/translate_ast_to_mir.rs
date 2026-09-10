@@ -1,87 +1,108 @@
-use crate::ast::{Expr, ExprKind, FileAst, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind};
+use crate::ast::{
+    Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
+};
 use crate::mir;
 use crate::statics::StaticsContext;
+use crate::statics::typecheck::SolvedType;
 use std::rc::Rc;
+use utils::id_set::IdSet;
 
-pub(crate) fn translate(ctx: &StaticsContext, file_asts: &[Rc<FileAst>]) -> mir::Program {
-    let mut funcs = vec![];
-
-    // main function
-    if let Some(main_ast) = file_asts.first() {
-        let mut stmts = vec![];
-        for item in main_ast.items.iter() {
-            match &*item.kind {
-                ItemKind::FuncDecl(_)
-                | ItemKind::FuncDef(_)
-                | ItemKind::TypeDef(_)
-                | ItemKind::InterfaceDef(_)
-                | ItemKind::InterfaceImpl(_)
-                | ItemKind::Extension(_)
-                | ItemKind::Import(_, _) => {}
-                ItemKind::Stmt(stmt) => stmts.push(stmt.translate()),
-            }
-        }
-        let body = mir::Expr {
-            kind: mir::ExprKind::Block(stmts),
-            span: main_ast.loc.clone(),
-            id: NodeId::new(),
-        };
-        funcs.push(mir::Function { body })
-    }
-
-    mir::Program { funcs }
+pub(crate) struct Translator {
+    statics: StaticsContext,
+    file_asts: Vec<Rc<FileAst>>,
 }
 
-impl Stmt {
-    fn translate(&self) -> mir::Stmt {
-        let kind = match &*self.kind {
+#[derive(Debug, Default)]
+pub(crate) struct TranslatorState {
+    funcs_to_generate: IdSet<FuncDesc>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+struct FuncDesc {
+    kind: FuncKind,
+    overload_ty: Option<SolvedType>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+enum FuncKind {
+    NamedFunc(Rc<FuncDef>),
+}
+
+impl Translator {
+    pub(crate) fn new(statics: StaticsContext, file_asts: Vec<Rc<FileAst>>) -> Self {
+        Self { statics, file_asts }
+    }
+
+    pub(crate) fn translate(&self) -> mir::Program {
+        let mut funcs = vec![];
+
+        // main function
+        if let Some(main_ast) = self.file_asts.first() {
+            let mut stmts = vec![];
+            for item in main_ast.items.iter() {
+                match &*item.kind {
+                    ItemKind::FuncDecl(_)
+                    | ItemKind::FuncDef(_)
+                    | ItemKind::TypeDef(_)
+                    | ItemKind::InterfaceDef(_)
+                    | ItemKind::InterfaceImpl(_)
+                    | ItemKind::Extension(_)
+                    | ItemKind::Import(_, _) => {}
+                    ItemKind::Stmt(stmt) => stmts.push(self.translate_stmt(stmt)),
+                }
+            }
+            let body = mir::Expr {
+                kind: mir::ExprKind::Block(stmts),
+                span: main_ast.loc.clone(),
+                id: NodeId::new(),
+            };
+            funcs.push(mir::Function { body })
+        }
+
+        mir::Program { funcs }
+    }
+
+    fn translate_stmt(&self, stmt: &Rc<Stmt>) -> mir::Stmt {
+        let kind = match &*stmt.kind {
             StmtKind::Let(_, _, _) => unimplemented!(),
             StmtKind::Assign(_, _, _) => unimplemented!(),
-            StmtKind::Expr(expr) => mir::StmtKind::Expr(expr.translate().into()),
+            StmtKind::Expr(expr) => mir::StmtKind::Expr(self.translate_expr(expr).into()),
             StmtKind::Continue => mir::StmtKind::Continue,
             StmtKind::Break => mir::StmtKind::Break,
-            StmtKind::Return(expr) => {
-                mir::StmtKind::Return(expr.as_ref().map(|e| e.translate().into()))
-            }
+            StmtKind::Return(expr) => unimplemented!(),
+
             StmtKind::WhileLoop(_, _) => unimplemented!(),
             StmtKind::ForLoop(_, _, _) => unimplemented!(),
         };
 
         mir::Stmt {
             kind,
-            span: self.loc.clone(),
+            span: stmt.loc.clone(),
         }
     }
-}
 
-impl Expr {
-    fn translate(&self) -> mir::Expr {
-        let kind = match &*self.kind {
+    fn translate_expr(&self, expr: &Rc<Expr>) -> mir::Expr {
+        let kind = match &*expr.kind {
             ExprKind::Variable(_) => unimplemented!(),
             ExprKind::Nil => unimplemented!(),
             ExprKind::Int(n) => mir::ExprKind::Int(*n),
             ExprKind::Float(f) => mir::ExprKind::Float(f.clone()),
             ExprKind::Bool(b) => mir::ExprKind::Bool(*b),
             ExprKind::Str(s) => mir::ExprKind::String(s.clone()),
-            ExprKind::Array(arr) => {
-                mir::ExprKind::Array(arr.iter().map(|e| e.translate().into()).collect())
-            }
+            ExprKind::Array(arr) => unimplemented!(),
             ExprKind::AnonymousFunction(_, _, _) => unimplemented!(),
-            ExprKind::IfElse(cond, tbranch, ebranch) => mir::ExprKind::IfElse(
-                cond.translate().into(),
-                tbranch.translate().into(),
-                ebranch.clone().map(|s| s.translate().into()),
-            ),
+            ExprKind::IfElse(cond, tbranch, ebranch) => unimplemented!(),
             ExprKind::Match(_, _) => unimplemented!(),
             ExprKind::Block(stmts) => {
-                mir::ExprKind::Block(stmts.iter().map(|e| e.translate()).collect())
+                mir::ExprKind::Block(stmts.iter().map(|s| self.translate_stmt(s)).collect())
             }
             ExprKind::BinOp(_, _, _) => unimplemented!(),
             ExprKind::Unop(_, _) => unimplemented!(),
-            ExprKind::FuncCall(_, _) => unimplemented!(),
-            ExprKind::Tuple(elems) => {
-                mir::ExprKind::Tuple(elems.iter().map(|e| e.translate().into()).collect())
+            ExprKind::FuncCall(expr, args) => {
+                //let args = args.iter().map(|e| self.translate_expr(e).into()).collect();
+                unimplemented!()
             }
+            ExprKind::Tuple(elems) => unimplemented!(),
             ExprKind::MemberAccess(_, _) => unimplemented!(),
             ExprKind::MemberAccessLeadingDot(_) => unimplemented!(),
             ExprKind::IndexAccess(_, _) => unimplemented!(),
@@ -92,15 +113,13 @@ impl Expr {
 
         mir::Expr {
             kind,
-            span: self.loc.clone(),
+            span: expr.loc.clone(),
             id: NodeId::new(),
         }
     }
-}
 
-impl Pat {
-    fn translate(&self) -> mir::Pat {
-        let kind = match &*self.kind {
+    fn translate_pat(&self, pat: &Rc<Pat>) -> mir::Pat {
+        let kind = match &*pat.kind {
             PatKind::Wildcard => mir::PatKind::Wildcard,
             PatKind::Binding(s) => mir::PatKind::Binding(s.clone()),
             PatKind::Variant(_, _, _) => unimplemented!(),
@@ -109,16 +128,19 @@ impl Pat {
             PatKind::Float(f) => mir::PatKind::Float(f.clone()),
             PatKind::Bool(b) => mir::PatKind::Bool(*b),
             PatKind::Str(s) => mir::PatKind::Str(s.clone()),
-            PatKind::Tuple(elems) => {
-                mir::PatKind::Tuple(elems.iter().map(|p| p.translate().into()).collect())
-            }
+            PatKind::Tuple(elems) => mir::PatKind::Tuple(
+                elems
+                    .iter()
+                    .map(|p| self.translate_pat(pat).into())
+                    .collect(),
+            ),
             PatKind::Struct(_, _) => unimplemented!(),
             PatKind::Or(_, _) => unimplemented!(),
         };
 
         mir::Pat {
             kind,
-            span: self.loc.clone(),
+            span: pat.loc.clone(),
         }
     }
 }
