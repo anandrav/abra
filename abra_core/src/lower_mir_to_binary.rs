@@ -8,7 +8,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, process};
 
-pub(crate) fn lower(_program: mir::Program, output_path: &PathBuf) {
+pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
     let isa = {
         let mut builder = settings::builder();
 
@@ -34,6 +34,8 @@ pub(crate) fn lower(_program: mir::Program, output_path: &PathBuf) {
             ObjectBuilder::new(isa.clone(), translation_unit_name, libcall_names).unwrap();
         ObjectModule::new(builder)
     };
+
+    lower_program(&program, &mut module);
 
     // TODO: make this shim actually call the main function instead of just returning 0
     // main function shim
@@ -77,4 +79,8 @@ pub(crate) fn lower(_program: mir::Program, output_path: &PathBuf) {
         .status()
         .unwrap();
     fs::remove_file(object_path).unwrap()
+}
+
+fn lower_program(program: &mir::Program, module: &mut ObjectModule) {
+    unimplemented!()
 }
