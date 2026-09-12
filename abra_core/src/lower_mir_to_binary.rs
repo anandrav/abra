@@ -82,5 +82,8 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
 }
 
 fn lower_program(program: &mir::Program, module: &mut ObjectModule) {
-    unimplemented!()
+    let mut function_signatures: Vec<Signature> = vec![];
+    for func in program.funcs[1..].iter() {
+        let mut sig = module.make_signature();
+    }
 }
