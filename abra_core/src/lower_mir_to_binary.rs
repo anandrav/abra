@@ -1,6 +1,10 @@
 use crate::mir;
+use crate::mir::Function;
+use crate::statics::typecheck::Monotype;
+use cranelift::codegen::ir;
+use cranelift::codegen::isa::TargetFrontendConfig;
 use cranelift::prelude::*;
-use cranelift_module::{Linkage, Module};
+use cranelift_module::{FuncId, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use std::env::temp_dir;
 use std::path::PathBuf;
@@ -83,7 +87,35 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
 
 fn lower_program(program: &mir::Program, module: &mut ObjectModule) {
     let mut function_signatures: Vec<Signature> = vec![];
-    for func in program.funcs[1..].iter() {
-        let mut sig = module.make_signature();
+    let mut function_declarations: Vec<FuncId> = vec![];
+    for func in program.funcs.iter() {
+        let sig = module.make_signature();
+        match &func.ret_ty {
+            Monotype::Void => {}
+            _ => unimplemented!(),
+        }
+        function_signatures.push(sig);
+        let func_id = module
+            .declare_function(
+                &func.fully_qualified_name,
+                Linkage::Local,
+                function_signatures.last().unwrap(),
+            )
+            .unwrap(); // TODO: don't unwrap
+        function_declarations.push(func_id);
     }
+
+    for (index, func) in program.funcs.iter().enumerate() {
+        let mut context = module.make_context();
+        context.func.signature = function_signatures[index].clone();
+
+        lower_function(func, &mut context.func, module.target_config());
+
+        let declaration = function_declarations[index];
+        module.define_function(declaration, &mut context).unwrap(); // TODO: don't unwrap
+    }
+}
+
+fn lower_function(func: &Function, ir: &mut ir::Function, config: TargetFrontendConfig) {
+    unimplemented!()
 }

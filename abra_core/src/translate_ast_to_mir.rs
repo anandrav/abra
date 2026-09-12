@@ -3,6 +3,7 @@ use crate::ast::{
 };
 use crate::environment::Environment;
 use crate::mir;
+use crate::statics::typecheck::Monotype;
 use crate::statics::{Declaration, FuncResolutionKind, PolytypeDeclaration, StaticsContext, Type};
 use crate::translate_helpers::*;
 use std::rc::Rc;
@@ -59,7 +60,11 @@ impl Translator {
                 span: main_ast.loc.clone(),
                 id: NodeId::new(),
             };
-            funcs.push(mir::Function { body })
+            funcs.push(mir::Function {
+                body,
+                ret_ty: Monotype::Void,
+                fully_qualified_name: "main".to_string(),
+            }) // TODO: can we just name it "main"? Or name it something else?
         }
 
         mir::Program { funcs }

@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::ast::{BinaryOperator, Location, NodeId};
 use crate::parse::PrefixOp;
+use crate::statics::typecheck::Monotype;
 use crate::vm::AbraInt;
 
 pub(crate) struct Program {
@@ -11,6 +12,8 @@ pub(crate) struct Program {
 
 pub(crate) struct Function {
     pub(crate) body: Expr,
+    pub(crate) ret_ty: Monotype,
+    pub(crate) fully_qualified_name: String,
 }
 
 pub(crate) struct Expr {
