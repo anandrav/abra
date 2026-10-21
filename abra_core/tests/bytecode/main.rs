@@ -2,6 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod helper;
+mod lsp;
+mod resolve;
+mod threads;
+mod typecheck;
+
 use crate::helper::unwrap_or_panic;
 use crate::helper::{expect_value, should_fail};
 use abra_core::MockFileProvider;
