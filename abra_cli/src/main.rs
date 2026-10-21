@@ -210,7 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(s) => PathBuf::new().join(s),
             None => PathBuf::new().join(main_file_name).with_extension("out"),
         };
-        match abra_core::compile_to_native(main_file_name, file_provider, output_file) {
+        match abra_core::compile_to_native(main_file_name, file_provider, &output_file) {
             Ok(_) => return Ok(()),
             Err(err) => {
                 err.emit();

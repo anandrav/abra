@@ -6,7 +6,7 @@ use std::{
 };
 
 pub struct TempFile {
-    path: PathBuf,
+    pub path: PathBuf,
 }
 
 impl Drop for TempFile {

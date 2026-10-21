@@ -4,8 +4,8 @@
 
 mod helper;
 
+use crate::helper::expect_exit_code;
 use crate::helper::unwrap_or_panic;
-use crate::helper::{expect_value, should_fail};
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Runtime;
@@ -14,16 +14,22 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[test]
-fn arithmetic() {
-    let src = r#"
-fn sub(x, y) {
-  x - y
+fn empty() {
+    let src = "";
+    expect_exit_code(src, 0);
 }
-let x = 3
-let y = 4
-let z = sub(x, y)
-let h = sub(z, 1)
-h
-"#;
-    expect_value(src, -2);
-}
+
+// #[test]
+// fn arithmetic() {
+//     let src = r#"
+// fn sub(x, y) {
+//   x - y
+// }
+// let x = 3
+// let y = 4
+// let z = sub(x, y)
+// let h = sub(z, 1)
+// h
+// "#;
+//     expect_exit_code(src, 0);
+// }

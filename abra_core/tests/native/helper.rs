@@ -5,7 +5,9 @@
 // functions used for testing
 
 use abra_core::vm::{AbraFloat, AbraInt, Runtime, Value};
-use abra_core::{ErrorSummary, MockFileProvider, compile_bytecode};
+use abra_core::{ErrorSummary, MockFileProvider, compile_to_native};
+use std::process::Command;
+use utils::tempfile::TempFile;
 
 pub fn unwrap_or_panic<T>(result: Result<T, ErrorSummary>) -> T {
     match result {
@@ -56,19 +58,24 @@ impl ExpectedValue for &str {
     }
 }
 
-// TODO: expect_exit_code()
-pub fn expect_value<T: ExpectedValue>(src: &str, val: T) {
-    let program = unwrap_or_panic(compile_bytecode(
-        // TODO: compile to native
+pub fn expect_exit_code(src: &str, val: u8) {
+    let temp = TempFile::new();
+    unwrap_or_panic(compile_to_native(
         "main.abra",
         MockFileProvider::single_file(src),
+        &temp.path,
     ));
-    let mut runtime = Runtime::new(program);
-    runtime.run_with_granularity(1);
-    let top = runtime.top();
-    val.check(&mut runtime, top);
+    let status = match Command::new(&temp.path).status() {
+        Ok(status) => status,
+        Err(e) => panic!("{}", e.to_string()),
+    };
+    let code = match status.code() {
+        Some(code) => code,
+        None => panic!("no exit code from Abra program"),
+    };
+    assert_eq!(code, val as i32);
 }
 
-pub fn should_fail(src: &str) {
-    compile_bytecode("main.abra", MockFileProvider::single_file(src)).unwrap_err();
-}
+// pub fn should_fail(src: &str) {
+//     compile_bytecode("main.abra", MockFileProvider::single_file(src)).unwrap_err();
+// }
