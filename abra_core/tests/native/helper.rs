@@ -56,8 +56,10 @@ impl ExpectedValue for &str {
     }
 }
 
+// TODO: expect_exit_code()
 pub fn expect_value<T: ExpectedValue>(src: &str, val: T) {
     let program = unwrap_or_panic(compile_bytecode(
+        // TODO: compile to native
         "main.abra",
         MockFileProvider::single_file(src),
     ));

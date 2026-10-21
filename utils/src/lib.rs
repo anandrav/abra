@@ -12,4 +12,5 @@ pub mod arena;
 pub mod lite_arena;
 pub mod log;
 pub mod swrite;
+pub mod tempfile;
 pub mod union_find;
