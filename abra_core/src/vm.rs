@@ -852,6 +852,7 @@ pub enum Instr {
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
+    Exit,
     SpawnTask(u16, ProgramCounter),
 
     // Data Structures
@@ -2210,6 +2211,10 @@ impl VmGreenThread {
                 self.error = Some(Box::new(
                     self.make_error(VmErrorKind::Panic(msg.to_string())),
                 ));
+                return false;
+            }
+            Instr::Exit => {
+                let _code = self.pop().get_int(self);
                 return false;
             }
             Instr::ConstructChannel => {

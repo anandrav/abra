@@ -91,6 +91,7 @@ pub enum IntrinsicOperation {
     ChannelWrite,
 
     Panic,
+    Exit,
 }
 
 impl IntrinsicOperation {
@@ -319,6 +320,11 @@ impl IntrinsicOperation {
             IntrinsicOperation::Panic => TypeVar::make_func(
                 vec![TypeVar::make_string(reason.clone())],
                 TypeVar::make_never(reason.clone()),
+                reason.clone(),
+            ),
+            IntrinsicOperation::Exit => TypeVar::make_func(
+                vec![TypeVar::make_int(reason.clone())],
+                TypeVar::make_void(reason.clone()),
                 reason.clone(),
             ),
 

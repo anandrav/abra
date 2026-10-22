@@ -173,7 +173,7 @@ impl Translator {
                     self.translate_func_call_helper(f, f_fully_qualified_name, func_node, mono, st);
                 id
             }
-            _ => unimplemented!(),
+            _ => unimplemented!("{:#?}", &decl),
         }
     }
 

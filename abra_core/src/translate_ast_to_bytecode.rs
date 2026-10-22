@@ -1632,6 +1632,7 @@ impl Translator {
             IntrinsicOperation::ChannelRead => 1,
             IntrinsicOperation::ChannelWrite => 2,
             IntrinsicOperation::Panic => 1,
+            IntrinsicOperation::Exit => 1,
         };
         self.wrapper_header(st, nargs, for_function_body);
         match b {
@@ -1837,6 +1838,9 @@ impl Translator {
             IntrinsicOperation::ChannelWrite => self.emit(st, Instr::ChannelWrite),
             IntrinsicOperation::Panic => {
                 self.emit(st, Instr::Panic);
+            }
+            IntrinsicOperation::Exit => {
+                self.emit(st, Instr::Exit);
             }
         }
         self.wrapper_footer(st, nargs, for_function_body);

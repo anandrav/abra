@@ -161,6 +161,7 @@ pub enum Instr {
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
+    Exit,
     SpawnTask(u16, Label),
 
     // Data Structures
@@ -422,6 +423,7 @@ impl Display for Instr {
             Instr::ReturnVoid => write!(f, "return"),
             Instr::Stop => write!(f, "stop"),
             Instr::Panic => write!(f, "panic"),
+            Instr::Exit => write!(f, "exit"),
             Instr::ConstructStruct(n) => write!(f, "construct_struct {n}"),
             Instr::ConstructArray(n) => write!(f, "construct_array {n}"),
             Instr::ConstructVariant { tag } => {
@@ -748,6 +750,7 @@ fn instr_to_vminstr(
         Instr::ReturnVoid => VmInstr::ReturnVoid,
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
+        Instr::Exit => VmInstr::Exit,
         Instr::ConstructChannel => VmInstr::ConstructChannel,
         Instr::ChannelRead => VmInstr::ChannelRead,
         Instr::ChannelWrite => VmInstr::ChannelWrite,
