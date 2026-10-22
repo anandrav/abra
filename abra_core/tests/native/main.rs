@@ -19,17 +19,10 @@ fn empty() {
     expect_exit_code(src, 0);
 }
 
-// #[test]
-// fn arithmetic() {
-//     let src = r#"
-// fn sub(x, y) {
-//   x - y
-// }
-// let x = 3
-// let y = 4
-// let z = sub(x, y)
-// let h = sub(z, 1)
-// h
-// "#;
-//     expect_exit_code(src, 0);
-// }
+#[test]
+fn exit1() {
+    let src = r#"
+exit(1)
+"#;
+    expect_exit_code(src, 1);
+}
