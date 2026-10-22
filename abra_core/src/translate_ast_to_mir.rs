@@ -63,8 +63,8 @@ impl Translator {
             funcs.push(mir::Function {
                 body,
                 ret_ty: Monotype::Void,
-                fully_qualified_name: "main".to_string(),
-            }) // TODO: can we just name it "main"? Or name it something else?
+                fully_qualified_name: "abra_main".to_string(),
+            })
         }
 
         mir::Program { funcs }

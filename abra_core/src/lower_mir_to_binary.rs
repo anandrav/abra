@@ -86,9 +86,6 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
 }
 
 fn lower_program(program: &mir::Program, module: &mut ObjectModule) {
-    return;
-
-    // TODO uncomment
     let mut function_signatures: Vec<Signature> = vec![];
     let mut function_declarations: Vec<FuncId> = vec![];
     for func in program.funcs.iter() {
@@ -120,5 +117,11 @@ fn lower_program(program: &mir::Program, module: &mut ObjectModule) {
 }
 
 fn lower_function(func: &Function, ir: &mut ir::Function, config: TargetFrontendConfig) {
-    unimplemented!()
+    let mut builder_context = FunctionBuilderContext::new();
+    let mut builder = FunctionBuilder::new(ir, &mut builder_context);
+    let block = builder.create_block();
+    builder.switch_to_block(block);
+    builder.ins().return_(&[]);
+    builder.seal_block(block);
+    builder.finalize(config);
 }
