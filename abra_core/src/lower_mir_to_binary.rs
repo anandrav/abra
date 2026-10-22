@@ -1,5 +1,6 @@
+use crate::intrinsic::IntrinsicOperation;
 use crate::mir;
-use crate::mir::Function;
+use crate::mir::{Expr, ExprKind, Function, Stmt, StmtKind};
 use crate::statics::typecheck::Monotype;
 use cranelift::codegen::ir;
 use cranelift::codegen::isa::TargetFrontendConfig;
@@ -119,9 +120,39 @@ fn lower_program(program: &mir::Program, module: &mut ObjectModule) {
 fn lower_function(func: &Function, ir: &mut ir::Function, config: TargetFrontendConfig) {
     let mut builder_context = FunctionBuilderContext::new();
     let mut builder = FunctionBuilder::new(ir, &mut builder_context);
+
     let block = builder.create_block();
     builder.switch_to_block(block);
+
+    lower_expr(&func.body);
     builder.ins().return_(&[]);
+
     builder.seal_block(block);
     builder.finalize(config);
+}
+
+fn lower_expr(expr: &Expr) -> Option<Value> {
+    match &expr.kind {
+        ExprKind::Block(stmts) => {
+            if stmts.is_empty() {
+                return None;
+            }
+            for stmt in &stmts[..stmts.len() - 1] {
+                lower_stmt(stmt);
+            }
+            lower_stmt(stmts.last().unwrap())
+        }
+        ExprKind::Intrinsic(op, args) => match op {
+            IntrinsicOperation::Exit => None,
+            _ => unimplemented!("{:#?}", expr.kind),
+        },
+        _ => unimplemented!("{:#?}", expr.kind),
+    }
+}
+
+fn lower_stmt(stmt: &Stmt) -> Option<Value> {
+    match &stmt.kind {
+        StmtKind::Expr(e) => lower_expr(e),
+        _ => unimplemented!("{:#?}", stmt.kind),
+    }
 }

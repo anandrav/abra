@@ -138,8 +138,7 @@ impl Translator {
                             .map(|e| self.translate_expr(&e.val, st, mono))
                             .collect()
                     };
-                    let id = self.translate_func_call(decl, func.node(), mono, st);
-                    mir::ExprKind::FuncCall(id, args)
+                    self.translate_func_call(decl, args, func.node(), mono, st)
                 }
                 _ => unimplemented!("{:#?}", func.kind),
             },
@@ -162,17 +161,19 @@ impl Translator {
     fn translate_func_call(
         &self,
         decl: &Declaration,
+        args: Vec<mir::Expr>,
         func_node: AstNode,
         mono: &MonomorphEnv,
         st: &mut TranslatorState,
-    ) -> u32 {
+    ) -> mir::ExprKind {
         match decl {
             Declaration::FreeFunction(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 let id =
                     self.translate_func_call_helper(f, f_fully_qualified_name, func_node, mono, st);
-                id
+                mir::ExprKind::FuncCall(id, args)
             }
+            Declaration::Intrinsic(op) => mir::ExprKind::Intrinsic(*op, args),
             _ => unimplemented!("{:#?}", &decl),
         }
     }

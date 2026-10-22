@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::ast::{BinaryOperator, Location, NodeId};
+use crate::intrinsic::IntrinsicOperation;
 use crate::parse::PrefixOp;
 use crate::statics::typecheck::Monotype;
 use crate::vm::AbraInt;
@@ -16,12 +17,14 @@ pub(crate) struct Function {
     pub(crate) fully_qualified_name: String,
 }
 
+#[derive(Debug)]
 pub(crate) struct Expr {
     pub(crate) kind: ExprKind,
     pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
+#[derive(Debug)]
 pub(crate) enum ExprKind {
     Variable(String),
     Int(i64),
@@ -36,6 +39,7 @@ pub(crate) enum ExprKind {
     BinOp(Box<Expr>, BinaryOperator, Box<Expr>),
     Unop(PrefixOp, Box<Expr>),
     FuncCall(u32 /*function id */, Vec<Expr>),
+    Intrinsic(IntrinsicOperation, Vec<Expr>),
     Tuple(Vec<Box<Expr>>),
     // MemberAccess
     // MemberAccessLeadingDot
@@ -59,12 +63,13 @@ pub(crate) enum ExprKind {
     Try(Rc<Expr>),
     TaskBlock(Rc<Expr>),
 */
-
+#[derive(Debug)]
 pub(crate) struct Stmt {
     pub(crate) kind: StmtKind,
     pub(crate) span: Location,
 }
 
+#[derive(Debug)]
 pub(crate) enum StmtKind {
     Let(Pat, Box<Expr>),
     Assign(Box<Expr>, Box<Expr>),
@@ -75,11 +80,13 @@ pub(crate) enum StmtKind {
     Loop,
 }
 
+#[derive(Debug)]
 pub(crate) struct Pat {
     pub(crate) kind: PatKind,
     pub(crate) span: Location,
 }
 
+#[derive(Debug)]
 pub(crate) enum PatKind {
     Wildcard,
     Binding(String),
