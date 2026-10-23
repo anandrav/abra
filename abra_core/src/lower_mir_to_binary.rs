@@ -12,10 +12,16 @@ use std::path::PathBuf;
 use std::process::Command;
 use utils::tempfile::TempFile;
 
+// General bookkeeping when lowering the entire program
 pub struct LoweringContext {
     module: ObjectModule,
 
     exit_id: FuncId,
+}
+
+// Used when lowering a single function
+pub struct FunctionContext<'a> {
+    builder: FunctionBuilder<'a>,
 }
 
 pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
@@ -67,19 +73,26 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
             .module
             .declare_function("main", Linkage::Export, &signature)
             .unwrap();
-        let mut context = ctx.module.make_context();
-        context.func.signature = signature;
-        let mut builder_context = FunctionBuilderContext::new();
-        let mut builder = FunctionBuilder::new(&mut context.func, &mut builder_context);
-        let block = builder.create_block();
-        builder.switch_to_block(block);
-        builder.seal_block(block);
-        let callee = ctx.module.declare_func_in_func(abra_main, builder.func);
-        builder.ins().call(callee, &[]);
-        let status = builder.ins().iconst(types::I32, 0);
-        builder.ins().return_(&[status]);
-        builder.finalize(config);
-        ctx.module.define_function(main, &mut context).unwrap();
+        let mut cranelift_function_context = ctx.module.make_context();
+        cranelift_function_context.func.signature = signature;
+        let mut cranelift_function_builder_context = FunctionBuilderContext::new();
+        let mut cranelift_function_builder = FunctionBuilder::new(
+            &mut cranelift_function_context.func,
+            &mut cranelift_function_builder_context,
+        );
+        let block = cranelift_function_builder.create_block();
+        cranelift_function_builder.switch_to_block(block);
+        cranelift_function_builder.seal_block(block);
+        let callee = ctx
+            .module
+            .declare_func_in_func(abra_main, cranelift_function_builder.func);
+        cranelift_function_builder.ins().call(callee, &[]);
+        let status = cranelift_function_builder.ins().iconst(types::I32, 0);
+        cranelift_function_builder.ins().return_(&[status]);
+        cranelift_function_builder.finalize(config);
+        ctx.module
+            .define_function(main, &mut cranelift_function_context)
+            .unwrap();
     }
 
     let object_contents = ctx.module.finish().emit().unwrap();

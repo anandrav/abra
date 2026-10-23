@@ -34,3 +34,13 @@ exit(2 + 2)
 "#;
     expect_exit_code(src, 4);
 }
+
+#[test]
+fn let_statement() {
+    let src = r#"
+let x = 1;
+let x = 2;
+exit(x)
+"#;
+    expect_exit_code(src, 2);
+}
