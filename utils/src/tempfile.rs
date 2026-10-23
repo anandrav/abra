@@ -1,6 +1,5 @@
 use std::{
-    fs::{self, OpenOptions},
-    io,
+    fs,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -29,7 +28,7 @@ impl TempFile {
 }
 
 #[test]
-fn basic() -> io::Result<()> {
+fn basic() -> std::io::Result<()> {
     let path = {
         let temp = TempFile::new();
         fs::write(&temp.path, "test input\n")?;

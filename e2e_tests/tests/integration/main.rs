@@ -7,35 +7,39 @@ use utils::command;
 fn build_c_ffi_module() {
     use std::path::PathBuf;
     use std::process::Command;
+    use std::sync::Once;
 
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let module_dir = manifest_dir.join("modules").join("test_c_ffi");
-    let build_dir = module_dir.join("build");
-    std::fs::create_dir_all(&build_dir).unwrap();
+    static BUILD: Once = Once::new();
+    BUILD.call_once(|| {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let module_dir = manifest_dir.join("modules").join("test_c_ffi");
+        let build_dir = module_dir.join("build");
+        std::fs::create_dir_all(&build_dir).unwrap();
 
-    let lib_name = format!(
-        "{}abra_module_test_c_ffi{}",
-        std::env::consts::DLL_PREFIX,
-        std::env::consts::DLL_SUFFIX
-    );
-    let output = build_dir.join(lib_name);
-
-    let mut command = Command::new("cc");
-    command
-        .arg("-shared")
-        .arg("-fPIC")
-        .arg(module_dir.join("test_c_ffi.c"))
-        .arg("-o")
-        .arg(output);
-
-    let output = command.output().unwrap();
-    if !output.status.success() {
-        panic!(
-            "failed to build C FFI module\nstdout:\n{}\nstderr:\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+        let lib_name = format!(
+            "{}abra_module_test_c_ffi{}",
+            std::env::consts::DLL_PREFIX,
+            std::env::consts::DLL_SUFFIX
         );
-    }
+        let output = build_dir.join(lib_name);
+
+        let mut command = Command::new("cc");
+        command
+            .arg("-shared")
+            .arg("-fPIC")
+            .arg(module_dir.join("test_c_ffi.c"))
+            .arg("-o")
+            .arg(output);
+
+        let output = command.output().unwrap();
+        if !output.status.success() {
+            panic!(
+                "failed to build C FFI module\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    });
 }
 
 fn build_raylib_module() {
