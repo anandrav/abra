@@ -15,6 +15,8 @@ use std::{fs, process};
 
 pub struct LoweringContext {
     module: ObjectModule,
+
+    exit_id: FuncId,
 }
 
 pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
@@ -44,11 +46,19 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
         ObjectModule::new(builder)
     };
 
-    let mut ctx = LoweringContext { module };
+    let exit_id = {
+        let mut sig = module.make_signature();
+        sig.params.push(AbiParam::new(types::I32));
 
-    ctx.lower_program(&program);
+        module
+            .declare_function("exit", Linkage::Import, &sig)
+            .unwrap()
+    };
 
-    // TODO: make this shim actually call the main function instead of just returning 0
+    let mut ctx = LoweringContext { module, exit_id };
+
+    let abra_main = ctx.lower_program(&program);
+
     // main function shim
     {
         let config = ctx.module.target_config();
@@ -65,6 +75,8 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
         let block = builder.create_block();
         builder.switch_to_block(block);
         builder.seal_block(block);
+        let callee = ctx.module.declare_func_in_func(abra_main, builder.func);
+        builder.ins().call(callee, &[]);
         let status = builder.ins().iconst(types::I32, 0);
         builder.ins().return_(&[status]);
         builder.finalize(config);
@@ -94,7 +106,7 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
 }
 
 impl LoweringContext {
-    fn lower_program(&mut self, program: &mir::Program) {
+    fn lower_program(&mut self, program: &mir::Program) -> FuncId {
         let mut function_signatures: Vec<Signature> = vec![];
         let mut function_declarations: Vec<FuncId> = vec![];
         for func in program.funcs.iter() {
@@ -126,6 +138,8 @@ impl LoweringContext {
                 .define_function(declaration, &mut context)
                 .unwrap(); // TODO: don't unwrap
         }
+
+        function_declarations[0]
     }
 
     fn lower_function(&mut self, func: &Function, ir: &mut ir::Function) {
@@ -145,6 +159,7 @@ impl LoweringContext {
 
     fn lower_expr(&mut self, expr: &Expr, fn_builder: &mut FunctionBuilder) -> Option<Value> {
         match &expr.kind {
+            ExprKind::Int(n) => Some(fn_builder.ins().iconst(types::I64, *n)),
             ExprKind::Block(stmts) => {
                 if stmts.is_empty() {
                     return None;
@@ -156,7 +171,12 @@ impl LoweringContext {
             }
             ExprKind::Intrinsic(op, args) => match op {
                 IntrinsicOperation::Exit => {
-                    ();
+                    let arg = self.lower_expr(&args[0], fn_builder).unwrap();
+                    let converted_arg = fn_builder.ins().ireduce(types::I32, arg);
+                    let exit_ref = self
+                        .module
+                        .declare_func_in_func(self.exit_id, fn_builder.func); // TODO: don't create a ref every time exit is lowered, there should be one per function
+                    fn_builder.ins().call(exit_ref, &[converted_arg]);
                     None
                 }
                 _ => unimplemented!("{:#?}", expr.kind),
