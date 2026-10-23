@@ -1,6 +1,6 @@
 use crate::environment::Environment;
-use crate::statics::{Declaration, PolytypeDeclaration};
-use crate::statics::{FuncResolutionKind, Type};
+use crate::statics::PolytypeDeclaration;
+use crate::statics::Type;
 
 pub(crate) type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
 

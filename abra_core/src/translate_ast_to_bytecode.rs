@@ -10,7 +10,6 @@ use crate::ast::{
     InterfaceDef, ItemKind, PatStructFields, PatVariantData,
 };
 use crate::ast::{FileAst, NodeId};
-use crate::environment::Environment;
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::optimize_bytecode::optimize;
 use crate::parse::PrefixOp;

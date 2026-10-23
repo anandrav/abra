@@ -27,6 +27,12 @@ impl TempFile {
     }
 }
 
+impl Default for TempFile {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[test]
 fn basic() -> std::io::Result<()> {
     let path = {

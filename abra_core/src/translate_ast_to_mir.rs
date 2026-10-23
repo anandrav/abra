@@ -1,10 +1,9 @@
 use crate::ast::{
     AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
 };
-use crate::environment::Environment;
 use crate::mir;
 use crate::statics::typecheck::Monotype;
-use crate::statics::{Declaration, FuncResolutionKind, PolytypeDeclaration, StaticsContext, Type};
+use crate::statics::{Declaration, FuncResolutionKind, StaticsContext, Type};
 use crate::translate_helpers::*;
 use std::rc::Rc;
 use utils::id_set::IdSet;
@@ -36,7 +35,7 @@ impl Translator {
     }
 
     pub(crate) fn translate(&self) -> mir::Program {
-        let mut st = &mut TranslatorState::default();
+        let st = &mut TranslatorState::default();
         let mono = MonomorphEnv::empty();
         let mut funcs = vec![];
 
@@ -181,7 +180,7 @@ impl Translator {
     fn translate_func_call_helper(
         &self,
         f: &Rc<FuncDef>,
-        f_fully_qualified_name: &str,
+        _f_fully_qualified_name: &str,
         func_node: AstNode,
         mono: &MonomorphEnv,
         st: &mut TranslatorState,
@@ -192,11 +191,11 @@ impl Translator {
         } else {
             Some(self.get_ty(mono, func_node).unwrap())
         };
-        let id = st.funcs_to_generate.insert(FuncDesc {
+
+        st.funcs_to_generate.insert(FuncDesc {
             kind: FuncKind::NamedFunc(f.clone()),
             overload_ty,
-        });
-        id
+        })
     }
 
     fn translate_pat(&self, pat: &Rc<Pat>, st: &mut TranslatorState) -> mir::Pat {

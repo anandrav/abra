@@ -3,7 +3,6 @@ use crate::mir;
 use crate::mir::{Expr, ExprKind, Function, Stmt, StmtKind};
 use crate::statics::typecheck::Monotype;
 use cranelift::codegen::ir;
-use cranelift::codegen::isa::TargetFrontendConfig;
 use cranelift::prelude::*;
 use cranelift_module::{FuncId, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
