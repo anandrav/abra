@@ -1,8 +1,10 @@
 use std::{
     fs,
     path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
+    sync::atomic::{AtomicU64, Ordering},
 };
+
+static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 pub struct TempFile {
     pub path: PathBuf,
@@ -16,10 +18,7 @@ impl Drop for TempFile {
 
 impl TempFile {
     pub fn new() -> Self {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
+        let nonce = NEXT_ID.fetch_add(1, Ordering::Relaxed);
 
         let path = std::env::temp_dir().join(format!("temp-{}-{nonce}.txt", std::process::id(),));
 

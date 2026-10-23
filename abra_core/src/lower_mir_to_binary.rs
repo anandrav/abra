@@ -1,3 +1,4 @@
+use crate::ast::BinaryOperator;
 use crate::intrinsic::IntrinsicOperation;
 use crate::mir;
 use crate::mir::{Expr, ExprKind, Function, Stmt, StmtKind};
@@ -6,11 +7,10 @@ use cranelift::codegen::ir;
 use cranelift::prelude::*;
 use cranelift_module::{FuncId, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
-use std::env::temp_dir;
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{fs, process};
+use utils::tempfile::TempFile;
 
 pub struct LoweringContext {
     module: ObjectModule,
@@ -83,25 +83,17 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
     }
 
     let object_contents = ctx.module.finish().emit().unwrap();
-    let object_path = temp_dir().join(format!(
-        "abra-object-{}-{}.o",
-        process::id(),
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::write(&object_path, object_contents).unwrap();
+    let object = TempFile::new();
+    fs::write(&object.path, object_contents).unwrap();
 
     // link
     // TODO: Compile and link the runtime.
     Command::new("cc")
-        .arg(&object_path)
+        .arg(&object.path)
         .arg("-o")
         .arg(output_path)
         .status()
         .unwrap();
-    fs::remove_file(object_path).unwrap()
 }
 
 impl LoweringContext {
@@ -180,6 +172,14 @@ impl LoweringContext {
                 }
                 _ => unimplemented!("{:#?}", expr.kind),
             },
+            ExprKind::BinOp(left, op, right) => {
+                let left = self.lower_expr(left, fn_builder).unwrap();
+                let right = self.lower_expr(right, fn_builder).unwrap();
+                match op {
+                    BinaryOperator::Add => Some(fn_builder.ins().iadd(left, right)),
+                    _ => unimplemented!("{:#?}", op),
+                }
+            }
             _ => unimplemented!("{:#?}", expr.kind),
         }
     }

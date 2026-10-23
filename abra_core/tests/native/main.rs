@@ -26,3 +26,11 @@ exit(1)
 "#;
     expect_exit_code(src, 1);
 }
+
+#[test]
+fn addition() {
+    let src = r#"
+exit(2 + 2)
+"#;
+    expect_exit_code(src, 4);
+}

@@ -120,7 +120,11 @@ impl Translator {
                     .map(|s| self.translate_stmt(s, st, mono))
                     .collect(),
             ),
-            ExprKind::BinOp(_, _, _) => unimplemented!(),
+            ExprKind::BinOp(left, op, right) => {
+                let left = self.translate_expr(left, st, mono);
+                let right = self.translate_expr(right, st, mono);
+                mir::ExprKind::BinOp(left.into(), *op, right.into())
+            }
             ExprKind::Unop(_, _) => unimplemented!(),
             ExprKind::FuncCall(func, args) => match &*func.kind {
                 ExprKind::Variable(_) => {
