@@ -1,7 +1,7 @@
 use crate::ast::BinaryOperator;
 use crate::intrinsic::IntrinsicOperation;
 use crate::mir;
-use crate::mir::{Expr, ExprKind, Function, Stmt, StmtKind};
+use crate::mir::{Expr, ExprKind, Function, PatKind, Stmt, StmtKind};
 use crate::statics::typecheck::Monotype;
 use cranelift::codegen::ir;
 use cranelift::prelude::*;
@@ -154,42 +154,45 @@ impl LoweringContext {
         let block = builder.create_block();
         builder.switch_to_block(block);
 
-        self.lower_expr(&func.body, &mut builder);
-        builder.ins().return_(&[]);
+        let mut function_context = FunctionContext {
+            builder,
+        };
+        self.lower_expr(&func.body, &mut function_context);
+        function_context.builder.ins().return_(&[]); // TODO: return value(s)
 
-        builder.seal_block(block);
-        builder.finalize(config);
+        function_context.builder.seal_block(block);
+        function_context.builder.finalize(config);
     }
 
-    fn lower_expr(&mut self, expr: &Expr, fn_builder: &mut FunctionBuilder) -> Option<Value> {
+    fn lower_expr(&mut self, expr: &Expr, func: &mut FunctionContext) -> Option<Value> {
         match &expr.kind {
-            ExprKind::Int(n) => Some(fn_builder.ins().iconst(types::I64, *n)),
+            ExprKind::Int(n) => Some(func.builder.ins().iconst(types::I64, *n)),
             ExprKind::Block(stmts) => {
                 if stmts.is_empty() {
                     return None;
                 }
                 for stmt in &stmts[..stmts.len() - 1] {
-                    self.lower_stmt(stmt, fn_builder);
+                    self.lower_stmt(stmt, func);
                 }
-                self.lower_stmt(stmts.last().unwrap(), fn_builder)
+                self.lower_stmt(stmts.last().unwrap(), func)
             }
             ExprKind::Intrinsic(op, args) => match op {
                 IntrinsicOperation::Exit => {
-                    let arg = self.lower_expr(&args[0], fn_builder).unwrap();
-                    let converted_arg = fn_builder.ins().ireduce(types::I32, arg);
+                    let arg = self.lower_expr(&args[0], func).unwrap();
+                    let converted_arg = func.builder.ins().ireduce(types::I32, arg);
                     let exit_ref = self
                         .module
-                        .declare_func_in_func(self.exit_id, fn_builder.func); // TODO: don't create a ref every time exit is lowered, there should be one per function
-                    fn_builder.ins().call(exit_ref, &[converted_arg]);
+                        .declare_func_in_func(self.exit_id, func.builder.func); // TODO: don't create a ref every time exit is lowered, there should be one per function
+                    func.builder.ins().call(exit_ref, &[converted_arg]);
                     None
                 }
                 _ => unimplemented!("{:#?}", expr.kind),
             },
             ExprKind::BinOp(left, op, right) => {
-                let left = self.lower_expr(left, fn_builder).unwrap();
-                let right = self.lower_expr(right, fn_builder).unwrap();
+                let left = self.lower_expr(left, func).unwrap();
+                let right = self.lower_expr(right, func).unwrap();
                 match op {
-                    BinaryOperator::Add => Some(fn_builder.ins().iadd(left, right)),
+                    BinaryOperator::Add => Some(func.builder.ins().iadd(left, right)),
                     _ => unimplemented!("{:#?}", op),
                 }
             }
@@ -197,9 +200,18 @@ impl LoweringContext {
         }
     }
 
-    fn lower_stmt(&mut self, stmt: &Stmt, fn_builder: &mut FunctionBuilder) -> Option<Value> {
+    fn lower_stmt(&mut self, stmt: &Stmt, func: &mut FunctionContext) -> Option<Value> {
         match &stmt.kind {
-            StmtKind::Expr(e) => self.lower_expr(e, fn_builder),
+            StmtKind::Expr(e) => self.lower_expr(e, func),
+            StmtKind::Let(pat, expr) => {
+                match &pat.kind {
+                    PatKind::Binding(s) => {
+                        unimplemented!()
+                        // let value = self.lower_expr(expr, fn_builder).unwrap();
+                    }
+                    _ => unimplemented!("{:#?}", pat.kind),
+                }
+            }
             _ => unimplemented!("{:#?}", stmt.kind),
         }
     }

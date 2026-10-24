@@ -80,7 +80,15 @@ impl Translator {
         mono: &MonomorphEnv,
     ) -> mir::Stmt {
         let kind = match &*stmt.kind {
-            StmtKind::Let(_, _, _) => unimplemented!(),
+            StmtKind::Let(mutable, pat, expr) => {
+                if !mutable {
+                    let pat = self.translate_pat(&pat.0, st);
+                    let expr = self.translate_expr(&expr, st, mono);
+                    mir::StmtKind::Let(pat, expr.into())
+                } else {
+                    unimplemented!()
+                }
+            }
             StmtKind::Assign(_, _, _) => unimplemented!(),
             StmtKind::Expr(expr) => mir::StmtKind::Expr(self.translate_expr(expr, st, mono).into()),
             StmtKind::Continue => mir::StmtKind::Continue,
@@ -104,7 +112,7 @@ impl Translator {
         mono: &MonomorphEnv,
     ) -> mir::Expr {
         let kind = match &*expr.kind {
-            ExprKind::Variable(_) => unimplemented!(),
+            ExprKind::Variable(s) => mir::ExprKind::Variable(s.clone()),
             ExprKind::Nil => unimplemented!(),
             ExprKind::Int(n) => mir::ExprKind::Int(*n),
             ExprKind::Float(f) => mir::ExprKind::Float(f.clone()),
