@@ -1345,9 +1345,8 @@ fn resolve_names_pat(
         PatKind::Binding(identifier) => {
             if pat_can_extend_symbol_table {
                 symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.node()));
-            } else {
-                resolve_symbol(ctx, symbol_table, identifier, pat.node());
             }
+            resolve_symbol(ctx, symbol_table, identifier, pat.node());
         }
         PatKind::Variant(prefixes, tag, data) => {
             if !prefixes.is_empty() {

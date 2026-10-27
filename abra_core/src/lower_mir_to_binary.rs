@@ -213,6 +213,12 @@ impl LoweringContext {
                     _ => unimplemented!("{:#?}", op),
                 }
             }
+            // TODO: String contents aren't needed
+            ExprKind::Variable(_) => {
+                let node = self.mir_context.resolution_map[&expr.id].clone();
+                let value = func.bindings[&node];
+                Some(value)
+            }
             _ => unimplemented!("{:#?}", expr.kind),
         }
     }

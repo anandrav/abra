@@ -255,6 +255,8 @@ impl Translator {
     fn forward_name_resolution(&self, ast_id: NodeId, mir_id: NodeId, st: &mut TranslatorState) {
         if let Some(Declaration::Var(node)) = self.statics.resolution_map.get(&ast_id) {
             st.mir_context.resolution_map.insert(mir_id, node.clone());
+        } else {
+            panic!("no resolution")
         }
     }
 }
