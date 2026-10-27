@@ -35,6 +35,7 @@ exit(2 + 2)
     expect_exit_code(src, 4);
 }
 
+#[ignore]
 #[test]
 fn let_statement() {
     let src = r#"

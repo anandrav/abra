@@ -2,9 +2,11 @@ use crate::ast::{
     AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
 };
 use crate::mir;
+use crate::mir::MirContext;
 use crate::statics::typecheck::Monotype;
 use crate::statics::{Declaration, FuncResolutionKind, StaticsContext, Type};
 use crate::translate_helpers::*;
+use std::mem::take;
 use std::rc::Rc;
 use utils::id_set::IdSet;
 
@@ -13,9 +15,11 @@ pub(crate) struct Translator {
     file_asts: Vec<Rc<FileAst>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub(crate) struct TranslatorState {
     funcs_to_generate: IdSet<FuncDesc>,
+
+    mir_context: MirContext,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -34,7 +38,7 @@ impl Translator {
         Self { statics, file_asts }
     }
 
-    pub(crate) fn translate(&self) -> mir::Program {
+    pub(crate) fn translate(&self) -> (mir::Program, MirContext) {
         let st = &mut TranslatorState::default();
         let mono = MonomorphEnv::empty();
         let mut funcs = vec![];
@@ -66,7 +70,8 @@ impl Translator {
             })
         }
 
-        mir::Program { funcs }
+        let mir_context = take(&mut st.mir_context);
+        (mir::Program { funcs }, mir_context)
     }
 
     fn get_ty(&self, mono: &MonomorphEnv, node: AstNode) -> Option<Type> {

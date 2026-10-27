@@ -1,7 +1,7 @@
 use crate::ast::BinaryOperator;
 use crate::intrinsic::IntrinsicOperation;
 use crate::mir;
-use crate::mir::{Expr, ExprKind, Function, PatKind, Stmt, StmtKind};
+use crate::mir::{Expr, ExprKind, Function, MirContext, PatKind, Stmt, StmtKind};
 use crate::statics::typecheck::Monotype;
 use cranelift::codegen::ir;
 use cranelift::prelude::*;
@@ -14,6 +14,8 @@ use utils::tempfile::TempFile;
 
 // General bookkeeping when lowering the entire program
 pub struct LoweringContext {
+    mir_context: MirContext,
+
     module: ObjectModule,
 
     exit_id: FuncId,
@@ -24,7 +26,7 @@ pub struct FunctionContext<'a> {
     builder: FunctionBuilder<'a>,
 }
 
-pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
+pub(crate) fn lower(program: mir::Program, mir_context: MirContext, output_path: &PathBuf) {
     let isa = {
         let mut builder = settings::builder();
 
@@ -60,7 +62,11 @@ pub(crate) fn lower(program: mir::Program, output_path: &PathBuf) {
             .unwrap()
     };
 
-    let mut ctx = LoweringContext { module, exit_id };
+    let mut ctx = LoweringContext {
+        mir_context,
+        module,
+        exit_id,
+    };
 
     let abra_main = ctx.lower_program(&program);
 
@@ -154,9 +160,7 @@ impl LoweringContext {
         let block = builder.create_block();
         builder.switch_to_block(block);
 
-        let mut function_context = FunctionContext {
-            builder,
-        };
+        let mut function_context = FunctionContext { builder };
         self.lower_expr(&func.body, &mut function_context);
         function_context.builder.ins().return_(&[]); // TODO: return value(s)
 

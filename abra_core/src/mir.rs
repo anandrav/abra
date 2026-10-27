@@ -4,11 +4,24 @@
 use crate::ast::{BinaryOperator, Location, NodeId};
 use crate::intrinsic::IntrinsicOperation;
 use crate::parse::PrefixOp;
+use crate::statics::Declaration;
 use crate::statics::typecheck::Monotype;
 use crate::vm::AbraInt;
+use utils::hash::HashMap;
 
 pub(crate) struct Program {
     pub(crate) funcs: Vec<Function>,
+}
+
+#[derive(Default)]
+pub(crate) struct MirContext {
+    pub(crate) resolution_map: HashMap<NodeId, Declaration>,
+}
+
+impl MirContext {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
 }
 
 pub(crate) struct Function {
