@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use abra_core::vm::AbraInt;
-use rand::Rng;
+use rand::RngExt;
 
 pub fn random_float(min: f64, max: f64) -> f64 {
     let mut rng = rand::rng();
