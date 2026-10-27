@@ -88,7 +88,7 @@ impl Translator {
             StmtKind::Let(mutable, pat, expr) => {
                 if !mutable {
                     let pat = self.translate_pat(&pat.0, st);
-                    let expr = self.translate_expr(&expr, st, mono);
+                    let expr = self.translate_expr(expr, st, mono);
                     mir::StmtKind::Let(pat, expr.into())
                 } else {
                     unimplemented!()

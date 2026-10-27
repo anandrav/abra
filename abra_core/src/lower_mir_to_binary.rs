@@ -207,9 +207,9 @@ impl LoweringContext {
     fn lower_stmt(&mut self, stmt: &Stmt, func: &mut FunctionContext) -> Option<Value> {
         match &stmt.kind {
             StmtKind::Expr(e) => self.lower_expr(e, func),
-            StmtKind::Let(pat, expr) => {
+            StmtKind::Let(pat, _expr) => {
                 match &pat.kind {
-                    PatKind::Binding(s) => {
+                    PatKind::Binding(_s) => {
                         unimplemented!()
                         // let value = self.lower_expr(expr, fn_builder).unwrap();
                     }
