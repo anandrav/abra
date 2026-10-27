@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::ast::{BinaryOperator, Location, NodeId};
+use crate::ast::{AstNode, BinaryOperator, Location, NodeId};
 use crate::intrinsic::IntrinsicOperation;
 use crate::parse::PrefixOp;
 use crate::statics::Declaration;
@@ -15,7 +15,7 @@ pub(crate) struct Program {
 
 #[derive(Default)]
 pub(crate) struct MirContext {
-    pub(crate) resolution_map: HashMap<NodeId, Declaration>,
+    pub(crate) resolution_map: HashMap<NodeId, AstNode>,
 }
 
 impl MirContext {
@@ -97,6 +97,7 @@ pub(crate) enum StmtKind {
 pub(crate) struct Pat {
     pub(crate) kind: PatKind,
     pub(crate) span: Location,
+    pub(crate) id: NodeId,
 }
 
 #[derive(Debug)]

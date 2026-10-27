@@ -1,7 +1,8 @@
-use crate::ast::BinaryOperator;
+use crate::ast::{AstNode, BinaryOperator};
 use crate::intrinsic::IntrinsicOperation;
 use crate::mir;
 use crate::mir::{Expr, ExprKind, Function, MirContext, PatKind, Stmt, StmtKind};
+use crate::statics::Declaration;
 use crate::statics::typecheck::Monotype;
 use cranelift::codegen::ir;
 use cranelift::prelude::*;
@@ -10,6 +11,7 @@ use cranelift_object::{ObjectBuilder, ObjectModule};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use utils::hash::HashMap;
 use utils::tempfile::TempFile;
 
 // General bookkeeping when lowering the entire program
@@ -24,6 +26,17 @@ pub struct LoweringContext {
 // Used when lowering a single function
 pub struct FunctionContext<'a> {
     builder: FunctionBuilder<'a>,
+
+    bindings: HashMap<AstNode, Value>,
+}
+
+impl<'a> FunctionContext<'a> {
+    fn new(builder: FunctionBuilder<'a>) -> Self {
+        Self {
+            builder,
+            bindings: Default::default(),
+        }
+    }
 }
 
 pub(crate) fn lower(program: mir::Program, mir_context: MirContext, output_path: &PathBuf) {
@@ -160,7 +173,7 @@ impl LoweringContext {
         let block = builder.create_block();
         builder.switch_to_block(block);
 
-        let mut function_context = FunctionContext { builder };
+        let mut function_context = FunctionContext::new(builder);
         self.lower_expr(&func.body, &mut function_context);
         function_context.builder.ins().return_(&[]); // TODO: return value(s)
 
@@ -207,15 +220,15 @@ impl LoweringContext {
     fn lower_stmt(&mut self, stmt: &Stmt, func: &mut FunctionContext) -> Option<Value> {
         match &stmt.kind {
             StmtKind::Expr(e) => self.lower_expr(e, func),
-            StmtKind::Let(pat, _expr) => {
-                match &pat.kind {
-                    PatKind::Binding(_s) => {
-                        unimplemented!()
-                        // let value = self.lower_expr(expr, fn_builder).unwrap();
-                    }
-                    _ => unimplemented!("{:#?}", pat.kind),
+            StmtKind::Let(pat, expr) => match &pat.kind {
+                PatKind::Binding(_s) => {
+                    let value = self.lower_expr(expr, func).unwrap();
+                    let node = self.mir_context.resolution_map[&pat.id].clone();
+                    func.bindings.insert(node.clone(), value);
+                    None
                 }
-            }
+                _ => unimplemented!("{:#?}", pat.kind),
+            },
             _ => unimplemented!("{:#?}", stmt.kind),
         }
     }

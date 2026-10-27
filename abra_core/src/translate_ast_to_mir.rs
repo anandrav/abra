@@ -116,8 +116,13 @@ impl Translator {
         st: &mut TranslatorState,
         mono: &MonomorphEnv,
     ) -> mir::Expr {
+        let id = NodeId::new();
+
         let kind = match &*expr.kind {
-            ExprKind::Variable(s) => mir::ExprKind::Variable(s.clone()),
+            ExprKind::Variable(s) => {
+                self.forward_name_resolution(expr.id, id, st);
+                mir::ExprKind::Variable(s.clone())
+            }
             ExprKind::Nil => unimplemented!(),
             ExprKind::Int(n) => mir::ExprKind::Int(*n),
             ExprKind::Float(f) => mir::ExprKind::Float(f.clone()),
@@ -170,7 +175,7 @@ impl Translator {
         mir::Expr {
             kind,
             span: expr.loc.clone(),
-            id: NodeId::new(),
+            id,
         }
     }
 
@@ -216,9 +221,14 @@ impl Translator {
     }
 
     fn translate_pat(&self, pat: &Rc<Pat>, st: &mut TranslatorState) -> mir::Pat {
+        let id = NodeId::new();
+
         let kind = match &*pat.kind {
             PatKind::Wildcard => mir::PatKind::Wildcard,
-            PatKind::Binding(s) => mir::PatKind::Binding(s.clone()),
+            PatKind::Binding(s) => {
+                self.forward_name_resolution(pat.id, id, st);
+                mir::PatKind::Binding(s.clone())
+            }
             PatKind::Variant(_, _, _) => unimplemented!(),
             PatKind::Void => mir::PatKind::Void,
             PatKind::Int(n) => mir::PatKind::Int(*n),
@@ -238,6 +248,13 @@ impl Translator {
         mir::Pat {
             kind,
             span: pat.loc.clone(),
+            id,
+        }
+    }
+
+    fn forward_name_resolution(&self, ast_id: NodeId, mir_id: NodeId, st: &mut TranslatorState) {
+        if let Some(Declaration::Var(node)) = self.statics.resolution_map.get(&ast_id) {
+            st.mir_context.resolution_map.insert(mir_id, node.clone());
         }
     }
 }
