@@ -38,8 +38,20 @@ exit(2 + 2)
 #[test]
 fn let_statement() {
     let src = r#"
-let x = 1;
 let x = 2;
+{
+    let x = 1;
+}
+exit(x)
+"#;
+    expect_exit_code(src, 2);
+}
+
+#[test]
+fn var_assignment() {
+    let src = r#"
+var x = 1
+x = 2
 exit(x)
 "#;
     expect_exit_code(src, 2);

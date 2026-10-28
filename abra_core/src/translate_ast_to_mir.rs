@@ -1,5 +1,6 @@
 use crate::ast::{
-    AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
+    AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind,
+    Stmt, StmtKind,
 };
 use crate::mir;
 use crate::mir::MirContext;
@@ -85,15 +86,15 @@ impl Translator {
         mono: &MonomorphEnv,
     ) -> mir::Stmt {
         let kind = match &*stmt.kind {
-            StmtKind::Let(mutable, pat, expr) => {
-                if !mutable {
-                    let pat = self.translate_pat(&pat.0, st);
-                    let expr = self.translate_expr(expr, st, mono);
-                    mir::StmtKind::Let(pat, expr.into())
-                } else {
-                    unimplemented!()
-                }
+            StmtKind::Let(_, pat, expr) => {
+                let pat = self.translate_pat(&pat.0, st);
+                let expr = self.translate_expr(expr, st, mono);
+                mir::StmtKind::Let(pat, expr.into())
             }
+            StmtKind::Assign(lhs, AssignOperator::Equal, rhs) => mir::StmtKind::Assign(
+                self.translate_expr(lhs, st, mono).into(),
+                self.translate_expr(rhs, st, mono).into(),
+            ),
             StmtKind::Assign(_, _, _) => unimplemented!(),
             StmtKind::Expr(expr) => mir::StmtKind::Expr(self.translate_expr(expr, st, mono).into()),
             StmtKind::Continue => mir::StmtKind::Continue,

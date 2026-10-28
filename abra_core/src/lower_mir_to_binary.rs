@@ -27,14 +27,14 @@ pub struct LoweringContext {
 pub struct FunctionContext<'a> {
     builder: FunctionBuilder<'a>,
 
-    bindings: HashMap<AstNode, Value>,
+    variables: HashMap<AstNode, Variable>,
 }
 
 impl<'a> FunctionContext<'a> {
     fn new(builder: FunctionBuilder<'a>) -> Self {
         Self {
             builder,
-            bindings: Default::default(),
+            variables: Default::default(),
         }
     }
 }
@@ -216,8 +216,8 @@ impl LoweringContext {
             // TODO: String contents aren't needed
             ExprKind::Variable(_) => {
                 let node = self.mir_context.resolution_map[&expr.id].clone();
-                let value = func.bindings[&node];
-                Some(value)
+                let variable = func.variables[&node];
+                Some(func.builder.use_var(variable))
             }
             _ => unimplemented!("{:#?}", expr.kind),
         }
@@ -230,10 +230,23 @@ impl LoweringContext {
                 PatKind::Binding(_s) => {
                     let value = self.lower_expr(expr, func).unwrap();
                     let node = self.mir_context.resolution_map[&pat.id].clone();
-                    func.bindings.insert(node.clone(), value);
+                    let ty = func.builder.func.dfg.value_type(value);
+                    let variable = func.builder.declare_var(ty);
+                    func.builder.def_var(variable, value);
+                    func.variables.insert(node, variable);
                     None
                 }
                 _ => unimplemented!("{:#?}", pat.kind),
+            },
+            StmtKind::Assign(lhs, rhs) => match &lhs.kind {
+                ExprKind::Variable(_) => {
+                    let value = self.lower_expr(rhs, func).unwrap();
+                    let node = self.mir_context.resolution_map[&lhs.id].clone();
+                    let variable = func.variables[&node];
+                    func.builder.def_var(variable, value);
+                    None
+                }
+                _ => unimplemented!("{:#?}", lhs.kind),
             },
             _ => unimplemented!("{:#?}", stmt.kind),
         }
