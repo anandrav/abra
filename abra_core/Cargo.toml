@@ -25,6 +25,7 @@ utils = { workspace = true }
 cranelift = "0.137.0"
 cranelift-module = "0.137.0"
 cranelift-object = "0.137.0"
+target-lexicon = "0.13.5"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = { version = "1.12.0" }

@@ -50,9 +50,7 @@ pub(crate) fn lower(program: mir::Program, mir_context: MirContext, output_path:
 
         let flags = settings::Flags::new(builder);
 
-        let TARGET_TRIPLE = "aarch64-apple-darwin"; // TODO: don't hardcode this
-
-        isa::lookup_by_name(TARGET_TRIPLE)
+        isa::lookup(target_lexicon::HOST)
             .unwrap()
             .finish(flags)
             .unwrap()
