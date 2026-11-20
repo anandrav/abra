@@ -224,8 +224,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut runtime = abra_core::vm::Runtime::new(program);
             loop {
                 let status = runtime.run_n_steps(100);
-                if status.is_done() {
-                    return Ok(());
+                if let Some(code) = status.is_done() {
+                    if code == 0 {
+                        return Ok(());
+                    } else {
+                        exit(code as i32);
+                    }
                 }
                 if let Some(error) = status.error() {
                     eprint!("{error}");

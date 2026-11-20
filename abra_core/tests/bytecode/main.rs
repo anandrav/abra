@@ -1065,7 +1065,7 @@ x
     let mut runtime = Runtime::new(program);
     loop {
         let status = runtime.run_n_steps(1);
-        if status.is_done() {
+        if status.is_done().is_some() {
             break;
         }
     }
@@ -1097,7 +1097,7 @@ x
     let mut runtime = Runtime::new(program);
     loop {
         let status = runtime.run_n_steps(1);
-        if status.is_done() {
+        if status.is_done().is_some() {
             break;
         }
         // vm.gc();

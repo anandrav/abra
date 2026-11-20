@@ -219,7 +219,9 @@ impl Runtime {
         let (main_thread_done, steps_consumed) = self.run_threads_round_robin(steps);
         if main_thread_done {
             return RuntimeStatus {
-                kind: RuntimeStatusKind::Done,
+                kind: RuntimeStatusKind::Done(
+                    self.finished_main_thread.as_ref().unwrap().return_code,
+                ),
                 steps_consumed,
             };
         }
@@ -235,8 +237,8 @@ impl Runtime {
         match main {
             None => {}
             Some(main) => match main.status() {
-                VmStatus::Done => {
-                    return RuntimeStatusKind::Done;
+                VmStatus::Done(code) => {
+                    return RuntimeStatusKind::Done(code);
                 }
                 VmStatus::PendingHostFunc(_) => {
                     return RuntimeStatusKind::PendingHostFunc;
@@ -376,6 +378,7 @@ pub struct VmGreenThread {
     // status
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
+    return_code: i64,
     pending_ffi_call: Option<u32>,
     done: bool,
     // string op state
@@ -408,6 +411,7 @@ impl VmGreenThread {
 
             pending_host_func: None,
             error: None,
+            return_code: 0,
             pending_ffi_call: None,
             done: false,
 
@@ -464,15 +468,18 @@ pub struct RuntimeStatus {
 
 #[derive(Debug, Clone)]
 pub enum RuntimeStatusKind {
-    Done,
+    Done(i64),
     PendingHostFunc,
     OutOfSteps,
     MainThreadError(Box<VmError>),
 }
 
 impl RuntimeStatus {
-    pub fn is_done(&self) -> bool {
-        matches!(self.kind, RuntimeStatusKind::Done)
+    pub fn is_done(&self) -> Option<i64> {
+        match self.kind {
+            RuntimeStatusKind::Done(code) => Some(code),
+            _ => None,
+        }
     }
 
     pub fn error(&self) -> Option<&VmError> {
@@ -485,7 +492,7 @@ impl RuntimeStatus {
 
 #[derive(Debug)]
 pub enum VmStatus {
-    Done,
+    Done(i64),
     PendingHostFunc(u16),
     OutOfSteps,
     Error(Box<VmError>),
@@ -542,7 +549,7 @@ impl VmGreenThread {
         if let Some(eff) = self.pending_host_func {
             VmStatus::PendingHostFunc(eff)
         } else if self.done {
-            VmStatus::Done
+            VmStatus::Done(self.return_code)
         } else {
             match &self.error {
                 Some(err) => VmStatus::Error(err.clone()),
@@ -2214,7 +2221,8 @@ impl VmGreenThread {
                 return false;
             }
             Instr::Exit => {
-                let _code = self.pop().get_int(self);
+                let code = self.pop().get_int(self);
+                self.return_code = code;
                 return false;
             }
             Instr::ConstructChannel => {
