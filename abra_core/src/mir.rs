@@ -4,7 +4,6 @@
 use crate::ast::{AstNode, BinaryOperator, Location, NodeId};
 use crate::intrinsic::IntrinsicOperation;
 use crate::parse::PrefixOp;
-use crate::statics::Declaration;
 use crate::statics::typecheck::Monotype;
 use crate::vm::AbraInt;
 use utils::hash::HashMap;

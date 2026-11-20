@@ -2,7 +2,6 @@ use crate::ast::{AstNode, BinaryOperator};
 use crate::intrinsic::IntrinsicOperation;
 use crate::mir;
 use crate::mir::{Expr, ExprKind, Function, MirContext, PatKind, Stmt, StmtKind};
-use crate::statics::Declaration;
 use crate::statics::typecheck::Monotype;
 use cranelift::codegen::ir;
 use cranelift::prelude::*;
