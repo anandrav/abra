@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use abra_core::vm::AbraInt;
-use chrono::{Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc};
+use jiff::{Timestamp, ZonedDateTime, civil, tz::TimeZone};
 
 use crate::ffi::core::time::DateTime;
 
@@ -21,7 +21,8 @@ pub fn sleep(seconds: f64) {
     thread::sleep(duration);
 }
 
-fn chrono_utc_to_datetime(dt: chrono::DateTime<Utc>) -> DateTime {
+fn zoned_to_datetime(dt: ZonedDateTime) -> DateTime {
+    let timestamp = dt.timestamp();
     DateTime {
         year: dt.year() as AbraInt,
         month: dt.month() as AbraInt,
@@ -29,38 +30,29 @@ fn chrono_utc_to_datetime(dt: chrono::DateTime<Utc>) -> DateTime {
         hour: dt.hour() as AbraInt,
         minute: dt.minute() as AbraInt,
         second: dt.second() as AbraInt,
-        timestamp: dt.timestamp() as f64 + dt.timestamp_subsec_nanos() as f64 / 1_000_000_000.0,
+        timestamp: timestamp.as_second() as f64
+            + timestamp.subsec_nanosecond() as f64 / 1_000_000_000.0,
     }
 }
 
-fn naive_to_datetime(ndt: NaiveDateTime) -> DateTime {
-    let utc = ndt.and_utc();
-    chrono_utc_to_datetime(utc)
+fn civil_to_datetime(dt: civil::DateTime) -> Option<DateTime> {
+    let utc = dt.to_zoned_datetime(TimeZone::UTC).ok()?;
+    Some(zoned_to_datetime(utc))
 }
 
 pub fn now_utc() -> DateTime {
-    chrono_utc_to_datetime(Utc::now())
+    zoned_to_datetime(Timestamp::now().to_zoned_datetime(TimeZone::UTC))
 }
 
 pub fn now_local() -> DateTime {
-    let local = Local::now();
-    DateTime {
-        year: local.year() as AbraInt,
-        month: local.month() as AbraInt,
-        day: local.day() as AbraInt,
-        hour: local.hour() as AbraInt,
-        minute: local.minute() as AbraInt,
-        second: local.second() as AbraInt,
-        timestamp: local.timestamp() as f64
-            + local.timestamp_subsec_nanos() as f64 / 1_000_000_000.0,
-    }
+    zoned_to_datetime(ZonedDateTime::now())
 }
 
 pub fn from_timestamp(timestamp: f64) -> DateTime {
     let secs = timestamp.floor() as i64;
-    let nanos = ((timestamp - timestamp.floor()) * 1_000_000_000.0) as u32;
-    let dt = chrono::DateTime::from_timestamp(secs, nanos).unwrap_or(Utc.timestamp_nanos(0));
-    chrono_utc_to_datetime(dt)
+    let nanos = ((timestamp - timestamp.floor()) * 1_000_000_000.0) as i32;
+    let dt = Timestamp::new(secs, nanos).unwrap_or(Timestamp::UNIX_EPOCH);
+    zoned_to_datetime(dt.to_zoned_datetime(TimeZone::UTC))
 }
 
 pub fn make_datetime(
@@ -71,29 +63,45 @@ pub fn make_datetime(
     minute: AbraInt,
     second: AbraInt,
 ) -> Option<DateTime> {
-    let date = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32)?;
-    let time = NaiveTime::from_hms_opt(hour as u32, minute as u32, second as u32)?;
-    let ndt = NaiveDateTime::new(date, time);
-    Some(naive_to_datetime(ndt))
+    let dt = civil::DateTime::new(
+        year.try_into().ok()?,
+        month.try_into().ok()?,
+        day.try_into().ok()?,
+        hour.try_into().ok()?,
+        minute.try_into().ok()?,
+        second.try_into().ok()?,
+        0,
+    )
+    .ok()?;
+    civil_to_datetime(dt)
 }
 
-fn datetime_to_naive(dt: &DateTime) -> NaiveDateTime {
-    let date = NaiveDate::from_ymd_opt(dt.year as i32, dt.month as u32, dt.day as u32)
-        .unwrap_or(NaiveDate::from_ymd_opt(1970, 1, 1).unwrap());
-    let time = NaiveTime::from_hms_opt(dt.hour as u32, dt.minute as u32, dt.second as u32)
-        .unwrap_or(NaiveTime::from_hms_opt(0, 0, 0).unwrap());
-    NaiveDateTime::new(date, time)
+fn datetime_to_civil(dt: &DateTime) -> civil::DateTime {
+    let date = civil::Date::new(
+        dt.year.try_into().unwrap_or(i16::MAX),
+        dt.month.try_into().unwrap_or(i8::MAX),
+        dt.day.try_into().unwrap_or(i8::MAX),
+    )
+    .unwrap_or(civil::date(1970, 1, 1));
+    let time = civil::Time::new(
+        dt.hour.try_into().unwrap_or(i8::MAX),
+        dt.minute.try_into().unwrap_or(i8::MAX),
+        dt.second.try_into().unwrap_or(i8::MAX),
+        0,
+    )
+    .unwrap_or(civil::Time::midnight());
+    civil::DateTime::from_parts(date, time)
 }
 
 pub fn format(dt: DateTime, fmt: String) -> String {
-    datetime_to_naive(&dt).format(&fmt).to_string()
+    datetime_to_civil(&dt).strftime(&fmt).to_string()
 }
 
 pub fn parse(s: String, fmt: String) -> Option<DateTime> {
-    let ndt = NaiveDateTime::parse_from_str(&s, &fmt).ok()?;
-    Some(naive_to_datetime(ndt))
+    let dt = civil::DateTime::strptime(&fmt, &s).ok()?;
+    civil_to_datetime(dt)
 }
 
 pub fn weekday_of(dt: DateTime) -> String {
-    datetime_to_naive(&dt).format("%A").to_string()
+    datetime_to_civil(&dt).strftime("%A").to_string()
 }
