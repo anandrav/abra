@@ -2223,6 +2223,7 @@ impl VmGreenThread {
             Instr::Exit => {
                 let code = self.pop().get_int(self);
                 self.return_code = code;
+                self.done = true;
                 return false;
             }
             Instr::ConstructChannel => {
