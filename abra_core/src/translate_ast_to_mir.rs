@@ -1,3 +1,4 @@
+use crate::assembly::Label;
 use crate::ast::{
     AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind,
     Stmt, StmtKind,
@@ -9,7 +10,12 @@ use crate::statics::{Declaration, FuncResolutionKind, StaticsContext, Type};
 use crate::translate_helpers::*;
 use std::mem::take;
 use std::rc::Rc;
+use utils::hash::HashMap;
 use utils::id_set::IdSet;
+use utils::swrite;
+
+// TODO: weird to import from bytecode translation stuff, so clean up by putting in a common file later?
+use crate::translate_ast_to_bytecode::make_label;
 
 pub(crate) struct Translator {
     statics: StaticsContext,
@@ -19,6 +25,7 @@ pub(crate) struct Translator {
 #[derive(Default)]
 pub(crate) struct TranslatorState {
     funcs_to_generate: IdSet<FuncDesc>,
+    func_map: HashMap<FuncDesc, Label>,
 
     mir_context: MirContext,
 }
@@ -32,6 +39,20 @@ struct FuncDesc {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum FuncKind {
     NamedFunc(Rc<FuncDef>),
+}
+
+impl FuncDesc {
+    fn unqualified_name(&self) -> String {
+        match &self.kind {
+            FuncKind::NamedFunc(f) => f.name.v.clone(),
+        }
+    }
+
+    fn fully_qualified_name(&self, ctx: &StaticsContext) -> String {
+        match &self.kind {
+            FuncKind::NamedFunc(f) => ctx.fully_qualified_names[&f.name.id].clone(),
+        }
+    }
 }
 
 impl Translator {
@@ -77,6 +98,51 @@ impl Translator {
 
     fn get_ty(&self, mono: &MonomorphEnv, node: AstNode) -> Option<Type> {
         self.statics.solution_of_node(node).map(|t| t.subst(mono))
+    }
+
+    fn forward_name_resolution(&self, ast_id: NodeId, mir_id: NodeId, st: &mut TranslatorState) {
+        if let Some(Declaration::Var(node)) = self.statics.resolution_map.get(&ast_id) {
+            st.mir_context.resolution_map.insert(mir_id, node.clone());
+        } else {
+            panic!("no resolution")
+        }
+    }
+
+    fn get_func_label(&self, st: &mut TranslatorState, desc: FuncDesc) -> Label {
+        let func_name = desc.fully_qualified_name(&self.statics);
+        let entry = st.func_map.entry(desc.clone());
+        match entry {
+            std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
+            std::collections::hash_map::Entry::Vacant(v) => {
+                st.funcs_to_generate.insert(desc.clone());
+                let label = match &desc.overload_ty {
+                    None => func_name.clone(),
+                    Some(overload_ty) => {
+                        let monoty = overload_ty.monotype().unwrap();
+                        let mut label_hint = format!("{func_name}__%{monoty}");
+                        // if let FuncKind::AnonymousFunc {
+                        //     capture_types_concrete,
+                        //     ..
+                        // } = desc.kind
+                        //     && !capture_types_concrete.is_empty()
+                        // {
+                        //     let label_hint = &mut label_hint;
+                        //     swrite!(label_hint, "__%");
+                        //     for (i, ty) in capture_types_concrete.into_iter().enumerate() {
+                        //         if i != 0 {
+                        //             swrite!(label_hint, ",");
+                        //         }
+                        //         swrite!(label_hint, "{ty}");
+                        //     }
+                        // }
+                        label_hint.retain(|c| !c.is_whitespace());
+                        make_label(&label_hint)
+                    }
+                };
+                v.insert(label.clone());
+                label
+            }
+        }
     }
 
     fn translate_stmt(
@@ -256,14 +322,6 @@ impl Translator {
             kind,
             span: pat.loc.clone(),
             id,
-        }
-    }
-
-    fn forward_name_resolution(&self, ast_id: NodeId, mir_id: NodeId, st: &mut TranslatorState) {
-        if let Some(Declaration::Var(node)) = self.statics.resolution_map.get(&ast_id) {
-            st.mir_context.resolution_map.insert(mir_id, node.clone());
-        } else {
-            panic!("no resolution")
         }
     }
 }

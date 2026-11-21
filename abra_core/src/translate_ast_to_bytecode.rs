@@ -3165,7 +3165,7 @@ impl Translator {
     }
 }
 
-fn make_label(hint: &str) -> Label {
+pub(crate) fn make_label(hint: &str) -> Label {
     if hint.contains(" ") {
         panic!("Label hint cannot contain spaces");
     }
