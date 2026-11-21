@@ -1,3 +1,12 @@
 #!/bin/bash
 
-cargo upgrade --incompatible allow
+set -e
+
+if [ -f .cargo/config.toml ]; then
+    mv .cargo/config.toml .cargo/config.toml.disabled
+    trap 'mv .cargo/config.toml.disabled .cargo/config.toml' EXIT
+    cargo upgrade --incompatible allow
+    cargo vendor vendor
+else
+    cargo upgrade --incompatible allow
+fi
