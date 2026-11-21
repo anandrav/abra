@@ -181,6 +181,42 @@ impl LoweringContext {
     fn lower_expr(&mut self, expr: &Expr, func: &mut FunctionContext) -> Option<Value> {
         match &expr.kind {
             ExprKind::Int(n) => Some(func.builder.ins().iconst(types::I64, *n)),
+            ExprKind::Bool(b) => Some(func.builder.ins().iconst(types::I8, i64::from(*b))),
+            ExprKind::IfElse(cond, tbranch, ebranch) => {
+                let cond = self.lower_expr(cond, func).unwrap();
+                let then_block = func.builder.create_block();
+                let else_block = func.builder.create_block();
+                let merge_block = func.builder.create_block();
+                func.builder
+                    .ins()
+                    .brif(cond, then_block, &[], else_block, &[]);
+
+                func.builder.switch_to_block(then_block);
+                func.builder.seal_block(then_block);
+
+                let then_value = self.lower_stmt(tbranch, func);
+                let then_arg = then_value.map(ir::BlockArg::from);
+                func.builder.ins().jump(merge_block, then_arg.as_slice());
+
+                func.builder.switch_to_block(else_block);
+                func.builder.seal_block(else_block);
+                let else_value = ebranch
+                    .as_ref()
+                    .and_then(|branch| self.lower_stmt(branch, func));
+                let else_arg = else_value.map(ir::BlockArg::from);
+                func.builder.ins().jump(merge_block, else_arg.as_slice());
+
+                func.builder.switch_to_block(merge_block);
+                func.builder.seal_block(merge_block);
+
+                if let Some(then_value) = then_value
+                    && ebranch.is_some()
+                {
+                    let ty = func.builder.func.dfg.value_type(then_value);
+                    return Some(func.builder.append_block_param(merge_block, ty));
+                }
+                None
+            }
             ExprKind::Block(stmts) => {
                 if stmts.is_empty() {
                     return None;

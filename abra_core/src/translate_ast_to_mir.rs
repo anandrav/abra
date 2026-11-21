@@ -131,7 +131,13 @@ impl Translator {
             ExprKind::Str(s) => mir::ExprKind::String(s.clone()),
             ExprKind::Array(_arr) => unimplemented!(),
             ExprKind::AnonymousFunction(_, _, _) => unimplemented!(),
-            ExprKind::IfElse(_cond, _tbranch, _ebranch) => unimplemented!(),
+            ExprKind::IfElse(cond, tbranch, ebranch) => mir::ExprKind::IfElse(
+                self.translate_expr(cond, st, mono).into(),
+                self.translate_stmt(tbranch, st, mono).into(),
+                ebranch
+                    .as_ref()
+                    .map(|branch| self.translate_stmt(branch, st, mono).into()),
+            ),
             ExprKind::Match(_, _) => unimplemented!(),
             ExprKind::Block(stmts) => mir::ExprKind::Block(
                 stmts

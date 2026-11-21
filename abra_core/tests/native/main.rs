@@ -56,3 +56,33 @@ exit(x)
 "#;
     expect_exit_code(src, 2);
 }
+
+#[test]
+fn if_else_true() {
+    let src = r#"
+let x = if true { 2 } else { 9 }
+exit(x)
+"#;
+    expect_exit_code(src, 2);
+}
+
+#[test]
+fn if_else_false() {
+    let src = r#"
+let x = if false { 2 } else { 9 }
+exit(x)
+"#;
+    expect_exit_code(src, 9);
+}
+
+#[test]
+fn if_assignment() {
+    let src = r#"
+var x = 0
+if true {
+    x = 2
+}
+exit(x)
+"#;
+    expect_exit_code(src, 2);
+}
