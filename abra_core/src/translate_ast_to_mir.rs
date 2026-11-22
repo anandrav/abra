@@ -1,13 +1,14 @@
-use crate::assembly::Label;
+use crate::assembly::{Label, Line};
 use crate::ast::{
     AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind,
     Stmt, StmtKind,
 };
 use crate::mir;
 use crate::mir::MirContext;
-use crate::statics::typecheck::Monotype;
+use crate::statics::typecheck::{Monotype, SolvedType};
 use crate::statics::{Declaration, FuncResolutionKind, StaticsContext, Type};
 use crate::translate_helpers::*;
+use std::mem;
 use std::mem::take;
 use std::rc::Rc;
 use utils::hash::HashMap;
@@ -24,16 +25,18 @@ pub(crate) struct Translator {
 
 #[derive(Default)]
 pub(crate) struct TranslatorState {
-    funcs_to_generate: IdSet<FuncDesc>,
-    func_map: HashMap<FuncDesc, Label>,
+    func_ids: IdSet<FuncDesc>, // associate each function description with a unique id
+    func_mirs: HashMap<u32, mir::Function>, // map unique id to generated function
 
-    mir_context: MirContext,
+    func_queue: Vec<FuncDesc>,
+
+    mir_context: MirContext, // building this to be used by later stage of compiler
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 struct FuncDesc {
     kind: FuncKind,
-    overload_ty: Option<Type>,
+    overloaded_signature: Option<Type>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -92,6 +95,18 @@ impl Translator {
             })
         }
 
+        while !st.func_queue.is_empty() {
+            // Generate mir for function bodies
+            let mut iteration = Vec::new();
+            mem::swap(&mut (iteration), &mut st.func_queue);
+            for desc in iteration {
+                let func_mir = self.translate_func(&desc, st);
+
+                let id = st.func_ids.get_id(&desc);
+                st.func_mirs.insert(id, func_mir);
+            }
+        }
+
         let mir_context = take(&mut st.mir_context);
         (mir::Program { funcs }, mir_context)
     }
@@ -108,39 +123,27 @@ impl Translator {
         }
     }
 
-    fn get_func_label(&self, st: &mut TranslatorState, desc: FuncDesc) -> Label {
-        let func_name = desc.fully_qualified_name(&self.statics);
-        let entry = st.func_map.entry(desc.clone());
-        match entry {
-            std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
-            std::collections::hash_map::Entry::Vacant(v) => {
-                st.funcs_to_generate.insert(desc.clone());
-                let label = match &desc.overload_ty {
-                    None => func_name.clone(),
-                    Some(overload_ty) => {
-                        let monoty = overload_ty.monotype().unwrap();
-                        let mut label_hint = format!("{func_name}__%{monoty}");
-                        // if let FuncKind::AnonymousFunc {
-                        //     capture_types_concrete,
-                        //     ..
-                        // } = desc.kind
-                        //     && !capture_types_concrete.is_empty()
-                        // {
-                        //     let label_hint = &mut label_hint;
-                        //     swrite!(label_hint, "__%");
-                        //     for (i, ty) in capture_types_concrete.into_iter().enumerate() {
-                        //         if i != 0 {
-                        //             swrite!(label_hint, ",");
-                        //         }
-                        //         swrite!(label_hint, "{ty}");
-                        //     }
-                        // }
-                        label_hint.retain(|c| !c.is_whitespace());
-                        make_label(&label_hint)
-                    }
-                };
-                v.insert(label.clone());
-                label
+    fn translate_func(&self, desc: &FuncDesc, st: &mut TranslatorState) -> mir::Function {
+        let mono = MonomorphEnv::empty();
+
+        // body
+        match &desc.kind {
+            FuncKind::NamedFunc(def) => {
+                let func_signature = self.statics.solution_of_node(def.name.node()).unwrap();
+                if let Some(overloaded_signature) = &desc.overloaded_signature {
+                    mono.update(&func_signature, overloaded_signature);
+                }
+
+                let SolvedType::Function(_, ret_ty) = func_signature else { unreachable!() };
+                let ret_ty = ret_ty.subst(&mono).monotype().unwrap();
+
+                let body = self.translate_expr(&def.body, st, &mono);
+
+                mir::Function {
+                    body,
+                    ret_ty,
+                    fully_qualified_name: "abra_main".to_string(),
+                }
             }
         }
     }
@@ -287,9 +290,9 @@ impl Translator {
             Some(self.get_ty(mono, func_node).unwrap())
         };
 
-        st.funcs_to_generate.insert(FuncDesc {
+        st.func_ids.insert(FuncDesc {
             kind: FuncKind::NamedFunc(f.clone()),
-            overload_ty,
+            overloaded_signature: overload_ty,
         })
     }
 
