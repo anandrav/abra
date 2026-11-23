@@ -2651,7 +2651,9 @@ fn generate_constraints_expr(
                     generate_constraints_expr(ctx, polyvar_scope, mode.clone(), terminal_expr);
                     let expr_ty = TypeVar::from_node(ctx, terminal_expr.node());
                     constrain(ctx, &expr_ty, &node_ty);
-                } else if let StmtKind::Return(_) = &*statements.last().unwrap().kind {
+                } else if let StmtKind::Return(_) | StmtKind::Break | StmtKind::Continue =
+                    &*statements.last().unwrap().kind
+                {
                     generate_constraints_stmt(
                         ctx,
                         polyvar_scope,
@@ -2726,7 +2728,9 @@ fn generate_constraints_expr(
                 if let StmtKind::Expr(expr) = &*arm.stmt.kind {
                     let expr_ty = TypeVar::from_node(ctx, expr.node());
                     constrain(ctx, &node_ty, &expr_ty)
-                } else if let StmtKind::Return(_) = &*arm.stmt.kind {
+                } else if let StmtKind::Return(_) | StmtKind::Break | StmtKind::Continue =
+                    &*arm.stmt.kind
+                {
                     constrain(
                         ctx,
                         &node_ty,
