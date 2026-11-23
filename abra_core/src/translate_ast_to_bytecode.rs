@@ -925,7 +925,7 @@ impl Translator {
                 let else_label = make_label("else");
                 let end_label = make_label("endif");
                 self.emit(st, Instr::JumpIfFalse(else_label.clone()));
-                self.translate_stmt(then_block, true, offset_table, mono, st);
+                self.translate_stmt(then_block, else_block.is_some(), offset_table, mono, st);
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(else_label));
                 if let Some(else_block) = else_block {
