@@ -5,13 +5,10 @@ use core/strings
 use core/encoding
 use test_runner
 
-fn http_error(e: HttpError) -> string = e.str()
-fn exec_error(e: ExecError) -> string = e.str()
-
 fn read_stream(body: HttpStream, max_bytes: int = 8192) -> result<array<int>, string> {
     let bytes: array<int> = []
     while true {
-        match body.read_chunk(max_bytes).map_err(http_error)? {
+        match body.read_chunk(max_bytes).map_err(ToString.str)? {
             .none -> break
             .some(chunk) -> {
                 check(chunk.len() > 0 and chunk.len() <= max_bytes, 'chunks should be nonempty and bounded')?
@@ -23,12 +20,12 @@ fn read_stream(body: HttpStream, max_bytes: int = 8192) -> result<array<int>, st
 }
 
 fn exercise_streaming(url: string) -> result<void, string> {
-    let response = get_stream(url .. '/stream', timeout = 0.5).map_err(http_error)?.check_status().map_err(http_error)?
+    let response = get_stream(url .. '/stream', timeout = 0.5).map_err(ToString.str)?.check_status().map_err(ToString.str)?
     check(response.status == 200 and response.header('CONTENT-TYPE') == .some('application/octet-stream'), 'streaming should expose status and headers')?
     let bytes = read_stream(response.body, max_bytes = 1)?
     check(bytes == [0, 255, 195, 169, 128, 42], 'streaming should preserve binary bytes across delayed chunks')?
-    response.close().map_err(http_error)?
-    response.close().map_err(http_error)?
+    response.close().map_err(ToString.str)?
+    response.close().map_err(ToString.str)?
     check(response.body.read_chunk().is_err(), 'EOF should release the stream handle')?
 
     match get(url .. '/stream', timeout = 0.05) {
@@ -36,41 +33,41 @@ fn exercise_streaming(url: string) -> result<void, string> {
         _ -> return .err('buffered requests should retain a whole-response timeout')
     }
 
-    let echo = request('POST', url, body = 'hello', headers = [('X-Custom', 'stream')], query = [('q', 'cats & dogs')]).send_streaming().map_err(http_error)?
+    let echo = request('POST', url, body = 'hello', headers = [('X-Custom', 'stream')], query = [('q', 'cats & dogs')]).send_streaming().map_err(ToString.str)?
     check(echo.body.read_chunk(max_bytes = 0).is_err(), 'invalid read sizes should return errors')?
     check(echo.body.read_chunk(timeout = .some(0.0)).is_err(), 'invalid read timeouts should return errors')?
     let data = parse(string_from_bytes(read_stream(echo.body)?)?)?
     check(data['method'].as_string() == .some('POST') and data['body'].as_string() == .some('hello'), 'streaming should send method and body')?
     check(data['headers']['x-custom'].as_string() == .some('stream') and data['query']['q'].at(0).as_string() == .some('cats & dogs'), 'streaming should send headers and query')?
 
-    let missing = get_stream(url .. '/missing').map_err(http_error)?
+    let missing = get_stream(url .. '/missing').map_err(ToString.str)?
     match missing.check_status() {
         .err(.Other(message)) -> check(message == 'HTTP 404', 'streaming status errors should include the status')?
         _ -> return .err('streaming check_status should reject HTTP 404')
     }
     check(missing.body.read_chunk().is_err(), 'failed status checks should close the stream')?
 
-    let slow = get_stream(url .. '/stall').map_err(http_error)?
+    let slow = get_stream(url .. '/stall').map_err(ToString.str)?
     match slow.body.read_chunk(timeout = .some(0.01)) {
         .err(.Timeout(_)) -> {}
         _ -> return .err('a stalled read should time out')
     }
     check(slow.body.read_chunk().is_err(), 'read errors should release the stream handle')?
-    slow.close().map_err(http_error)?
+    slow.close().map_err(ToString.str)?
 
-    let closed = get_stream(url .. '/stall').map_err(http_error)?
-    closed.body.close().map_err(http_error)?
+    let closed = get_stream(url .. '/stall').map_err(ToString.str)?
+    closed.body.close().map_err(ToString.str)?
     check(closed.body.read_chunk(timeout = .none).is_err(), 'reading a closed stream should return an error')?
 
-    let truncated = get_stream(url .. '/truncated').map_err(http_error)?
-    check(truncated.body.read_chunk(timeout = .none).map_err(http_error)? == .some([120]), 'unlimited reads should return bytes')?
+    let truncated = get_stream(url .. '/truncated').map_err(ToString.str)?
+    check(truncated.body.read_chunk(timeout = .none).map_err(ToString.str)? == .some([120]), 'unlimited reads should return bytes')?
     check(truncated.body.read_chunk().is_err(), 'truncated responses should report a read error')?
-    truncated.close().map_err(http_error)?
+    truncated.close().map_err(ToString.str)?
     .ok(nil)
 }
 
 fn exercise(url: string) -> result<void, string> {
-    let response = get(url .. '?existing=1#fragment', query = [('q', 'cats & dogs + café'), ('tag', 'a'), ('tag', 'b'), ('empty', '')], headers = [('Authorization', 'Bearer test')], timeout = 10.0).map_err(http_error)?
+    let response = get(url .. '?existing=1#fragment', query = [('q', 'cats & dogs + café'), ('tag', 'a'), ('tag', 'b'), ('empty', '')], headers = [('Authorization', 'Bearer test')], timeout = 10.0).map_err(ToString.str)?
     check(response.ok(), 'GET should return status 200')?
     check(response.header('x-test') == .some('fixture'), 'header lookup should ignore case')?
     let json = response.json()?
@@ -79,35 +76,35 @@ fn exercise(url: string) -> result<void, string> {
     check(json['query']['q'].at(0).as_string() == .some('cats & dogs + café'), 'query should encode special characters and Unicode')?
     check(json['query']['existing'].at(0).as_string() == .some('1') and json['query']['empty'].at(0).as_string() == .some(''), 'query should preserve existing and empty values')?
     check(json['query']['tag'].at(0).as_string() == .some('a') and json['query']['tag'].at(1).as_string() == .some('b'), 'query should preserve repeated keys')?
-    let checked = response.check_status().map_err(http_error)?
+    let checked = response.check_status().map_err(ToString.str)?
     check(checked.status == response.status and checked.body == response.body, 'check_status should return successful responses')?
 
-    let missing = get(url .. '/missing').map_err(http_error)?
+    let missing = get(url .. '/missing').map_err(ToString.str)?
     check(missing.status == 404 and not missing.ok(), 'HTTP 404 should remain a response')?
     match missing.check_status() {
         .err(.Other(message)) -> check(message == 'HTTP 404: ' .. missing.body, 'status errors should include status and body')?
         _ -> return .err('check_status should reject HTTP 404')
     }
 
-    let posted = post(url, body = 'hello', headers = [('X-Custom', 'post')], query = [('q', 'post')]).map_err(http_error)?.json()?
+    let posted = post(url, body = 'hello', headers = [('X-Custom', 'post')], query = [('q', 'post')]).map_err(ToString.str)?.json()?
     check(posted['body'].as_string() == .some('hello'), 'POST should send its body')?
     check(posted['headers']['x-custom'].as_string() == .some('post'), 'POST should send named headers')?
     check(posted['query']['q'].at(0).as_string() == .some('post'), 'POST should send query parameters')?
-    let empty_post = post(url).map_err(http_error)?.json()?
+    let empty_post = post(url).map_err(ToString.str)?.json()?
     check(empty_post['body'].as_string() == .some(''), 'POST body should default to empty')?
 
-    let raw = request('PUT', url, body = 'raw', headers = [('X-Custom', 'raw')]).send().map_err(http_error)?.json()?
+    let raw = request('PUT', url, body = 'raw', headers = [('X-Custom', 'raw')]).send().map_err(ToString.str)?.json()?
     check(raw['body'].as_string() == .some('raw') and raw['headers']['x-custom'].as_string() == .some('raw'), 'request should accept named body and headers')?
 
     let body = JsonValue.object()
     body['message'] = .Str('hello')
-    let sent = request('PUT', url, query = [('q', 'builder')]).header('X-Custom', 'value').json_body(body).send().map_err(http_error)?.json()?
+    let sent = request('PUT', url, query = [('q', 'builder')]).header('X-Custom', 'value').json_body(body).send().map_err(ToString.str)?.json()?
     check(sent['method'].as_string() == .some('PUT'), 'builder should use the requested method')?
     check(sent['headers']['x-custom'].as_string() == .some('value'), 'builder should send headers')?
     check(sent['headers']['content-type'].as_string() == .some('application/json'), 'json_body should set content type')?
     check(sent['query']['q'].at(0).as_string() == .some('builder'), 'builder methods should preserve query parameters')?
     let headers = [('X-Custom', 'json')]
-    let posted_json = post_json(url, body, headers = headers, query = [('q', 'json')]).map_err(http_error)?.json()?
+    let posted_json = post_json(url, body, headers = headers, query = [('q', 'json')]).map_err(ToString.str)?.json()?
     check(posted_json['headers']['content-type'].as_string() == .some('application/json'), 'post_json should set content type')?
     check(posted_json['headers']['x-custom'].as_string() == .some('json'), 'post_json should send named headers')?
     check(headers.len() == 1, 'JSON helpers should leave caller headers unchanged')?
@@ -116,7 +113,7 @@ fn exercise(url: string) -> result<void, string> {
     let custom_headers = [('cOnTeNt-TyPe', 'application/vnd.api+json')]
     let custom_request = request('POST', url, headers = custom_headers).json_body(body).json_body(body)
     check(custom_request.req_headers.len() == 1 and custom_request.req_body == .some(stringify(body)), 'json_body should preserve content type and serialize the body')?
-    let custom_json = post_json(url, body, headers = custom_headers).map_err(http_error)?.json()?
+    let custom_json = post_json(url, body, headers = custom_headers).map_err(ToString.str)?.json()?
     check(custom_json['headers']['content-type'].as_string() == .some('application/vnd.api+json'), 'post_json should preserve explicit content type regardless of case')?
 
     match get(url .. '/slow', timeout = 0.01) {
@@ -132,10 +129,10 @@ fn exercise(url: string) -> result<void, string> {
 }
 
 fn main() -> result<void, string> {
-    let server = exec('python3 module_tests/fixtures/http_server.py').spawn(stdout = .Pipe).map_err(exec_error)?
+    let server = exec('python3 module_tests/fixtures/http_server.py').spawn(stdout = .Pipe).map_err(ToString.str)?
     var port = ''
     while not port.contains('\n') {
-        match server.read_output().map_err(exec_error)? {
+        match server.read_output().map_err(ToString.str)? {
             .some(.Stdout(text)) -> port = port .. text
             .some(.Stderr(_)) -> {}
             .none -> return .err('HTTP test server exited before publishing its port')
@@ -145,8 +142,8 @@ fn main() -> result<void, string> {
     let url = 'http://127.0.0.1:' .. port.trim()
     t.run('core_api', exercise(url))
     t.run('streaming', exercise_streaming(url))
-    server.kill().map_err(exec_error)?
-    server.wait().map_err(exec_error)?
+    server.kill().map_err(ToString.str)?
+    server.wait().map_err(ToString.str)?
     t.finish()
     .ok(nil)
 }
