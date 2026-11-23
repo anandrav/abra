@@ -6,7 +6,6 @@ license = "MPL-2.0"
 
 [lib]
 crate-type = ["cdylib"]
-test = false
 
 [dependencies]
 abra_core = { workspace = true }
@@ -20,7 +19,9 @@ hex = "0.4"
 base64 = "0.23"
 signal-hook = "0.4"
 libc = "0.2"
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls", "charset", "query"] }
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "charset", "query"] }
+bytes = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
 
 [build-dependencies]
 abra_core = { workspace = true }

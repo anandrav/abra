@@ -42,15 +42,19 @@ extend Response {
     }
 
     fn header(self, name: string) -> option<string> {
-        let lower_name = name.to_lower()
-        for pair in self.headers {
-            let (k, v) = pair
-            if k.to_lower() == lower_name {
-                return .some(v)
-            }
-        }
-        .none
+        find_header(self.headers, name)
     }
+}
+
+fn find_header(headers: array<(string, string)>, name: string) -> option<string> {
+    let lower_name = name.to_lower()
+    for pair in headers {
+        let (k, v) = pair
+        if k.to_lower() == lower_name {
+            return .some(v)
+        }
+    }
+    .none
 }
 
 // simple GET request
@@ -111,7 +115,68 @@ extend Request {
     fn send(self) -> result<Response, HttpError> {
         send_request(self.req_method, self.req_url, self.req_headers, self.req_body, self.req_timeout, self.req_query)
     }
+
+    fn send_streaming(self) -> result<StreamingResponse, HttpError> {
+        send_request_streaming(self.req_method, self.req_url, self.req_headers, self.req_body, self.req_timeout, self.req_query)
+    }
 }
 
 #foreign
 fn send_request(method: string, url: string, headers: array<(string, string)>, body: option<string>, timeout: float = 30.0, query: array<(string, string)> = []) -> result<Response, HttpError>
+
+// Streaming bodies contain bytes; chunk boundaries are not message boundaries.
+#foreign
+type HttpStream = { id: int }
+
+#foreign
+type StreamingResponse = {
+    status: int
+    headers: array<(string, string)>
+    body: HttpStream
+}
+
+fn get_stream(url: string, timeout: float = 30.0, headers: array<(string, string)> = [], query: array<(string, string)> = []) -> result<StreamingResponse, HttpError> {
+    request('GET', url, timeout, headers = headers, query = query).send_streaming()
+}
+
+extend StreamingResponse {
+    fn ok(self) -> bool {
+        self.status >= 200 and self.status < 300
+    }
+
+    fn check_status(self) -> result<StreamingResponse, HttpError> {
+        if self.ok() {
+            .ok(self)
+        } else {
+            self.close()?
+            .err(.Other('HTTP ' .. self.status))
+        }
+    }
+
+    fn header(self, name: string) -> option<string> {
+        find_header(self.headers, name)
+    }
+
+    fn close(self) -> result<void, HttpError> {
+        self.body.close()
+    }
+}
+
+extend HttpStream {
+    fn read_chunk(self, max_bytes: int = 8192, timeout: option<float> = .some(30.0)) -> result<option<array<int>>, HttpError> {
+        http_stream_read_chunk(self.id, max_bytes, timeout)
+    }
+
+    fn close(self) -> result<void, HttpError> {
+        http_stream_close(self.id)
+    }
+}
+
+#foreign
+fn send_request_streaming(method: string, url: string, headers: array<(string, string)>, body: option<string>, timeout: float = 30.0, query: array<(string, string)> = []) -> result<StreamingResponse, HttpError>
+
+#foreign
+fn http_stream_read_chunk(id: int, max_bytes: int = 8192, timeout: option<float> = .some(30.0)) -> result<option<array<int>>, HttpError>
+
+#foreign
+fn http_stream_close(id: int) -> result<void, HttpError>

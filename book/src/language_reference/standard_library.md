@@ -209,6 +209,28 @@ let updated = request('PUT', 'https://example.com', body = 'updated text').send(
 
 `HttpError` is `.ConnectionFailed(string)`, `.Timeout(string)`, or `.Other(string)` and implements `ToString`. Invalid URLs, methods, headers, and timeouts return errors. Response bodies are read completely as text.
 
+For byte streaming, use `get_stream(url, timeout = 30.0, headers = [], query = [])` or `request(...).send_streaming()`. These return `result<StreamingResponse, HttpError>` as soon as the status and headers are available. `StreamingResponse` has `status`, `headers`, and `body: HttpStream`, plus `ok()`, `header(name)`, `check_status()`, and `close()`.
+
+```abra
+fn show_chunks(url: string) -> result<void, HttpError> {
+    let response = get_stream(url)?.check_status()?
+    while true {
+        match response.body.read_chunk()? {
+            .none -> break
+            .some(bytes) -> println(bytes.len())
+        }
+    }
+    response.close()?
+    .ok(nil)
+}
+```
+
+`body.read_chunk(max_bytes = 8192, timeout = .some(30.0))` returns `result<option<array<int>>, HttpError>`. Each `.some(bytes)` contains between 1 and `max_bytes` bytes, with integer values 0–255; `.none` means EOF. Reads return available data without waiting to fill `max_bytes`. Chunk boundaries can split a UTF-8 character or a protocol message, so assemble complete text or frames before decoding.
+
+For streaming, the request's `timeout` covers opening the connection through receiving response headers. Each read has its own timeout in positive, finite seconds; `timeout = .none` waits indefinitely. A read timeout returns `.Timeout`, rather than an empty chunk. EOF and body read errors release the stream. Invalid read arguments return errors and leave the stream usable.
+
+Call `response.close()` or `response.body.close()` when stopping early, including before propagating errors from processing received bytes. Closing cancels pending reads and releases the response; repeated closes succeed. Reads after EOF or close return an error. `StreamingResponse.check_status()` closes non-2xx responses and returns `.Other('HTTP <status>')` without reading the error body. To inspect that body, check `status` yourself and read it before closing.
+
 ## core/exec
 
 `exec()` accepts a command string with spaces, single/double quotes, and backslash escapes. It launches the executable directly; shell expansion, redirects, and shell operators belong in `run_sh()`.
