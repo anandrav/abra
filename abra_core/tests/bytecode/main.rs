@@ -122,6 +122,19 @@ atan2(-1.0, -1.0)
 }
 
 #[test]
+fn option_and_result_equality() {
+    let src = r#"
+let some: option<string> = .some('hello')
+let none: option<string> = .none
+let ok: result<string, int> = .ok('hello')
+let err: result<string, int> = .err(1)
+some == .some('hello') and some != .some('other') and none == .none and some != none and none != some and \
+ok == .ok('hello') and ok != .ok('other') and err == .err(1) and err != .err(2) and ok != err and err != ok
+"#;
+    expect_value(src, true);
+}
+
+#[test]
 fn comparison_operators() {
     let src = r#"
 let a = 2 < 3

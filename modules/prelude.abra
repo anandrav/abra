@@ -200,6 +200,26 @@ implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }
 
+implement Equal for option<T Equal> {
+    fn equal(a, b) {
+        match (a, b) {
+            (.some(x), .some(y)) -> x == y
+            (.none, .none) -> true
+            _ -> false
+        }
+    }
+}
+
+implement Equal for result<T Equal, E Equal> {
+    fn equal(a, b) {
+        match (a, b) {
+            (.ok(x), .ok(y)) -> x == y
+            (.err(x), .err(y)) -> x == y
+            _ -> false
+        }
+    }
+}
+
 implement Equal for array<T Equal> {
     fn equal(a, b) {
         if a.len() != b.len() {

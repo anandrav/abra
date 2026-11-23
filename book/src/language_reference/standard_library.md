@@ -183,6 +183,34 @@ let home = get_var("HOME")
 set_var("MY_FLAG", "1")
 ```
 
+## core/http
+
+HTTP requests return `result<Response, HttpError>`. `Response` contains `status: int`, `body: string`, and `headers: array<(string, string)>`.
+
+```
+use core/http
+use core/json
+
+let response = get('https://example.com', timeout = 10.0)!
+println(response.status)
+println(response.body)
+
+let payload = JsonValue.object()
+payload['message'] = .Str('hello')
+let sent = request('POST', 'https://example.com', timeout = 10.0) \
+    .header('X-Custom', 'value') \
+    .json_body(payload) \
+    .send()!
+```
+
+`get(url, timeout = 30.0)`, `post(url, body, timeout = 30.0)`, and `post_json(url, value, timeout = 30.0)` provide the common requests. Timeouts are positive, finite seconds and cover sending the request and reading its body.
+
+`request(method, url, timeout = 30.0)` constructs a `Request`. `.header(name, value)`, `.body(text)`, and `.json_body(value)` set the request data; `.send()` performs the request. JSON helpers set `Content-Type: application/json`.
+
+`response.ok()` means the status is 200–299. HTTP 4xx/5xx statuses still return `.ok(Response)`; `?` and `!` handle transport errors, so check the status separately. `response.header(name)` returns `option<string>` using a case-insensitive lookup, and `response.json()` returns `result<JsonValue, string>`.
+
+`HttpError` is `.ConnectionFailed(string)`, `.Timeout(string)`, or `.Other(string)` and implements `ToString`. Invalid URLs, methods, headers, and timeouts return errors. Response bodies are read completely as text.
+
 ## core/exec
 
 `exec()` accepts a command string with spaces, single/double quotes, and backslash escapes. It launches the executable directly; shell expansion, redirects, and shell operators belong in `run_sh()`.

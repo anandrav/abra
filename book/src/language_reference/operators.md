@@ -35,6 +35,8 @@ let msg = name .. " is " .. age .. " years old."
 
 `==` and `!=` work on any type that implements `Equal`. `<`, `<=`, `>`, `>=` work on any type that implements `Ord`.
 
+`option<T>` supports equality when `T Equal`; `result<T, E>` requires both `T Equal` and `E Equal`. Matching variants compare their contents, two `.none` values are equal, and different variants are unequal.
+
 ```
 let a = 5 == 5      // true
 let b = "x" != "y"  // true

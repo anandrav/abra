@@ -1,0 +1,64 @@
+use core/http
+use core/exec
+use core/json
+use core/strings
+use test_runner
+
+fn http_error(e: HttpError) -> string = e.str()
+fn exec_error(e: ExecError) -> string = e.str()
+
+fn exercise(url: string) -> result<void, string> {
+    let response = get(url).map_err(http_error)?
+    check(response.ok(), 'GET should return status 200')?
+    check(response.header('x-test') == .some('fixture'), 'header lookup should ignore case')?
+    let json = response.json()?
+    check(json['method'].as_string() == .some('GET'), 'response.json should parse the body')?
+
+    let missing = get(url .. '/missing').map_err(http_error)?
+    check(missing.status == 404 and not missing.ok(), 'HTTP 404 should remain a response')?
+
+    let posted = post(url, 'hello').map_err(http_error)?.json()?
+    check(posted['body'].as_string() == .some('hello'), 'POST should send its body')?
+
+    let body = JsonValue.object()
+    body['message'] = .Str('hello')
+    let sent = request('PUT', url).header('X-Custom', 'value').json_body(body).send().map_err(http_error)?.json()?
+    check(sent['method'].as_string() == .some('PUT'), 'builder should use the requested method')?
+    check(sent['headers']['x-custom'].as_string() == .some('value'), 'builder should send headers')?
+    check(sent['headers']['content-type'].as_string() == .some('application/json'), 'json_body should set content type')?
+    let posted_json = post_json(url, body).map_err(http_error)?.json()?
+    check(posted_json['headers']['content-type'].as_string() == .some('application/json'), 'post_json should set content type')?
+
+    match get(url .. '/slow', timeout = 0.01) {
+        .err(.Timeout(_)) -> {}
+        .err(e) -> return .err('wrong timeout error: ' .. e.str())
+        .ok(_) -> return .err('slow request should time out')
+    }
+    check(get(url, timeout = -1.0).is_err(), 'invalid timeout should return an error')?
+    check(request('invalid method', url).send().is_err(), 'invalid method should return an error')?
+    check(get('not a URL').is_err(), 'invalid URL should return an error')?
+    .ok(nil)
+}
+
+fn main() -> result<void, string> {
+    let server = exec('python3 module_tests/fixtures/http_server.py').spawn(stdout = .Pipe).map_err(exec_error)?
+    var port = ''
+    while not port.contains('\n') {
+        match server.read_output().map_err(exec_error)? {
+            .some(.Stdout(text)) -> port = port .. text
+            .some(.Stderr(_)) -> {}
+            .none -> return .err('HTTP test server exited before publishing its port')
+        }
+    }
+    let t = TestRunner.new('http')
+    t.run('core_api', exercise('http://127.0.0.1:' .. port.trim()))
+    server.kill().map_err(exec_error)?
+    server.wait().map_err(exec_error)?
+    t.finish()
+    .ok(nil)
+}
+
+match main() {
+    .ok(_) -> {}
+    .err(message) -> { eprintln(message); exit(1) }
+}
