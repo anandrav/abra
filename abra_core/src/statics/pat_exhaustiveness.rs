@@ -10,9 +10,7 @@ use crate::ast::{
 use core::panic;
 
 use super::typecheck::Nominal;
-use super::{
-    Declaration, EnumDef, Error, PolytypeDeclaration, SolvedType as Type, StaticsContext, TypeKind,
-};
+use super::{Declaration, EnumDef, Error, PolytypeDeclaration, SolvedType as Type, StaticsContext};
 use crate::vm::AbraInt;
 use std::fmt::{self, Display};
 use std::rc::Rc;
@@ -262,7 +260,8 @@ impl Matrix {
                 _ => unreachable!(),
             },
             Constructor::Variant((enum_def, idx)) => {
-                let data_ty = data_ty_of_variant(statics, enum_def, *idx);
+                let Type::Nominal(_, args) = &expanded.types[0] else { unreachable!() };
+                let data_ty = data_ty_of_variant(statics, enum_def, *idx, args);
                 match data_ty {
                     Type::Never => unreachable!(),
                     Type::InterfaceOutput(..) => unreachable!(),
@@ -458,7 +457,12 @@ impl DeconstructedPat {
                 fields = match data {
                     None => vec![],
                     Some(PatVariantData::Positional(pat)) => {
-                        vec![DeconstructedPat::from_ast_pat(statics, pat)]
+                        let field = DeconstructedPat::from_ast_pat(statics, pat);
+                        if matches!(field.ty, Type::Void) {
+                            vec![]
+                        } else {
+                            vec![field]
+                        }
                     }
                     Some(PatVariantData::Named(named)) => {
                         let variant_def = &enum_def.variants[*variant];
@@ -537,9 +541,9 @@ impl DeconstructedPat {
             {
                 struct_field_tys(statics, struct_def, args)
             }
-            Type::Nominal(_, _) => match ctor {
+            Type::Nominal(_, args) => match ctor {
                 Constructor::Variant((enum_def, idx)) => {
-                    let data_ty = data_ty_of_variant(statics, enum_def, *idx);
+                    let data_ty = data_ty_of_variant(statics, enum_def, *idx, args);
 
                     if !matches!(data_ty, Type::Void) {
                         vec![data_ty.clone()]
@@ -562,23 +566,17 @@ impl DeconstructedPat {
             fields: vec![],
             ty: ty.clone(),
         };
-        let fields = match &ty {
-            Type::Nominal(Nominal::Struct(struct_def), args)
-                if matches!(ctor, Constructor::Product) =>
-            {
-                struct_field_tys(statics, struct_def, args)
-                    .iter()
-                    .map(wildcard_of)
-                    .collect()
-            }
-            Type::Tuple(tys) | Type::Nominal(_, tys) => tys.iter().map(wildcard_of).collect(),
-            _ => vec![],
-        };
-        Self {
+        let mut pat = Self {
             ctor: ctor.clone(),
-            fields,
+            fields: vec![],
             ty,
-        }
+        };
+        pat.fields = pat
+            .field_tys(ctor, statics)
+            .iter()
+            .map(wildcard_of)
+            .collect();
+        pat
     }
 }
 
@@ -619,10 +617,21 @@ fn subst_solved_ty(ty: &Type, subst: &HashMap<PolytypeDeclaration, Type>) -> Typ
     }
 }
 
-fn data_ty_of_variant(statics: &StaticsContext, enum_def: &Rc<EnumDef>, idx: usize) -> Type {
+fn data_ty_of_variant(
+    statics: &StaticsContext,
+    enum_def: &Rc<EnumDef>,
+    idx: usize,
+    args: &[Type],
+) -> Type {
+    let mut subst = HashMap::default();
+    for (i, ty_arg) in enum_def.ty_args.iter().enumerate() {
+        if let Some(Declaration::Polytype(decl)) = statics.resolution_map.get(&ty_arg.name.id) {
+            subst.insert(decl.clone(), args[i].clone());
+        }
+    }
     let variant = &enum_def.variants[idx];
     let variant_data = &variant.fields;
-    match variant_data.len() {
+    let data_ty = match variant_data.len() {
         0 => Type::Void,
         1 => variant_data[0].ty.to_solved_type(statics).unwrap(),
         _ => Type::Tuple(
@@ -631,7 +640,8 @@ fn data_ty_of_variant(statics: &StaticsContext, enum_def: &Rc<EnumDef>, idx: usi
                 .map(|field| field.ty.to_solved_type(statics).unwrap())
                 .collect(),
         ),
-    }
+    };
+    subst_solved_ty(&data_ty, &subst)
 }
 
 impl Display for DeconstructedPat {
@@ -737,7 +747,7 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, matrix_tys: &[Type]) -> usize {
+    fn arity(&self, matrix_tys: &[Type], statics: &StaticsContext) -> usize {
         match self {
             Constructor::Bool(..)
             | Constructor::Int(..)
@@ -751,16 +761,15 @@ impl Constructor {
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant((enum_def, idx)) => {
-                let variant = &enum_def.variants[*idx];
-                match &variant.fields.len() {
-                    0 => 0,
-                    1 => match &*variant.fields[0].ty.kind {
-                        TypeKind::Void => 0,
-                        _ => 1,
-                    },
-                    // Multi-field variants are represented as a single tuple
-                    // in the matrix, so arity is 1.
-                    _ => 1,
+                let Type::Nominal(_, args) = &matrix_tys[0] else { unreachable!() };
+                if matches!(
+                    data_ty_of_variant(statics, enum_def, *idx, args),
+                    Type::Void
+                ) {
+                    0
+                } else {
+                    // Multi-field variants occupy one tuple column.
+                    1
                 }
             }
             Constructor::Or => unimplemented!(),
@@ -1055,7 +1064,7 @@ fn compute_exhaustiveness_and_usefulness(
     }
 
     for ctor in present_ctors {
-        let ctor_arity = ctor.arity(&matrix.types);
+        let ctor_arity = ctor.arity(&matrix.types, statics);
 
         let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity, statics);
 

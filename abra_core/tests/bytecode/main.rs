@@ -442,6 +442,24 @@ match triplet {
 }
 
 #[test]
+fn match_nested_generic_enum() {
+    let src = r#"
+type Event = Stdout(string) | Stderr(string)
+
+fn label(value: option<Event>) -> string {
+    match value {
+        .some(.Stdout(text)) -> 'out:' .. text
+        .some(.Stderr(text)) -> 'err:' .. text
+        .none -> 'none'
+    }
+}
+
+label(.some(Event.Stdout('hello'))) .. '|' .. label(.some(Event.Stderr('bad'))) .. '|' .. label(.none)
+"#;
+    expect_value(src, "out:hello|err:bad|none");
+}
+
+#[test]
 fn or_pattern_no_bindings1() {
     let src = r#"
 type color =

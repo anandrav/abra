@@ -160,19 +160,15 @@ fn test_live_output() -> result<void, string> {
     var stdout = ''
     var stderr = ''
     match first {
-        .some(event) -> match event {
-            .Stdout(text) -> stdout = stdout .. text
-            .Stderr(text) -> stderr = stderr .. text
-        }
+        .some(.Stdout(text)) -> stdout = stdout .. text
+        .some(.Stderr(text)) -> stderr = stderr .. text
         .none -> {}
     }
     while true {
         let event = child.read_output().map_err(str_err)?
         match event {
-            .some(event) -> match event {
-                .Stdout(text) -> stdout = stdout .. text
-                .Stderr(text) -> stderr = stderr .. text
-            }
+            .some(.Stdout(text)) -> stdout = stdout .. text
+            .some(.Stderr(text)) -> stderr = stderr .. text
             .none -> break
         }
     }
