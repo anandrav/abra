@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-6beaec9d.js";
+            window.path_to_searchindex_js = "searchindex-82451f17.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-caa4a953.js"></script>
@@ -390,6 +390,7 @@ let msg = name .. " is " .. age .. " years old."
 <p><code>+</code> is <strong>not</strong> for string concatenation — that’s only for numbers.</p>
 <h3 id="comparison"><a class="header" href="#comparison">Comparison</a></h3>
 <p><code>==</code> and <code>!=</code> work on any type that implements <code>Equal</code>. <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> work on any type that implements <code>Ord</code>.</p>
+<p><code>option&lt;T&gt;</code> supports equality when <code>T Equal</code>; <code>result&lt;T, E&gt;</code> requires both <code>T Equal</code> and <code>E Equal</code>. Matching variants compare their contents, two <code>.none</code> values are equal, and different variants are unequal.</p>
 <pre><code>let a = 5 == 5      // true
 let b = "x" != "y"  // true
 let c = 3 &lt; 7       // true
@@ -1556,6 +1557,26 @@ fn copy_if_missing(src: string, dest: string) -&gt; result&lt;void, FsError&gt; 
 let home = get_var("HOME")
 set_var("MY_FLAG", "1")
 </code></pre>
+<h2 id="corehttp"><a class="header" href="#corehttp">core/http</a></h2>
+<p>HTTP requests return <code>result&lt;Response, HttpError&gt;</code>. <code>Response</code> contains <code>status: int</code>, <code>body: string</code>, and <code>headers: array&lt;(string, string)&gt;</code>.</p>
+<pre><code>use core/http
+use core/json
+
+let response = get('https://example.com', timeout = 10.0)!
+println(response.status)
+println(response.body)
+
+let payload = JsonValue.object()
+payload['message'] = .Str('hello')
+let sent = request('POST', 'https://example.com', timeout = 10.0) \
+    .header('X-Custom', 'value') \
+    .json_body(payload) \
+    .send()!
+</code></pre>
+<p><code>get(url, timeout = 30.0)</code>, <code>post(url, body, timeout = 30.0)</code>, and <code>post_json(url, value, timeout = 30.0)</code> provide the common requests. Timeouts are positive, finite seconds and cover sending the request and reading its body.</p>
+<p><code>request(method, url, timeout = 30.0)</code> constructs a <code>Request</code>. <code>.header(name, value)</code>, <code>.body(text)</code>, and <code>.json_body(value)</code> set the request data; <code>.send()</code> performs the request. JSON helpers set <code>Content-Type: application/json</code>.</p>
+<p><code>response.ok()</code> means the status is 200–299. HTTP 4xx/5xx statuses still return <code>.ok(Response)</code>; <code>?</code> and <code>!</code> handle transport errors, so check the status separately. <code>response.header(name)</code> returns <code>option&lt;string&gt;</code> using a case-insensitive lookup, and <code>response.json()</code> returns <code>result&lt;JsonValue, string&gt;</code>.</p>
+<p><code>HttpError</code> is <code>.ConnectionFailed(string)</code>, <code>.Timeout(string)</code>, or <code>.Other(string)</code> and implements <code>ToString</code>. Invalid URLs, methods, headers, and timeouts return errors. Response bodies are read completely as text.</p>
 <h2 id="coreexec"><a class="header" href="#coreexec">core/exec</a></h2>
 <p><code>exec()</code> accepts a command string with spaces, single/double quotes, and backslash escapes. It launches the executable directly; shell expansion, redirects, and shell operators belong in <code>run_sh()</code>.</p>
 <pre><code>use core/exec
@@ -1650,7 +1671,7 @@ out["greeting"] = .Str("hello")
 out["count"] = .Number(3.0)
 println(stringify_pretty(out))
 </code></pre>
-<h2 id="corehttp"><a class="header" href="#corehttp">core/http</a></h2>
+<h2 id="corehttp-1"><a class="header" href="#corehttp-1">core/http</a></h2>
 <p>A small HTTP client built on top of <code>core/json</code>. Convenience functions for <code>get</code>/<code>post</code>, and a builder for full control.</p>
 <pre><code>use core/http
 use core/json

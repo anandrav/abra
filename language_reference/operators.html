@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-6beaec9d.js";
+            window.path_to_searchindex_js = "../searchindex-82451f17.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -199,6 +199,7 @@ let msg = name .. " is " .. age .. " years old."
 <p><code>+</code> is <strong>not</strong> for string concatenation — that’s only for numbers.</p>
 <h3 id="comparison"><a class="header" href="#comparison">Comparison</a></h3>
 <p><code>==</code> and <code>!=</code> work on any type that implements <code>Equal</code>. <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> work on any type that implements <code>Ord</code>.</p>
+<p><code>option&lt;T&gt;</code> supports equality when <code>T Equal</code>; <code>result&lt;T, E&gt;</code> requires both <code>T Equal</code> and <code>E Equal</code>. Matching variants compare their contents, two <code>.none</code> values are equal, and different variants are unequal.</p>
 <pre><code>let a = 5 == 5      // true
 let b = "x" != "y"  // true
 let c = 3 &lt; 7       // true
