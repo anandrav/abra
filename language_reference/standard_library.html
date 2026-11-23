@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-82451f17.js";
+            window.path_to_searchindex_js = "../searchindex-0cc5dd58.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -321,20 +321,18 @@ set_var("MY_FLAG", "1")
 <pre><code>use core/http
 use core/json
 
-let response = get('https://example.com', timeout = 10.0)!
+let response = get('https://example.com/search', query = [('q', 'cats &amp; dogs')], headers = [('Authorization', 'Bearer token')], timeout = 10.0)!.check_status()!
 println(response.status)
 println(response.body)
 
 let payload = JsonValue.object()
 payload['message'] = .Str('hello')
-let sent = request('POST', 'https://example.com', timeout = 10.0) \
-    .header('X-Custom', 'value') \
-    .json_body(payload) \
-    .send()!
+let sent = post_json('https://example.com', payload, headers = [('X-Custom', 'value')])!
+let updated = request('PUT', 'https://example.com', body = 'updated text').send()!
 </code></pre>
-<p><code>get(url, timeout = 30.0)</code>, <code>post(url, body, timeout = 30.0)</code>, and <code>post_json(url, value, timeout = 30.0)</code> provide the common requests. Timeouts are positive, finite seconds and cover sending the request and reading its body.</p>
-<p><code>request(method, url, timeout = 30.0)</code> constructs a <code>Request</code>. <code>.header(name, value)</code>, <code>.body(text)</code>, and <code>.json_body(value)</code> set the request data; <code>.send()</code> performs the request. JSON helpers set <code>Content-Type: application/json</code>.</p>
-<p><code>response.ok()</code> means the status is 200–299. HTTP 4xx/5xx statuses still return <code>.ok(Response)</code>; <code>?</code> and <code>!</code> handle transport errors, so check the status separately. <code>response.header(name)</code> returns <code>option&lt;string&gt;</code> using a case-insensitive lookup, and <code>response.json()</code> returns <code>result&lt;JsonValue, string&gt;</code>.</p>
+<p><code>get(url)</code>, <code>post(url, body = '')</code>, and <code>post_json(url, value)</code> provide the common requests. Each accepts <code>headers = []</code>, <code>query = []</code>, and <code>timeout = 30.0</code> as named arguments. Headers and query parameters are arrays of <code>(name, value)</code> string pairs. Query values are URL-encoded and appended to any existing query; repeated keys and empty values are supported. Pass original values, without pre-encoding them. Timeouts are positive, finite seconds and cover sending the request and reading its body.</p>
+<p><code>request(method, url)</code> constructs a <code>Request</code> and accepts <code>headers = []</code>, <code>query = []</code>, <code>body = ''</code>, and <code>timeout = 30.0</code> as named arguments. <code>.header(name, value)</code>, <code>.body(text)</code>, and <code>.json_body(value)</code> also set the request data; <code>.send()</code> performs the request. JSON helpers add <code>Content-Type: application/json</code> only when no Content-Type is present, comparing header names case-insensitively.</p>
+<p><code>response.ok()</code> means the status is 200–299. HTTP 4xx/5xx statuses still return <code>.ok(Response)</code>; <code>?</code> and <code>!</code> handle transport errors. <code>response.check_status()</code> returns <code>result&lt;Response, HttpError&gt;</code>: 2xx returns the response, and any other status returns <code>.Other('HTTP &lt;status&gt;: &lt;body&gt;')</code>. Inside a function returning a compatible result, use <code>get(url)?.check_status()?</code> to propagate both transport and status errors. <code>response.header(name)</code> returns <code>option&lt;string&gt;</code> using a case-insensitive lookup, and <code>response.json()</code> returns <code>result&lt;JsonValue, string&gt;</code>.</p>
 <p><code>HttpError</code> is <code>.ConnectionFailed(string)</code>, <code>.Timeout(string)</code>, or <code>.Other(string)</code> and implements <code>ToString</code>. Invalid URLs, methods, headers, and timeouts return errors. Response bodies are read completely as text.</p>
 <h2 id="coreexec"><a class="header" href="#coreexec">core/exec</a></h2>
 <p><code>exec()</code> accepts a command string with spaces, single/double quotes, and backslash escapes. It launches the executable directly; shell expansion, redirects, and shell operators belong in <code>run_sh()</code>.</p>
