@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-3453279c.js";
+            window.path_to_searchindex_js = "../searchindex-6beaec9d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -209,6 +209,7 @@ match read("greeting.txt") {
 </code></pre>
 <h3 id="unwrap-"><a class="header" href="#unwrap-">Unwrap (<code>!</code>)</a></h3>
 <p>The unwrap operator <code>!</code> extracts the value from a <code>some</code> or <code>ok</code>, panicking if it’s a <code>none</code> or <code>err</code>. Use it when you know the value is present.</p>
+<p>For <code>result&lt;T, E&gt;</code>, <code>!</code> requires <code>E ToString</code> and includes the error value in the panic message.</p>
 <pre><code>let a = "10".to_int()!     // panics if not a valid int
 let b = "5".to_int()!
 println(a + b)             // prints "15"
