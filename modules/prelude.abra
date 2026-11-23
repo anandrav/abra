@@ -5,7 +5,7 @@ fn print_string(s: string) -> void
 fn eprint_string(s: string) -> void
 
 #host
-fn readline() -> string
+fn readline() -> option<string>
 
 #host
 fn get_args() -> array<string>

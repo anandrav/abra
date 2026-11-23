@@ -18,9 +18,14 @@ The prelude provides basic I/O and program control:
 
 ```
 println("hello")             // print with newline (also: print, panic, assert)
-let line = readline()        // read a line from stdin
+let line = readline()        // option<string>
 let args = get_args()        // command-line arguments as array<string>
 ```
+
+`readline()` returns `.some(line)`, or `.none` at EOF. A blank line is
+`.some('')`. Line endings are removed; LF, CRLF, and bare CR are accepted,
+so scripts can read progress output without waiting for a newline. Read
+errors terminate the CLI with a message and exit status 1.
 
 ### Built-in types
 

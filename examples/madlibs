@@ -1,6 +1,9 @@
 #!/usr/bin/env abra
 
-print("Type an adjective and hit `Enter`: ")
-let adj = readline()
-println("Abra is a " .. adj .. " programming language!")
+print('Type an adjective and hit `Enter`: ')
+let adj = match readline() {
+    .some(line) -> line
+    .none -> { eprintln('No adjective provided (end of input).'); exit(1) }
+}
+println('Abra is a ' .. adj .. ' programming language!')
 

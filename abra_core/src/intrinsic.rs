@@ -324,7 +324,7 @@ impl IntrinsicOperation {
             ),
             IntrinsicOperation::Exit => TypeVar::make_func(
                 vec![TypeVar::make_int(reason.clone())],
-                TypeVar::make_void(reason.clone()),
+                TypeVar::make_never(reason.clone()),
                 reason.clone(),
             ),
 

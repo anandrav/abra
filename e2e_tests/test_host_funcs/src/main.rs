@@ -52,7 +52,7 @@ fn handle_host_func(runtime: &mut Runtime, status: RuntimeStatus) {
                 panic!()
             }
             HostFunctionArgs::Readline => {
-                let _ = HostFunctionRet::Readline("".into());
+                let _ = HostFunctionRet::Readline(None);
                 panic!()
             }
             HostFunctionArgs::GetArgs => {
