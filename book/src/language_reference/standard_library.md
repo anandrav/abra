@@ -191,23 +191,21 @@ HTTP requests return `result<Response, HttpError>`. `Response` contains `status:
 use core/http
 use core/json
 
-let response = get('https://example.com', timeout = 10.0)!
+let response = get('https://example.com/search', query = [('q', 'cats & dogs')], headers = [('Authorization', 'Bearer token')], timeout = 10.0)!.check_status()!
 println(response.status)
 println(response.body)
 
 let payload = JsonValue.object()
 payload['message'] = .Str('hello')
-let sent = request('POST', 'https://example.com', timeout = 10.0) \
-    .header('X-Custom', 'value') \
-    .json_body(payload) \
-    .send()!
+let sent = post_json('https://example.com', payload, headers = [('X-Custom', 'value')])!
+let updated = request('PUT', 'https://example.com', body = 'updated text').send()!
 ```
 
-`get(url, timeout = 30.0)`, `post(url, body, timeout = 30.0)`, and `post_json(url, value, timeout = 30.0)` provide the common requests. Timeouts are positive, finite seconds and cover sending the request and reading its body.
+`get(url)`, `post(url, body = '')`, and `post_json(url, value)` provide the common requests. Each accepts `headers = []`, `query = []`, and `timeout = 30.0` as named arguments. Headers and query parameters are arrays of `(name, value)` string pairs. Query values are URL-encoded and appended to any existing query; repeated keys and empty values are supported. Pass original values, without pre-encoding them. Timeouts are positive, finite seconds and cover sending the request and reading its body.
 
-`request(method, url, timeout = 30.0)` constructs a `Request`. `.header(name, value)`, `.body(text)`, and `.json_body(value)` set the request data; `.send()` performs the request. JSON helpers set `Content-Type: application/json`.
+`request(method, url)` constructs a `Request` and accepts `headers = []`, `query = []`, `body = ''`, and `timeout = 30.0` as named arguments. `.header(name, value)`, `.body(text)`, and `.json_body(value)` also set the request data; `.send()` performs the request. JSON helpers add `Content-Type: application/json` only when no Content-Type is present, comparing header names case-insensitively.
 
-`response.ok()` means the status is 200–299. HTTP 4xx/5xx statuses still return `.ok(Response)`; `?` and `!` handle transport errors, so check the status separately. `response.header(name)` returns `option<string>` using a case-insensitive lookup, and `response.json()` returns `result<JsonValue, string>`.
+`response.ok()` means the status is 200–299. HTTP 4xx/5xx statuses still return `.ok(Response)`; `?` and `!` handle transport errors. `response.check_status()` returns `result<Response, HttpError>`: 2xx returns the response, and any other status returns `.Other('HTTP <status>: <body>')`. Inside a function returning a compatible result, use `get(url)?.check_status()?` to propagate both transport and status errors. `response.header(name)` returns `option<string>` using a case-insensitive lookup, and `response.json()` returns `result<JsonValue, string>`.
 
 `HttpError` is `.ConnectionFailed(string)`, `.Timeout(string)`, or `.Other(string)` and implements `ToString`. Invalid URLs, methods, headers, and timeouts return errors. Response bodies are read completely as text.
 

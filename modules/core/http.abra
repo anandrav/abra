@@ -29,6 +29,14 @@ extend Response {
         self.status >= 200 and self.status < 300
     }
 
+    fn check_status(self) -> result<Response, HttpError> {
+        if self.ok() {
+            .ok(self)
+        } else {
+            .err(.Other('HTTP ' .. self.status .. ': ' .. self.body))
+        }
+    }
+
     fn json(self) -> result<JsonValue, string> {
         parse(self.body)
     }
@@ -47,17 +55,16 @@ extend Response {
 
 // simple GET request
 #foreign
-fn get(url: string, timeout: float = 30.0) -> result<Response, HttpError>
+fn get(url: string, timeout: float = 30.0, headers: array<(string, string)> = [], query: array<(string, string)> = []) -> result<Response, HttpError>
 
 // simple POST request with a body
 #foreign
-fn post(url: string, body: string, timeout: float = 30.0) -> result<Response, HttpError>
+fn post(url: string, body: string = '', timeout: float = 30.0, headers: array<(string, string)> = [], query: array<(string, string)> = []) -> result<Response, HttpError>
 
-// POST a JsonValue with Content-Type: application/json
-fn post_json(url: string, value: JsonValue, timeout: float = 30.0) -> result<Response, HttpError> {
-    request("POST", url, timeout) \
-        .header("Content-Type", "application/json") \
-        .body(stringify(value)) \
+// POST a JsonValue, defaulting Content-Type to application/json
+fn post_json(url: string, value: JsonValue, timeout: float = 30.0, headers: array<(string, string)> = [], query: array<(string, string)> = []) -> result<Response, HttpError> {
+    request("POST", url, timeout, headers = headers, query = query) \
+        .json_body(value) \
         .send()
 }
 
@@ -68,32 +75,43 @@ type Request = {
     req_headers: array<(string, string)> = []
     req_body: option<string> = .none
     req_timeout: float = 30.0
+    req_query: array<(string, string)> = []
 }
 
-fn request(method: string, url: string, timeout: float = 30.0) -> Request {
-    Request(method, url, req_timeout = timeout)
+fn request(method: string, url: string, timeout: float = 30.0, headers: array<(string, string)> = [], body: string = '', query: array<(string, string)> = []) -> Request {
+    Request(method, url, req_headers = headers, req_body = if body == '' { .none } else { .some(body) }, req_timeout = timeout, req_query = query)
 }
 
 extend Request {
     fn header(self, name: string, value: string) -> Request {
-        let h = self.req_headers
+        let h = []
+        for pair in self.req_headers {
+            h.push(pair)
+        }
         h.push((name, value))
-        Request(self.req_method, self.req_url, h, self.req_body, self.req_timeout)
+        Request(self.req_method, self.req_url, h, self.req_body, self.req_timeout, self.req_query)
     }
 
     fn body(self, b: string) -> Request {
-        Request(self.req_method, self.req_url, self.req_headers, .some(b), self.req_timeout)
+        Request(self.req_method, self.req_url, self.req_headers, .some(b), self.req_timeout, self.req_query)
     }
 
     fn json_body(self, value: JsonValue) -> Request {
+        let body = stringify(value)
+        for pair in self.req_headers {
+            let (name, _) = pair
+            if name.to_lower() == 'content-type' {
+                return self.body(body)
+            }
+        }
         self.header("Content-Type", "application/json") \
-            .body(stringify(value))
+            .body(body)
     }
 
     fn send(self) -> result<Response, HttpError> {
-        send_request(self.req_method, self.req_url, self.req_headers, self.req_body, self.req_timeout)
+        send_request(self.req_method, self.req_url, self.req_headers, self.req_body, self.req_timeout, self.req_query)
     }
 }
 
 #foreign
-fn send_request(method: string, url: string, headers: array<(string, string)>, body: option<string>, timeout: float = 30.0) -> result<Response, HttpError>
+fn send_request(method: string, url: string, headers: array<(string, string)>, body: option<string>, timeout: float = 30.0, query: array<(string, string)> = []) -> result<Response, HttpError>

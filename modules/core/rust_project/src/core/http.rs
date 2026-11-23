@@ -45,12 +45,23 @@ fn read_response(resp: ReqwestResponse) -> Result<Response, HttpError> {
     })
 }
 
-pub fn get(url: String, timeout: f64) -> Result<Response, HttpError> {
-    send_request("GET".to_string(), url, vec![], None, timeout)
+pub fn get(
+    url: String,
+    timeout: f64,
+    headers: Vec<(String, String)>,
+    query: Vec<(String, String)>,
+) -> Result<Response, HttpError> {
+    send_request("GET".to_string(), url, headers, None, timeout, query)
 }
 
-pub fn post(url: String, body: String, timeout: f64) -> Result<Response, HttpError> {
-    send_request("POST".to_string(), url, vec![], Some(body), timeout)
+pub fn post(
+    url: String,
+    body: String,
+    timeout: f64,
+    headers: Vec<(String, String)>,
+    query: Vec<(String, String)>,
+) -> Result<Response, HttpError> {
+    send_request("POST".to_string(), url, headers, Some(body), timeout, query)
 }
 
 pub fn send_request(
@@ -59,6 +70,7 @@ pub fn send_request(
     headers: Vec<(String, String)>,
     body: Option<String>,
     timeout: f64,
+    query: Vec<(String, String)>,
 ) -> Result<Response, HttpError> {
     let timeout = Duration::try_from_secs_f64(timeout).map_err(|_| {
         HttpError::Other("timeout must be a positive, finite number of seconds".to_string())
@@ -70,7 +82,10 @@ pub fn send_request(
     }
     let method =
         Method::from_bytes(method.as_bytes()).map_err(|e| HttpError::Other(e.to_string()))?;
-    let mut req = client()?.request(method, &url).timeout(timeout);
+    let mut req = client()?
+        .request(method, &url)
+        .query(&query)
+        .timeout(timeout);
     for (name, value) in headers {
         req = req.header(name, value);
     }

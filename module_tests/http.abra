@@ -8,26 +8,54 @@ fn http_error(e: HttpError) -> string = e.str()
 fn exec_error(e: ExecError) -> string = e.str()
 
 fn exercise(url: string) -> result<void, string> {
-    let response = get(url).map_err(http_error)?
+    let response = get(url .. '?existing=1#fragment', query = [('q', 'cats & dogs + café'), ('tag', 'a'), ('tag', 'b'), ('empty', '')], headers = [('Authorization', 'Bearer test')], timeout = 10.0).map_err(http_error)?
     check(response.ok(), 'GET should return status 200')?
     check(response.header('x-test') == .some('fixture'), 'header lookup should ignore case')?
     let json = response.json()?
     check(json['method'].as_string() == .some('GET'), 'response.json should parse the body')?
+    check(json['headers']['authorization'].as_string() == .some('Bearer test'), 'GET should send named headers')?
+    check(json['query']['q'].at(0).as_string() == .some('cats & dogs + café'), 'query should encode special characters and Unicode')?
+    check(json['query']['existing'].at(0).as_string() == .some('1') and json['query']['empty'].at(0).as_string() == .some(''), 'query should preserve existing and empty values')?
+    check(json['query']['tag'].at(0).as_string() == .some('a') and json['query']['tag'].at(1).as_string() == .some('b'), 'query should preserve repeated keys')?
+    let checked = response.check_status().map_err(http_error)?
+    check(checked.status == response.status and checked.body == response.body, 'check_status should return successful responses')?
 
     let missing = get(url .. '/missing').map_err(http_error)?
     check(missing.status == 404 and not missing.ok(), 'HTTP 404 should remain a response')?
+    match missing.check_status() {
+        .err(.Other(message)) -> check(message == 'HTTP 404: ' .. missing.body, 'status errors should include status and body')?
+        _ -> return .err('check_status should reject HTTP 404')
+    }
 
-    let posted = post(url, 'hello').map_err(http_error)?.json()?
+    let posted = post(url, body = 'hello', headers = [('X-Custom', 'post')], query = [('q', 'post')]).map_err(http_error)?.json()?
     check(posted['body'].as_string() == .some('hello'), 'POST should send its body')?
+    check(posted['headers']['x-custom'].as_string() == .some('post'), 'POST should send named headers')?
+    check(posted['query']['q'].at(0).as_string() == .some('post'), 'POST should send query parameters')?
+    let empty_post = post(url).map_err(http_error)?.json()?
+    check(empty_post['body'].as_string() == .some(''), 'POST body should default to empty')?
+
+    let raw = request('PUT', url, body = 'raw', headers = [('X-Custom', 'raw')]).send().map_err(http_error)?.json()?
+    check(raw['body'].as_string() == .some('raw') and raw['headers']['x-custom'].as_string() == .some('raw'), 'request should accept named body and headers')?
 
     let body = JsonValue.object()
     body['message'] = .Str('hello')
-    let sent = request('PUT', url).header('X-Custom', 'value').json_body(body).send().map_err(http_error)?.json()?
+    let sent = request('PUT', url, query = [('q', 'builder')]).header('X-Custom', 'value').json_body(body).send().map_err(http_error)?.json()?
     check(sent['method'].as_string() == .some('PUT'), 'builder should use the requested method')?
     check(sent['headers']['x-custom'].as_string() == .some('value'), 'builder should send headers')?
     check(sent['headers']['content-type'].as_string() == .some('application/json'), 'json_body should set content type')?
-    let posted_json = post_json(url, body).map_err(http_error)?.json()?
+    check(sent['query']['q'].at(0).as_string() == .some('builder'), 'builder methods should preserve query parameters')?
+    let headers = [('X-Custom', 'json')]
+    let posted_json = post_json(url, body, headers = headers, query = [('q', 'json')]).map_err(http_error)?.json()?
     check(posted_json['headers']['content-type'].as_string() == .some('application/json'), 'post_json should set content type')?
+    check(posted_json['headers']['x-custom'].as_string() == .some('json'), 'post_json should send named headers')?
+    check(headers.len() == 1, 'JSON helpers should leave caller headers unchanged')?
+    check(posted_json['query']['q'].at(0).as_string() == .some('json'), 'post_json should send query parameters')?
+
+    let custom_headers = [('cOnTeNt-TyPe', 'application/vnd.api+json')]
+    let custom_request = request('POST', url, headers = custom_headers).json_body(body).json_body(body)
+    check(custom_request.req_headers.len() == 1 and custom_request.req_body == .some(stringify(body)), 'json_body should preserve content type and serialize the body')?
+    let custom_json = post_json(url, body, headers = custom_headers).map_err(http_error)?.json()?
+    check(custom_json['headers']['content-type'].as_string() == .some('application/vnd.api+json'), 'post_json should preserve explicit content type regardless of case')?
 
     match get(url .. '/slow', timeout = 0.01) {
         .err(.Timeout(_)) -> {}
@@ -35,6 +63,7 @@ fn exercise(url: string) -> result<void, string> {
         .ok(_) -> return .err('slow request should time out')
     }
     check(get(url, timeout = -1.0).is_err(), 'invalid timeout should return an error')?
+    check(get(url, headers = [('invalid header', 'value')]).is_err(), 'invalid header should return an error')?
     check(request('invalid method', url).send().is_err(), 'invalid method should return an error')?
     check(get('not a URL').is_err(), 'invalid URL should return an error')?
     .ok(nil)
