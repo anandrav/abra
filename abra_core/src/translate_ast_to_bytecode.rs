@@ -858,8 +858,16 @@ impl Translator {
                         self.translate_func_call(decl, fname.node(), offset_table, mono, st);
                     }
                     ExprKind::MemberAccessLeadingDot(fname) => {
-                        for arg in args {
-                            self.translate_expr(&arg.val, offset_table, mono, st);
+                        if let Some(reordered_args) =
+                            self.statics.function_call_arg_order.get(&expr.id).cloned()
+                        {
+                            for arg_val in reordered_args {
+                                self.translate_expr(&arg_val, offset_table, mono, st);
+                            }
+                        } else {
+                            for arg in args {
+                                self.translate_expr(&arg.val, offset_table, mono, st);
+                            }
                         }
 
                         let decl = &self.statics.resolution_map[&fname.id];

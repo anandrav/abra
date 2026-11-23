@@ -1,5 +1,6 @@
 use core/exec
 use core/strings
+use core/fs as fs
 use test_runner
 
 fn str_err(e: ExecError) -> string = e.str()
@@ -16,6 +17,14 @@ t.run("builder_stdin", test_builder_stdin())
 t.run("builder_pipe", test_builder_pipe())
 t.run("builder_stdin_pipe", test_builder_stdin_pipe())
 t.run("builder_not_found", test_builder_not_found())
+t.run('command_quotes', test_command_quotes())
+t.run('dynamic_arg', test_dynamic_arg())
+t.run('command_errors', test_command_errors())
+t.run('file_io', test_file_io())
+t.run('live_output', test_live_output())
+t.run('poll_kill_wait', test_poll_kill_wait())
+t.run('pipeline_stderr', test_pipeline_stderr())
+t.run('command_status', test_command_status())
 t.finish()
 
 fn test_run_echo() -> result<void, string> {
@@ -94,4 +103,110 @@ fn test_builder_not_found() -> result<void, string> {
         .err(.NotFound(_)) -> .ok(nil)
         .err(e) -> .err("wrong error kind: " .. e.str())
     }
+}
+
+fn fs_err(e: fs.FsError) -> string = e.str()
+
+fn test_command_quotes() -> result<void, string> {
+    let out = exec('printf "%s|%s|%s" "hello world" \'\' escaped\\ space').run().map_err(str_err)?
+    check(out.stdout == 'hello world||escaped space', 'quotes, empty args, and escapes should be parsed')?
+    let literal = exec('printf "%s" "$HOME;*.abra|cat"').run().map_err(str_err)?
+    check(literal.stdout == '$HOME;*.abra|cat', 'command strings should not perform shell expansion')?
+    .ok(nil)
+}
+
+fn test_dynamic_arg() -> result<void, string> {
+    let out = exec('printf "%s"').arg('hello "world"; $HOME').run().map_err(str_err)?
+    check(out.stdout == 'hello "world"; $HOME', 'arg should preserve the complete string')?
+    .ok(nil)
+}
+
+fn test_command_errors() -> result<void, string> {
+    check(exec('').run().is_err(), 'empty command should return an error')?
+    check(exec('   ').run().is_err(), 'whitespace command should return an error')?
+    check(exec('echo "unterminated').run().is_err(), 'unterminated quote should return an error')?
+    check(exec('echo trailing\\').run().is_err(), 'trailing escape should return an error')?
+    check(exec('nonexistent_command_xyz_12345').spawn().is_err(), 'spawn should return NotFound')?
+    check(exec('echo').detach(stdout = .Pipe).is_err(), 'detached output cannot depend on Abra')?
+    .ok(nil)
+}
+
+fn test_file_io() -> result<void, string> {
+    let path = '/tmp/abra-exec-module-test.txt'
+    exec('printf first').run(stdout = .File(path)).map_err(str_err)?
+    exec('printf second').run(stdout = .File(path, append = true)).map_err(str_err)?
+    let out = exec('cat', stdin = .File(path)).run().map_err(str_err)?
+    check(out.stdout == 'firstsecond', 'file output should truncate by default and append when requested')?
+    let discarded = exec('printf discarded').run(stdout = .Discard).map_err(str_err)?
+    check(discarded.stdout == '', 'discarded output should not be captured')?
+    exec('sh -c \'printf output; printf error >&2\'') \
+        .run(stdout = .File(path), stderr = .File(path)).map_err(str_err)?
+    let shared = fs.read(path).map_err(fs_err)?
+    check(shared == 'outputerror', 'stdout and stderr should share a file without overwriting each other')?
+    fs.remove(path).map_err(fs_err)?
+    .ok(nil)
+}
+
+fn test_live_output() -> result<void, string> {
+    let gate = '/tmp/abra-exec-module-gate.txt'
+    if fs.exists(gate).map_err(fs_err)? {
+        fs.remove(gate).map_err(fs_err)?
+    }
+    let child = exec('sh -c \'printf ready; while [ ! -f /tmp/abra-exec-module-gate.txt ]; do sleep 0.01; done; printf done; printf error >&2\'') \
+        .spawn(stdout = .Pipe, stderr = .Pipe).map_err(str_err)?
+    let first = child.read_output().map_err(str_err)?
+    let pending = child.poll().map_err(str_err)?
+    fs.write(gate, '').map_err(fs_err)?
+    var stdout = ''
+    var stderr = ''
+    match first {
+        .some(event) -> match event {
+            .Stdout(text) -> stdout = stdout .. text
+            .Stderr(text) -> stderr = stderr .. text
+        }
+        .none -> {}
+    }
+    while true {
+        let event = child.read_output().map_err(str_err)?
+        match event {
+            .some(event) -> match event {
+                .Stdout(text) -> stdout = stdout .. text
+                .Stderr(text) -> stderr = stderr .. text
+            }
+            .none -> break
+        }
+    }
+    let status = child.wait().map_err(str_err)?
+    fs.remove(gate).map_err(fs_err)?
+    check(pending.is_none(), 'output should arrive while the child is still running')?
+    check(stdout == 'readydone', 'stdout chunks should preserve output')?
+    check(stderr == 'error', 'stderr should arrive as separate events')?
+    check(status == 0, 'streamed child should succeed')?
+    check(child.poll().is_err(), 'wait should release the process handle')?
+    .ok(nil)
+}
+
+fn test_poll_kill_wait() -> result<void, string> {
+    let child = exec('sleep 30').spawn().map_err(str_err)?
+    let pending = child.poll().map_err(str_err)?
+    child.kill().map_err(str_err)?
+    let status = child.wait().map_err(str_err)?
+    check(pending.is_none(), 'poll should be none while the child runs')?
+    check(status == -1, 'signal termination should return -1')?
+    .ok(nil)
+}
+
+fn test_pipeline_stderr() -> result<void, string> {
+    let out = exec('sh -c \'printf hello; printf first >&2\'') \
+        .pipe('sh -c \'cat; printf second >&2\'').run().map_err(str_err)?
+    check(out.stdout == 'hello', 'pipeline should capture its final stdout')?
+    check(out.stderr.contains('first') and out.stderr.contains('second'), 'pipeline should drain stderr from every stage')?
+    .ok(nil)
+}
+
+fn test_command_status() -> result<void, string> {
+    let success = command('true').map_err(str_err)?
+    let failure = command('false').map_err(str_err)?
+    check(success == 0 and failure == 1, 'command should return the child exit status')?
+    .ok(nil)
 }

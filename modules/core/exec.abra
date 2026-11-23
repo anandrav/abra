@@ -27,49 +27,127 @@ extend Output {
     }
 }
 
-type Cmd = {
-    programs: array<string>
-    all_args: array<array<string>>
-    cmd_stdin: option<string>
+#foreign
+type InputSource =
+    | Inherit
+    | Discard
+    | Text(string)
+    | File(string)
+
+#foreign
+type OutputTarget =
+    | Pipe
+    | Inherit
+    | Discard
+    | File(path: string, append: bool = false)
+
+#foreign
+type OutputEvent =
+    | Stdout(string)
+    | Stderr(string)
+
+#foreign
+type Process = {
+    pid: int
+    handle: int
 }
 
-fn exec(program: string) -> Cmd {
-    Cmd([program], [[]], option.none)
+extend Process {
+    fn read_output(self) -> result<option<OutputEvent>, ExecError> {
+        process_read_output(self.handle)
+    }
+
+    fn wait(self) -> result<int, ExecError> {
+        process_wait(self.handle)
+    }
+
+    fn poll(self) -> result<option<int>, ExecError> {
+        process_poll(self.handle)
+    }
+
+    fn kill(self) -> result<void, ExecError> {
+        process_kill(self.handle)
+    }
+}
+
+type Cmd = {
+    commands: array<string>
+    all_args: array<array<string>>
+    input: InputSource = .Inherit
+}
+
+fn exec(command: string, args: array<string> = [], stdin: InputSource = .Inherit) -> Cmd {
+    Cmd([command], [args], stdin)
 }
 
 extend Cmd {
+    fn arg(self, a: string) -> Cmd {
+        self.args([a])
+    }
+
     fn args(self, a: array<string>) -> Cmd {
         let new_all_args = self.all_args
         let last = new_all_args.len() - 1
-        new_all_args[last] = a
-        Cmd(self.programs, new_all_args, self.cmd_stdin)
+        for arg in a {
+            new_all_args[last].push(arg)
+        }
+        Cmd(self.commands, new_all_args, self.input)
     }
 
     fn stdin(self, input: string) -> Cmd {
-        Cmd(self.programs, self.all_args, option.some(input))
+        Cmd(self.commands, self.all_args, .Text(input))
     }
 
-    fn pipe(self, program: string, args: array<string>) -> Cmd {
-        let new_programs = self.programs
-        new_programs.push(program)
+    fn pipe(self, command: string, args: array<string> = []) -> Cmd {
+        let new_commands = self.commands
+        new_commands.push(command)
         let new_all_args = self.all_args
         new_all_args.push(args)
-        Cmd(new_programs, new_all_args, self.cmd_stdin)
+        Cmd(new_commands, new_all_args, self.input)
     }
 
-    fn run(self) -> result<Output, ExecError> {
-        run_pipeline(self.programs, self.all_args, self.cmd_stdin)
+    fn run(self, stdout: OutputTarget = .Pipe, stderr: OutputTarget = .Pipe) -> result<Output, ExecError> {
+        run_pipeline(self.commands, self.all_args, self.input, stdout, stderr)
+    }
+
+    fn spawn(self, stdout: OutputTarget = .Inherit, stderr: OutputTarget = .Inherit) -> result<Process, ExecError> {
+        spawn_pipeline(self.commands, self.all_args, self.input, stdout, stderr)
+    }
+
+    fn detach(self, stdout: OutputTarget = .Discard, stderr: OutputTarget = .Discard) -> result<int, ExecError> {
+        detach_pipeline(self.commands, self.all_args, self.input, stdout, stderr)
     }
 }
 
-#foreign
-fn command(s: string) -> int
+fn command(s: string) -> result<int, ExecError> {
+    let out = exec(s).run(stdout = .Inherit, stderr = .Inherit)?
+    .ok(out.status)
+}
+
+fn run(s: string, stdout: OutputTarget = .Pipe, stderr: OutputTarget = .Pipe) -> result<Output, ExecError> {
+    exec(s).run(stdout, stderr)
+}
 
 #foreign
-fn run(s: string) -> result<Output, ExecError>
+fn run_sh(s: string, stdout: OutputTarget = .Pipe, stderr: OutputTarget = .Pipe) -> result<Output, ExecError>
 
 #foreign
-fn run_sh(s: string) -> result<Output, ExecError>
+fn run_pipeline(commands: array<string>, all_args: array<array<string>>, input: InputSource, stdout: OutputTarget, stderr: OutputTarget) -> result<Output, ExecError>
 
 #foreign
-fn run_pipeline(programs: array<string>, all_args: array<array<string>>, stdin: option<string>) -> result<Output, ExecError>
+fn spawn_pipeline(commands: array<string>, all_args: array<array<string>>, input: InputSource, stdout: OutputTarget, stderr: OutputTarget) -> result<Process, ExecError>
+
+#foreign
+fn detach_pipeline(commands: array<string>, all_args: array<array<string>>, input: InputSource, stdout: OutputTarget, stderr: OutputTarget) -> result<int, ExecError>
+
+#foreign
+fn process_read_output(handle: int) -> result<option<OutputEvent>, ExecError>
+
+#foreign
+fn process_wait(handle: int) -> result<int, ExecError>
+
+#foreign
+fn process_poll(handle: int) -> result<option<int>, ExecError>
+
+#foreign
+fn process_kill(handle: int) -> result<void, ExecError>

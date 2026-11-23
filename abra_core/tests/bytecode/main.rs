@@ -2209,7 +2209,7 @@ fn enum_variant_named_field_args_partial_override() {
 type color =
   | Rgb(red: int, green: int = 20, blue: int = 30)
 
-let c = color.Rgb(red = 1, blue = 99)
+let c: color = .Rgb(blue = 99, red = 1)
 match c {
     .Rgb(red = r, green = g, blue = b) -> r .. ':' .. g .. ':' .. b
 }
