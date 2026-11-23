@@ -2890,6 +2890,7 @@ fn generate_constraints_expr(
                             // qualified enum variant
                             // example: list.cons(5, nil)
                             //          ^^^^^^^^^
+                            handle_ana(ctx, mode.clone(), node_ty.clone());
                             enum_ctor_helper(
                                 ctx,
                                 polyvar_scope,
@@ -3054,6 +3055,7 @@ fn generate_constraints_expr(
                             },
                         );
 
+                        handle_ana(ctx, mode.clone(), node_ty.clone());
                         enum_ctor_helper(
                             ctx,
                             polyvar_scope,

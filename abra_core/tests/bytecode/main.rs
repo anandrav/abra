@@ -454,7 +454,7 @@ fn label(value: option<Event>) -> string {
     }
 }
 
-label(.some(Event.Stdout('hello'))) .. '|' .. label(.some(Event.Stderr('bad'))) .. '|' .. label(.none)
+label(.some(.Stdout('hello'))) .. '|' .. label(option.some(.Stderr('bad'))) .. '|' .. label(.none)
 "#;
     expect_value(src, "out:hello|err:bad|none");
 }
