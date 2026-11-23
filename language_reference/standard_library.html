@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-92d2c652.js";
+            window.path_to_searchindex_js = "../searchindex-3453279c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -317,17 +317,66 @@ let home = get_var("HOME")
 set_var("MY_FLAG", "1")
 </code></pre>
 <h2 id="coreexec"><a class="header" href="#coreexec">core/exec</a></h2>
-<p>Run external processes. There are simple one-liners and a builder for more control (arguments with spaces, stdin, pipelines).</p>
+<p><code>exec()</code> accepts a command string with spaces, single/double quotes, and backslash escapes. It launches the executable directly; shell expansion, redirects, and shell operators belong in <code>run_sh()</code>.</p>
 <pre><code>use core/exec
+use core/strings
 
-// Quick: run via the shell
-let out = run_sh("ls | wc -l")!
-println(out.stdout.trim())
+let out = exec('git status').run()!
+let out = exec('git commit -m "fix loop crash"').run()!
 
-// Builder: pipe input through a command
-let out = exec("cat").stdin("a\nb\nc\n").pipe("wc", ["-l"]).run()!
+// Dynamic arguments remain single arguments, including spaces or quotes.
+let url = 'https://example.com/project.git'
+let out = exec('git clone').arg(url).run()!
+
+let out = exec('cat').stdin('a\nb\nc\n').pipe('wc -l').run()!
 println(out.stdout.trim())   // 3
+
+let out = run_sh('ls | wc -l')!
 </code></pre>
+<p><code>exec(command, args = [], stdin = .Inherit)</code> constructs a command. <code>.arg(value)</code> and <code>.args(values)</code> append arguments to its last pipeline stage. <code>.pipe(command, args = [])</code> adds a stage.</p>
+<p><code>InputSource</code> is <code>.Inherit</code>, <code>.Discard</code>, <code>.Text(string)</code>, or <code>.File(path)</code>. Inherit uses Abra’s stdin; discard supplies EOF.</p>
+<p><code>OutputTarget</code> is <code>.Pipe</code>, <code>.Inherit</code>, <code>.Discard</code>, or <code>.File(path, append = false)</code>. Inherit writes directly to Abra’s corresponding output stream. Files are created and truncated by default; <code>append = true</code> preserves their contents.</p>
+<p><code>run(stdout = .Pipe, stderr = .Pipe)</code> waits and returns <code>result&lt;Output, ExecError&gt;</code>. Only piped output is collected into <code>Output.stdout</code> and <code>Output.stderr</code>. A pipeline returns its final command’s exit status and captures stderr from every stage. Signal termination has status <code>-1</code>.</p>
+<p>A command that starts successfully and exits with a nonzero status still returns <code>.ok(Output)</code>. <code>?</code> and <code>!</code> handle <code>ExecError</code>, not the child exit status. Check <code>out.success()</code> or <code>out.status</code> to detect command failure; <code>success()</code> means <code>status == 0</code>.</p>
+<pre><code>exec('git clone').arg(url).run(stdout = .Inherit, stderr = .Inherit)!
+exec('builder').run(stdout = .File('build.log'), stderr = .File('errors.log', append = true))!
+exec('cat', stdin = .File('input.txt')).run()!
+</code></pre>
+<p><code>spawn(stdout = .Inherit, stderr = .Inherit)</code> returns <code>result&lt;Process, ExecError&gt;</code> immediately after starting the children. Its <code>pid</code> identifies the final pipeline stage. Choose <code>.Pipe</code> to read live output chunks:</p>
+<pre><code>let child = exec('builder').spawn(stdout = .Pipe, stderr = .Pipe)!
+var event = child.read_output()!
+while event.is_some() {
+    match event! {
+        .Stdout(text) -&gt; print(text)
+        .Stderr(text) -&gt; eprint(text)
+    }
+    event = child.read_output()!
+}
+let status = child.wait()!
+</code></pre>
+<p><code>read_output()</code> blocks until a stdout/stderr chunk is available and returns <code>.none</code> when all piped streams close. Chunks are strings, not necessarily complete lines; stdout and stderr are drained concurrently. Piped output is queued in memory until read, so consume it as it arrives when output is large.</p>
+<p>The methods on <code>Process</code> return:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Return type</th><th>Behavior</th></tr>
+</thead>
+<tbody>
+<tr><td><code>read_output()</code></td><td><code>result&lt;option&lt;OutputEvent&gt;, ExecError&gt;</code></td><td>The next <code>.Stdout(string)</code> or <code>.Stderr(string)</code> chunk, or <code>.none</code> at EOF.</td></tr>
+<tr><td><code>poll()</code></td><td><code>result&lt;option&lt;int&gt;, ExecError&gt;</code></td><td><code>.none</code> while any stage runs; <code>.some(status)</code> once all stages finish.</td></tr>
+<tr><td><code>wait()</code></td><td><code>result&lt;int, ExecError&gt;</code></td><td>Waits for all stages and returns the final stage’s exit status.</td></tr>
+<tr><td><code>kill()</code></td><td><code>result&lt;void, ExecError&gt;</code></td><td>Terminates the running stages.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Call <code>wait()</code> to reap the children and release the process handle; it discards unread output, and subsequent operations on that handle return an error. Read any desired output before waiting. After <code>kill()</code>, still call <code>wait()</code> to release the handle.</p>
+<p><code>detach(stdout = .Discard, stderr = .Discard)</code> starts an independent process and returns <code>result&lt;int, ExecError&gt;</code> containing its PID. Inherited input becomes EOF; file input is supported, but text input and piped output are rejected. On Unix the child starts a new session and ignores terminal hangup; on Windows it starts detached from the console.</p>
+<pre><code>let pid = exec('worker').detach(
+    stdout = .File('worker.log', append = true),
+    stderr = .File('worker-errors.log', append = true),
+)!
+</code></pre>
+<p><code>run(command, stdout = .Pipe, stderr = .Pipe)</code> returns <code>result&lt;Output, ExecError&gt;</code> and is a convenience for <code>exec(command).run(...)</code>. <code>run_sh(command, stdout = .Pipe, stderr = .Pipe)</code> returns the same type and interprets its command through the shell. <code>command(command)</code> inherits stdout/stderr and returns <code>result&lt;int, ExecError&gt;</code> containing the child exit status, including nonzero statuses. Empty commands, malformed quotes, launch failures, and file errors return <code>ExecError</code>.</p>
 <h2 id="corerandom"><a class="header" href="#corerandom">core/random</a></h2>
 <p>Random integers and floats over half-open ranges.</p>
 <pre><code>use core/random
