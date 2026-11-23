@@ -958,7 +958,8 @@ n
     ));
     let mut runtime = Runtime::new(program);
     let status = runtime.run();
-    let RuntimeStatusKind::MainThreadError(_) = status.kind else { panic!() };
+    let RuntimeStatusKind::MainThreadError(error) = status.kind else { panic!() };
+    assert!(error.to_string().contains("badbadbad"));
 }
 
 #[test]

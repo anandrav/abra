@@ -124,11 +124,11 @@ implement Unwrap for option<T> {
     }
 }
 
-implement Unwrap for result<T, E> {
+implement Unwrap for result<T, E ToString> {
     fn unwrap(self) -> T {
         match self {
             .ok(x) -> x
-            .err(_) -> panic("cannot unwrap result.err")
+            .err(e) -> panic("cannot unwrap result.err: " .. e)
         }
     }
 }

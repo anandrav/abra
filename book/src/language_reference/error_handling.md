@@ -47,6 +47,8 @@ match read("greeting.txt") {
 
 The unwrap operator `!` extracts the value from a `some` or `ok`, panicking if it's a `none` or `err`. Use it when you know the value is present.
 
+For `result<T, E>`, `!` requires `E ToString` and includes the error value in the panic message.
+
 ```
 let a = "10".to_int()!     // panics if not a valid int
 let b = "5".to_int()!
