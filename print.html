@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-02ea6d78.js";
+            window.path_to_searchindex_js = "searchindex-92d2c652.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-caa4a953.js"></script>
@@ -1427,9 +1427,13 @@ use ard/term
 <h3 id="built-in-functions"><a class="header" href="#built-in-functions">Built-in functions</a></h3>
 <p>The prelude provides basic I/O and program control:</p>
 <pre><code>println("hello")             // print with newline (also: print, panic, assert)
-let line = readline()        // read a line from stdin
+let line = readline()        // option&lt;string&gt;
 let args = get_args()        // command-line arguments as array&lt;string&gt;
 </code></pre>
+<p><code>readline()</code> returns <code>.some(line)</code>, or <code>.none</code> at EOF. A blank line is
+<code>.some('')</code>. Line endings are removed; LF, CRLF, and bare CR are accepted,
+so scripts can read progress output without waiting for a newline. Read
+errors terminate the CLI with a message and exit status 1.</p>
 <h3 id="built-in-types-1"><a class="header" href="#built-in-types-1">Built-in types</a></h3>
 <p><code>option&lt;T&gt;</code> represents a value that might be missing; <code>result&lt;T, E&gt;</code> represents a value that might be an error. Both are heavily used by the standard library:</p>
 <pre><code>let n: option&lt;int&gt; = "42".to_int()    // .some(42) or .none
