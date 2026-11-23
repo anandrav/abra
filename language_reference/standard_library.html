@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-0cc5dd58.js";
+            window.path_to_searchindex_js = "../searchindex-30250347.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -334,6 +334,22 @@ let updated = request('PUT', 'https://example.com', body = 'updated text').send(
 <p><code>request(method, url)</code> constructs a <code>Request</code> and accepts <code>headers = []</code>, <code>query = []</code>, <code>body = ''</code>, and <code>timeout = 30.0</code> as named arguments. <code>.header(name, value)</code>, <code>.body(text)</code>, and <code>.json_body(value)</code> also set the request data; <code>.send()</code> performs the request. JSON helpers add <code>Content-Type: application/json</code> only when no Content-Type is present, comparing header names case-insensitively.</p>
 <p><code>response.ok()</code> means the status is 200–299. HTTP 4xx/5xx statuses still return <code>.ok(Response)</code>; <code>?</code> and <code>!</code> handle transport errors. <code>response.check_status()</code> returns <code>result&lt;Response, HttpError&gt;</code>: 2xx returns the response, and any other status returns <code>.Other('HTTP &lt;status&gt;: &lt;body&gt;')</code>. Inside a function returning a compatible result, use <code>get(url)?.check_status()?</code> to propagate both transport and status errors. <code>response.header(name)</code> returns <code>option&lt;string&gt;</code> using a case-insensitive lookup, and <code>response.json()</code> returns <code>result&lt;JsonValue, string&gt;</code>.</p>
 <p><code>HttpError</code> is <code>.ConnectionFailed(string)</code>, <code>.Timeout(string)</code>, or <code>.Other(string)</code> and implements <code>ToString</code>. Invalid URLs, methods, headers, and timeouts return errors. Response bodies are read completely as text.</p>
+<p>For byte streaming, use <code>get_stream(url, timeout = 30.0, headers = [], query = [])</code> or <code>request(...).send_streaming()</code>. These return <code>result&lt;StreamingResponse, HttpError&gt;</code> as soon as the status and headers are available. <code>StreamingResponse</code> has <code>status</code>, <code>headers</code>, and <code>body: HttpStream</code>, plus <code>ok()</code>, <code>header(name)</code>, <code>check_status()</code>, and <code>close()</code>.</p>
+<pre><code class="language-abra">fn show_chunks(url: string) -&gt; result&lt;void, HttpError&gt; {
+    let response = get_stream(url)?.check_status()?
+    while true {
+        match response.body.read_chunk()? {
+            .none -&gt; break
+            .some(bytes) -&gt; println(bytes.len())
+        }
+    }
+    response.close()?
+    .ok(nil)
+}
+</code></pre>
+<p><code>body.read_chunk(max_bytes = 8192, timeout = .some(30.0))</code> returns <code>result&lt;option&lt;array&lt;int&gt;&gt;, HttpError&gt;</code>. Each <code>.some(bytes)</code> contains between 1 and <code>max_bytes</code> bytes, with integer values 0–255; <code>.none</code> means EOF. Reads return available data without waiting to fill <code>max_bytes</code>. Chunk boundaries can split a UTF-8 character or a protocol message, so assemble complete text or frames before decoding.</p>
+<p>For streaming, the request’s <code>timeout</code> covers opening the connection through receiving response headers. Each read has its own timeout in positive, finite seconds; <code>timeout = .none</code> waits indefinitely. A read timeout returns <code>.Timeout</code>, rather than an empty chunk. EOF and body read errors release the stream. Invalid read arguments return errors and leave the stream usable.</p>
+<p>Call <code>response.close()</code> or <code>response.body.close()</code> when stopping early, including before propagating errors from processing received bytes. Closing cancels pending reads and releases the response; repeated closes succeed. Reads after EOF or close return an error. <code>StreamingResponse.check_status()</code> closes non-2xx responses and returns <code>.Other('HTTP &lt;status&gt;')</code> without reading the error body. To inspect that body, check <code>status</code> yourself and read it before closing.</p>
 <h2 id="coreexec"><a class="header" href="#coreexec">core/exec</a></h2>
 <p><code>exec()</code> accepts a command string with spaces, single/double quotes, and backslash escapes. It launches the executable directly; shell expansion, redirects, and shell operators belong in <code>run_sh()</code>.</p>
 <pre><code>use core/exec
