@@ -20,7 +20,7 @@ pub fn command(content: String) -> AbraInt {
         Ok(output) => {
             print!("{}", String::from_utf8_lossy(&output.stdout));
             eprint!("{}", String::from_utf8_lossy(&output.stderr));
-            0
+            output.status.code().unwrap_or(-1) as AbraInt
         }
         Err(err) => err.raw_os_error().unwrap() as AbraInt,
     }
