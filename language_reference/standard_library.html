@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-e54e2b11.js";
+            window.path_to_searchindex_js = "../searchindex-828f7ecf.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -499,6 +499,7 @@ println("today is " .. now.weekday())
 </code></pre>
 <h2 id="corejson"><a class="header" href="#corejson">core/json</a></h2>
 <p>Parse and serialize JSON. Bracket syntax indexes into objects; <code>.try_get(key)</code> is the safe alternative.</p>
+<p>Integer literals parse as <code>.Integer(int)</code> and round-trip exactly within Abra’s signed 64-bit range; larger integers return a parse error. Decimal and exponent literals parse as <code>.Number(float)</code>. Use <code>.as_integer()</code> for exact integers or <code>.as_number()</code> to convert either numeric variant to a float, which may round large integers.</p>
 <pre><code>use core/json
 
 let data = parse("""{"name": "Alice", "scores": [10, 20, 30]}""")!
@@ -508,7 +509,7 @@ println(data["scores"].at(1).as_number()!)  // 20.0
 // Build a JSON value
 let out = JsonValue.object()
 out["greeting"] = .Str("hello")
-out["count"] = .Number(3.0)
+out["count"] = .Integer(3)
 println(stringify_pretty(out))
 </code></pre>
 <h2 id="corehttp-1"><a class="header" href="#corehttp-1">core/http</a></h2>
