@@ -417,6 +417,8 @@ println("today is " .. now.weekday())
 
 Parse and serialize JSON. Bracket syntax indexes into objects; `.try_get(key)` is the safe alternative.
 
+Integer literals parse as `.Integer(int)` and round-trip exactly within Abra's signed 64-bit range; larger integers return a parse error. Decimal and exponent literals parse as `.Number(float)`. Use `.as_integer()` for exact integers or `.as_number()` to convert either numeric variant to a float, which may round large integers.
+
 ```
 use core/json
 
@@ -427,7 +429,7 @@ println(data["scores"].at(1).as_number()!)  // 20.0
 // Build a JSON value
 let out = JsonValue.object()
 out["greeting"] = .Str("hello")
-out["count"] = .Number(3.0)
+out["count"] = .Integer(3)
 println(stringify_pretty(out))
 ```
 

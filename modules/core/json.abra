@@ -4,6 +4,7 @@ use core/map
 type JsonValue =
     | Null
     | Bool(bool)
+    | Integer(int)
     | Number(float)
     | Str(string)
     | Array(array<JsonValue>)
@@ -52,7 +53,15 @@ extend JsonValue {
 
     fn as_number(self) -> option<float> {
         match self {
+            .Integer(n) -> .some(n.to_float())
             .Number(n) -> .some(n)
+            _ -> .none
+        }
+    }
+
+    fn as_integer(self) -> option<int> {
+        match self {
+            .Integer(n) -> .some(n)
             _ -> .none
         }
     }
@@ -157,7 +166,19 @@ fn escape_string(s: string) -> string {
             "\n" -> out = out .. "\\n"
             "\r" -> out = out .. "\\r"
             "\t" -> out = out .. "\\t"
-            _ -> out = out .. c
+            "\x08" -> out = out .. "\\b"
+            "\x0c" -> out = out .. "\\f"
+            _ -> {
+                let byte = string_nth_byte(c, 0)
+                if byte < 32 {
+                    let hex = '0123456789abcdef'
+                    let high = byte / 16
+                    let low = byte % 16
+                    out = out .. '\\u00' .. hex.slice(high, high + 1) .. hex.slice(low, low + 1)
+                } else {
+                    out = out .. c
+                }
+            }
         }
     }
     out
@@ -286,8 +307,8 @@ extend Parser {
                     "n" -> result_str = result_str .. "\n"
                     "r" -> result_str = result_str .. "\r"
                     "t" -> result_str = result_str .. "\t"
-                    "b" -> result_str = result_str .. ""
-                    "f" -> result_str = result_str .. ""
+                    "b" -> result_str = result_str .. "\x08"
+                    "f" -> result_str = result_str .. "\x0c"
                     "u" -> {
                         let chunk = self.parse_unicode_escape()?
                         result_str = result_str .. chunk
@@ -295,6 +316,9 @@ extend Parser {
                     _ -> return .err("unknown escape sequence: \\" .. escaped)
                 }
             } else {
+                if string_nth_byte(c, 0) < 32 {
+                    return .err("unescaped control character in string")
+                }
                 result_str = result_str .. c
             }
         }
@@ -303,6 +327,7 @@ extend Parser {
 
     fn parse_number(self) -> result<JsonValue, string> {
         var num_str = ""
+        var is_integer = true
         // optional minus
         if not self.done() and self.peek() == "-" {
             num_str = num_str .. self.advance()
@@ -314,16 +339,24 @@ extend Parser {
         num_str = num_str .. self.parse_digits()?
         // optional fraction
         if not self.done() and self.peek() == "." {
+            is_integer = false
             num_str = num_str .. self.advance()
             num_str = num_str .. self.parse_digits()?
         }
         // optional exponent
         if not self.done() and (self.peek() == "e" or self.peek() == "E") {
+            is_integer = false
             num_str = num_str .. self.advance()
             if not self.done() and (self.peek() == "+" or self.peek() == "-") {
                 num_str = num_str .. self.advance()
             }
             num_str = num_str .. self.parse_digits()?
+        }
+        if is_integer {
+            return match num_str.to_int() {
+                .some(n) -> .ok(.Integer(n))
+                .none -> .err("integer out of range: " .. num_str)
+            }
         }
         match num_str.to_float() {
             .some(f) -> {
@@ -479,6 +512,7 @@ fn stringify(v: JsonValue) -> string {
     match v {
         .Null -> "null"
         .Bool(b) -> if b { "true" } else { "false" }
+        .Integer(n) -> "" .. n
         .Number(n) -> format_number(n)
         .Str(s) -> "\"" .. escape_string(s) .. "\""
         .Array(arr) -> {
@@ -505,6 +539,7 @@ fn stringify_indent(v: JsonValue, level: int) -> string {
     match v {
         .Null -> "null"
         .Bool(b) -> if b { "true" } else { "false" }
+        .Integer(n) -> "" .. n
         .Number(n) -> format_number(n)
         .Str(s) -> "\"" .. escape_string(s) .. "\""
         .Array(arr) -> {

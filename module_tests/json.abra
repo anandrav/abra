@@ -52,6 +52,12 @@ fn test_parse_number() -> result<void, string> {
     check(exp.as_number()! == 1000.0, "exponent")?
     let zero = parse("0")?
     check(zero.as_number()! == 0.0, "zero")?
+    for text in ['9007199254740993', '9223372036854775807', '-9223372036854775808'] {
+        let value = parse(text)?
+        check(value.as_integer()! == text.to_int()!, 'integer accessor should be exact: ' .. text)?
+        check(stringify(value) == text, 'integer should round-trip exactly: ' .. text)?
+        check(stringify_pretty(value) == text, 'pretty integer should round-trip exactly: ' .. text)?
+    }
     .ok(nil)
 }
 
@@ -108,6 +114,7 @@ fn test_parse_escapes() -> result<void, string> {
     check(v3.as_string()! == "quote\"here", "quote escape")?
     let v4 = parse("\"back\\\\slash\"")?
     check(v4.as_string()! == "back\\slash", "backslash escape")?
+    check(parse('"\\b\\f"')?.as_string()! == '\x08\x0c', 'backspace and form-feed escapes')?
     .ok(nil)
 }
 
@@ -118,6 +125,9 @@ fn test_parse_errors() -> result<void, string> {
     check(parse("tru").is_err(), "truncated keyword")?
     check(parse("\"unclosed").is_err(), "unclosed string")?
     check(parse("42 extra").is_err(), "trailing chars")?
+    check(parse('"\x01"').is_err(), 'unescaped control character')?
+    check(parse('9223372036854775808').is_err(), 'integer overflow should return an error')?
+    check(parse('-9223372036854775809').is_err(), 'integer underflow should return an error')?
     .ok(nil)
 }
 
@@ -126,9 +136,16 @@ fn test_stringify_primitives() -> result<void, string> {
     check(stringify(.Bool(true)) == "true", "true")?
     check(stringify(.Bool(false)) == "false", "false")?
     check(stringify(.Number(42.0)) == "42", "integer number")?
+    check(stringify(.Integer(9007199254740993)) == '9007199254740993', 'constructed integer')?
     check(stringify(.Number(3.14)) == "3.14", "float number")?
     check(stringify(.Str("hello")) == "\"hello\"", "string")?
     check(stringify(.Str("")) == "\"\"", "empty string")?
+    for cp in 32 {
+        let control = string_from_codepoint(cp)
+        let encoded = stringify(.Str(control))
+        check(not encoded.contains(control), 'control character must be escaped: ' .. cp)?
+        check(parse(encoded)?.as_string()! == control, 'control character must round-trip: ' .. cp)?
+    }
     .ok(nil)
 }
 
