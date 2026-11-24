@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "searchindex-30250347.js";
+            window.path_to_searchindex_js = "searchindex-e54e2b11.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-caa4a953.js"></script>
@@ -1429,13 +1429,9 @@ use ard/term
 <h3 id="built-in-functions"><a class="header" href="#built-in-functions">Built-in functions</a></h3>
 <p>The prelude provides basic I/O and program control:</p>
 <pre><code>println("hello")             // print with newline (also: print, panic, assert)
-let line = readline()        // option&lt;string&gt;
 let args = get_args()        // command-line arguments as array&lt;string&gt;
 </code></pre>
-<p><code>readline()</code> returns <code>.some(line)</code>, or <code>.none</code> at EOF. A blank line is
-<code>.some('')</code>. Line endings are removed; LF, CRLF, and bare CR are accepted,
-so scripts can read progress output without waiting for a newline. Read
-errors terminate the CLI with a message and exit status 1.</p>
+<p>Reading stdin is provided by <code>core/io</code>.</p>
 <h3 id="built-in-types-1"><a class="header" href="#built-in-types-1">Built-in types</a></h3>
 <p><code>option&lt;T&gt;</code> represents a value that might be missing; <code>result&lt;T, E&gt;</code> represents a value that might be an error. Both are heavily used by the standard library:</p>
 <pre><code>let n: option&lt;int&gt; = "42".to_int()    // .some(42) or .none
@@ -1609,7 +1605,7 @@ println(out.stdout.trim())   // 3
 let out = run_sh('ls | wc -l')!
 </code></pre>
 <p><code>exec(command, args = [], stdin = .Inherit)</code> constructs a command. <code>.arg(value)</code> and <code>.args(values)</code> append arguments to its last pipeline stage. <code>.pipe(command, args = [])</code> adds a stage.</p>
-<p><code>InputSource</code> is <code>.Inherit</code>, <code>.Discard</code>, <code>.Text(string)</code>, or <code>.File(path)</code>. Inherit uses Abra’s stdin; discard supplies EOF.</p>
+<p><code>InputSource</code> is <code>.Pipe</code>, <code>.Inherit</code>, <code>.Discard</code>, <code>.Text(string)</code>, or <code>.File(path)</code>. Inherit uses Abra’s stdin; discard supplies EOF. With <code>spawn()</code>, <code>.Pipe</code> keeps stdin open for later writes. <code>run()</code> rejects <code>.Pipe</code>; use <code>.stdin(text)</code> or <code>stdin = .Text(text)</code> to supply its input.</p>
 <p><code>OutputTarget</code> is <code>.Pipe</code>, <code>.Inherit</code>, <code>.Discard</code>, or <code>.File(path, append = false)</code>. Inherit writes directly to Abra’s corresponding output stream. Files are created and truncated by default; <code>append = true</code> preserves their contents.</p>
 <p><code>run(stdout = .Pipe, stderr = .Pipe)</code> waits and returns <code>result&lt;Output, ExecError&gt;</code>. Only piped output is collected into <code>Output.stdout</code> and <code>Output.stderr</code>. A pipeline returns its final command’s exit status and captures stderr from every stage. Signal termination has status <code>-1</code>.</p>
 <p>A command that starts successfully and exits with a nonzero status still returns <code>.ok(Output)</code>. <code>?</code> and <code>!</code> handle <code>ExecError</code>, not the child exit status. Check <code>out.success()</code> or <code>out.status</code> to detect command failure; <code>success()</code> means <code>status == 0</code>.</p>
@@ -1630,6 +1626,13 @@ while event.is_some() {
 let status = child.wait()!
 </code></pre>
 <p><code>read_output()</code> blocks until a stdout/stderr chunk is available and returns <code>.none</code> when all piped streams close. Chunks are strings, not necessarily complete lines; stdout and stderr are drained concurrently. Piped output is queued in memory until read, so consume it as it arrives when output is large.</p>
+<p>Use <code>stdin = .Pipe</code> to send input while a child is running:</p>
+<pre><code>let child = exec('cat', stdin = .Pipe).spawn()!
+child.write_stdin('first\n')!
+child.write_stdin('last\n', close = true)!
+let status = child.wait()!
+</code></pre>
+<p><code>write_stdin(text, close = false)</code> writes the complete string as UTF-8 without adding a newline. Input is sent directly, so no separate flush is needed. <code>close = true</code> closes stdin after the write; <code>close_stdin()</code> closes it without writing. Closing an already closed stdin succeeds. Writing without a pipe, after closing it, or after the child closes its input returns <code>ExecError</code>. The input pipe feeds the first stage of a pipeline.</p>
 <p>The methods on <code>Process</code> return:</p>
 <div class="table-wrapper">
 <table>
@@ -1637,21 +1640,85 @@ let status = child.wait()!
 <tr><th>Method</th><th>Return type</th><th>Behavior</th></tr>
 </thead>
 <tbody>
+<tr><td><code>write_stdin(text, close = false)</code></td><td><code>result&lt;void, ExecError&gt;</code></td><td>Sends text to piped stdin, optionally closing it afterward.</td></tr>
+<tr><td><code>close_stdin()</code></td><td><code>result&lt;void, ExecError&gt;</code></td><td>Closes piped stdin to send EOF.</td></tr>
 <tr><td><code>read_output()</code></td><td><code>result&lt;option&lt;OutputEvent&gt;, ExecError&gt;</code></td><td>The next <code>.Stdout(string)</code> or <code>.Stderr(string)</code> chunk, or <code>.none</code> at EOF.</td></tr>
-<tr><td><code>poll()</code></td><td><code>result&lt;option&lt;int&gt;, ExecError&gt;</code></td><td><code>.none</code> while any stage runs; <code>.some(status)</code> once all stages finish.</td></tr>
-<tr><td><code>wait()</code></td><td><code>result&lt;int, ExecError&gt;</code></td><td>Waits for all stages and returns the final stage’s exit status.</td></tr>
+<tr><td><code>poll()</code></td><td><code>result&lt;option&lt;int&gt;, ExecError&gt;</code></td><td><code>.none</code> while any stage runs; <code>.some(status)</code> once all stages finish. Leaves stdin open.</td></tr>
+<tr><td><code>wait()</code></td><td><code>result&lt;int, ExecError&gt;</code></td><td>Closes piped stdin, waits for all stages, and returns the final stage’s exit status.</td></tr>
 <tr><td><code>kill()</code></td><td><code>result&lt;void, ExecError&gt;</code></td><td>Terminates the running stages.</td></tr>
 </tbody>
 </table>
 </div>
-<p>Call <code>wait()</code> to reap the children and release the process handle; it discards unread output, and subsequent operations on that handle return an error. Read any desired output before waiting. After <code>kill()</code>, still call <code>wait()</code> to release the handle.</p>
-<p><code>detach(stdout = .Discard, stderr = .Discard)</code> starts an independent process and returns <code>result&lt;int, ExecError&gt;</code> containing its PID. Inherited input becomes EOF; file input is supported, but text input and piped output are rejected. On Unix the child starts a new session and ignores terminal hangup; on Windows it starts detached from the console.</p>
+<p>Call <code>wait()</code> to reap the children and release the process handle; it discards unread output, and subsequent operations on that handle return an error. Close stdin and read any desired output before waiting if the child needs EOF to finish. After <code>kill()</code>, still call <code>wait()</code> to release the handle.</p>
+<p><code>detach(stdout = .Discard, stderr = .Discard)</code> starts an independent process and returns <code>result&lt;int, ExecError&gt;</code> containing its PID. Inherited input becomes EOF; file input is supported, but text input and piped input/output are rejected. On Unix the child starts a new session and ignores terminal hangup; on Windows it starts detached from the console.</p>
 <pre><code>let pid = exec('worker').detach(
     stdout = .File('worker.log', append = true),
     stderr = .File('worker-errors.log', append = true),
 )!
 </code></pre>
 <p><code>run(command, stdout = .Pipe, stderr = .Pipe)</code> returns <code>result&lt;Output, ExecError&gt;</code> and is a convenience for <code>exec(command).run(...)</code>. <code>run_sh(command, stdout = .Pipe, stderr = .Pipe)</code> returns the same type and interprets its command through the shell. <code>command(command)</code> inherits stdout/stderr and returns <code>result&lt;int, ExecError&gt;</code> containing the child exit status, including nonzero statuses. Empty commands, malformed quotes, launch failures, and file errors return <code>ExecError</code>.</p>
+<h2 id="coreio"><a class="header" href="#coreio">core/io</a></h2>
+<pre><code>use core/io
+
+let name = input(prompt = 'Name: ')
+println('Hello, ' .. name)
+</code></pre>
+<p><code>input(prompt = '') -&gt; string</code> prints its prompt without a newline, reads one line, and removes its line ending. A blank line returns <code>''</code>. EOF or a read error prints a clear message to stderr and exits with status 1, without a panic traceback.</p>
+<p>For callers that need to handle EOF and errors, <code>read_line() -&gt; result&lt;option&lt;string&gt;, IoError&gt;</code> returns <code>.ok(.some(line))</code>, <code>.ok(.none)</code> at EOF, or <code>.err(error)</code>. A blank line is <code>.ok(.some(''))</code>. LF, CRLF, and bare CR endings are removed; a final line without an ending is also returned. Invalid UTF-8 returns <code>.InvalidData(message)</code>; other read failures return <code>.Other(message)</code>.</p>
+<pre><code>while true {
+    match read_line() {
+        .ok(.some(line)) -&gt; println(line)
+        .ok(.none) -&gt; break
+        .err(error) -&gt; {
+            eprintln(error.str())
+            exit(1)
+        }
+    }
+}
+</code></pre>
+<p>Waiting for stdin suspends only the calling task. Other tasks continue running through the existing foreign-call worker mechanism. Concurrent reads are serialized; use one reader task when line ownership matters.</p>
+<p>The old prelude <code>readline()</code> host call has been removed. Scripts now import <code>core/io</code> and use <code>input()</code> or <code>read_line()</code>.</p>
+<h2 id="corenet"><a class="header" href="#corenet">core/net</a></h2>
+<p>Unix-domain stream sockets for communication between local processes. This module currently supports Unix systems; other platforms return <code>SocketError</code>.</p>
+<p><code>listen_unix(path, backlog = 128)</code> creates a <code>UnixListener</code>. The socket file has owner-only permissions (<code>0600</code>) before listening starts. An existing file or socket is never overwritten. <code>connect_unix(path)</code> returns a connected <code>UnixStream</code>.</p>
+<pre><code>use core/net
+use core/encoding
+
+let stream = connect_unix('/tmp/worker.sock')!
+stream.write_all(bytes_from_string('ping\n'), timeout = .some(5.0))!
+let response = stream.read(max_bytes = 4096, timeout = .some(5.0))!
+stream.close()!
+</code></pre>
+<p>Listener methods:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Return type</th><th>Behavior</th></tr>
+</thead>
+<tbody>
+<tr><td><code>accept(timeout = .none)</code></td><td><code>result&lt;UnixStream, SocketError&gt;</code></td><td>Waits for a connection and returns its stream.</td></tr>
+<tr><td><code>close()</code></td><td><code>result&lt;void, SocketError&gt;</code></td><td>Closes the listener and cancels pending accepts. Leaves the socket file in place.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Stream methods:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Return type</th><th>Behavior</th></tr>
+</thead>
+<tbody>
+<tr><td><code>read(max_bytes = 8192, timeout = .none)</code></td><td><code>result&lt;option&lt;array&lt;int&gt;&gt;, SocketError&gt;</code></td><td>Reads up to <code>max_bytes</code> bytes; <code>.none</code> means EOF.</td></tr>
+<tr><td><code>write_all(bytes, timeout = .none)</code></td><td><code>result&lt;void, SocketError&gt;</code></td><td>Writes the entire byte array. Each byte must be from 0 through 255.</td></tr>
+<tr><td><code>shutdown(how = .Both)</code></td><td><code>result&lt;void, SocketError&gt;</code></td><td>Disables <code>.Read</code>, <code>.Write</code>, or <code>.Both</code> directions. Write shutdown sends EOF while leaving reads available.</td></tr>
+<tr><td><code>close()</code></td><td><code>result&lt;void, SocketError&gt;</code></td><td>Closes the stream and cancels pending reads and writes.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Timeouts are optional positive, finite seconds. <code>.none</code> waits indefinitely. A timeout leaves the handle usable; a failed <code>write_all()</code> may already have sent part of its input. <code>connect_unix()</code> uses a blocking connection attempt, like Rust’s <code>UnixStream::connect()</code>.</p>
+<p>Reads return bytes, not messages or decoded text. Chunks can split UTF-8 characters; assemble the needed bytes before calling <code>core/encoding.string_from_bytes()</code>. EOF does not close the handle, so the other direction can remain usable after a peer’s write shutdown.</p>
+<p>Copies of listeners and streams share the same native handle. Coordinate readers and writers across tasks, and close each handle when finished. Closing is idempotent and invalidates every copy of that handle; other operations on closed handles return an error. Socket paths have platform-dependent length limits.</p>
+<p>Like Python and Rust, closing a listener leaves its filesystem path behind. Remove it explicitly with <code>core/fs.remove(path)</code> when appropriate. <code>SocketError</code> distinguishes <code>NotFound</code>, <code>PermissionDenied</code>, <code>AddressInUse</code>, <code>ConnectionRefused</code>, <code>Timeout</code>, and <code>Other</code>; use <code>e.str()</code> for its message.</p>
 <h2 id="corerandom"><a class="header" href="#corerandom">core/random</a></h2>
 <p>Random integers and floats over half-open ranges.</p>
 <pre><code>use core/random
@@ -1892,7 +1959,7 @@ pub fn read(path: String) -&gt; Result&lt;String, FsError&gt; {
 </code></pre>
 <p>The Abra runtime loads the <code>cdylib</code> declared by <code>abra_foreign_module.txt</code> the first time your program calls one of its foreign functions.</p>
 <h2 id="host-functions"><a class="header" href="#host-functions">Host functions</a></h2>
-<p>There’s a related attribute, <code>#host</code>, for functions provided directly by the runtime that’s running your Abra program (rather than loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>readline</code>, and <code>get_args</code>. Most users never need to write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.</p>
+<p>There’s a related attribute, <code>#host</code>, for functions provided directly by the runtime that’s running your Abra program (rather than loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>eprint_string</code>, and <code>get_args</code>. Stdin reading is provided by <code>core/io</code> through an ordinary <code>#foreign</code> call. Most users never need to write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.</p>
 
                     </main>
 

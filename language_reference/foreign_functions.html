@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "ayu";
-            window.path_to_searchindex_js = "../searchindex-30250347.js";
+            window.path_to_searchindex_js = "../searchindex-e54e2b11.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-caa4a953.js"></script>
@@ -299,7 +299,7 @@ pub fn read(path: String) -&gt; Result&lt;String, FsError&gt; {
 </code></pre>
 <p>The Abra runtime loads the <code>cdylib</code> declared by <code>abra_foreign_module.txt</code> the first time your program calls one of its foreign functions.</p>
 <h2 id="host-functions"><a class="header" href="#host-functions">Host functions</a></h2>
-<p>There’s a related attribute, <code>#host</code>, for functions provided directly by the runtime that’s running your Abra program (rather than loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>readline</code>, and <code>get_args</code>. Most users never need to write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.</p>
+<p>There’s a related attribute, <code>#host</code>, for functions provided directly by the runtime that’s running your Abra program (rather than loaded from a <code>cdylib</code>). The prelude uses this for <code>print_string</code>, <code>eprint_string</code>, and <code>get_args</code>. Stdin reading is provided by <code>core/io</code> through an ordinary <code>#foreign</code> call. Most users never need to write <code>#host</code> functions — they’re a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.</p>
 
                     </main>
 
