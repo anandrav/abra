@@ -1126,9 +1126,9 @@ impl Value {
                 StructObject::new(fields, vm).into()
             }
             ValueTag::Array => {
-                let array_obj = self.get_struct(vm);
+                let array_obj = self.get_array(vm);
                 let mut elems = vec![];
-                for elem in array_obj.get_fields() {
+                for elem in &array_obj.data {
                     elems.push(elem.deep_copy(vm));
                 }
                 ArrayObject::new(elems, vm).into()

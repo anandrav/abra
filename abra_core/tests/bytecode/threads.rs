@@ -59,3 +59,25 @@ sum
 "#;
     expect_value(src, 90);
 }
+
+#[test]
+fn capture_structs_enums_arrays() {
+    let src = r#"
+type Message = { words: array<array<string>> }
+
+let message: option<Message> = .some(Message([['original']]))
+let done: channel<bool> = channel()
+
+task {
+    let copied = message!
+    copied.words[0][0] = 'changed'
+    copied.words[0].push('new')
+    done.write(copied.words[0][0] == 'changed' and copied.words[0].len() == 2)
+}
+
+let copied_ok = done.read()
+let original = message!
+copied_ok and original.words[0][0] == 'original' and original.words[0].len() == 1
+"#;
+    expect_value(src, true);
+}
