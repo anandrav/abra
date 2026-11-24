@@ -5,7 +5,7 @@
 use crate::ast::{
     AstNode, EnumDef, EnumVariant, Expr, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
     Identifier, InterfaceDef, InterfaceImpl, InterfaceOutputType, Location, NodeId, Polytype,
-    StructDef, Type as AstType, TypeKind,
+    StructDef, Type as AstType,
 };
 use crate::intrinsic::{BuiltinType, IntrinsicOperation};
 use crate::{ErrorSummary, FileProvider};

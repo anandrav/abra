@@ -1,4 +1,3 @@
-use crate::assembly::{Label, Line};
 use crate::ast::{
     AssignOperator, AstNode, Expr, ExprKind, FileAst, FuncDef, ItemKind, NodeId, Pat, PatKind,
     Stmt, StmtKind,
@@ -13,10 +12,8 @@ use std::mem::take;
 use std::rc::Rc;
 use utils::hash::HashMap;
 use utils::id_set::IdSet;
-use utils::swrite;
 
 // TODO: weird to import from bytecode translation stuff, so clean up by putting in a common file later?
-use crate::translate_ast_to_bytecode::make_label;
 
 pub(crate) struct Translator {
     statics: StaticsContext,
