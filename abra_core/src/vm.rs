@@ -1119,7 +1119,7 @@ impl Value {
         vm: &mut VmGreenThread,
         allocations: &mut Vec<(*mut ObjectHeader, usize)>,
     ) -> Value {
-        let copied: Value = match self.1 {
+        let (copied, nbytes): (Value, usize) = match self.1 {
             ValueTag::Int | ValueTag::Float | ValueTag::Bool | ValueTag::Addr => return self,
             ValueTag::Struct => {
                 let struct_obj = self.get_struct(vm);
@@ -1127,7 +1127,8 @@ impl Value {
                 for field in struct_obj.get_fields() {
                     fields.push(field.deep_copy(vm, allocations));
                 }
-                StructObject::new(fields, vm).into()
+                let (obj, nbytes) = StructObject::allocate(fields);
+                (obj.into(), nbytes)
             }
             ValueTag::Array => {
                 let array_obj = self.get_array(vm);
@@ -1135,26 +1136,29 @@ impl Value {
                 for elem in &array_obj.data {
                     elems.push(elem.deep_copy(vm, allocations));
                 }
-                ArrayObject::new(elems, vm).into()
+                let (arr, nbytes) = ArrayObject::allocate(elems);
+                (arr.into(), nbytes)
             }
             ValueTag::Variant => {
                 let variant_obj = self.get_variant(vm);
                 let tag = variant_obj.tag;
                 let val = variant_obj.val.deep_copy(vm, allocations);
-                EnumObject::new(tag, val, vm).into()
+                let (variant, nbytes) = EnumObject::allocate(tag, val);
+                (variant.into(), nbytes)
             }
             ValueTag::String => {
                 let content = self.view_string(vm);
-                StringObject::new(content.to_string(), vm).into()
+                let (str, nbytes) = StringObject::allocate(content.to_string());
+                (str.into(), nbytes)
             }
             ValueTag::Channel => {
                 let channel_obj = unsafe { self.get_channel(vm) };
-                channel_obj.copy(vm)
+                let (chan, nbytes) = ChannelObject::allocate(channel_obj.data.clone());
+                (chan.into(), nbytes)
             }
         };
-        let header = unsafe { copied.get_object_header() };
-        let nbytes = header.nbytes();
-        allocations.push((header as *mut ObjectHeader, nbytes));
+        let header = unsafe { copied.get_object_header() } as *mut ObjectHeader;
+        allocations.push((header, nbytes));
         copied
     }
 }
@@ -1447,11 +1451,25 @@ impl ArrayObject {
     }
 }
 
+struct ChannelMessage {
+    value: Value,
+    allocations: Vec<(*mut ObjectHeader, usize)>,
+}
+
+impl Drop for ChannelMessage {
+    fn drop(&mut self) {
+        for (ptr, nbytes) in self.allocations.drain(..) {
+            let mut heap_size = nbytes;
+            unsafe { (*ptr).dealloc(&mut heap_size) };
+        }
+    }
+}
+
 #[repr(C)]
 struct ChannelObject {
     header: ObjectHeader,
     // TODO: instead of Arc Mutex VecDeque there's probably something much better
-    data: Arc<Mutex<VecDeque<Value>>>,
+    data: Arc<Mutex<VecDeque<ChannelMessage>>>,
 }
 
 impl ChannelObject {
@@ -1461,14 +1479,14 @@ impl ChannelObject {
 
     fn new_with_data(
         vm: &mut VmGreenThread,
-        data: Arc<Mutex<VecDeque<Value>>>,
+        data: Arc<Mutex<VecDeque<ChannelMessage>>>,
     ) -> *mut ChannelObject {
         let (chan, nbytes) = Self::allocate(data);
         unsafe { ObjectHeader::update_heap_records(chan as *mut ObjectHeader, nbytes, vm) };
         chan
     }
 
-    fn allocate(data: Arc<Mutex<VecDeque<Value>>>) -> (*mut ChannelObject, usize) {
+    fn allocate(data: Arc<Mutex<VecDeque<ChannelMessage>>>) -> (*mut ChannelObject, usize) {
         let header = ObjectHeader {
             kind: ObjectKind::Channel,
             visited: false,
@@ -1480,23 +1498,15 @@ impl ChannelObject {
         (chan, nbytes)
     }
 
-    fn read_value(&self) -> Option<Value> {
+    fn read_value(&self) -> Option<ChannelMessage> {
         let mut data = self.data.lock().unwrap();
         // TODO: it would be better to put this thread to sleep instead of constantly trying and failing to read from the channel
         data.pop_front()
     }
 
-    fn write_value(&self, val: Value) {
+    fn write_value(&self, message: ChannelMessage) {
         let mut data = self.data.lock().unwrap();
-        data.push_back(val);
-    }
-
-    fn copy(&self, vm: &mut VmGreenThread) -> Value {
-        ChannelObject::new_with_data(vm, self.data.clone()).into()
-    }
-
-    fn header_ptr(&mut self) -> *mut ObjectHeader {
-        self as *mut Self as *mut ObjectHeader
+        data.push_back(message);
     }
 
     fn nbytes(&self) -> usize {
@@ -2236,18 +2246,22 @@ impl VmGreenThread {
                     let copied_val = capture.deep_copy(&mut new_thread, &mut allocations);
                     new_thread.push(copied_val);
                 }
+                for (ptr, nbytes) in allocations {
+                    unsafe { ObjectHeader::update_heap_records(ptr, nbytes, &mut new_thread) };
+                }
                 // new_thread.stack_base += ncaptures as usize;
                 self.new_threads_sender.send(new_thread.into()).unwrap();
             }
             Instr::ChannelRead => {
                 let chan = self.pop(); // TODO: use registers
                 let chan_obj = unsafe { chan.get_channel(self) };
-                let read_val = chan_obj.read_value();
-                match read_val {
-                    Some(read_val) => {
-                        let mut allocations = vec![];
-                        let read_val = read_val.deep_copy(self, &mut allocations);
-                        self.push(read_val)
+                let message = chan_obj.read_value();
+                match message {
+                    Some(mut message) => {
+                        for (ptr, nbytes) in message.allocations.drain(..) {
+                            unsafe { ObjectHeader::update_heap_records(ptr, nbytes, self) };
+                        }
+                        self.push(message.value)
                     } // TODO: use registers
                     None => {
                         self.push(chan);
@@ -2258,11 +2272,10 @@ impl VmGreenThread {
             Instr::ChannelWrite => {
                 let val = self.pop(); // TODO: use registers
                 let chan = self.pop(); // TODO: use registers
+                let mut allocations = vec![];
+                let value = val.deep_copy(self, &mut allocations);
                 let chan = unsafe { chan.get_channel_mut(self) };
-
-                // TODO: write_barrier not necessary
-                self.write_barrier(chan.header_ptr(), val);
-                chan.write_value(val);
+                chan.write_value(ChannelMessage { value, allocations });
             }
             Instr::ConstructStruct(n) => self.construct_struct(n as usize),
             Instr::ConstructArray(n) => self.construct_array(n as usize),
@@ -2580,10 +2593,6 @@ impl VmGreenThread {
                 ObjectKind::Channel => {
                     let obj = unsafe { &*(header_ptr as *const ChannelObject) };
                     *batch = batch.saturating_sub(obj.nbytes());
-                    let data = obj.data.lock().unwrap();
-                    for elem in data.iter() {
-                        Self::mark(elem, &mut self.gray_stack, self.gc_visited);
-                    }
                 }
             }
         }

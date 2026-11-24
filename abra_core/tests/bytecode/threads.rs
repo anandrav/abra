@@ -81,3 +81,20 @@ copied_ok and original.words[0][0] == 'original' and original.words[0].len() == 
 "#;
     expect_value(src, true);
 }
+
+#[test]
+fn channel_messages_survive_producer_exit() {
+    let src = r#"
+let messages: channel<string> = channel()
+let done: channel<void> = channel()
+
+task {
+    messages.write('hello' .. ' world')
+    done.write(nil)
+}
+
+done.read()
+messages.read()
+"#;
+    expect_value(src, "hello world");
+}
