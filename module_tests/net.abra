@@ -1,0 +1,146 @@
+use core/net
+use core/encoding
+use core/fs as fs
+use test_runner
+
+let t = TestRunner.new('net')
+t.run('round_trip', test_round_trip())
+t.run('timeouts', test_timeouts())
+t.run('invalid_arguments', test_invalid_arguments())
+t.run('path_and_handle_errors', test_path_and_handle_errors())
+t.finish()
+
+fn socket_path() -> result<string, string> {
+    let marker = fs.temp_file().map_err(ToString.str)?
+    let name = fs.filename(marker)!
+    fs.remove(marker).map_err(ToString.str)?
+    // Unix socket paths are short on macOS; use the unique basename under /tmp.
+    .ok(fs.join_path('/tmp', name .. '.sock'))
+}
+
+fn read_all(stream: UnixStream) -> result<array<int>, string> {
+    let bytes: array<int> = []
+    while true {
+        match stream.read(max_bytes = 3, timeout = .some(5.0)).map_err(ToString.str)? {
+            .some(chunk) -> {
+                for byte in chunk {
+                    bytes.push(byte)
+                }
+            }
+            .none -> break
+        }
+    }
+    .ok(bytes)
+}
+
+fn echo(listener: UnixListener) -> result<void, string> {
+    let stream = listener.accept(timeout = .some(5.0)).map_err(ToString.str)?
+    stream.write_all(read_all(stream)?, timeout = .some(5.0)).map_err(ToString.str)?
+    stream.close().map_err(ToString.str)?
+    .ok(nil)
+}
+
+fn test_round_trip() -> result<void, string> {
+    let path = socket_path()?
+    let listener = listen_unix(path, backlog = 4).map_err(ToString.str)?
+    let done: channel<result<void, string>> = channel()
+    task {
+        done.write(echo(listener))
+    }
+    let client = connect_unix(path).map_err(ToString.str)?
+    let bytes = bytes_from_string('hello 😀')
+    for byte in [0, 127, 128, 255] {
+        bytes.push(byte)
+    }
+    client.write_all(bytes).map_err(ToString.str)?
+    client.shutdown(how = .Write).map_err(ToString.str)?
+    let reply = read_all(client)?
+    check(client.read().map_err(ToString.str)?.is_none(), 'EOF should remain readable as none')?
+    done.read()?
+    client.close().map_err(ToString.str)?
+    listener.close().map_err(ToString.str)?
+    fs.remove(path).map_err(ToString.str)?
+    check(reply == bytes, 'socket should preserve text and binary bytes after write shutdown')
+}
+
+fn test_timeouts() -> result<void, string> {
+    let path = socket_path()?
+    let listener = listen_unix(path).map_err(ToString.str)?
+    match listener.accept(timeout = .some(0.01)) {
+        .err(.Timeout(_)) -> {}
+        _ -> return .err('accept should time out when no client connects')
+    }
+    let client = connect_unix(path).map_err(ToString.str)?
+    let server = listener.accept(timeout = .some(1.0)).map_err(ToString.str)?
+    match client.read(timeout = .some(0.01)) {
+        .err(.Timeout(_)) -> {}
+        _ -> return .err('read should time out when the peer sends nothing')
+    }
+    server.write_all([42]).map_err(ToString.str)?
+    server.shutdown(how = .Write).map_err(ToString.str)?
+    check(read_all(client)? == [42], 'a timeout should leave the socket usable')?
+    client.close().map_err(ToString.str)?
+    server.close().map_err(ToString.str)?
+    listener.close().map_err(ToString.str)?
+    fs.remove(path).map_err(ToString.str)?
+    .ok(nil)
+}
+
+fn test_invalid_arguments() -> result<void, string> {
+    let path = socket_path()?
+    check(listen_unix(path, backlog = -1).is_err(), 'negative backlog should return an error')?
+    check(not fs.exists(path).map_err(ToString.str)?, 'invalid backlog should not create a socket file')?
+    check(listen_unix('').is_err(), 'empty socket path should return an error')?
+    let listener = listen_unix(path).map_err(ToString.str)?
+    check(listener.accept(timeout = .some(0.0)).is_err(), 'zero timeout should return an error')?
+    let client = connect_unix(path).map_err(ToString.str)?
+    let server = listener.accept().map_err(ToString.str)?
+    check(client.read(max_bytes = 0).is_err(), 'zero buffer size should return an error')?
+    check(client.read(max_bytes = -1).is_err(), 'negative buffer size should return an error')?
+    check(client.read(timeout = .some(-1.0)).is_err(), 'negative timeout should return an error')?
+    check(client.write_all([-1]).is_err(), 'negative bytes should return an error')?
+    check(client.write_all([256]).is_err(), 'bytes above 255 should return an error')?
+    check(client.write_all([], timeout = .some(0.0)).is_err(), 'invalid write timeout should return an error')?
+    client.write_all([42]).map_err(ToString.str)?
+    client.shutdown().map_err(ToString.str)?
+    check(read_all(server)? == [42], 'argument errors should not close the socket')?
+    client.close().map_err(ToString.str)?
+    server.close().map_err(ToString.str)?
+    listener.close().map_err(ToString.str)?
+    fs.remove(path).map_err(ToString.str)?
+    .ok(nil)
+}
+
+fn test_path_and_handle_errors() -> result<void, string> {
+    let path = socket_path()?
+    match connect_unix(path) {
+        .err(.NotFound(_)) -> {}
+        _ -> return .err('connecting to a missing path should return NotFound')
+    }
+    fs.write(path, 'keep').map_err(ToString.str)?
+    check(listen_unix(path).is_err(), 'bind should reject an existing file')?
+    check(fs.read(path).map_err(ToString.str)? == 'keep', 'bind should preserve an existing file')?
+    fs.remove(path).map_err(ToString.str)?
+    let listener = listen_unix(path).map_err(ToString.str)?
+    let client = connect_unix(path).map_err(ToString.str)?
+    let server = listener.accept().map_err(ToString.str)?
+    client.close().map_err(ToString.str)?
+    client.close().map_err(ToString.str)?
+    check(client.read().is_err(), 'reading after close should return an error')?
+    check(client.write_all([42]).is_err(), 'writing after close should return an error')?
+    check(client.shutdown().is_err(), 'shutdown after close should return an error')?
+    check(server.read().map_err(ToString.str)?.is_none(), 'peer close should send EOF')?
+    check(server.write_all([42]).is_err(), 'writing to a closed peer should return an error')?
+    server.close().map_err(ToString.str)?
+    listener.close().map_err(ToString.str)?
+    listener.close().map_err(ToString.str)?
+    check(listener.accept().is_err(), 'accept after close should return an error')?
+    check(fs.exists(path).map_err(ToString.str)?, 'close should leave the socket path for the caller to remove')?
+    match connect_unix(path) {
+        .err(.ConnectionRefused(_)) -> {}
+        _ -> return .err('connecting to a closed listener should return ConnectionRefused')
+    }
+    fs.remove(path).map_err(ToString.str)?
+    .ok(nil)
+}
+

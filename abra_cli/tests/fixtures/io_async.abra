@@ -1,0 +1,22 @@
+use core/io
+use core/time
+
+let started: channel<void> = channel()
+task {
+    started.read()
+    sleep(0.05)
+    println('worker progressed')
+}
+
+started.write(nil)
+match read_line() {
+    .ok(.some(line)) -> println(line)
+    .ok(.none) -> {
+        eprintln('unexpected EOF')
+        exit(2)
+    }
+    .err(error) -> {
+        eprintln(error.str())
+        exit(2)
+    }
+}

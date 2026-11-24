@@ -1,0 +1,15 @@
+use core/io
+
+while true {
+    match read_line() {
+        .ok(.some(line)) -> println('line:' .. line)
+        .ok(.none) -> {
+            println('EOF')
+            break
+        }
+        .err(error) -> {
+            eprintln('ERROR:' .. error.str())
+            exit(2)
+        }
+    }
+}

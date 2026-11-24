@@ -2071,6 +2071,27 @@ greeter.greet2()
 }
 
 #[test]
+fn default_args_static_member_function() {
+    let src = r#"
+type Example = { value: int }
+
+extend Example {
+    fn make(value: int = 1, offset: int = 2) -> Example {
+        Example(value - offset)
+    }
+}
+
+let defaults = Example.make()
+let positional = Example.make(3)
+let named = Example.make(offset = 4)
+let reordered = Example.make(offset = 5, value = 2)
+
+defaults.value == -1 and positional.value == 1 and named.value == -3 and reordered.value == -3
+"#;
+    expect_value(src, true);
+}
+
+#[test]
 fn struct_default_field_values() {
     let src = r#"
 type Greeter = {

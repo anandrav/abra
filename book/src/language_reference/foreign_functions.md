@@ -159,4 +159,4 @@ The Abra runtime loads the `cdylib` declared by `abra_foreign_module.txt` the fi
 
 ## Host functions
 
-There's a related attribute, `#host`, for functions provided directly by the runtime that's running your Abra program (rather than loaded from a `cdylib`). The prelude uses this for `print_string`, `readline`, and `get_args`. Most users never need to write `#host` functions — they're a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.
+There's a related attribute, `#host`, for functions provided directly by the runtime that's running your Abra program (rather than loaded from a `cdylib`). The prelude uses this for `print_string`, `eprint_string`, and `get_args`. Stdin reading is provided by `core/io` through an ordinary `#foreign` call. Most users never need to write `#host` functions — they're a hook for programs that embed the Abra VM as a library and want to expose their own callbacks.

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use abra_core::FileData;
 use abra_core::OsFileProvider;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::exit;
 
@@ -131,40 +131,6 @@ fn print_help() {
     );
 }
 
-fn read_line(input: &mut io::StdinLock<'_>, skip_lf: &mut bool) -> io::Result<Option<String>> {
-    let mut line = Vec::new();
-    loop {
-        let mut byte = [0];
-        let count = match input.read(&mut byte) {
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            result => result?,
-        };
-        if count == 0 {
-            if line.is_empty() {
-                return Ok(None);
-            }
-            break;
-        }
-        if *skip_lf {
-            *skip_lf = false;
-            if byte[0] == b'\n' {
-                continue;
-            }
-        }
-        if byte[0] == b'\r' {
-            *skip_lf = true;
-            break;
-        }
-        if byte[0] == b'\n' {
-            break;
-        }
-        line.push(byte[0]);
-    }
-    String::from_utf8(line)
-        .map(Some)
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse args using lexopt logic
     let args = match Args::parse() {
@@ -255,9 +221,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match abra_core::compile_bytecode(main_file_name, file_provider) {
         Ok(program) => {
             let mut runtime = abra_core::vm::Runtime::new(program);
-            let stdin = io::stdin();
-            let mut input = stdin.lock();
-            let mut skip_lf = false;
             loop {
                 let status = runtime.run_n_steps(100);
                 if let Some(code) = status.is_done() {
@@ -286,16 +249,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 eprint!("{s}");
                                 io::stderr().flush().unwrap();
                                 HostFunctionRet::EprintString.into_vm(&mut *thread);
-                            }
-                            HostFunctionArgs::Readline => {
-                                let line = match read_line(&mut input, &mut skip_lf) {
-                                    Ok(line) => line,
-                                    Err(error) => {
-                                        eprintln!("Could not read input: {error}");
-                                        exit(1);
-                                    }
-                                };
-                                HostFunctionRet::Readline(line).into_vm(&mut *thread);
                             }
                             HostFunctionArgs::GetArgs => {
                                 HostFunctionRet::GetArgs(args.abra_program_args.clone())

@@ -22,6 +22,11 @@ t.run('dynamic_arg', test_dynamic_arg())
 t.run('command_errors', test_command_errors())
 t.run('file_io', test_file_io())
 t.run('live_output', test_live_output())
+t.run('live_stdin', test_live_stdin())
+t.run('stdin_pipeline', test_stdin_pipeline())
+t.run('wait_closes_stdin', test_wait_closes_stdin())
+t.run('stdin_errors', test_stdin_errors())
+t.run('broken_stdin_pipe', test_broken_stdin_pipe())
 t.run('poll_kill_wait', test_poll_kill_wait())
 t.run('pipeline_stderr', test_pipeline_stderr())
 t.run('command_status', test_command_status())
@@ -189,6 +194,78 @@ fn test_poll_kill_wait() -> result<void, string> {
     let status = child.wait().map_err(str_err)?
     check(pending.is_none(), 'poll should be none while the child runs')?
     check(status == -1, 'signal termination should return -1')?
+    .ok(nil)
+}
+
+fn read_stdout(child: Process, expected: string) -> result<void, string> {
+    var received = ''
+    while received.len() < expected.len() {
+        match child.read_output().map_err(str_err)? {
+            .some(.Stdout(text)) -> received = received .. text
+            .some(.Stderr(text)) -> return .err('unexpected stderr: ' .. text)
+            .none -> return .err('stdout closed before the expected output arrived')
+        }
+    }
+    check(received == expected, 'unexpected stdout: ' .. received)
+}
+
+fn test_live_stdin() -> result<void, string> {
+    let child = exec('cat', stdin = .Pipe).spawn(stdout = .Pipe, stderr = .Pipe).map_err(str_err)?
+    child.write_stdin('first 😀\n').map_err(str_err)?
+    read_stdout(child, 'first 😀\n')?
+    check(child.poll().map_err(str_err)?.is_none(), 'child should still be waiting for input')?
+    child.write_stdin('second\n').map_err(str_err)?
+    read_stdout(child, 'second\n')?
+    child.close_stdin().map_err(str_err)?
+    child.close_stdin().map_err(str_err)?
+    check(child.write_stdin('late').is_err(), 'writing after closing stdin should return an error')?
+    check(child.read_output().map_err(str_err)?.is_none(), 'closing stdin should allow output to reach EOF')?
+    check(child.wait().map_err(str_err)? == 0, 'interactive child should succeed')?
+    .ok(nil)
+}
+
+fn test_stdin_pipeline() -> result<void, string> {
+    let child = exec('cat', stdin = .Pipe).pipe('wc', ['-c']).spawn(stdout = .Pipe).map_err(str_err)?
+    child.write_stdin('x'.repeat(131072), close = true).map_err(str_err)?
+    var stdout = ''
+    while true {
+        match child.read_output().map_err(str_err)? {
+            .some(.Stdout(text)) -> stdout = stdout .. text
+            .some(.Stderr(text)) -> return .err('unexpected stderr: ' .. text)
+            .none -> break
+        }
+    }
+    check(stdout.trim() == '131072', 'stdin should feed the first pipeline stage without truncation')?
+    check(child.wait().map_err(str_err)? == 0, 'pipeline should succeed')?
+    .ok(nil)
+}
+
+fn test_wait_closes_stdin() -> result<void, string> {
+    let child = exec('cat', stdin = .Pipe).spawn(stdout = .Discard, stderr = .Discard).map_err(str_err)?
+    child.write_stdin('input').map_err(str_err)?
+    check(child.wait().map_err(str_err)? == 0, 'wait should close piped stdin before waiting')?
+    check(child.write_stdin('late').is_err(), 'writing after wait should return an error')?
+    check(child.close_stdin().is_err(), 'closing stdin after wait should return an error')?
+    .ok(nil)
+}
+
+fn test_stdin_errors() -> result<void, string> {
+    check(exec('cat', stdin = .Pipe).run().is_err(), 'run should reject stdin that requires an interactive handle')?
+    check(exec('cat', stdin = .Pipe).detach().is_err(), 'detach should reject piped stdin')?
+    let child = exec('true', stdin = .Discard).spawn().map_err(str_err)?
+    match child.write_stdin('input') {
+        .err(.Other(message)) -> check(message.contains('not piped'), 'stdin error should explain the missing pipe')?
+        _ -> return .err('writing without piped stdin should return an error')
+    }
+    child.wait().map_err(str_err)?
+    .ok(nil)
+}
+
+fn test_broken_stdin_pipe() -> result<void, string> {
+    let child = exec('sh -c \'exec 0<&-; printf ready\'', stdin = .Pipe).spawn(stdout = .Pipe).map_err(str_err)?
+    read_stdout(child, 'ready')?
+    check(child.write_stdin('input').is_err(), 'writing after the child closes stdin should return an error')?
+    check(child.wait().map_err(str_err)? == 0, 'broken stdin should not prevent reaping the child')?
     .ok(nil)
 }
 

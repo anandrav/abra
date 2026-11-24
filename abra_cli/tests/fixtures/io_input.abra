@@ -1,0 +1,4 @@
+use core/io
+
+println(input(prompt = 'Name: '))
+println(input())

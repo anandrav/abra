@@ -227,7 +227,7 @@ pub fn glob(pattern: String) -> Result<Vec<String>, FsError> {
         glob_crate::glob(&pattern).map_err(|e| FsError::Other(e.msg.to_string()))?;
     let mut result = Vec::new();
     for entry in paths {
-        let path = entry.map_err(|e| io_err(e.into_error()))?;
+        let path = entry.map_err(|e| io_err(e.into()))?;
         result.push(path.to_string_lossy().to_string());
     }
     Ok(result)

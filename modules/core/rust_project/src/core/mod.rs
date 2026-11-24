@@ -9,6 +9,8 @@ pub(crate) mod time;
 pub(crate) mod fs;
 
 pub(crate) mod exec;
+pub(crate) mod io;
+pub(crate) mod net;
 
 pub(crate) mod env;
 

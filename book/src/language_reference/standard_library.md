@@ -18,14 +18,10 @@ The prelude provides basic I/O and program control:
 
 ```
 println("hello")             // print with newline (also: print, panic, assert)
-let line = readline()        // option<string>
 let args = get_args()        // command-line arguments as array<string>
 ```
 
-`readline()` returns `.some(line)`, or `.none` at EOF. A blank line is
-`.some('')`. Line endings are removed; LF, CRLF, and bare CR are accepted,
-so scripts can read progress output without waiting for a newline. Read
-errors terminate the CLI with a message and exit status 1.
+Reading stdin is provided by `core/io`.
 
 ### Built-in types
 
@@ -254,7 +250,7 @@ let out = run_sh('ls | wc -l')!
 
 `exec(command, args = [], stdin = .Inherit)` constructs a command. `.arg(value)` and `.args(values)` append arguments to its last pipeline stage. `.pipe(command, args = [])` adds a stage.
 
-`InputSource` is `.Inherit`, `.Discard`, `.Text(string)`, or `.File(path)`. Inherit uses Abra's stdin; discard supplies EOF.
+`InputSource` is `.Pipe`, `.Inherit`, `.Discard`, `.Text(string)`, or `.File(path)`. Inherit uses Abra's stdin; discard supplies EOF. With `spawn()`, `.Pipe` keeps stdin open for later writes. `run()` rejects `.Pipe`; use `.stdin(text)` or `stdin = .Text(text)` to supply its input.
 
 `OutputTarget` is `.Pipe`, `.Inherit`, `.Discard`, or `.File(path, append = false)`. Inherit writes directly to Abra's corresponding output stream. Files are created and truncated by default; `append = true` preserves their contents.
 
@@ -285,18 +281,31 @@ let status = child.wait()!
 
 `read_output()` blocks until a stdout/stderr chunk is available and returns `.none` when all piped streams close. Chunks are strings, not necessarily complete lines; stdout and stderr are drained concurrently. Piped output is queued in memory until read, so consume it as it arrives when output is large.
 
+Use `stdin = .Pipe` to send input while a child is running:
+
+```
+let child = exec('cat', stdin = .Pipe).spawn()!
+child.write_stdin('first\n')!
+child.write_stdin('last\n', close = true)!
+let status = child.wait()!
+```
+
+`write_stdin(text, close = false)` writes the complete string as UTF-8 without adding a newline. Input is sent directly, so no separate flush is needed. `close = true` closes stdin after the write; `close_stdin()` closes it without writing. Closing an already closed stdin succeeds. Writing without a pipe, after closing it, or after the child closes its input returns `ExecError`. The input pipe feeds the first stage of a pipeline.
+
 The methods on `Process` return:
 
 | Method | Return type | Behavior |
 | --- | --- | --- |
+| `write_stdin(text, close = false)` | `result<void, ExecError>` | Sends text to piped stdin, optionally closing it afterward. |
+| `close_stdin()` | `result<void, ExecError>` | Closes piped stdin to send EOF. |
 | `read_output()` | `result<option<OutputEvent>, ExecError>` | The next `.Stdout(string)` or `.Stderr(string)` chunk, or `.none` at EOF. |
-| `poll()` | `result<option<int>, ExecError>` | `.none` while any stage runs; `.some(status)` once all stages finish. |
-| `wait()` | `result<int, ExecError>` | Waits for all stages and returns the final stage's exit status. |
+| `poll()` | `result<option<int>, ExecError>` | `.none` while any stage runs; `.some(status)` once all stages finish. Leaves stdin open. |
+| `wait()` | `result<int, ExecError>` | Closes piped stdin, waits for all stages, and returns the final stage's exit status. |
 | `kill()` | `result<void, ExecError>` | Terminates the running stages. |
 
-Call `wait()` to reap the children and release the process handle; it discards unread output, and subsequent operations on that handle return an error. Read any desired output before waiting. After `kill()`, still call `wait()` to release the handle.
+Call `wait()` to reap the children and release the process handle; it discards unread output, and subsequent operations on that handle return an error. Close stdin and read any desired output before waiting if the child needs EOF to finish. After `kill()`, still call `wait()` to release the handle.
 
-`detach(stdout = .Discard, stderr = .Discard)` starts an independent process and returns `result<int, ExecError>` containing its PID. Inherited input becomes EOF; file input is supported, but text input and piped output are rejected. On Unix the child starts a new session and ignores terminal hangup; on Windows it starts detached from the console.
+`detach(stdout = .Discard, stderr = .Discard)` starts an independent process and returns `result<int, ExecError>` containing its PID. Inherited input becomes EOF; file input is supported, but text input and piped input/output are rejected. On Unix the child starts a new session and ignores terminal hangup; on Windows it starts detached from the console.
 
 ```
 let pid = exec('worker').detach(
@@ -306,6 +315,76 @@ let pid = exec('worker').detach(
 ```
 
 `run(command, stdout = .Pipe, stderr = .Pipe)` returns `result<Output, ExecError>` and is a convenience for `exec(command).run(...)`. `run_sh(command, stdout = .Pipe, stderr = .Pipe)` returns the same type and interprets its command through the shell. `command(command)` inherits stdout/stderr and returns `result<int, ExecError>` containing the child exit status, including nonzero statuses. Empty commands, malformed quotes, launch failures, and file errors return `ExecError`.
+
+## core/io
+
+```
+use core/io
+
+let name = input(prompt = 'Name: ')
+println('Hello, ' .. name)
+```
+
+`input(prompt = '') -> string` prints its prompt without a newline, reads one line, and removes its line ending. A blank line returns `''`. EOF or a read error prints a clear message to stderr and exits with status 1, without a panic traceback.
+
+For callers that need to handle EOF and errors, `read_line() -> result<option<string>, IoError>` returns `.ok(.some(line))`, `.ok(.none)` at EOF, or `.err(error)`. A blank line is `.ok(.some(''))`. LF, CRLF, and bare CR endings are removed; a final line without an ending is also returned. Invalid UTF-8 returns `.InvalidData(message)`; other read failures return `.Other(message)`.
+
+```
+while true {
+    match read_line() {
+        .ok(.some(line)) -> println(line)
+        .ok(.none) -> break
+        .err(error) -> {
+            eprintln(error.str())
+            exit(1)
+        }
+    }
+}
+```
+
+Waiting for stdin suspends only the calling task. Other tasks continue running through the existing foreign-call worker mechanism. Concurrent reads are serialized; use one reader task when line ownership matters.
+
+The old prelude `readline()` host call has been removed. Scripts now import `core/io` and use `input()` or `read_line()`.
+
+## core/net
+
+Unix-domain stream sockets for communication between local processes. This module currently supports Unix systems; other platforms return `SocketError`.
+
+`listen_unix(path, backlog = 128)` creates a `UnixListener`. The socket file has owner-only permissions (`0600`) before listening starts. An existing file or socket is never overwritten. `connect_unix(path)` returns a connected `UnixStream`.
+
+```
+use core/net
+use core/encoding
+
+let stream = connect_unix('/tmp/worker.sock')!
+stream.write_all(bytes_from_string('ping\n'), timeout = .some(5.0))!
+let response = stream.read(max_bytes = 4096, timeout = .some(5.0))!
+stream.close()!
+```
+
+Listener methods:
+
+| Method | Return type | Behavior |
+| --- | --- | --- |
+| `accept(timeout = .none)` | `result<UnixStream, SocketError>` | Waits for a connection and returns its stream. |
+| `close()` | `result<void, SocketError>` | Closes the listener and cancels pending accepts. Leaves the socket file in place. |
+
+Stream methods:
+
+| Method | Return type | Behavior |
+| --- | --- | --- |
+| `read(max_bytes = 8192, timeout = .none)` | `result<option<array<int>>, SocketError>` | Reads up to `max_bytes` bytes; `.none` means EOF. |
+| `write_all(bytes, timeout = .none)` | `result<void, SocketError>` | Writes the entire byte array. Each byte must be from 0 through 255. |
+| `shutdown(how = .Both)` | `result<void, SocketError>` | Disables `.Read`, `.Write`, or `.Both` directions. Write shutdown sends EOF while leaving reads available. |
+| `close()` | `result<void, SocketError>` | Closes the stream and cancels pending reads and writes. |
+
+Timeouts are optional positive, finite seconds. `.none` waits indefinitely. A timeout leaves the handle usable; a failed `write_all()` may already have sent part of its input. `connect_unix()` uses a blocking connection attempt, like Rust's `UnixStream::connect()`.
+
+Reads return bytes, not messages or decoded text. Chunks can split UTF-8 characters; assemble the needed bytes before calling `core/encoding.string_from_bytes()`. EOF does not close the handle, so the other direction can remain usable after a peer's write shutdown.
+
+Copies of listeners and streams share the same native handle. Coordinate readers and writers across tasks, and close each handle when finished. Closing is idempotent and invalidates every copy of that handle; other operations on closed handles return an error. Socket paths have platform-dependent length limits.
+
+Like Python and Rust, closing a listener leaves its filesystem path behind. Remove it explicitly with `core/fs.remove(path)` when appropriate. `SocketError` distinguishes `NotFound`, `PermissionDenied`, `AddressInUse`, `ConnectionRefused`, `Timeout`, and `Other`; use `e.str()` for its message.
 
 ## core/random
 

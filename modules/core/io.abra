@@ -1,0 +1,33 @@
+#foreign
+type IoError =
+    | InvalidData(string)
+    | Other(string)
+
+implement ToString for IoError {
+    fn str(self) {
+        match self {
+            .InvalidData(message) -> 'invalid data: ' .. message
+            .Other(message) -> message
+        }
+    }
+}
+
+#foreign
+fn read_line() -> result<option<string>, IoError>
+
+fn input(prompt: string = '') -> string {
+    if prompt != '' {
+        print(prompt)
+    }
+    match read_line() {
+        .ok(.some(line)) -> line
+        .ok(.none) -> {
+            eprintln('Could not read input: end of input')
+            exit(1)
+        }
+        .err(error) -> {
+            eprintln('Could not read input: ' .. error.str())
+            exit(1)
+        }
+    }
+}

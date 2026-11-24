@@ -61,6 +61,24 @@ sum
 }
 
 #[test]
+fn task_in_function() {
+    let src = r#"
+fn start(value: int, replies: channel<int>) {
+    let offset = 1
+    task {
+        let local = 2
+        replies.write(value + offset + local)
+    }
+}
+
+let replies: channel<int> = channel()
+start(39, replies)
+replies.read()
+"#;
+    expect_value(src, 42);
+}
+
+#[test]
 fn capture_structs_enums_arrays() {
     let src = r#"
 type Message = { words: array<array<string>> }

@@ -7,7 +7,7 @@ use abra_core::vm::AbraInt;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::thread;
@@ -15,6 +15,7 @@ use std::time::Duration;
 
 struct RunningProcess {
     children: Mutex<Vec<Child>>,
+    stdin: Mutex<Option<ChildStdin>>,
     output: Mutex<mpsc::Receiver<Result<OutputEvent, ExecError>>>,
     input: Mutex<Option<thread::JoinHandle<Result<(), ExecError>>>>,
 }
@@ -212,7 +213,7 @@ fn start_pipeline(
             "detached output cannot be piped back to Abra".to_string(),
         ));
     }
-    if detached && matches!(input, InputSource::Text(_)) {
+    if detached && matches!(input, InputSource::Pipe | InputSource::Text(_)) {
         return Err(ExecError::Other(
             "detached input must come from a file or be discarded".to_string(),
         ));
@@ -254,7 +255,7 @@ fn start_pipeline(
                 command.stdin(match &input {
                     InputSource::Inherit if !detached => Stdio::inherit(),
                     InputSource::Inherit | InputSource::Discard => Stdio::null(),
-                    InputSource::Text(_) => Stdio::piped(),
+                    InputSource::Pipe | InputSource::Text(_) => Stdio::piped(),
                     InputSource::File(path) => {
                         Stdio::from(File::open(path).map_err(io_err_to_exec_error)?)
                     }
@@ -291,6 +292,11 @@ fn start_pipeline(
         }
         return Err(e);
     }
+    let stdin = if matches!(input, InputSource::Pipe) {
+        children[0].stdin.take()
+    } else {
+        None
+    };
     let writer = if let InputSource::Text(text) = input {
         let mut stdin = children[0].stdin.take().unwrap();
         Some(thread::spawn(move || {
@@ -303,6 +309,7 @@ fn start_pipeline(
     };
     Ok(RunningProcess {
         children: Mutex::new(children),
+        stdin: Mutex::new(stdin),
         output: Mutex::new(receiver),
         input: Mutex::new(writer),
     })
@@ -362,6 +369,11 @@ pub fn run_pipeline(
     stdout: OutputTarget,
     stderr: OutputTarget,
 ) -> Result<Output, ExecError> {
+    if matches!(input, InputSource::Pipe) {
+        return Err(ExecError::Other(
+            "piped stdin requires spawn(); use .stdin(text) with run()".to_string(),
+        ));
+    }
     let running = spawn_pipeline(commands, all_args, input, stdout, stderr)?;
     collect_output(running.handle)
 }
@@ -432,6 +444,27 @@ pub fn detach_pipeline(
     Ok(pid)
 }
 
+pub fn process_write_stdin(handle: AbraInt, text: String, close: bool) -> Result<(), ExecError> {
+    let running = process(handle)?;
+    let mut stdin = running.stdin.lock().unwrap();
+    let stream = stdin.as_mut().ok_or_else(|| {
+        ExecError::Other("process stdin is not piped or has been closed".to_string())
+    })?;
+    let result = stream
+        .write_all(text.as_bytes())
+        .map_err(io_err_to_exec_error);
+    if close {
+        stdin.take();
+    }
+    result
+}
+
+pub fn process_close_stdin(handle: AbraInt) -> Result<(), ExecError> {
+    let running = process(handle)?;
+    running.stdin.lock().unwrap().take();
+    Ok(())
+}
+
 pub fn process_read_output(handle: AbraInt) -> Result<Option<OutputEvent>, ExecError> {
     let running = process(handle)?;
     match running.output.lock().unwrap().recv() {
@@ -456,6 +489,7 @@ pub fn process_poll(handle: AbraInt) -> Result<Option<AbraInt>, ExecError> {
 
 pub fn process_wait(handle: AbraInt) -> Result<AbraInt, ExecError> {
     let running = process(handle)?;
+    running.stdin.lock().unwrap().take();
     let result = (|| {
         let status = loop {
             if let Some(status) = process_poll(handle)? {

@@ -1,0 +1,90 @@
+#foreign
+type SocketError =
+    | NotFound(string)
+    | PermissionDenied(string)
+    | AddressInUse(string)
+    | ConnectionRefused(string)
+    | Timeout(string)
+    | Other(string)
+
+implement ToString for SocketError {
+    fn str(self) {
+        match self {
+            .NotFound(s) -> 'not found: ' .. s
+            .PermissionDenied(s) -> 'permission denied: ' .. s
+            .AddressInUse(s) -> 'address in use: ' .. s
+            .ConnectionRefused(s) -> 'connection refused: ' .. s
+            .Timeout(s) -> 'timeout: ' .. s
+            .Other(s) -> s
+        }
+    }
+}
+
+#foreign
+type Shutdown = Read | Write | Both
+
+#foreign
+type UnixListener = { id: int }
+
+fn listen_unix(path: string, backlog: int = 128) -> result<UnixListener, SocketError> {
+    unix_listener_bind(path, backlog)
+}
+
+extend UnixListener {
+    fn accept(self, timeout: option<float> = .none) -> result<UnixStream, SocketError> {
+        unix_listener_accept(self.id, timeout)
+    }
+
+    fn close(self) -> result<void, SocketError> {
+        unix_listener_close(self.id)
+    }
+}
+
+#foreign
+type UnixStream = { id: int }
+
+fn connect_unix(path: string) -> result<UnixStream, SocketError> {
+    unix_stream_connect(path)
+}
+
+extend UnixStream {
+    fn read(self, max_bytes: int = 8192, timeout: option<float> = .none) -> result<option<array<int>>, SocketError> {
+        unix_stream_read(self.id, max_bytes, timeout)
+    }
+
+    fn write_all(self, bytes: array<int>, timeout: option<float> = .none) -> result<void, SocketError> {
+        unix_stream_write_all(self.id, bytes, timeout)
+    }
+
+    fn shutdown(self, how: Shutdown = .Both) -> result<void, SocketError> {
+        unix_stream_shutdown(self.id, how)
+    }
+
+    fn close(self) -> result<void, SocketError> {
+        unix_stream_close(self.id)
+    }
+}
+
+#foreign
+fn unix_listener_bind(path: string, backlog: int) -> result<UnixListener, SocketError>
+
+#foreign
+fn unix_listener_accept(id: int, timeout: option<float>) -> result<UnixStream, SocketError>
+
+#foreign
+fn unix_listener_close(id: int) -> result<void, SocketError>
+
+#foreign
+fn unix_stream_connect(path: string) -> result<UnixStream, SocketError>
+
+#foreign
+fn unix_stream_read(id: int, max_bytes: int, timeout: option<float>) -> result<option<array<int>>, SocketError>
+
+#foreign
+fn unix_stream_write_all(id: int, bytes: array<int>, timeout: option<float>) -> result<void, SocketError>
+
+#foreign
+fn unix_stream_shutdown(id: int, how: Shutdown) -> result<void, SocketError>
+
+#foreign
+fn unix_stream_close(id: int) -> result<void, SocketError>

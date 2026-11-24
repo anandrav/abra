@@ -29,6 +29,7 @@ extend Output {
 
 #foreign
 type InputSource =
+    | Pipe
     | Inherit
     | Discard
     | Text(string)
@@ -53,6 +54,14 @@ type Process = {
 }
 
 extend Process {
+    fn write_stdin(self, text: string, close: bool = false) -> result<void, ExecError> {
+        process_write_stdin(self.handle, text, close)
+    }
+
+    fn close_stdin(self) -> result<void, ExecError> {
+        process_close_stdin(self.handle)
+    }
+
     fn read_output(self) -> result<option<OutputEvent>, ExecError> {
         process_read_output(self.handle)
     }
@@ -139,6 +148,12 @@ fn spawn_pipeline(commands: array<string>, all_args: array<array<string>>, input
 
 #foreign
 fn detach_pipeline(commands: array<string>, all_args: array<array<string>>, input: InputSource, stdout: OutputTarget, stderr: OutputTarget) -> result<int, ExecError>
+
+#foreign
+fn process_write_stdin(handle: int, text: string, close: bool) -> result<void, ExecError>
+
+#foreign
+fn process_close_stdin(handle: int) -> result<void, ExecError>
 
 #foreign
 fn process_read_output(handle: int) -> result<option<OutputEvent>, ExecError>

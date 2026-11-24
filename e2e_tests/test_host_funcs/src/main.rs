@@ -51,10 +51,6 @@ fn handle_host_func(runtime: &mut Runtime, status: RuntimeStatus) {
                 let _ = HostFunctionRet::EprintString;
                 panic!()
             }
-            HostFunctionArgs::Readline => {
-                let _ = HostFunctionRet::Readline(None);
-                panic!()
-            }
             HostFunctionArgs::GetArgs => {
                 let _ = HostFunctionRet::GetArgs(vec![]);
                 panic!()
