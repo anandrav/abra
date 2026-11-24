@@ -2950,6 +2950,9 @@ fn generate_constraints_expr(
                             // fully qualified struct/enum method
                             // example: Person.fullname(my_person)
                             //          ^^^^^
+                            if !func.args.first().is_some_and(|arg| arg.name.v == "self") {
+                                calculate_func_call_order(ctx, fname.node(), args, expr.node());
+                            }
                             helper(ctx, func.name.node(), None);
                         }
                         Some(Declaration::FreeFunction(FuncResolutionKind::Ordinary(func))) => {
