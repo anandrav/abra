@@ -1114,14 +1114,18 @@ impl Value {
 }
 
 impl Value {
-    fn deep_copy(self, vm: &mut VmGreenThread) -> Value {
-        match self.1 {
-            ValueTag::Int | ValueTag::Float | ValueTag::Bool | ValueTag::Addr => self,
+    fn deep_copy(
+        self,
+        vm: &mut VmGreenThread,
+        allocations: &mut Vec<(*mut ObjectHeader, usize)>,
+    ) -> Value {
+        let copied: Value = match self.1 {
+            ValueTag::Int | ValueTag::Float | ValueTag::Bool | ValueTag::Addr => return self,
             ValueTag::Struct => {
                 let struct_obj = self.get_struct(vm);
                 let mut fields = vec![];
                 for field in struct_obj.get_fields() {
-                    fields.push(field.deep_copy(vm));
+                    fields.push(field.deep_copy(vm, allocations));
                 }
                 StructObject::new(fields, vm).into()
             }
@@ -1129,14 +1133,14 @@ impl Value {
                 let array_obj = self.get_array(vm);
                 let mut elems = vec![];
                 for elem in &array_obj.data {
-                    elems.push(elem.deep_copy(vm));
+                    elems.push(elem.deep_copy(vm, allocations));
                 }
                 ArrayObject::new(elems, vm).into()
             }
             ValueTag::Variant => {
                 let variant_obj = self.get_variant(vm);
                 let tag = variant_obj.tag;
-                let val = variant_obj.val.deep_copy(vm);
+                let val = variant_obj.val.deep_copy(vm, allocations);
                 EnumObject::new(tag, val, vm).into()
             }
             ValueTag::String => {
@@ -1147,7 +1151,11 @@ impl Value {
                 let channel_obj = unsafe { self.get_channel(vm) };
                 channel_obj.copy(vm)
             }
-        }
+        };
+        let header = unsafe { copied.get_object_header() };
+        let nbytes = header.nbytes();
+        allocations.push((header as *mut ObjectHeader, nbytes));
+        copied
     }
 }
 
@@ -2222,9 +2230,10 @@ impl VmGreenThread {
                     VmGreenThread::new(self.shared.clone(), self.new_threads_sender.clone());
                 new_thread.pc = target;
                 let captures = self.pop_n(ncaptures as usize);
+                let mut allocations = vec![];
                 // TODO: must be made incremental
                 for capture in captures {
-                    let copied_val = capture.deep_copy(&mut new_thread);
+                    let copied_val = capture.deep_copy(&mut new_thread, &mut allocations);
                     new_thread.push(copied_val);
                 }
                 // new_thread.stack_base += ncaptures as usize;
@@ -2236,7 +2245,8 @@ impl VmGreenThread {
                 let read_val = chan_obj.read_value();
                 match read_val {
                     Some(read_val) => {
-                        let read_val = read_val.deep_copy(self);
+                        let mut allocations = vec![];
+                        let read_val = read_val.deep_copy(self, &mut allocations);
                         self.push(read_val)
                     } // TODO: use registers
                     None => {
