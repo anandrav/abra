@@ -1229,6 +1229,21 @@ struct ObjectHeader {
 }
 
 impl ObjectHeader {
+    unsafe fn update_heap_records(obj: *mut ObjectHeader, nbytes: usize, vm: &mut VmGreenThread) {
+        unsafe {
+            (*obj).visited = match &vm.gc_state {
+                GcState::Idle => false,
+                GcState::Marking | GcState::Sweeping { .. } => true,
+            };
+        }
+        vm.heap_list.push(obj);
+        if vm.gc_state == GcState::Marking {
+            vm.gray_stack.push(obj);
+        }
+        vm.heap_size += nbytes;
+        vm.gc_debt += nbytes;
+    }
+
     unsafe fn dealloc(&mut self, heap_size: &mut usize) {
         let kind = self.kind;
         match kind {
@@ -1314,6 +1329,12 @@ struct StructObject {
 
 impl StructObject {
     fn new(data: Vec<Value>, vm: &mut VmGreenThread) -> *mut StructObject {
+        let (obj, nbytes) = Self::allocate(data);
+        unsafe { ObjectHeader::update_heap_records(obj as *mut ObjectHeader, nbytes, vm) };
+        obj
+    }
+
+    fn allocate(data: Vec<Value>) -> (*mut StructObject, usize) {
         let len = data.len();
         let layout = Self::layout_helper(len);
         let prefix_size = size_of::<StructObject>();
@@ -1330,10 +1351,7 @@ impl StructObject {
                 StructObject {
                     header: ObjectHeader {
                         kind: ObjectKind::Struct,
-                        visited: match &vm.gc_state {
-                            GcState::Idle => false,
-                            GcState::Marking | GcState::Sweeping { .. } => true,
-                        },
+                        visited: false,
                         no_gc: false,
                     },
                     len,
@@ -1347,14 +1365,7 @@ impl StructObject {
                 ptr::write(base.add(i), ptr::read(src.add(i)));
             }
 
-            vm.heap_list.push(obj as *mut ObjectHeader);
-            if vm.gc_state == GcState::Marking {
-                vm.gray_stack.push(obj as *mut ObjectHeader);
-            }
-            vm.heap_size += layout.size();
-            vm.gc_debt += layout.size();
-
-            obj
+            (obj, layout.size())
         }
     }
 
@@ -1402,27 +1413,21 @@ struct ArrayObject {
 
 impl ArrayObject {
     fn new(data: Vec<Value>, vm: &mut VmGreenThread) -> *mut ArrayObject {
+        let (arr, nbytes) = Self::allocate(data);
+        unsafe { ObjectHeader::update_heap_records(arr as *mut ObjectHeader, nbytes, vm) };
+        arr
+    }
+
+    fn allocate(data: Vec<Value>) -> (*mut ArrayObject, usize) {
         let header = ObjectHeader {
             kind: ObjectKind::Array,
-            visited: match &vm.gc_state {
-                GcState::Idle => false,
-                GcState::Marking | GcState::Sweeping { .. } => true,
-            },
+            visited: false,
             no_gc: false,
         };
         let b = Box::new(ArrayObject { header, data });
         let arr = Box::leak(b);
-
-        vm.heap_list
-            .push(arr as *mut ArrayObject as *mut ObjectHeader);
-        if vm.gc_state == GcState::Marking {
-            vm.gray_stack
-                .push(arr as *mut ArrayObject as *mut ObjectHeader);
-        }
-        vm.heap_size += arr.nbytes();
-        vm.gc_debt += arr.nbytes();
-
-        arr
+        let nbytes = arr.nbytes();
+        (arr, nbytes)
     }
 
     fn header_ptr(&mut self) -> *mut ObjectHeader {
@@ -1450,27 +1455,21 @@ impl ChannelObject {
         vm: &mut VmGreenThread,
         data: Arc<Mutex<VecDeque<Value>>>,
     ) -> *mut ChannelObject {
+        let (chan, nbytes) = Self::allocate(data);
+        unsafe { ObjectHeader::update_heap_records(chan as *mut ObjectHeader, nbytes, vm) };
+        chan
+    }
+
+    fn allocate(data: Arc<Mutex<VecDeque<Value>>>) -> (*mut ChannelObject, usize) {
         let header = ObjectHeader {
             kind: ObjectKind::Channel,
-            visited: match &vm.gc_state {
-                GcState::Idle => false,
-                GcState::Marking | GcState::Sweeping { .. } => true,
-            },
+            visited: false,
             no_gc: false,
         };
         let b = Box::new(ChannelObject { header, data });
         let chan = Box::leak(b);
-
-        vm.heap_list
-            .push(chan as *mut ChannelObject as *mut ObjectHeader);
-        if vm.gc_state == GcState::Marking {
-            vm.gray_stack
-                .push(chan as *mut ChannelObject as *mut ObjectHeader);
-        }
-        vm.heap_size += chan.nbytes();
-        vm.gc_debt += chan.nbytes();
-
-        chan
+        let nbytes = chan.nbytes();
+        (chan, nbytes)
     }
 
     fn read_value(&self) -> Option<Value> {
@@ -1507,27 +1506,21 @@ struct EnumObject {
 
 impl EnumObject {
     fn new(tag: u16, val: Value, vm: &mut VmGreenThread) -> *mut EnumObject {
+        let (variant, nbytes) = Self::allocate(tag, val);
+        unsafe { ObjectHeader::update_heap_records(variant as *mut ObjectHeader, nbytes, vm) };
+        variant
+    }
+
+    fn allocate(tag: u16, val: Value) -> (*mut EnumObject, usize) {
         let header = ObjectHeader {
             kind: ObjectKind::Enum,
-            visited: match &vm.gc_state {
-                GcState::Idle => false,
-                GcState::Marking | GcState::Sweeping { .. } => true,
-            },
+            visited: false,
             no_gc: false,
         };
         let b = Box::new(EnumObject { header, tag, val });
         let variant = Box::leak(b);
-
-        vm.heap_list
-            .push(variant as *mut EnumObject as *mut ObjectHeader);
-        if vm.gc_state == GcState::Marking {
-            vm.gray_stack
-                .push(variant as *mut EnumObject as *mut ObjectHeader);
-        }
-        vm.heap_size += variant.nbytes();
-        vm.gc_debt += variant.nbytes();
-
-        variant
+        let nbytes = variant.nbytes();
+        (variant, nbytes)
     }
 
     fn nbytes(&self) -> usize {
@@ -1543,27 +1536,21 @@ struct StringObject {
 
 impl StringObject {
     fn new(str: String, vm: &mut VmGreenThread) -> *mut StringObject {
+        let (str, nbytes) = Self::allocate(str);
+        unsafe { ObjectHeader::update_heap_records(str as *mut ObjectHeader, nbytes, vm) };
+        str
+    }
+
+    fn allocate(str: String) -> (*mut StringObject, usize) {
         let header = ObjectHeader {
             kind: ObjectKind::String,
-            visited: match &vm.gc_state {
-                GcState::Idle => false,
-                GcState::Marking | GcState::Sweeping { .. } => true,
-            },
+            visited: false,
             no_gc: false,
         };
         let b = Box::new(StringObject { header, str });
         let str = Box::leak(b);
-
-        vm.heap_list
-            .push(str as *mut StringObject as *mut ObjectHeader);
-        if vm.gc_state == GcState::Marking {
-            vm.gray_stack
-                .push(str as *mut StringObject as *mut ObjectHeader);
-        }
-        vm.heap_size += str.nbytes();
-        vm.gc_debt += str.nbytes();
-
-        str
+        let nbytes = str.nbytes();
+        (str, nbytes)
     }
 
     fn new_static(str: String, vm_shared_readonly: &mut VmSharedReadonly) -> *mut StringObject {
