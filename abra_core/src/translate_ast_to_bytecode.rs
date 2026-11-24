@@ -3090,7 +3090,11 @@ impl Translator {
             | ExprKind::Float(..)
             | ExprKind::Bool(..)
             | ExprKind::Str(..) => {}
-            ExprKind::TaskBlock(_) => unimplemented!(),
+            ExprKind::TaskBlock(body) => {
+                let (_, task_captures, _) =
+                    self.calculate_args_captures_locals(&None, &[], body, mono);
+                captures.extend(task_captures);
+            }
         }
     }
 
