@@ -4,9 +4,9 @@
 
 Abra is an embeddable scripting language with a strong type system.
 
-Untrusted code can be run in a host program (plugins, game scripts, mods) without worrying about memory/CPU exhaustion or unsafe memory access.
+A host program can run untrusted Abra code (plugins, game scripts, mods) without worrying about memory/CPU exhaustion or unsafe memory access.
 
-This repository holds the compiler and language tooling.
+This repository holds the compiler as well as language tooling.
 
 ```rust,f#
 fn fib(n) {
@@ -17,7 +17,7 @@ fn fib(n) {
 }
 
 
-println("The first 10 fibonacci numbers are:")
+println('The first 10 fibonacci numbers are:')
 for i in 10 {
   println(fib(i))
 }
